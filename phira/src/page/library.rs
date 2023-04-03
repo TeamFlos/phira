@@ -3,7 +3,7 @@ prpr::tl_file!("library");
 use super::{load_local, ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Client, PZChart, PZFile},
-    scene::{ChartOrder, SongScene},
+    scene::{ChartOrder, SongScene}, dir,
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -18,7 +18,7 @@ use std::{
     any::Any,
     borrow::Cow,
     ops::{Deref, Range},
-    sync::Arc,
+    sync::Arc, path::Path,
 };
 
 const CHART_HEIGHT: f32 = 0.3;
@@ -337,7 +337,12 @@ impl Page for LibraryPage {
                         if matches!(self.chosen, ChartListType::Local) {
                             chart.local_path.clone()
                         } else {
-                            None
+                            let path = format!("download/{}", chart.info.id.unwrap());
+                            if Path::new(&format!("{}/{path}", dir::charts()?)).exists() {
+                                Some(path)
+                            } else {
+                                None
+                            }
                         },
                         self.icon_back.clone(),
                         self.icon_play.clone(),
