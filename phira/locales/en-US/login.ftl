@@ -24,3 +24,4 @@ action-failed = { $action ->
   *[other] _
 }
 
+email-sent = An verification email has been sent, please verify and log in

@@ -23,3 +23,5 @@ action-failed = { $action ->
   [register] 注册失败
   *[other] _
 }
+
+email-sent = 验证信息已发送到邮箱，请验证后登录
