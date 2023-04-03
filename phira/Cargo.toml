@@ -1,0 +1,55 @@
+[package]
+name = "phira"
+version = "0.3.1"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[features]
+closed = ["prpr/closed"]
+
+[dependencies]
+anyhow = "1.0"
+arc-swap = "1.6.0"
+base64 = "0.20"
+bytes = "1.4.0"
+cap-std = "1.0.5"
+chrono = { version = "0.4.23", features = ["serde"] }
+futures-util = "0.3.25"
+hex = "0.4.3"
+http-cache-reqwest = "0.6.0"
+image = "*"
+lru = "0.9.0"
+lyon = "*"
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
+md5 = "0.7"
+once_cell = "*"
+openssl = { version = "*", features = ["vendored"] }
+pollster = "0.2.5"
+prpr = { path = "../prpr" }
+regex = "1.7.0"
+reqwest = { version = "0.11", features = ["json", "stream"] }
+reqwest-middleware = "0.2.0"
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+serde_yaml = "0.9.17"
+sha2 = "*"
+tokio = { version = "*", features = ["rt-multi-thread", "sync"] }
+uuid7 = "0.3.4"
+zip = "0.6.4"
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-sys = "0.2"
+ndk-context = "0.1"
+sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = ["oboe"] }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+sasa = { git = "https://github.com/Mivik/sasa" }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+objc = "*"
+objc-foundation = "*"
+
+[build-dependencies]
+dotenv-build = "0.1"
