@@ -19,7 +19,9 @@ struct PgrEvent {
     pub end_time: f32,
     pub start: f32,
     pub end: f32,
+    #[serde(default)]
     pub start2: f32,
+    #[serde(default)]
     pub end2: f32,
 }
 
@@ -29,7 +31,6 @@ struct PgrSpeedEvent {
     pub start_time: f32,
     pub end_time: f32,
     pub value: f32,
-    pub floor_position: f32,
 }
 
 #[derive(Deserialize)]
@@ -82,9 +83,9 @@ macro_rules! validate_events {
                 bail!("Events should be contiguous");
             }
         }
-        if $pgr.last().unwrap().end_time <= 900000000.0 {
-            bail!("End time is not great enough ({})", $pgr.last().unwrap().end_time);
-        }
+        // if $pgr.last().unwrap().end_time <= 900000000.0 {
+            // bail!("End time is not great enough ({})", $pgr.last().unwrap().end_time);
+        // }
     };
 }
 
@@ -92,9 +93,14 @@ fn parse_speed_events(r: f32, mut pgr: Vec<PgrSpeedEvent>, max_time: f32) -> Res
     validate_events!(pgr);
     assert_eq!(pgr[0].start_time, 0.0);
     let mut kfs = Vec::new();
-    kfs.extend(pgr.iter().map(|it| Keyframe::new(it.start_time * r, it.floor_position, 2)));
+    let mut pos = 0.;
+    kfs.extend(pgr.iter().map(|it| {
+        let from_pos = pos;
+        pos += (it.end_time - it.start_time) * r * it.value;
+        Keyframe::new(it.start_time * r, from_pos, 2)
+    }));
     let last = pgr.last().unwrap();
-    kfs.push(Keyframe::new(max_time, last.floor_position + (max_time - last.start_time * r) * last.value, 0));
+    kfs.push(Keyframe::new(max_time, pos + (max_time - last.start_time * r) * last.value, 0));
     for kf in &mut kfs {
         kf.value /= HEIGHT_RATIO;
     }
