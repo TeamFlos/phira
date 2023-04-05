@@ -467,7 +467,7 @@ impl Main {
         }
         DIALOG.with(|it| {
             if let Some(dialog) = it.borrow_mut().as_mut() {
-                dialog.render(ui);
+                dialog.render(ui, self.tm.now() as _);
             }
         });
         Ok(())

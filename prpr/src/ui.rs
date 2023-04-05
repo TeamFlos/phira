@@ -182,6 +182,7 @@ impl RectButton {
     }
 }
 
+#[derive(Clone)]
 pub struct DRectButton {
     inner: RectButton,
     last_touching: bool,

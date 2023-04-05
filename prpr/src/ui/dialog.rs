@@ -1,9 +1,8 @@
 crate::tl_file!("dialog");
 
-use crate::scene::show_message;
+use super::{DRectButton, Scroll, Ui};
+use crate::{ext::RectExt, scene::show_message};
 use anyhow::Error;
-
-use super::{RectButton, Scroll, Ui};
 use macroquad::prelude::*;
 
 const WIDTH_RADIO: f32 = 0.5;
@@ -18,7 +17,7 @@ pub struct Dialog {
 
     scroll: Scroll,
     window_rect: Option<Rect>,
-    rect_buttons: Vec<RectButton>,
+    rect_buttons: Vec<DRectButton>,
 }
 
 impl Default for Dialog {
@@ -31,7 +30,7 @@ impl Default for Dialog {
 
             scroll: Scroll::new(),
             window_rect: None,
-            rect_buttons: vec![RectButton::new()],
+            rect_buttons: vec![DRectButton::new()],
         }
     }
 }
@@ -66,7 +65,7 @@ impl Dialog {
                 }
             })),
 
-            rect_buttons: vec![RectButton::new(); 2],
+            rect_buttons: vec![DRectButton::new(); 2],
             ..Default::default()
         }
     }
@@ -83,7 +82,7 @@ impl Dialog {
 
     pub fn buttons(mut self, buttons: Vec<String>) -> Self {
         self.buttons = buttons;
-        self.rect_buttons = vec![RectButton::new(); self.buttons.len()];
+        self.rect_buttons = vec![DRectButton::new(); self.buttons.len()];
         self
     }
 
@@ -100,7 +99,7 @@ impl Dialog {
         self.scroll.touch(touch, t);
         let mut exit = false;
         for (index, btn) in self.rect_buttons.iter_mut().enumerate() {
-            if btn.touch(touch) {
+            if btn.touch(touch, t) {
                 if let Some(listener) = self.listener.as_mut() {
                     listener(index as i32);
                 }
@@ -127,17 +126,17 @@ impl Dialog {
         self.scroll.update(t);
     }
 
-    pub fn render(&mut self, ui: &mut Ui) {
+    pub fn render(&mut self, ui: &mut Ui, t: f32) {
         ui.fill_rect(ui.screen_rect(), Color::new(0., 0., 0., 0.6));
         let mut wr = Rect::new(0., 0., 2. * WIDTH_RADIO, ui.top * 2. * HEIGHT_RATIO);
         wr.x = -wr.w / 2.;
         wr.y = -wr.h / 2.;
         self.window_rect = Some(ui.rect_to_global(wr));
-        ui.fill_rect(wr, GRAY);
+        ui.fill_path(&wr.rounded(0.02), ui.background());
 
-        let s = 0.013;
+        let s = 0.02;
         let pad = 0.02;
-        let bh = 0.06;
+        let bh = 0.09;
         ui.scope(|ui| {
             let s = 0.01;
             let pad = 0.02;
@@ -149,22 +148,26 @@ impl Dialog {
                     ui.dy(dy);
                 }};
             }
-            dy!(wr.y + s);
+            dy!(wr.y + s * 3.6);
             let r = ui
                 .text(&self.title)
-                .pos(0., 0.)
-                .anchor(0.5, 0.)
-                .size(0.8)
+                .pos(wr.x + pad * 2., 0.)
+                .anchor(0., 0.)
+                .size(0.9)
                 .max_width(wr.w - pad * 2.)
                 .no_baseline()
                 .draw();
             dy!(r.h + s * 2.);
-            ui.fill_rect(Rect::new(wr.x + pad, 0., wr.w - pad * 2., s), WHITE);
-            dy!(s * 2.);
             self.scroll.size((wr.w - pad * 2., wr.bottom() - h - bh - s * 2.));
             ui.dx(wr.x + pad);
             self.scroll.render(ui, |ui| {
-                let r = ui.text(&self.message).size(0.4).max_width(wr.w - pad * 2.).multiline().draw();
+                let r = ui
+                    .text(&self.message)
+                    .pos(pad, 0.)
+                    .size(0.43)
+                    .max_width(wr.w - pad * 3.)
+                    .multiline()
+                    .draw();
                 (r.w, r.h)
             });
         });
@@ -172,10 +175,7 @@ impl Dialog {
             let bw = (wr.w - pad * (self.buttons.len() + 1) as f32) / self.buttons.len() as f32;
             let mut r = Rect::new(wr.x + pad, wr.bottom() - s - bh, bw, bh);
             for (text, btn) in self.buttons.iter().zip(self.rect_buttons.iter_mut()) {
-                btn.set(ui, r);
-                ui.fill_rect(r, if btn.touching() { Color::new(1., 1., 1., 0.5) } else { WHITE });
-                let ct = r.center();
-                ui.text(text).pos(ct.x, ct.y).anchor(0.5, 0.5).size(0.5).no_baseline().color(BLACK).draw();
+                btn.render_text(ui, r, t, 1., text, 0.5, true);
                 r.x += bw + pad;
             }
         });

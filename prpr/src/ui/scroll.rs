@@ -1,13 +1,89 @@
+use std::collections::VecDeque;
+
 use super::Ui;
 use crate::{
-    core::{Matrix, Point},
-    judge::VelocityTracker,
+    core::{Matrix, Point, Vector},
 };
 use macroquad::prelude::{Rect, Touch, TouchPhase, Vec2};
 use nalgebra::Translation2;
 
 const THRESHOLD: f32 = 0.03;
 const EXTEND: f32 = 0.33;
+
+pub struct VelocityTracker {
+    movements: VecDeque<(f32, Point)>,
+}
+
+impl VelocityTracker {
+    pub const RECORD_MAX: usize = 10;
+
+    pub fn empty() -> Self {
+        Self {
+            movements: VecDeque::with_capacity(Self::RECORD_MAX),
+        }
+    }
+
+    pub fn new(time: f32, point: Point) -> Self {
+        let mut res = Self::empty();
+        res.push(time, point);
+        res
+    }
+
+    pub fn reset(&mut self) {
+        self.movements.clear();
+    }
+
+    pub fn push(&mut self, time: f32, position: Point) {
+        if self.movements.len() == Self::RECORD_MAX {
+            // TODO optimize
+            self.movements.pop_front();
+        }
+        self.movements.push_back((time, position));
+    }
+
+    pub fn speed(&self) -> Vector {
+        if self.movements.is_empty() {
+            return Vector::default();
+        }
+        let n = self.movements.len() as f32;
+        let lst = self.movements.back().unwrap().0;
+        let mut sum_x = 0.;
+        let mut sum_x2 = 0.;
+        let mut sum_x3 = 0.;
+        let mut sum_x4 = 0.;
+        let mut sum_y = Point::new(0., 0.);
+        let mut sum_x_y = Point::new(0., 0.);
+        let mut sum_x2_y = Point::new(0., 0.);
+        for (t, pt) in &self.movements {
+            let t = t - lst;
+            let v = pt.coords;
+            let mut w = t;
+            sum_y += v;
+            sum_x += w;
+            sum_x_y += w * v;
+            w *= t;
+            sum_x2 += w;
+            sum_x2_y += w * v;
+            w *= t;
+            sum_x3 += w;
+            sum_x4 += w * t;
+        }
+        let s_xx = sum_x2 - sum_x * sum_x / n;
+        let s_xy = sum_x_y - sum_y * (sum_x / n);
+        let s_xx2 = sum_x3 - sum_x * sum_x2 / n;
+        let s_x2y = sum_x2_y - sum_y * (sum_x2 / n);
+        let s_x2x2 = sum_x4 - sum_x2 * sum_x2 / n;
+        let denom = s_xx * s_x2x2 - s_xx2 * s_xx2;
+        if denom == 0.0 {
+            return Vector::default();
+        }
+        // let a = (s_x2y * s_xx - s_xy * s_xx2) / denom;
+        let b = (s_xy * s_x2x2 - s_x2y * s_xx2) / denom;
+        // let c = (sum_y - b * sum_x - a * sum_x2) / n;
+        #[allow(clippy::let_and_return)]
+        b
+    }
+}
 
 pub struct Scroller {
     touch: Option<(u64, f32, f32, bool)>,

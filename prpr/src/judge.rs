@@ -11,13 +11,9 @@ use miniquad::{EventHandler, MouseButton};
 use once_cell::sync::Lazy;
 use sasa::{PlaySfxParams, Sfx};
 use serde::Serialize;
-use std::{
-    cell::RefCell,
-    collections::{HashMap, VecDeque},
-    num::FpCategory,
-};
+use std::{cell::RefCell, collections::HashMap, num::FpCategory};
 
-pub const FLICK_SPEED_THRESHOLD: f32 = 1.8;
+pub const FLICK_SPEED_THRESHOLD: f32 = 1.4;
 pub const LIMIT_PERFECT: f32 = 0.08;
 pub const LIMIT_GOOD: f32 = 0.16;
 pub const LIMIT_BAD: f32 = 0.22;
@@ -35,99 +31,40 @@ pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     });
 }
 
-pub struct VelocityTracker {
-    movements: VecDeque<(f32, Point)>,
-    last_dir: Vector,
-    wait: bool,
+pub struct FlickTracker {
+    threshold: f32,
+    last_point: Point,
+    last_delta: Option<Vector>,
+    last_time: f32,
+    flicked: bool,
+    stopped: bool,
 }
 
-impl VelocityTracker {
-    pub const RECORD_MAX: usize = 10;
-
-    pub fn empty() -> Self {
+impl FlickTracker {
+    pub fn new(dpi: u32, time: f32, point: Point) -> Self {
         Self {
-            movements: VecDeque::with_capacity(Self::RECORD_MAX),
-            last_dir: Vector::default(),
-            wait: false,
+            threshold: FLICK_SPEED_THRESHOLD * dpi as f32 / 386.,
+            last_point: point,
+            last_delta: None,
+            last_time: time,
+            flicked: false,
+            stopped: true,
         }
-    }
-
-    pub fn new(time: f32, point: Point) -> Self {
-        let mut res = Self::empty();
-        res.push(time, point);
-        res
-    }
-
-    pub fn reset(&mut self) {
-        self.movements.clear();
-        self.last_dir = Vector::default();
-        self.wait = false;
     }
 
     pub fn push(&mut self, time: f32, position: Point) {
-        if self.movements.len() == Self::RECORD_MAX {
-            // TODO optimize
-            self.movements.pop_front();
+        let delta = position - self.last_point;
+        self.last_point = position;
+        if let Some(last_delta) = &self.last_delta {
+            let dt = time - self.last_time;
+            let speed = delta.dot(last_delta) / dt;
+            if speed < self.threshold || self.stopped {
+                self.stopped = delta.magnitude() / dt < self.threshold * 5.;
+                self.flicked = !self.stopped;
+            }
         }
-        self.movements.push_back((time, position));
-    }
-
-    pub fn speed(&self) -> Vector {
-        if self.movements.is_empty() {
-            return Vector::default();
-        }
-        let n = self.movements.len() as f32;
-        let lst = self.movements.back().unwrap().0;
-        let mut sum_x = 0.;
-        let mut sum_x2 = 0.;
-        let mut sum_x3 = 0.;
-        let mut sum_x4 = 0.;
-        let mut sum_y = Point::new(0., 0.);
-        let mut sum_x_y = Point::new(0., 0.);
-        let mut sum_x2_y = Point::new(0., 0.);
-        for (t, pt) in &self.movements {
-            let t = t - lst;
-            let v = pt.coords;
-            let mut w = t;
-            sum_y += v;
-            sum_x += w;
-            sum_x_y += w * v;
-            w *= t;
-            sum_x2 += w;
-            sum_x2_y += w * v;
-            w *= t;
-            sum_x3 += w;
-            sum_x4 += w * t;
-        }
-        let s_xx = sum_x2 - sum_x * sum_x / n;
-        let s_xy = sum_x_y - sum_y * (sum_x / n);
-        let s_xx2 = sum_x3 - sum_x * sum_x2 / n;
-        let s_x2y = sum_x2_y - sum_y * (sum_x2 / n);
-        let s_x2x2 = sum_x4 - sum_x2 * sum_x2 / n;
-        let denom = s_xx * s_x2x2 - s_xx2 * s_xx2;
-        if denom == 0.0 {
-            return Vector::default();
-        }
-        // let a = (s_x2y * s_xx - s_xy * s_xx2) / denom;
-        let b = (s_xy * s_x2x2 - s_x2y * s_xx2) / denom;
-        // let c = (sum_y - b * sum_x - a * sum_x2) / n;
-        #[allow(clippy::let_and_return)]
-        b
-    }
-
-    pub fn has_flick(&mut self, res: &Resource) -> bool {
-        let spd = self.speed();
-        let norm = spd.norm();
-        let threshold = FLICK_SPEED_THRESHOLD * (res.dpi as f32 / 275.);
-        if self.wait && (norm <= threshold * (1.2 / 1.8) || (self.last_dir.dot(&spd.unscale(norm)) - 1.).abs() > 0.4) {
-            self.wait = false;
-        }
-        !self.wait && norm >= threshold
-    }
-
-    pub fn consume_flick(&mut self) {
-        self.last_dir = self.speed().normalize();
-        self.wait = true;
+        self.last_delta = Some(delta.normalize());
+        self.last_time = time;
     }
 }
 
@@ -244,7 +181,7 @@ pub struct Judge {
     // notes of each line in order
     // LinkedList::drain_filter is unstable...
     pub notes: Vec<(Vec<u32>, usize)>,
-    pub trackers: HashMap<u64, VelocityTracker>,
+    pub trackers: HashMap<u64, FlickTracker>,
     pub last_time: f32,
 
     key_down_count: u32,
@@ -394,7 +331,7 @@ impl Judge {
                 let p = to_local(p);
                 match phase {
                     TouchPhase::Started => {
-                        self.trackers.insert(id, VelocityTracker::new(t, p));
+                        self.trackers.insert(id, FlickTracker::new(res.dpi, t, p));
                         touches
                             .entry(id)
                             .or_insert_with(|| Touch {
@@ -444,7 +381,7 @@ impl Judge {
         for (id, touch) in touches.iter().enumerate() {
             let click = touch.phase == TouchPhase::Started;
             let flick = matches!(touch.phase, TouchPhase::Moved | TouchPhase::Stationary)
-                && self.trackers.get_mut(&touch.id).map_or(false, |it| it.has_flick(res));
+                && self.trackers.get_mut(&touch.id).map_or(false, |it| it.flicked);
             if !(click || flick) {
                 continue;
             }
@@ -526,7 +463,7 @@ impl Judge {
                     // flick
                     line.notes[id as usize].judge = JudgeStatus::PreJudge;
                     if let Some(tracker) = self.trackers.get_mut(&touch.id) {
-                        tracker.consume_flick();
+                        tracker.flicked = false;
                     }
                 }
             }

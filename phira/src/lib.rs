@@ -198,7 +198,9 @@ unsafe fn string_from_java(env: *mut ndk_sys::JNIEnv, s: ndk_sys::jstring) -> St
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
-    let _ = MESSAGES_TX.lock().unwrap().as_mut().unwrap().send(true);
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(true);
+    }
 }
 
 #[cfg(target_os = "android")]
@@ -212,7 +214,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_: *mut std:
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
-    std::process::exit(0);
+    // std::process::exit(0);
 }
 
 #[cfg(target_os = "android")]
