@@ -123,69 +123,6 @@ impl FileSystem for ExternalFileSystem {
 }
 
 #[derive(Clone)]
-pub struct PZFileSystem(pub Arc<cap_std::fs::Dir>, pub Arc<String>);
-
-impl PZFileSystem {
-    pub fn map_path(&self, path: &str) -> Result<String, String> {
-        if let Some(internal) = path.strip_prefix(':') {
-            match internal {
-                "music" => Err(self.1.as_ref().clone()),
-                "illustration" => Err(format!("{}.jpg", self.1)),
-                _ => Ok(internal.to_owned()),
-            }
-        } else {
-            Ok(format!("assets/{path}"))
-        }
-    }
-}
-
-#[async_trait]
-impl FileSystem for PZFileSystem {
-    async fn load_file(&mut self, path: &str) -> Result<Vec<u8>> {
-        match self.map_path(path) {
-            Ok(path) => {
-                let mut file = self.0.open(path)?;
-                tokio::spawn(async move {
-                    let mut res = Vec::new();
-                    file.read_to_end(&mut res)?;
-                    Ok(res)
-                })
-                .await?
-            }
-            Err(path) => {
-                let mut file = std::fs::File::open(path)?;
-                tokio::spawn(async move {
-                    let mut res = Vec::new();
-                    file.read_to_end(&mut res)?;
-                    Ok(res)
-                })
-                .await?
-            }
-        }
-    }
-
-    async fn exists(&mut self, path: &str) -> Result<bool> {
-        Ok(match self.map_path(path) {
-            Ok(path) => self.0.exists(path),
-            Err(path) => std::path::Path::new(&path).exists(),
-        })
-    }
-
-    fn list_root(&self) -> Result<Vec<String>> {
-        warn!("returning empty list on PZ list root");
-        Ok(Vec::new())
-    }
-
-    fn clone_box(&self) -> Box<dyn FileSystem> {
-        Box::new(self.clone())
-    }
-
-    fn as_any(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
-#[derive(Clone)]
 pub struct ZipFileSystem(pub Arc<Mutex<ZipArchive<Cursor<Vec<u8>>>>>, String);
 
 impl ZipFileSystem {

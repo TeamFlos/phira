@@ -1,7 +1,8 @@
 prpr::tl_file!("song");
 
+use super::fs_from_path;
 use crate::{
-    client::{recv_raw, Client, PZChart, PZUser, Ptr, UserManager},
+    client::{recv_raw, Chart, Client, Ptr, UserManager},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     page::{ChartItem, Illustration},
@@ -15,9 +16,10 @@ use prpr::{
     config::Config,
     ext::{screen_aspect, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     fs,
+    judge::icon_index,
     scene::{
         load_scene, loading_scene, show_error, show_message, take_loaded_scene, BasicPlayer, GameMode, LoadingScene, NextScene, RecordUpdateState,
-        Scene,
+        Scene, SimpleRecord,
     },
     task::Task,
     time::TimeManager,
@@ -26,6 +28,7 @@ use prpr::{
 use sasa::{AudioClip, Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
+    any::Any,
     borrow::Cow,
     io::{Cursor, Write},
     path::Path,
@@ -33,10 +36,7 @@ use std::{
 };
 use zip::ZipArchive;
 
-use super::fs_from_path;
-
 const FADE_IN_TIME: f32 = 0.3;
-const CHART_ITEM_H: f32 = 0.11;
 
 fn with_effects(data: Vec<u8>, range: Option<(u32, u32)>) -> Result<AudioClip> {
     let (mut frames, sample_rate) = AudioClip::decode(data)?;
@@ -83,24 +83,36 @@ pub struct SongScene {
     preview: Option<Music>,
     preview_task: Option<Task<Result<AudioClip>>>,
 
-    load_task: Option<Task<Result<Arc<PZChart>>>>,
-    entity: Option<Arc<PZChart>>,
+    load_task: Option<Task<Result<Arc<Chart>>>>,
+    entity: Option<Arc<Chart>>,
     info: BriefChartInfo,
     local_path: Option<String>,
 
     downloading: Option<Downloading>,
     cancel_download_btn: DRectButton,
     loading_last: f32,
+
+    icons: [SafeTexture; 8],
+    record: Option<SimpleRecord>,
+
+    fetch_best_task: Option<Task<Result<SimpleRecord>>>,
 }
 
 impl SongScene {
-    pub fn new(chart: ChartItem, local_path: Option<String>, icon_back: SafeTexture, icon_play: SafeTexture, icon_download: SafeTexture) -> Self {
+    pub fn new(
+        chart: ChartItem,
+        local_path: Option<String>,
+        icon_back: SafeTexture,
+        icon_play: SafeTexture,
+        icon_download: SafeTexture,
+        icons: [SafeTexture; 8],
+    ) -> Self {
         let illu = if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
                 task: Some(Task::new({
                     async move {
-                        let chart = Ptr::<PZChart>::new(id).load().await?;
+                        let chart = Ptr::<Chart>::new(id).load().await?;
                         let image = chart.illustration.load_image().await?;
                         Ok((image, None))
                     }
@@ -110,6 +122,16 @@ impl SongScene {
             }
         } else {
             chart.illu
+        };
+        let record = get_data()
+            .charts
+            .iter()
+            .find(|it| Some(&it.local_path) == local_path.as_ref())
+            .and_then(|it| it.record.clone());
+        let fetch_best_task = if get_data().me.is_some() {
+            chart.info.id.map(|id| Task::new(Client::best_record(id)))
+        } else {
+            None
         };
         Self {
             illu,
@@ -130,7 +152,7 @@ impl SongScene {
                 let id = chart.info.id.clone();
                 async move {
                     if let Some(id) = id {
-                        let chart = Ptr::<PZChart>::new(id).fetch().await?;
+                        let chart = Ptr::<Chart>::new(id).fetch().await?;
                         with_effects(chart.preview.fetch().await?.to_vec(), None)
                     } else {
                         // let mut fs = fs_from_path(&path)?;
@@ -156,6 +178,11 @@ impl SongScene {
             downloading: None,
             cancel_download_btn: DRectButton::new(),
             loading_last: 0.,
+
+            icons,
+            record,
+
+            fetch_best_task,
         }
     }
 
@@ -243,15 +270,52 @@ impl SongScene {
                     Ok(LocalChart {
                         info: entity.to_info(),
                         local_path,
+                        record: None,
                     })
                 }
             }),
         });
         Ok(())
     }
+
+    fn update_record(&mut self, new_rec: SimpleRecord) -> Result<()> {
+        let chart = get_data_mut()
+            .charts
+            .iter_mut()
+            .find(|it| Some(&it.local_path) == self.local_path.as_ref());
+        let Some(chart) = chart else {
+            if let Some(rec) = &mut self.record {
+                rec.update(&new_rec);
+            } else {
+                self.record = Some(new_rec);
+            }
+            return Ok(());
+        };
+        if let Some(rec) = &mut chart.record {
+            if rec.update(&new_rec) {
+                save_data()?;
+            }
+        } else {
+            chart.record = Some(new_rec);
+            save_data()?;
+        }
+        self.record = chart.record.clone();
+        Ok(())
+    }
 }
 
 impl Scene for SongScene {
+    fn on_result(&mut self, _tm: &mut TimeManager, res: Box<dyn Any>) -> Result<()> {
+        let _res = match res.downcast::<SimpleRecord>() {
+            Err(res) => res,
+            Ok(rec) => {
+                self.update_record(*rec)?;
+                return Ok(());
+            }
+        };
+        Ok(())
+    }
+
     fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
         if self.first_in {
             self.first_in = false;
@@ -337,16 +401,13 @@ impl Scene for SongScene {
                                     improvement: u32,
                                     new_rks: f32,
                                 }
-                                let resp: Resp = recv_raw(
-                                    Client::post(
-                                        "/play/upload",
-                                        &Req {
-                                            chart: id.unwrap(),
-                                            token: base64::encode(data),
-                                        },
-                                    )
-                                    .await,
-                                )
+                                let resp: Resp = recv_raw(Client::post(
+                                    "/play/upload",
+                                    &Req {
+                                        chart: id.unwrap(),
+                                        token: base64::encode(data),
+                                    },
+                                ))
                                 .await?
                                 .json()
                                 .await?;
@@ -446,6 +507,19 @@ impl Scene for SongScene {
                 Ok(scene) => self.next_scene = Some(scene),
             }
         }
+        if let Some(task) = &mut self.fetch_best_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!("failed to fetch best record: {:?}", err);
+                    }
+                    Ok(rec) => {
+                        self.update_record(rec)?;
+                    }
+                }
+                self.fetch_best_task = None;
+            }
+        }
         Ok(())
     }
 
@@ -477,9 +551,27 @@ impl Scene for SongScene {
             .draw();
 
         // bottom bar
-        let h = 0.16;
-        let r = Rect::new(-1., ui.top - h, 1.7, h);
-        ui.fill_rect(r, (Color::from_hex(0xff283593), (r.x, r.y), Color::default(), (r.right(), r.y)));
+        let s = 0.25;
+        let r = Rect::new(-0.94, ui.top - s - 0.06, s, s);
+        if let Some(record) = &self.record {
+            let icon = icon_index(record.score as _, record.full_combo);
+            ui.fill_rect(r, (*self.icons[icon], r, ScaleType::Fit, c));
+        }
+        let score = self.record.as_ref().map(|it| it.score).unwrap_or_default();
+        let accuracy = self.record.as_ref().map(|it| it.accuracy).unwrap_or_default();
+        let r = ui
+            .text(format!("{score:07}"))
+            .pos(r.right() + 0.01, r.center().y)
+            .anchor(0., 1.)
+            .size(1.2)
+            .color(c)
+            .draw();
+        ui.text(format!("{:.2}%", accuracy * 100.))
+            .pos(r.x, r.bottom() + 0.01)
+            .anchor(0., 0.)
+            .size(0.7)
+            .color(semi_white(0.7 * c.a))
+            .draw();
 
         // play button
         let w = 0.26;

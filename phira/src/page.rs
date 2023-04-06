@@ -20,6 +20,7 @@ use anyhow::Result;
 use image::DynamicImage;
 use macroquad::prelude::*;
 use prpr::{
+    core::Resource,
     ext::{semi_black, SafeTexture, BLACK_TEXTURE},
     fs,
     scene::{NextScene, Scene},
@@ -299,6 +300,8 @@ pub struct SharedState {
     pub fader: Fader,
     pub painter: TextPainter,
     pub charts_local: Vec<ChartItem>,
+
+    pub icons: [SafeTexture; 8],
 }
 
 impl SharedState {
@@ -310,6 +313,8 @@ impl SharedState {
             fader: Fader::new(),
             painter,
             charts_local: Vec::new(),
+
+            icons: Resource::load_icons().await?,
         })
     }
 

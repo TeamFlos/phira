@@ -2,7 +2,12 @@
 
 crate::tl_file!("game");
 
-use super::{draw_background, ending::RecordUpdateState, request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene, loading::{UploadFn, BasicPlayer}};
+use super::{
+    draw_background,
+    ending::RecordUpdateState,
+    loading::{BasicPlayer, UploadFn},
+    request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
+};
 use crate::{
     config::Config,
     core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, JUDGE_LINE_GOOD_COLOR, JUDGE_LINE_PERFECT_COLOR},
@@ -20,13 +25,15 @@ use concat_string::concat_string;
 use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
 use sasa::{Music, MusicParams};
+use serde::{Deserialize, Serialize};
 use std::{
+    any::Any,
     io::ErrorKind,
     ops::{DerefMut, Range},
     path::PathBuf,
     process::{Command, Stdio},
     rc::Rc,
-    sync::{Mutex, Arc},
+    sync::{Arc, Mutex},
 };
 
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
@@ -40,6 +47,33 @@ pub static FFMPEG_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 const WAIT_TIME: f32 = 0.5;
 const AFTER_TIME: f32 = 0.7;
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimpleRecord {
+    pub score: i32,
+    pub accuracy: f32,
+    pub full_combo: bool,
+}
+
+impl SimpleRecord {
+    pub fn update(&mut self, other: &SimpleRecord) -> bool {
+        let mut changed = false;
+        if other.score > self.score {
+            self.score = other.score;
+            changed = true;
+        }
+        if other.accuracy > self.accuracy {
+            self.accuracy = other.accuracy;
+            changed = true;
+        }
+        if other.full_combo > self.full_combo {
+            self.full_combo = other.full_combo;
+            changed = true;
+        }
+        changed
+    }
+}
 
 fn fmt_time(t: f32) -> String {
     let f = t < 0.;
@@ -206,9 +240,17 @@ impl GameScene {
         }
 
         let info_offset = info.offset;
-        let mut res = Resource::new(config, info, fs, player.as_ref().and_then(|it| it.avatar.clone()), background, illustration, chart.extra.effects.is_empty() && effects.is_empty())
-            .await
-            .context("Failed to load resources")?;
+        let mut res = Resource::new(
+            config,
+            info,
+            fs,
+            player.as_ref().and_then(|it| it.avatar.clone()),
+            background,
+            illustration,
+            chart.extra.effects.is_empty() && effects.is_empty(),
+        )
+        .await
+        .context("Failed to load resources")?;
         let exercise_range = (chart.offset + info_offset + res.config.offset)..res.track_length;
 
         let judge = Judge::new(&chart);
@@ -757,6 +799,16 @@ impl Scene for GameScene {
                             }
                         }
                     }
+                    let result = self.judge.result();
+                    let record = if self.res.config.autoplay || self.res.config.speed < 1.0 - 1e-3 {
+                        None
+                    } else {
+                        Some(SimpleRecord {
+                            score: result.score as _,
+                            accuracy: result.accuracy as _,
+                            full_combo: result.max_combo == result.num_of_notes,
+                        })
+                    };
                     self.next_scene = match self.mode {
                         GameMode::Normal => Some(NextScene::Overlay(Box::new(EndingScene::new(
                             self.res.background.clone(),
@@ -773,6 +825,7 @@ impl Scene for GameScene {
                             self.upload_fn.as_ref().map(Arc::clone),
                             self.player.as_ref().map(|it| it.rks),
                             record_data,
+                            record,
                         )?))),
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,

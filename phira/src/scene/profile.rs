@@ -2,13 +2,12 @@ prpr::tl_file!("profile");
 
 use super::{TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
-    client::{Client, PZUser, UserManager},
+    client::{Client, User, UserManager},
     get_data, get_data_mut,
     page::SFader,
     save_data, sync_data,
 };
 use anyhow::Result;
-use chrono::Utc;
 use macroquad::prelude::*;
 use prpr::{
     ext::{screen_aspect, RectExt, SafeTexture},
@@ -21,7 +20,7 @@ use std::sync::Arc;
 
 pub struct ProfileScene {
     id: i32,
-    user: Option<Arc<PZUser>>,
+    user: Option<Arc<User>>,
 
     background: SafeTexture,
 
@@ -30,7 +29,7 @@ pub struct ProfileScene {
 
     btn_logout: DRectButton,
 
-    load_task: Option<Task<Result<Arc<PZUser>>>>,
+    load_task: Option<Task<Result<Arc<User>>>>,
 
     sf: SFader,
 }

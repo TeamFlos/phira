@@ -93,7 +93,7 @@ impl LoadingScene {
         }
         let future =
             Box::pin(GameScene::new(mode, info.clone(), config, fs, player, background.clone(), illustration.clone(), get_size_fn, upload_fn));
-        let charter = Regex::new(r"\[PZUser:[0-9]+:([^:]*)(:PZRT)?\]")
+        let charter = Regex::new(r"\[!:[0-9]+:([^:]*)\]")
             .unwrap()
             .replace_all(&info.charter, "$1")
             .to_string();

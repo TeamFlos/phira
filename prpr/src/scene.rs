@@ -4,7 +4,7 @@ mod ending;
 pub use ending::{EndingScene, RecordUpdateState};
 
 mod game;
-pub use game::{GameMode, GameScene, FFMPEG_PATH};
+pub use game::{GameMode, GameScene, SimpleRecord, FFMPEG_PATH};
 
 mod loading;
 pub use loading::{BasicPlayer, LoadingScene};
@@ -27,6 +27,7 @@ pub enum NextScene {
     Pop,
     PopN(usize),
     PopWithResult(Box<dyn Any>),
+    PopNWithResult(usize, Box<dyn Any>),
     Exit,
     Overlay(Box<dyn Scene>),
     Replace(Box<dyn Scene>),
@@ -382,6 +383,14 @@ impl Main {
             NextScene::PopWithResult(result) => {
                 self.scenes.pop();
                 self.tm.seek_to(self.times.pop().unwrap());
+                self.scenes.last_mut().unwrap().on_result(&mut self.tm, result)?;
+                self.scenes.last_mut().unwrap().enter(&mut self.tm, self.target_chooser.choose())?;
+            }
+            NextScene::PopNWithResult(num, result) => {
+                for _ in 0..num {
+                    self.scenes.pop();
+                    self.tm.seek_to(self.times.pop().unwrap());
+                }
                 self.scenes.last_mut().unwrap().on_result(&mut self.tm, result)?;
                 self.scenes.last_mut().unwrap().enter(&mut self.tm, self.target_chooser.choose())?;
             }

@@ -1,29 +1,19 @@
 use crate::{
+    client::{Ptr, User},
     dir,
-    page::ChartItem, client::{PZUser, Ptr},
+    page::ChartItem,
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use prpr::{config::Config, info::ChartInfo};
+use prpr::{config::Config, info::ChartInfo, scene::SimpleRecord};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, ops::DerefMut, path::Path};
-
-pub const THEMES: [(&str, u32, u32); 8] = [
-    ("Aurora", 0xff303f9f, 0xff1976d2),
-    ("Flamingo", 0xffd500f9, 0xffffa000),
-    ("Forest", 0xff2e7d32, 0xff4db6ac),
-    ("Lively", 0xffbf360c, 0xfff57c00),
-    ("Mythical", 0xff7b1fa2, 0xfffc3dff),
-    ("Ocean", 0xff303f9f, 0xff1976d2),
-    ("Spring", 0xfffff9c4, 0xff64ffda),
-    ("Classic", 0xffa2a2a2, 0xffa2a2a2),
-];
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BriefChartInfo {
     pub id: Option<i32>,
-    pub uploader: Option<Ptr<PZUser>>,
+    pub uploader: Option<Ptr<User>>,
     pub name: String,
     pub level: String,
     pub difficulty: f32,
@@ -70,12 +60,13 @@ pub struct LocalChart {
     #[serde(flatten)]
     pub info: BriefChartInfo,
     pub local_path: String,
+    pub record: Option<SimpleRecord>,
 }
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Data {
-    pub me: Option<PZUser>,
+    pub me: Option<User>,
     pub charts: Vec<LocalChart>,
     pub config: Config,
     pub message_check_time: Option<DateTime<Utc>>,
@@ -106,6 +97,7 @@ impl Data {
                 self.charts.push(LocalChart {
                     info: BriefChartInfo { id: None, ..info.into() },
                     local_path: filename,
+                    record: None,
                 });
             }
         }

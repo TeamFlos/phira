@@ -1,12 +1,13 @@
-use super::{PZChart, PZObject, PZUser, Ptr};
+use super::{Chart, Object, Ptr, User};
 use chrono::{DateTime, Utc};
+use prpr::scene::SimpleRecord;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct PZRecord {
+pub struct Record {
     pub id: i32,
-    pub player: Ptr<PZUser>,
-    pub chart: Ptr<PZChart>,
+    pub player: Ptr<User>,
+    pub chart: Ptr<Chart>,
     pub score: i32,
     pub accuracy: f32,
     pub perfect: i32,
@@ -15,14 +16,25 @@ pub struct PZRecord {
     pub miss: i32,
     pub speed: f32,
     pub max_combo: i32,
+    pub full_combo: bool,
     pub best: bool,
     pub mods: i32,
     pub time: DateTime<Utc>,
 }
-impl PZObject for PZRecord {
+impl Object for Record {
     const QUERY_PATH: &'static str = "records";
 
     fn id(&self) -> i32 {
         self.id
+    }
+}
+
+impl Record {
+    pub fn to_simple(&self) -> SimpleRecord {
+        SimpleRecord {
+            score: self.score,
+            accuracy: self.accuracy,
+            full_combo: self.full_combo,
+        }
     }
 }

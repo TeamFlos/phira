@@ -5,7 +5,7 @@ use crate::{get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
-use prpr::l10n::LANG_IDENTS;
+use prpr::{l10n::LANG_IDENTS, scene::SimpleRecord};
 use reqwest::{header, Certificate, Method, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -75,30 +75,20 @@ pub enum LoginParams<'a> {
 
 impl Client {
     #[inline]
-    pub async fn get(path: impl AsRef<str>) -> RequestBuilder {
+    pub fn get(path: impl AsRef<str>) -> RequestBuilder {
         Self::request(Method::GET, path)
     }
 
     #[inline]
-    pub async fn post<T: Serialize>(path: impl AsRef<str>, data: &T) -> RequestBuilder {
+    pub fn post<T: Serialize>(path: impl AsRef<str>, data: &T) -> RequestBuilder {
         Self::request(Method::POST, path).json(data)
-    }
-
-    #[inline]
-    pub async fn put<T: Serialize>(path: impl AsRef<str>, data: &T) -> RequestBuilder {
-        Self::request(Method::PUT, path).json(data)
-    }
-
-    #[inline]
-    pub async fn patch<T: Serialize>(path: impl AsRef<str>, data: &T) -> RequestBuilder {
-        Self::request(Method::PATCH, path).json(data)
     }
 
     pub fn request(method: Method, path: impl AsRef<str>) -> RequestBuilder {
         CLIENT.load().request(method, API_URL.to_string() + path.as_ref())
     }
 
-    pub async fn load<T: PZObject + 'static>(id: i32) -> Result<Arc<T>> {
+    pub async fn load<T: Object + 'static>(id: i32) -> Result<Arc<T>> {
         {
             let map = obtain_map_cache::<T>();
             let mut guard = map.lock().unwrap();
@@ -112,7 +102,7 @@ impl Client {
         Self::fetch(id).await
     }
 
-    pub async fn fetch<T: PZObject + 'static>(id: i32) -> Result<Arc<T>> {
+    pub async fn fetch<T: Object + 'static>(id: i32) -> Result<Arc<T>> {
         let value = Arc::new(Client::fetch_inner::<T>(id).await?.ok_or_else(|| anyhow!("entry not found"))?);
         let map = obtain_map_cache::<T>();
         let mut guard = map.lock().unwrap();
@@ -122,7 +112,7 @@ impl Client {
         Ok(Arc::clone(actual_map.get_or_insert(id, || value)))
     }
 
-    pub async fn cache_objects<T: PZObject + 'static>(objects: Vec<T>) -> Result<()> {
+    pub async fn cache_objects<T: Object + 'static>(objects: Vec<T>) -> Result<()> {
         let map = obtain_map_cache::<T>();
         let mut guard = map.lock().unwrap();
         let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else {
@@ -134,11 +124,11 @@ impl Client {
         Ok(())
     }
 
-    async fn fetch_inner<T: PZObject>(id: i32) -> Result<Option<T>> {
-        Ok(recv_raw(Self::get(format!("/{}/{id}", T::QUERY_PATH)).await).await?.json().await?)
+    async fn fetch_inner<T: Object>(id: i32) -> Result<Option<T>> {
+        Ok(recv_raw(Self::get(format!("/{}/{id}", T::QUERY_PATH))).await?.json().await?)
     }
 
-    pub fn query<T: PZObject>() -> QueryBuilder<T> {
+    pub fn query<T: Object>() -> QueryBuilder<T> {
         QueryBuilder {
             queries: HashMap::new(),
             page: None,
@@ -147,17 +137,14 @@ impl Client {
     }
 
     pub async fn register(email: &str, username: &str, password: &str) -> Result<()> {
-        recv_raw(
-            Self::post(
-                "/register",
-                &json!({
-                    "email": email,
-                    "name": username,
-                    "password": password,
-                }),
-            )
-            .await,
-        )
+        recv_raw(Self::post(
+            "/register",
+            &json!({
+                "email": email,
+                "name": username,
+                "password": password,
+            }),
+        ))
         .await?;
         Ok(())
     }
@@ -169,7 +156,7 @@ impl Client {
             token: String,
             refresh_token: String,
         }
-        let resp: Resp = recv_raw(Self::post("/login", &params).await).await?.json().await?;
+        let resp: Resp = recv_raw(Self::post("/login", &params)).await?.json().await?;
 
         set_access_token(&resp.token).await?;
         get_data_mut().tokens = Some((resp.token, resp.refresh_token));
@@ -177,8 +164,12 @@ impl Client {
         Ok(())
     }
 
-    pub async fn get_me() -> Result<PZUser> {
-        Ok(Self::get("/me").await.send().await?.json().await?)
+    pub async fn get_me() -> Result<User> {
+        Ok(recv_raw(Self::get("/me")).await?.json().await?)
+    }
+
+    pub async fn best_record(id: i32) -> Result<SimpleRecord> {
+        Ok(recv_raw(Self::get(format!("/record/best/{id}"))).await?.json().await?)
     }
 }
 
@@ -189,7 +180,7 @@ pub struct QueryBuilder<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: PZObject> QueryBuilder<T> {
+impl<T: Object> QueryBuilder<T> {
     pub fn query(mut self, key: impl Into<Cow<'static, str>>, value: impl Into<Cow<'static, str>>) -> Self {
         self.queries.insert(key.into(), value.into());
         self
@@ -222,7 +213,7 @@ impl<T: PZObject> QueryBuilder<T> {
             count: u64,
             results: Vec<T>,
         }
-        let res: PagedResult<T> = recv_raw(Client::get(format!("/{}", T::QUERY_PATH)).await.query(&self.queries))
+        let res: PagedResult<T> = recv_raw(Client::get(format!("/{}", T::QUERY_PATH)).query(&self.queries))
             .await?
             .json()
             .await?;

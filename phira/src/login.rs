@@ -1,7 +1,7 @@
 prpr::tl_file!("login");
 
 use crate::{
-    client::{Client, LoginParams, PZUser, UserManager},
+    client::{Client, LoginParams, User, UserManager},
     get_data_mut,
     page::Fader,
     save_data,
@@ -59,7 +59,7 @@ pub struct Login {
     start_time: f32,
     in_reg: bool,
 
-    task: Option<(&'static str, Task<Result<Option<PZUser>>>)>,
+    task: Option<(&'static str, Task<Result<Option<User>>>)>,
 }
 
 impl Login {
@@ -95,7 +95,7 @@ impl Login {
     }
 
     #[inline]
-    fn start(&mut self, desc: &'static str, future: impl Future<Output = Result<Option<PZUser>>> + Send + 'static) {
+    fn start(&mut self, desc: &'static str, future: impl Future<Output = Result<Option<User>>> + Send + 'static) {
         self.task = Some((desc, Task::new(future)));
     }
 

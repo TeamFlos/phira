@@ -2,7 +2,7 @@ prpr::tl_file!("home");
 
 use super::{LibraryPage, NextPage, Page, SFader, SettingsPage, SharedState};
 use crate::{
-    client::{Client, LoginParams, PZUser, UserManager},
+    client::{Client, LoginParams, User, UserManager},
     get_data, get_data_mut,
     login::Login,
     save_data,
@@ -40,7 +40,7 @@ pub struct HomePage {
     next_page: Option<NextPage>,
 
     login: Login,
-    update_task: Option<Task<Result<PZUser>>>,
+    update_task: Option<Task<Result<User>>>,
 
     need_back: bool,
     sf: SFader,

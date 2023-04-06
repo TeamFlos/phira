@@ -1,13 +1,13 @@
 crate::tl_file!("ending");
 
-use super::{draw_background, draw_illustration, loading::UploadFn, NextScene, Scene};
+use super::{draw_background, draw_illustration, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{
     config::Config,
     ext::{
         create_audio_manger, draw_parallelogram, draw_parallelogram_ex, draw_text_aligned, screen_aspect, SafeTexture, ScaleType, PARALLELOGRAM_SLOPE,
     },
     info::ChartInfo,
-    judge::{Judge, PlayResult},
+    judge::{icon_index, Judge, PlayResult},
     scene::show_message,
     task::Task,
     ui::{Dialog, MessageHandle, Ui},
@@ -52,6 +52,7 @@ pub struct EndingScene {
     upload_fn: Option<UploadFn>,
     upload_task: Option<(Task<Result<RecordUpdateState>>, MessageHandle)>,
     record_data: Option<Vec<u8>>,
+    record: Option<SimpleRecord>,
 }
 
 impl EndingScene {
@@ -70,6 +71,7 @@ impl EndingScene {
         upload_fn: Option<UploadFn>,
         player_rks: Option<f32>,
         record_data: Option<Vec<u8>>,
+        record: Option<SimpleRecord>,
     ) -> Result<Self> {
         let mut audio = create_audio_manger(config)?;
         let bgm = audio.create_music(
@@ -118,6 +120,7 @@ impl EndingScene {
             upload_fn,
             upload_task,
             record_data,
+            record,
         })
     }
 }
@@ -259,16 +262,7 @@ impl Scene for EndingScene {
             };
             let r = draw_text_aligned(ui, &text, main.x + dx, main.bottom() - 0.035, (0., 1.), 0.34, WHITE);
             let r = draw_text_aligned(ui, &format!("{:07}", res.score), r.x, r.y - 0.023, (0., 1.), 1., WHITE);
-            let icon = match (res.score, res.num_of_notes == res.max_combo) {
-                (x, _) if x < 700000 => 0,
-                (x, _) if x < 820000 => 1,
-                (x, _) if x < 880000 => 2,
-                (x, _) if x < 920000 => 3,
-                (x, _) if x < 960000 => 4,
-                (1000000, _) => 7,
-                (_, false) => 5,
-                (_, true) => 6,
-            };
+            let icon = icon_index(res.score, res.num_of_notes == res.max_combo);
             let p = ran(now, 1.4, 1.9).powi(2);
             let s = main.h * 0.67;
             let ct = (main.right() - main.h * slope - s / 2., r.bottom() + 0.02 - s / 2.);
@@ -424,7 +418,13 @@ impl Scene for EndingScene {
         match self.next {
             0 => NextScene::None,
             1 => NextScene::Pop,
-            2 => NextScene::PopN(2),
+            2 => {
+                if let Some(rec) = &self.record {
+                    NextScene::PopNWithResult(2, Box::new(rec.clone()))
+                } else {
+                    NextScene::PopN(2)
+                }
+            }
             _ => unreachable!(),
         }
     }

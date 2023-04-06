@@ -31,7 +31,7 @@ use std::{
 pub(crate) type ObjectMap<T> = LruCache<i32, Arc<T>>;
 static CACHES: Lazy<Mutex<HashMap<&'static str, Arc<Mutex<Box<dyn Any + Send + Sync>>>>>> = Lazy::new(Mutex::default);
 
-pub(crate) fn obtain_map_cache<T: PZObject + 'static>() -> Arc<Mutex<Box<dyn Any + Send + Sync>>> {
+pub(crate) fn obtain_map_cache<T: Object + 'static>() -> Arc<Mutex<Box<dyn Any + Send + Sync>>> {
     let mut caches = CACHES.lock().unwrap();
     Arc::clone(
         caches
@@ -40,7 +40,7 @@ pub(crate) fn obtain_map_cache<T: PZObject + 'static>() -> Arc<Mutex<Box<dyn Any
     )
 }
 
-pub trait PZObject: Clone + DeserializeOwned + Send + Sync {
+pub trait Object: Clone + DeserializeOwned + Send + Sync {
     const QUERY_PATH: &'static str;
 
     fn id(&self) -> i32;
@@ -106,18 +106,18 @@ pub struct Ptr<T> {
     id: i32,
     _marker: PhantomData<T>,
 }
-impl<T: PZObject + 'static> Clone for Ptr<T> {
+impl<T: Object + 'static> Clone for Ptr<T> {
     fn clone(&self) -> Self {
         Self::new(self.id)
     }
 }
-impl<T: PZObject + 'static> From<i32> for Ptr<T> {
+impl<T: Object + 'static> From<i32> for Ptr<T> {
     fn from(value: i32) -> Self {
         Self::new(value)
     }
 }
 
-impl<T: PZObject + 'static> Ptr<T> {
+impl<T: Object + 'static> Ptr<T> {
     pub fn new(id: i32) -> Self {
         Self {
             id,
@@ -145,12 +145,12 @@ impl<T: PZObject + 'static> Ptr<T> {
         self.fetch().await
     }
 }
-impl<T: PZObject + 'static> Serialize for Ptr<T> {
+impl<T: Object + 'static> Serialize for Ptr<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_i32(self.id)
     }
 }
-impl<'de, T: PZObject + 'static> Deserialize<'de> for Ptr<T> {
+impl<'de, T: Object + 'static> Deserialize<'de> for Ptr<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -173,10 +173,10 @@ pub static CACHE_CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct PZFile {
+pub struct File {
     pub url: String,
 }
-impl PZFile {
+impl File {
     pub async fn fetch(&self) -> Result<Bytes> {
         Ok(CACHE_CLIENT.get(&self.url).send().await?.bytes().await?)
     }
@@ -191,7 +191,7 @@ impl PZFile {
 
     pub async fn load_thumbnail(&self) -> Result<DynamicImage> {
         if self.url.starts_with("https://phira.mivik.cn/") {
-            return PZFile {
+            return File {
                 url: format!("{}?imageView/0/w/{THUMBNAIL_WIDTH}/h/{THUMBNAIL_HEIGHT}", self.url),
             }
             .load_image()

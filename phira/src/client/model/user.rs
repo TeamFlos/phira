@@ -1,6 +1,5 @@
+use super::{File, Object};
 use crate::client::Client;
-
-use super::{PZFile, PZObject};
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use image::DynamicImage;
@@ -11,28 +10,11 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
-#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
-#[repr(u8)]
-#[serde(rename_all = "lowercase")]
-pub enum PZUserRole {
-    Banned = 0,
-    Member,
-    Qualified,
-    Volunteer,
-    Admin,
-}
-
-impl PZUserRole {
-    pub fn priority(&self) -> u8 {
-        *self as u8
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PZUser {
+pub struct User {
     pub id: i32,
     pub name: String,
-    pub avatar: Option<PZFile>,
+    pub avatar: Option<File>,
     pub badge: Option<String>,
     pub language: String,
     pub bio: Option<String>,
@@ -42,16 +24,13 @@ pub struct PZUser {
     pub joined: DateTime<Utc>,
     pub last_login: DateTime<Utc>,
 }
-impl PZObject for PZUser {
+impl Object for User {
     const QUERY_PATH: &'static str = "user";
 
     fn id(&self) -> i32 {
         self.id
     }
 }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PZUserExtra {}
 
 static TASKS: Lazy<Mutex<HashMap<i32, Task<Result<DynamicImage>>>>> = Lazy::new(Mutex::default);
 static RESULTS: Lazy<Mutex<HashMap<i32, (String, Option<SafeTexture>)>>> = Lazy::new(Mutex::default);
@@ -71,7 +50,7 @@ impl UserManager {
         tasks.insert(
             id,
             Task::new(async move {
-                let user: Arc<PZUser> = Client::load(id).await?;
+                let user: Arc<User> = Client::load(id).await?;
                 RESULTS.lock().await.insert(id, (user.name.clone(), None));
                 let image = user.avatar.clone().ok_or_else(|| anyhow!("no avatar"))?.fetch().await?;
                 let image = image::load_from_memory(&image)?;

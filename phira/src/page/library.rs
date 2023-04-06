@@ -2,8 +2,9 @@ prpr::tl_file!("library");
 
 use super::{load_local, ChartItem, Fader, Page, SharedState};
 use crate::{
-    client::{Client, PZChart, PZFile},
-    scene::{ChartOrder, SongScene}, dir,
+    client::{Chart, Client, File},
+    dir,
+    scene::{ChartOrder, SongScene},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -18,7 +19,8 @@ use std::{
     any::Any,
     borrow::Cow,
     ops::{Deref, Range},
-    sync::Arc, path::Path,
+    path::Path,
+    sync::Arc,
 };
 
 const CHART_HEIGHT: f32 = 0.3;
@@ -35,7 +37,7 @@ enum ChartListType {
     Popular,
 }
 
-type OnlineTaskResult = (Vec<(ChartItem, PZFile)>, Vec<PZChart>, u64);
+type OnlineTaskResult = (Vec<(ChartItem, File)>, Vec<Chart>, u64);
 type OnlineTask = Task<Result<OnlineTaskResult>>;
 
 struct TransitState {
@@ -219,7 +221,7 @@ impl LibraryPage {
         self.online_charts = None;
         let page = self.current_page;
         self.online_task = Some(Task::new(async move {
-            let (remote_charts, count) = Client::query::<PZChart>().order("-id").page(page).page_num(PAGE_NUM).send().await?;
+            let (remote_charts, count) = Client::query::<Chart>().order("-id").page(page).page_num(PAGE_NUM).send().await?;
             let total_page = (count - 1) / PAGE_NUM + 1;
             let charts: Vec<_> = remote_charts
                 .iter()
@@ -347,6 +349,7 @@ impl Page for LibraryPage {
                         self.icon_back.clone(),
                         self.icon_play.clone(),
                         self.icon_download.clone(),
+                        s.icons.clone(),
                     );
                     self.transit = Some(TransitState {
                         id: id as _,

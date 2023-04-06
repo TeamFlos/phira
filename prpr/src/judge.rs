@@ -380,8 +380,8 @@ impl Judge {
         // clicks & flicks
         for (id, touch) in touches.iter().enumerate() {
             let click = touch.phase == TouchPhase::Started;
-            let flick = matches!(touch.phase, TouchPhase::Moved | TouchPhase::Stationary)
-                && self.trackers.get_mut(&touch.id).map_or(false, |it| it.flicked);
+            let flick =
+                matches!(touch.phase, TouchPhase::Moved | TouchPhase::Stationary) && self.trackers.get_mut(&touch.id).map_or(false, |it| it.flicked);
             if !(click || flick) {
                 continue;
             }
@@ -834,4 +834,17 @@ pub struct PlayResult {
     pub counts: [u32; 4],
     pub early: u32,
     pub late: u32,
+}
+
+pub fn icon_index(score: u32, full_combo: bool) -> usize {
+    match (score, full_combo) {
+        (x, _) if x < 700000 => 0,
+        (x, _) if x < 820000 => 1,
+        (x, _) if x < 880000 => 2,
+        (x, _) if x < 920000 => 3,
+        (x, _) if x < 960000 => 4,
+        (1000000, _) => 7,
+        (_, false) => 5,
+        (_, true) => 6,
+    }
 }
