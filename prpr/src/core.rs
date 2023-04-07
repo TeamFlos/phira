@@ -35,7 +35,7 @@ mod render;
 pub use render::{copy_fbo, MSRenderTarget};
 
 mod resource;
-pub use resource::{ParticleEmitter, Resource, ResourcePack, DPI_VALUE};
+pub use resource::{NoteStyle, ParticleEmitter, ResPackInfo, Resource, ResourcePack, DPI_VALUE};
 
 mod tween;
 pub use tween::{easing_from, BezierTween, ClampedTween, StaticTween, TweenFunction, TweenId, TweenMajor, TweenMinor, Tweenable, TWEEN_FUNCTIONS};

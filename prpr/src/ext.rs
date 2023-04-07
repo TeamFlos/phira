@@ -435,6 +435,20 @@ pub fn semi_white(alpha: f32) -> Color {
     Color::new(1., 1., 1., alpha)
 }
 
+pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &cap_std::fs::Dir) -> Result<()> {
+    let mut zip = zip::ZipArchive::new(reader)?;
+    for i in 0..zip.len() {
+        let mut entry = zip.by_index(i)?;
+        if entry.is_dir() {
+            dir.create_dir_all(entry.name())?;
+        } else {
+            let mut file = dir.create(entry.name())?;
+            std::io::copy(&mut entry, &mut file)?;
+        }
+    }
+    Ok(())
+}
+
 mod shader {
     pub const VERTEX: &str = r#"#version 100
 attribute vec3 position;

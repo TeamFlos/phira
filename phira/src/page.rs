@@ -7,6 +7,9 @@ pub use library::LibraryPage;
 mod offset;
 pub use offset::OffsetPage;
 
+mod respack;
+pub use respack::ResPackPage;
+
 mod settings;
 pub use settings::SettingsPage;
 

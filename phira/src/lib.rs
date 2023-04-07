@@ -95,6 +95,10 @@ mod dir {
     pub fn downloaded_charts() -> Result<String> {
         ensure("data/charts/download")
     }
+
+    pub fn respacks() -> Result<String> {
+        ensure("data/respack")
+    }
 }
 
 async fn the_main() -> Result<()> {

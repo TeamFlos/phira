@@ -25,7 +25,7 @@ impl Popup {
             rect: Rect::default(),
             showing: false,
             options: Vec::new(),
-            selected: 0,
+            selected: usize::MAX,
             left: 0.024,
             size: 0.6,
             height: 0.1,

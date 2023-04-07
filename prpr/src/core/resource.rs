@@ -53,6 +53,9 @@ pub struct ResPackInfo {
     pub hold_repeat: bool,
     #[serde(default)]
     pub hold_compact: bool,
+
+    #[serde(default)]
+    pub description: String,
 }
 
 pub struct NoteStyle {
@@ -228,7 +231,7 @@ impl ParticleEmitter {
                 initial_direction_spread: 2. * std::f32::consts::PI,
                 size_randomness: 0.3,
                 emitting: false,
-                initial_velocity: 2.5,
+                initial_velocity: 2.5 * scale,
                 initial_velocity_randomness: 1. / 10.,
                 linear_accel: -6. / 1.,
                 colors_curve,

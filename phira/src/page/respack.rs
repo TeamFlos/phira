@@ -1,0 +1,396 @@
+prpr::tl_file!("respack");
+
+use super::{Page, SharedState};
+use crate::{dir, get_data, get_data_mut, save_data};
+use anyhow::{Context, Result};
+use cap_std::ambient_authority;
+use macroquad::prelude::*;
+use prpr::{
+    core::{NoteStyle, ParticleEmitter, ResPackInfo, ResourcePack, JUDGE_LINE_PERFECT_COLOR},
+    ext::{create_audio_manger, poll_future, semi_black, unzip_into, LocalTask, RectExt, SafeTexture, ScaleType},
+    scene::{request_file, return_file, show_error, show_message, take_file},
+    ui::{DRectButton, Dialog, Scroll, Ui},
+};
+use sasa::{AudioManager, PlaySfxParams, Sfx};
+use std::{
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
+};
+use uuid7::uuid7;
+
+static SHOULD_DELETE: AtomicBool = AtomicBool::new(false);
+
+fn build_emitter(pack: &ResourcePack) -> Result<ParticleEmitter> {
+    ParticleEmitter::new(&pack, get_data().config.note_scale * 0.6, pack.info.hide_particles)
+}
+
+struct ResPackItem {
+    path: Option<PathBuf>,
+    name: String,
+    btn: DRectButton,
+
+    loaded: Option<ResourcePack>,
+    load_task: LocalTask<Result<ResourcePack>>,
+}
+
+impl ResPackItem {
+    fn new(path: Option<PathBuf>, name: String) -> Self {
+        Self {
+            path,
+            name,
+            btn: DRectButton::new(),
+
+            loaded: None,
+            load_task: None,
+        }
+    }
+
+    fn load(&mut self) {
+        if self.loaded.is_some() || self.load_task.is_some() {
+            return;
+        }
+        self.load_task = Some(Box::pin(ResourcePack::from_path(self.path.clone())));
+    }
+}
+
+pub struct ResPackPage {
+    audio: AudioManager,
+    items: Vec<ResPackItem>,
+    import_btn: DRectButton,
+    btns_scroll: Scroll,
+    index: usize,
+
+    icon_info: SafeTexture,
+    icon_delete: SafeTexture,
+
+    info_btn: DRectButton,
+    delete_btn: DRectButton,
+
+    emitter: Option<ParticleEmitter>,
+    sfxs: Option<[Sfx; 3]>,
+    last_round: u32,
+}
+
+impl ResPackPage {
+    pub fn new(icon_info: SafeTexture, icon_delete: SafeTexture) -> Result<Self> {
+        let dir = dir::respacks()?;
+        let mut items = vec![ResPackItem::new(None, tl!("default").into_owned())];
+        for path in &get_data().respacks {
+            let p = format!("{dir}/{path}");
+            let p = Path::new(&p);
+            if !p.is_dir() {
+                continue;
+            }
+            let info: ResPackInfo = serde_yaml::from_reader(File::open(p.join("info.yml"))?)?;
+            items.push(ResPackItem::new(Some(p.to_owned()), info.name));
+        }
+        let index = get_data().respack_id;
+        items[index].load();
+        let delete_btn = DRectButton::new().with_delta(-0.004).with_elevation(0.);
+        Ok(Self {
+            audio: create_audio_manger(&get_data().config)?,
+            items,
+            import_btn: DRectButton::new(),
+            btns_scroll: Scroll::new(),
+            index,
+
+            icon_info,
+            icon_delete,
+
+            info_btn: delete_btn.clone(),
+            delete_btn,
+
+            emitter: None,
+            sfxs: None,
+            last_round: u32::MAX,
+        })
+    }
+
+    fn import_from(&mut self, file: String) -> Result<()> {
+        let root = dir::respacks()?;
+        let dir = cap_std::fs::Dir::open_ambient_dir(&root, ambient_authority())?;
+        let mut id = uuid7();
+        while dir.exists(id.to_string()) {
+            id = uuid7();
+        }
+        let id = id.to_string();
+        dir.create_dir(&id)?;
+        let dir = dir.open_dir(&id)?;
+        unzip_into(BufReader::new(File::open(file)?), &dir).context("failed to unzip")?;
+        let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;
+        get_data_mut().respacks.push(id.clone());
+        save_data()?;
+        self.items.push(ResPackItem::new(Some(format!("{root}/{id}").into()), config.name));
+        Ok(())
+    }
+}
+
+impl Page for ResPackPage {
+    fn label(&self) -> std::borrow::Cow<'static, str> {
+        "RESPACK".into()
+    }
+
+    fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
+        let t = s.t;
+        if self.btns_scroll.touch(touch, t) {
+            return Ok(true);
+        }
+        if self.import_btn.touch(touch, t) {
+            request_file("respack");
+            return Ok(true);
+        }
+        for (index, item) in self.items.iter_mut().enumerate() {
+            if item.btn.touch(touch, t) {
+                self.index = index;
+                get_data_mut().respack_id = index;
+                save_data()?;
+                item.load();
+                return Ok(true);
+            }
+        }
+        if self.info_btn.touch(touch, t) {
+            let item = &self.items[self.index];
+            let info = &item.loaded.as_ref().unwrap().info;
+            Dialog::plain(
+                tl!("info"),
+                tl!("info-content", "name" => item.name.clone(), "author" => info.author.clone(), "desc" => info.description.clone()),
+            )
+            .show();
+            return Ok(true);
+        }
+        if self.delete_btn.touch(touch, t) {
+            if self.index == 0 {
+                show_message(tl!("cant-delete-builtin")).error();
+            }
+            Dialog::plain(tl!("confirm"), tl!("confirm-content"))
+                .buttons(vec![tl!("confirm-cancel").into_owned(), tl!("confirm-ok").into_owned()])
+                .listener(|id| {
+                    if id == 1 {
+                        SHOULD_DELETE.store(true, Ordering::SeqCst);
+                    }
+                })
+                .show();
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn update(&mut self, s: &mut SharedState) -> Result<()> {
+        let t = s.t;
+        self.btns_scroll.update(t);
+        let item = &mut self.items[self.index];
+        if let Some(task) = &mut item.load_task {
+            if let Some(res) = poll_future(task.as_mut()) {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("load-failed")));
+                    }
+                    Ok(val) => {
+                        self.emitter = Some(build_emitter(&val)?);
+                        self.sfxs = Some([
+                            self.audio.create_sfx(val.sfx_click.clone(), None)?,
+                            self.audio.create_sfx(val.sfx_drag.clone(), None)?,
+                            self.audio.create_sfx(val.sfx_flick.clone(), None)?,
+                        ]);
+                        item.loaded = Some(val);
+                    }
+                }
+                item.load_task = None;
+            }
+        }
+        if SHOULD_DELETE.fetch_and(false, Ordering::Relaxed) {
+            std::fs::remove_dir_all(self.items[self.index].path.as_ref().unwrap())?;
+            self.items.remove(self.index);
+            get_data_mut().respacks.remove(self.index);
+            self.index -= 1;
+            get_data_mut().respack_id = self.index;
+            save_data()?;
+            self.items[self.index].load();
+            show_message(tl!("deleted")).ok();
+        }
+        if let Some((id, file)) = take_file() {
+            if id == "respack" {
+                if let Err(err) = self.import_from(file) {
+                    show_error(err.context(tl!("import-failed")));
+                }
+            } else {
+                return_file(id, file);
+            }
+        }
+        Ok(())
+    }
+
+    fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
+        let t = s.t;
+        let mut cr = ui.content_rect();
+        let d = 0.29;
+        cr.x += d;
+        cr.w -= d;
+        let r = Rect::new(-0.92, cr.y, 0.47, cr.h);
+        s.render_fader(ui, |ui, c| {
+            ui.fill_path(&r.rounded(0.02), semi_black(c.a * 0.4));
+            let pad = 0.02;
+            self.btns_scroll.size((r.w, r.h));
+            ui.dx(r.x);
+            ui.dy(r.y + pad);
+            self.btns_scroll.render(ui, |ui| {
+                let w = r.w - pad * 2.;
+                let mut h = 0.;
+                let r = Rect::new(pad, 0., r.w - pad * 2., 0.1);
+                for (index, item) in self.items.iter_mut().enumerate() {
+                    item.btn.render_text(ui, r, t, c.a, &item.name, 0.7, index == self.index);
+                    ui.dy(r.h + pad);
+                    h += r.h + pad;
+                }
+                self.import_btn.render_text(ui, r, t, c.a, "+", 0.8, false);
+                ui.dy(r.h + pad);
+                h += r.h + pad;
+                (w, h)
+            });
+        });
+        s.render_fader(ui, |ui, c| {
+            ui.fill_path(&cr.rounded(0.02), semi_black(c.a * 0.4));
+            let item = &self.items[self.index];
+            if let Some(pack) = &item.loaded {
+                let width = 0.16;
+                let mut r = Rect::new(cr.x + 0.07, cr.y + 0.1, width, 0.);
+                let mut draw = |mut r: Rect, tex: Texture2D, mh: Texture2D| {
+                    let y = r.y;
+                    r.h = tex.height() / tex.width() * r.w;
+                    r.y = y - r.h / 2.;
+                    ui.fill_rect(r, (tex, r, ScaleType::Fit, c));
+                    r.x += r.w * 1.8;
+                    r.w *= mh.width() / tex.width();
+                    r.x -= r.w / 2.;
+                    r.h = mh.height() / mh.width() * r.w;
+                    r.y = y - r.h / 2.;
+                    ui.fill_rect(r, (mh, r, ScaleType::Fit, c));
+                };
+                let sp = (cr.h - 0.4) / 2.;
+                draw(r, *pack.note_style.click, *pack.note_style_mh.click);
+                r.y += sp;
+                draw(r, *pack.note_style.drag, *pack.note_style_mh.drag);
+                r.y += sp;
+                draw(r, *pack.note_style.flick, *pack.note_style_mh.flick);
+                r.y += sp;
+                let mut r = Rect::new(0.1, cr.y + 0.1, width, cr.h - 0.38);
+                // ui.fill_rect(r, WHITE);
+                let draw = |mut r: Rect, style: &NoteStyle, width: f32| {
+                    let conv = |r: Rect, tex: &SafeTexture| Rect::new(r.x * tex.width(), r.y * tex.height(), r.w * tex.width(), r.h * tex.height());
+                    let tr = conv(style.hold_tail_rect(), &style.hold);
+                    let h = tr.h / tr.w * width;
+                    let r2 = Rect::new(r.x, r.y - h, width, h);
+                    let r2 = ui.rect_to_global(r2);
+                    draw_texture_ex(
+                        *style.hold,
+                        r2.x,
+                        r2.y,
+                        c,
+                        DrawTextureParams {
+                            source: Some(tr),
+                            dest_size: Some(vec2(r2.w, r2.h)),
+                            ..Default::default()
+                        },
+                    );
+                    let tr = conv(style.hold_head_rect(), &style.hold);
+                    let h = tr.h / tr.w * width;
+                    let r2 = Rect::new(r.x, r.bottom(), width, h);
+                    let r2 = ui.rect_to_global(r2);
+                    draw_texture_ex(
+                        *style.hold,
+                        r2.x,
+                        r2.y,
+                        c,
+                        DrawTextureParams {
+                            source: Some(tr),
+                            dest_size: Some(vec2(r2.w, r2.h)),
+                            ..Default::default()
+                        },
+                    );
+                    r.w = width;
+                    let r2 = ui.rect_to_global(r);
+                    draw_texture_ex(
+                        if pack.info.hold_repeat {
+                            **style.hold_body.as_ref().unwrap()
+                        } else {
+                            *style.hold
+                        },
+                        r2.x,
+                        r2.y,
+                        c,
+                        DrawTextureParams {
+                            source: Some({
+                                if pack.info.hold_repeat {
+                                    let hold_body = style.hold_body.as_ref().unwrap();
+                                    let w = hold_body.width();
+                                    Rect::new(0., 0., w, r2.h / width / 2. * w)
+                                } else {
+                                    conv(style.hold_body_rect(), &style.hold)
+                                }
+                            }),
+                            dest_size: Some(vec2(r2.w, r2.h)),
+                            ..Default::default()
+                        },
+                    )
+                };
+                draw(r, &pack.note_style, width);
+                r.x += width + 0.04;
+                draw(r, &pack.note_style_mh, width * pack.note_style_mh.hold.width() / pack.note_style.hold.width());
+                let x = cr.x + 0.05;
+                if let Some(emitter) = &mut self.emitter {
+                    emitter.draw(get_frame_time());
+                };
+
+                let inter = 1.5;
+                let rnd = t.div_euclid(inter);
+                let irnd = rnd as u32;
+                let tex = match irnd % 3 {
+                    0 => *pack.note_style.click,
+                    1 => *pack.note_style.drag,
+                    2 => *pack.note_style.flick,
+                    _ => unreachable!(),
+                };
+                let st = r.y + 0.06;
+                let cx = r.x + 0.43;
+                let line = 0.12;
+                ui.fill_rect(Rect::new(cx - 0.2, line - 0.004, 0.4, 0.008), c);
+                let p = (t - inter * rnd) / 0.9;
+                if p <= 1. {
+                    let y = st + (line - st) * p;
+                    let h = tex.height() / tex.width() * width;
+                    let r = Rect::new(cx - width / 2., y - h / 2., width, h);
+                    ui.fill_rect(r, (tex, r, ScaleType::Fit, c));
+                } else if irnd != self.last_round {
+                    if let Some(emitter) = &mut self.emitter {
+                        emitter.emit_at(vec2(cx, line), 0., JUDGE_LINE_PERFECT_COLOR);
+                    }
+                    if let Some(sfxs) = &mut self.sfxs {
+                        let _ = sfxs[(irnd % 3) as usize].play(PlaySfxParams::default());
+                    }
+                    self.last_round = irnd;
+                }
+                ui.text(&item.name)
+                    .pos(x, cr.bottom() - 0.05)
+                    .anchor(0., 1.)
+                    .max_width(cr.right() - x - 0.05)
+                    .size(1.2)
+                    .draw();
+                let s = 0.12;
+                let mut tr = Rect::new(cr.right() - 0.04 - s, cr.bottom() - 0.04 - s, s, s);
+                let (r, _) = self.delete_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
+                let r = r.feather(-0.02);
+                ui.fill_rect(r, (*self.icon_delete, r, ScaleType::Fit, c));
+                tr.x -= tr.w + 0.02;
+                let (r, _) = self.info_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
+                let r = r.feather(-0.02);
+                ui.fill_rect(r, (*self.icon_info, r, ScaleType::Fit, c));
+            } else {
+                let ct = cr.center();
+                ui.loading(ct.x, ct.y, t, c, ());
+            }
+        });
+        Ok(())
+    }
+}

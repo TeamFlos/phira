@@ -14,7 +14,7 @@ use futures_util::StreamExt;
 use macroquad::prelude::*;
 use prpr::{
     config::Config,
-    ext::{screen_aspect, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    ext::{screen_aspect, semi_black, semi_white, unzip_into, RectExt, SafeTexture, ScaleType},
     fs,
     judge::icon_index,
     scene::{
@@ -241,24 +241,12 @@ impl SongScene {
                     download(Cursor::new(&mut bytes), &entity.file.url, &prog_wk).await?;
                     *status.lock().unwrap() = tl!("dl-status-extract");
                     if prog_wk.strong_count() != 0 {
-                        let mut zip = ZipArchive::new(Cursor::new(bytes))?;
-                        for i in 0..zip.len() {
-                            let mut entry = zip.by_index(i)?;
-                            if entry.is_dir() {
-                                dir.create_dir_all(entry.name())?;
-                            } else {
-                                let mut file = dir.create(entry.name())?;
-                                std::io::copy(&mut entry, &mut file)?;
-                            }
-                        }
+                        unzip_into(Cursor::new(bytes), &dir)?;
                     }
                     *status.lock().unwrap() = tl!("dl-status-saving");
                     if let Some(prog) = prog_wk.upgrade() {
                         *prog.lock().unwrap() = None;
                     }
-                    // if let Some(preview) = &song.preview {
-                    // download(&dir, "preview", &preview.url, &prog_wk).await?;
-                    // }
 
                     if prog_wk.strong_count() == 0 {
                         // cancelled
@@ -371,11 +359,14 @@ impl Scene for SongScene {
                                 .as_ref()
                                 .map(|it| it.name.clone())
                                 .unwrap_or_else(|| tl!("guest").to_string()),
-                            res_pack_path: get_data()
-                                .config
-                                .res_pack_path
-                                .as_ref()
-                                .map(|it| format!("{}/{it}", dir::root().unwrap())),
+                            res_pack_path: {
+                                let id = get_data().respack_id;
+                                if id == 0 {
+                                    None
+                                } else {
+                                    Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
+                                }
+                            },
                             ..get_data().config.clone()
                         },
                         fs,

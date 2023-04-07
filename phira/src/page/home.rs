@@ -1,6 +1,6 @@
 prpr::tl_file!("home");
 
-use super::{LibraryPage, NextPage, Page, SFader, SettingsPage, SharedState};
+use super::{LibraryPage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
     client::{Client, LoginParams, User, UserManager},
     get_data, get_data_mut,
@@ -29,6 +29,8 @@ pub struct HomePage {
     icon_lang: SafeTexture,
     icon_download: SafeTexture,
     icon_user: SafeTexture,
+    icon_info: SafeTexture,
+    icon_delete: SafeTexture,
 
     btn_play: DRectButton,
     btn_event: DRectButton,
@@ -72,6 +74,8 @@ impl HomePage {
             icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
             icon_download: load_texture("download.png").await?.into(),
             icon_user: load_texture("user.png").await?.into(),
+            icon_info: load_texture("info.png").await?.into(),
+            icon_delete: load_texture("delete.png").await?.into(),
 
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
@@ -125,6 +129,7 @@ impl Page for HomePage {
         }
         if self.btn_respack.touch(touch, t) {
             button_hit_large();
+            self.next_page = Some(NextPage::Overlay(Box::new(ResPackPage::new(self.icon_info.clone(), self.icon_delete.clone())?)));
             return Ok(true);
         }
         if self.btn_msg.touch(touch, t) {
