@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
 use prpr::{l10n::LANG_IDENTS, scene::SimpleRecord};
-use reqwest::{header, Certificate, Method, RequestBuilder, Response};
+use reqwest::{header, Method, RequestBuilder, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, sync::Arc};
@@ -16,8 +16,7 @@ use std::{borrow::Cow, collections::HashMap, marker::PhantomData, sync::Arc};
 // static CLIENT: Lazy<ArcSwap<reqwest::Client>> =
 // Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().add_root_certificate(CERT.clone()).build().unwrap()));
 
-static CLIENT: Lazy<ArcSwap<reqwest::Client>> =
-    Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().danger_accept_invalid_certs(true).build().unwrap()));
+static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().build().unwrap()));
 
 pub struct Client;
 
@@ -33,8 +32,7 @@ fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
         headers.insert(header::AUTHORIZATION, auth_value);
     }
     Ok(reqwest::ClientBuilder::new()
-        // .add_root_certificate(CERT.clone())
-        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_certs(false)
         .default_headers(headers)
         .build()?
         .into())
