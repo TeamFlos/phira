@@ -26,10 +26,10 @@ Cargo.lock
 /build_ios.sh
 /build
 /*.ipa
-/prpr.app
+/phira.app
 /Assets.xcassets
 /LaunchScreen.storyboard
-/prpr.xcodeproj
+/phira.xcodeproj
 /dist
 /project.yml
 /prpr.scent
