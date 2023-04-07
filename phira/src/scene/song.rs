@@ -34,7 +34,6 @@ use std::{
     path::Path,
     sync::{Arc, Mutex, Weak},
 };
-use zip::ZipArchive;
 
 const FADE_IN_TIME: f32 = 0.3;
 
@@ -301,6 +300,20 @@ impl Scene for SongScene {
                 return Ok(());
             }
         };
+        Ok(())
+    }
+
+    fn pause(&mut self, _tm: &mut TimeManager) -> Result<()> {
+        if let Some(preview) = &mut self.preview {
+            preview.pause()?;
+        }
+        Ok(())
+    }
+
+    fn resume(&mut self, _tm: &mut TimeManager) -> Result<()> {
+        if let Some(preview) = &mut self.preview {
+            preview.play()?;
+        }
         Ok(())
     }
 
