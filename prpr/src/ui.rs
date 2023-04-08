@@ -492,29 +492,41 @@ thread_local! {
     static STATE: RefCell<HashMap<String, Option<u64>>> = RefCell::new(HashMap::new());
 }
 
-pub struct InputParams {
+pub struct InputParams<'a> {
+    changed: Option<&'a mut bool>,
     password: bool,
     length: f32,
 }
 
-impl From<()> for InputParams {
+impl From<()> for InputParams<'_> {
     fn from(_: ()) -> Self {
         Self {
+            changed: None,
             password: false,
             length: 0.3,
         }
     }
 }
 
-impl From<bool> for InputParams {
+impl From<bool> for InputParams<'_> {
     fn from(password: bool) -> Self {
         Self { password, ..().into() }
     }
 }
 
-impl From<f32> for InputParams {
+impl From<f32> for InputParams<'_> {
     fn from(length: f32) -> Self {
         Self { length, ..().into() }
+    }
+}
+
+impl<'a> From<(f32, &'a mut bool)> for InputParams<'a> {
+    fn from((length, changed): (f32, &'a mut bool)) -> Self {
+        Self {
+            changed: Some(changed),
+            password: false,
+            length,
+        }
     }
 }
 
@@ -794,14 +806,20 @@ impl<'a> Ui<'a> {
         STATE.with(|state| {
             let mut state = state.borrow_mut();
             let entry = state.entry(id.to_owned()).or_default();
-            self.fill_rect(rect, if entry.is_some() { Color::new(1., 1., 1., 0.5) } else { WHITE });
+            self.fill_path(
+                &rect.rounded(0.01),
+                Color {
+                    a: if entry.is_some() { 0.5 } else { 1. },
+                    ..self.background()
+                },
+            );
             let ct = rect.center();
             self.text(text)
                 .pos(ct.x, ct.y)
                 .anchor(0.5, 0.5)
                 .max_width(rect.w)
                 .size(0.42)
-                .color(BLACK)
+                .color(WHITE)
                 .no_baseline()
                 .draw();
             self.clicked(rect, entry)
@@ -826,11 +844,11 @@ impl<'a> Ui<'a> {
         })
     }
 
-    pub fn input(&mut self, label: impl Into<String>, value: &mut String, params: impl Into<InputParams>) -> Rect {
+    pub fn input<'b>(&mut self, label: impl Into<String>, value: &mut String, params: impl Into<InputParams<'b>>) -> Rect {
         let label = label.into();
         let params = params.into();
         let id = format!("input#{label}");
-        let r = self.text(label).anchor(1., 0.).size(0.4).draw();
+        let r = self.text(label).anchor(1., 0.).size(0.47).draw();
         let lf = r.x;
         let r = Rect::new(0.02, r.y - 0.01, params.length, r.h + 0.02);
         if if params.password {
@@ -842,6 +860,9 @@ impl<'a> Ui<'a> {
         }
         if let Some((its_id, text)) = take_input() {
             if its_id == id {
+                if let Some(changed) = params.changed {
+                    *changed = true;
+                }
                 *value = text;
             } else {
                 return_input(its_id, text);
@@ -888,24 +909,26 @@ impl<'a> Ui<'a> {
             let s = 0.025;
             let mut x = len + 0.02;
             let r = Rect::new(x, cy - s, s * 2., s * 2.);
-            self.fill_rect(r, WHITE);
+            self.fill_path(&r.rounded(0.008), self.background());
             self.text("-")
                 .pos(r.center().x, r.center().y)
                 .anchor(0.5, 0.5)
                 .size(0.4)
-                .color(BLACK)
+                .color(WHITE)
+                .no_baseline()
                 .draw();
             if self.clicked(r, state.entry(format!("{text}:-")).or_default()) {
                 *value = (*value - step).max(range.start);
             }
             x += s * 2. + 0.01;
             let r = Rect::new(x, cy - s, s * 2., s * 2.);
-            self.fill_rect(r, WHITE);
+            self.fill_path(&r.rounded(0.008), self.background());
             self.text("+")
                 .pos(r.center().x, r.center().y)
                 .anchor(0.5, 0.5)
                 .size(0.4)
-                .color(BLACK)
+                .color(WHITE)
+                .no_baseline()
                 .draw();
             if self.clicked(r, state.entry(format!("{text}:+")).or_default()) {
                 *value = (*value + step).min(range.end);
@@ -1035,6 +1058,12 @@ impl<'a> Ui<'a> {
     #[inline]
     pub fn content_rect(&self) -> Rect {
         Rect::new(-0.7, -self.top + 0.15, 1.67, self.top * 2. - 0.18)
+    }
+
+    pub fn full_loading<'b>(&mut self, text: impl Into<Cow<'b, str>>, t: f32) {
+        self.fill_rect(self.screen_rect(), semi_black(0.6));
+        self.loading(0., -0.03, t, WHITE, ());
+        self.text(text.into()).pos(0., 0.05).anchor(0.5, 0.).size(0.6).draw();
     }
 }
 

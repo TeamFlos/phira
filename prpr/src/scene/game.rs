@@ -11,7 +11,7 @@ use super::{
 use crate::{
     config::Config,
     core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, JUDGE_LINE_GOOD_COLOR, JUDGE_LINE_PERFECT_COLOR},
-    ext::{screen_aspect, RectExt, SafeTexture},
+    ext::{parse_time, screen_aspect, RectExt, SafeTexture},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
     judge::Judge,
@@ -889,27 +889,6 @@ impl Scene for GameScene {
             e.update(&self.res);
         }
         if let Some((id, text)) = take_input() {
-            let parse_time = |s: &str| -> Option<f32> {
-                if s.is_empty() {
-                    return None;
-                }
-                let r = s.split(':').collect::<Vec<_>>();
-                if r.len() > 3 {
-                    return None;
-                }
-                let mut iter = r.into_iter().rev();
-                let mut res = iter.next().unwrap().parse::<f32>().ok()?;
-                if res < 0. {
-                    return None;
-                }
-                if let Some(mins) = iter.next() {
-                    res += mins.parse::<u32>().ok()? as f32 * 60.;
-                }
-                if let Some(hrs) = iter.next() {
-                    res += hrs.parse::<u32>().ok()? as f32 * 3600.;
-                }
-                Some(res)
-            };
             let offset = self.offset().min(0.);
             match id.as_str() {
                 "exercise_start" => {

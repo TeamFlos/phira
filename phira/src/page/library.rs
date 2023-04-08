@@ -75,10 +75,17 @@ pub struct LibraryPage {
     icon_play: SafeTexture,
     icon_download: SafeTexture,
     icon_menu: SafeTexture,
+    icon_edit: SafeTexture,
 }
 
 impl LibraryPage {
-    pub fn new(icon_back: SafeTexture, icon_play: SafeTexture, icon_download: SafeTexture, icon_menu: SafeTexture) -> Result<Self> {
+    pub fn new(
+        icon_back: SafeTexture,
+        icon_play: SafeTexture,
+        icon_download: SafeTexture,
+        icon_menu: SafeTexture,
+        icon_edit: SafeTexture,
+    ) -> Result<Self> {
         Ok(Self {
             btn_local: DRectButton::new(),
             btn_online: DRectButton::new(),
@@ -103,6 +110,7 @@ impl LibraryPage {
             icon_play,
             icon_download,
             icon_menu,
+            icon_edit,
         })
     }
 }
@@ -356,6 +364,7 @@ impl Page for LibraryPage {
                         self.icon_play.clone(),
                         self.icon_download.clone(),
                         self.icon_menu.clone(),
+                        self.icon_edit.clone(),
                         s.icons.clone(),
                     );
                     self.transit = Some(TransitState {
@@ -407,7 +416,7 @@ impl Page for LibraryPage {
                         let data = get_data_mut();
                         let path = s.charts_local[transit.id as usize].local_path.clone().unwrap();
                         std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
-                        data.charts.remove(data.find_chart_by_path(Some(path.as_str())).unwrap());
+                        data.charts.remove(data.find_chart_by_path(path.as_str()).unwrap());
                         save_data()?;
                         s.reload_local_charts();
                     } else {

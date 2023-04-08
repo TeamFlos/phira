@@ -9,5 +9,5 @@ info-content =
   Author: { $author }
   Description: { $desc }
 
-cant-delete-builtin＝内蔵のrespackを削除できない
+cant-delete-builtin = 内蔵のrespackを削除できない
 deleted = 削除

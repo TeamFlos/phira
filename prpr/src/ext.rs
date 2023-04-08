@@ -449,6 +449,28 @@ pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &cap_std::fs
     Ok(())
 }
 
+pub fn parse_time(s: &str) -> Option<f32> {
+    if s.is_empty() {
+        return None;
+    }
+    let r = s.split(':').collect::<Vec<_>>();
+    if r.len() > 3 {
+        return None;
+    }
+    let mut iter = r.into_iter().rev();
+    let mut res = iter.next().unwrap().parse::<f32>().ok()?;
+    if res < 0. {
+        return None;
+    }
+    if let Some(mins) = iter.next() {
+        res += mins.parse::<u32>().ok()? as f32 * 60.;
+    }
+    if let Some(hrs) = iter.next() {
+        res += hrs.parse::<u32>().ok()? as f32 * 3600.;
+    }
+    Some(res)
+}
+
 mod shader {
     pub const VERTEX: &str = r#"#version 100
 attribute vec3 position;

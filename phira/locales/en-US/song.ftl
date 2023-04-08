@@ -25,3 +25,11 @@ switched-to-offline = Switched to offline mode
 delete = Delete
 exercise = Exercise
 offset = Adjust offset
+
+edit-cancel = Cancel
+edit-save = Save
+edit-saving = Saving
+edit-load-file-failed = Failed to load external file
+edit-save-failed = Save failed
+edit-saved = Saved
+edit-preview-invalid = Preview time out of bounds

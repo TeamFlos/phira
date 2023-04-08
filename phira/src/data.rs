@@ -1,7 +1,6 @@
 use crate::{
     client::{Ptr, User},
     dir,
-    page::ChartItem,
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -112,7 +111,7 @@ impl Data {
         Ok(())
     }
 
-    pub fn find_chart_by_path(&self, local_path: Option<&str>) -> Option<usize> {
-        local_path.and_then(|it| self.charts.iter().position(|local| &local.local_path == it))
+    pub fn find_chart_by_path(&self, local_path: &str) -> Option<usize> {
+        self.charts.iter().position(|local| &local.local_path == local_path)
     }
 }

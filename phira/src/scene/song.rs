@@ -15,8 +15,10 @@ use futures_util::StreamExt;
 use macroquad::prelude::*;
 use prpr::{
     config::Config,
+    core::Tweenable,
     ext::{screen_aspect, semi_black, semi_white, unzip_into, RectExt, SafeTexture, ScaleType},
     fs,
+    info::ChartInfo,
     judge::icon_index,
     scene::{
         load_scene, loading_scene, show_error, show_message, take_loaded_scene, BasicPlayer, GameMode, LoadingScene, NextScene, RecordUpdateState,
@@ -24,9 +26,9 @@ use prpr::{
     },
     task::Task,
     time::TimeManager,
-    ui::{button_hit, DRectButton, Dialog, RectButton, Ui, UI_AUDIO},
+    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, RectButton, Scroll, Ui, UI_AUDIO},
 };
-use sasa::{AudioClip, Music, MusicParams};
+use sasa::{AudioClip, Frame, Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
@@ -40,12 +42,27 @@ use std::{
 };
 
 const FADE_IN_TIME: f32 = 0.3;
+const EDIT_TRANSIT: f32 = 0.32;
 
-fn with_effects(data: Vec<u8>, range: Option<(u32, u32)>) -> Result<AudioClip> {
-    let (mut frames, sample_rate) = AudioClip::decode(data)?;
+fn create_music(clip: AudioClip) -> Result<Music> {
+    let mut music = UI_AUDIO.with(|it| {
+        it.borrow_mut().create_music(
+            clip,
+            MusicParams {
+                amplifier: 0.7,
+                loop_: true,
+                ..Default::default()
+            },
+        )
+    })?;
+    music.play()?;
+    Ok(music)
+}
+
+fn with_effects((mut frames, sample_rate): (Vec<Frame>, u32), range: Option<(f32, f32)>) -> Result<AudioClip> {
     if let Some((begin, end)) = range {
-        frames.drain((end as usize * sample_rate as usize).min(frames.len())..);
-        frames.drain(..(begin as usize * sample_rate as usize));
+        frames.drain(((end * sample_rate as f32) as usize).min(frames.len())..);
+        frames.drain(..((begin * sample_rate as f32) as usize));
     }
     let len = (0.8 * sample_rate as f64) as usize;
     let len = len.min(frames.len() / 2);
@@ -69,6 +86,18 @@ struct Downloading {
     task: Task<Result<LocalChart>>,
 }
 
+enum SideContent {
+    Edit,
+}
+
+impl SideContent {
+    fn width(&self) -> f32 {
+        match self {
+            Self::Edit => 0.84,
+        }
+    }
+}
+
 pub struct SongScene {
     illu: Illustration,
 
@@ -81,6 +110,7 @@ pub struct SongScene {
     icon_play: SafeTexture,
     icon_download: SafeTexture,
     icon_menu: SafeTexture,
+    icon_edit: SafeTexture,
 
     next_scene: Option<NextScene>,
 
@@ -106,6 +136,15 @@ pub struct SongScene {
     need_show_menu: bool,
     should_delete: Arc<AtomicBool>,
     menu_options: Vec<&'static str>,
+
+    info_edit: Option<ChartInfoEdit>,
+    edit_btn: RectButton,
+    edit_scroll: Scroll,
+
+    side_content: SideContent,
+    side_enter_time: f32,
+
+    save_task: Option<Task<Result<(ChartInfo, AudioClip)>>>,
 }
 
 impl SongScene {
@@ -116,6 +155,7 @@ impl SongScene {
         icon_play: SafeTexture,
         icon_download: SafeTexture,
         icon_menu: SafeTexture,
+        icon_edit: SafeTexture,
         icons: [SafeTexture; 8],
     ) -> Self {
         let illu = if let Some(id) = chart.info.id {
@@ -156,28 +196,25 @@ impl SongScene {
             icon_play,
             icon_download,
             icon_menu,
+            icon_edit,
 
             next_scene: None,
 
             preview: None,
             preview_task: Some(Task::new({
                 let id = chart.info.id.clone();
+                let local_path = local_path.clone();
                 async move {
-                    if let Some(id) = id {
-                        let chart = Ptr::<Chart>::new(id).fetch().await?;
-                        with_effects(chart.preview.fetch().await?.to_vec(), None)
+                    if let Some(path) = local_path {
+                        let mut fs = fs_from_path(&path)?;
+                        let info = fs::load_info(fs.as_mut()).await?;
+                        with_effects(
+                            AudioClip::decode(fs.load_file(&info.music).await?)?,
+                            Some((info.preview_start, info.preview_end.unwrap_or(info.preview_start + 15.))),
+                        )
                     } else {
-                        // let mut fs = fs_from_path(&path)?;
-                        // let info = fs::load_info(fs.deref_mut()).await?;
-                        // if let Some(preview) = info.preview {
-                        // with_effects(fs.load_file(&preview).await?, None)
-                        // } else {
-                        // with_effects(
-                        // fs.load_file(&info.music).await?,
-                        // Some((info.preview_start as u32, info.preview_end.ceil() as u32)),
-                        // )
-                        // }
-                        todo!()
+                        let chart = Ptr::<Chart>::new(id.unwrap()).fetch().await?;
+                        with_effects(AudioClip::decode(chart.preview.fetch().await?.to_vec())?, None)
                     }
                 }
             })),
@@ -201,6 +238,15 @@ impl SongScene {
             need_show_menu: false,
             should_delete: Arc::new(AtomicBool::default()),
             menu_options: Vec::new(),
+
+            info_edit: None,
+            edit_btn: RectButton::new(),
+            edit_scroll: Scroll::new(),
+
+            side_content: SideContent::Edit,
+            side_enter_time: f32::INFINITY,
+
+            save_task: None,
         }
     }
 
@@ -401,6 +447,98 @@ impl SongScene {
         });
         Ok(())
     }
+
+    fn side_chart_info(&mut self, ui: &mut Ui, rt: f32) -> Result<()> {
+        let h = 0.11;
+        let pad = 0.03;
+        let width = self.side_content.width() - pad;
+
+        let vpad = 0.02;
+        let hpad = 0.01;
+        let dx = width / 3.;
+        let mut r = Rect::new(hpad, ui.top * 2. - h + vpad, dx - hpad * 2., h - vpad * 2.);
+        if ui.button("cancel", r, tl!("edit-cancel")) {
+            self.side_enter_time = -rt;
+        }
+        r.x += dx;
+        // if ui.button(
+        //     "upload",
+        //     r,
+        //     if self.upload_task.is_some() {
+        //         UPLOAD_STATUS.lock().unwrap().clone().unwrap()
+        //     } else {
+        //         tl!("edit-upload")
+        //     },
+        // ) && self.upload_task.is_none()
+        //     && self.save_task.is_none()
+        // {
+        //     if get_data().me.is_none() {
+        //         show_message(tl!("upload-login-first"));
+        //     } else if self.chart.path.starts_with(':') {
+        //         show_message(tl!("upload-builtin"));
+        //     } else if self.get_id().is_some() {
+        //         show_message(tl!("upload-downloaded"));
+        //     } else if !CONFIRM_UPLOAD.load(Ordering::SeqCst) {
+        //         Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
+        //             .buttons(vec![tl!("upload-cancel").to_string(), tl!("upload-confirm").to_string()])
+        //             .listener(|pos| {
+        //                 if pos == 1 {
+        //                     CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
+        //                 }
+        //             })
+        //             .show();
+        //     }
+        // }
+        r.x += dx;
+        if ui.button(
+            "save",
+            r,
+                tl!("edit-save")
+        ) /*&& self.upload_task.is_none()*/
+            && self.save_task.is_none()
+        {
+            self.save_edit();
+        }
+
+        self.edit_scroll.size((width, ui.top * 2. - h));
+        self.edit_scroll.render(ui, |ui| {
+            let (w, h) = render_chart_info(ui, self.info_edit.as_mut().unwrap(), width);
+            (w, h + 0.1)
+        });
+        Ok(())
+    }
+
+    fn save_edit(&mut self) {
+        let Some(edit) = &self.info_edit else { unreachable!() };
+        let info = edit.info.clone();
+        let path = self.local_path.clone().unwrap();
+        let edit = edit.clone();
+        self.save_task = Some(Task::new(async move {
+            let dir = cap_std::fs::Dir::open_ambient_dir(format!("{}/{path}", dir::charts()?), ambient_authority())?;
+            let patches = edit.to_patches().await.with_context(|| tl!("edit-load-file-failed"))?;
+            let bytes = if let Some(bytes) = patches.get(&info.music) {
+                bytes.clone()
+            } else {
+                dir.read(&info.music)?
+            };
+            let (frames, sample_rate) = AudioClip::decode(bytes)?;
+            let length = frames.len() as f32 / sample_rate as f32;
+            if info.preview_end.unwrap_or(info.preview_start + 1.) > length {
+                tl!(bail "edit-preview-invalid");
+            }
+            let preview = with_effects((frames, sample_rate), Some((info.preview_start, info.preview_end.unwrap_or(info.preview_start + 15.))))?;
+            for (name, bytes) in patches.into_iter() {
+                dir.create(name)?.write_all(&bytes)?;
+            }
+            Ok((info, preview))
+        }));
+    }
+
+    fn update_chart_info(&mut self) -> Result<()> {
+        get_data_mut().charts[get_data().find_chart_by_path(self.local_path.as_deref().unwrap()).unwrap()].info = self.info.clone();
+        save_data()?;
+        Ok(())
+    }
 }
 
 impl Scene for SongScene {
@@ -444,11 +582,27 @@ impl Scene for SongScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
+        if loading_scene() {
+            return Ok(false);
+        }
         if self.menu.showing() {
             self.menu.touch(touch, t);
             return Ok(true);
         }
-        if loading_scene() {
+        if !self.side_enter_time.is_infinite() {
+            if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
+                if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
+                    self.side_enter_time = -tm.real_time() as _;
+                    return Ok(true);
+                }
+                match self.side_content {
+                    SideContent::Edit => {
+                        if self.edit_scroll.touch(touch, t) {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
             return Ok(false);
         }
         if self.downloading.is_some() {
@@ -471,9 +625,17 @@ impl Scene for SongScene {
             }
             return Ok(true);
         }
-        if self.menu_btn.touch(touch) && !self.menu_options.is_empty() {
+        if !self.menu_options.is_empty() && self.menu_btn.touch(touch) {
             button_hit();
             self.need_show_menu = true;
+            return Ok(true);
+        }
+        if self.local_path.is_some() && self.edit_btn.touch(touch) {
+            let Some(path) = self.local_path.as_ref() else { unreachable!() };
+            let info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
+            self.info_edit = Some(ChartInfoEdit::new(info));
+            self.side_content = SideContent::Edit;
+            self.side_enter_time = tm.real_time() as _;
             return Ok(true);
         }
         Ok(false)
@@ -483,6 +645,9 @@ impl Scene for SongScene {
         let t = tm.now() as f32;
         self.menu.update(t);
         self.illu.settle(t);
+        if self.side_enter_time < 0. && -tm.real_time() as f32 + EDIT_TRANSIT < self.side_enter_time {
+            self.side_enter_time = f32::INFINITY;
+        }
         if let Some(task) = &mut self.load_task {
             if let Some(res) = task.take() {
                 match res {
@@ -501,18 +666,7 @@ impl Scene for SongScene {
                         show_error(err.context(tl!("load-preview-failed")));
                     }
                     Ok(clip) => {
-                        let mut music = UI_AUDIO.with(|it| {
-                            it.borrow_mut().create_music(
-                                clip,
-                                MusicParams {
-                                    amplifier: 0.7,
-                                    loop_: true,
-                                    ..Default::default()
-                                },
-                            )
-                        })?;
-                        music.play()?;
-                        self.preview = Some(music);
+                        self.preview = Some(create_music(clip)?);
                     }
                 }
                 self.preview_task = None;
@@ -588,6 +742,30 @@ impl Scene for SongScene {
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
         }
+        if let Some(task) = &mut self.save_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("edit-save-failed")));
+                    }
+                    Ok((info, preview)) => {
+                        if let Some(preview) = &mut self.preview {
+                            preview.pause()?;
+                        }
+                        self.preview = Some(create_music(preview)?);
+                        self.info = info.into();
+                        self.update_chart_info()?;
+                        show_message(tl!("edit-saved")).duration(1.).ok();
+                    }
+                }
+                self.save_task = None;
+            }
+        }
+        match self.side_content {
+            SideContent::Edit => {
+                self.edit_scroll.update(t);
+            }
+        }
         Ok(())
     }
 
@@ -610,7 +788,7 @@ impl Scene for SongScene {
             .text(&self.info.name)
             .max_width(0.8 - r.right())
             .size(1.2)
-            .pos(r.right() + 0.02, r.bottom() - 0.06)
+            .pos(r.right() + 0.02, r.y)
             .color(c)
             .draw();
         ui.text(&self.info.composer)
@@ -622,10 +800,8 @@ impl Scene for SongScene {
         // bottom bar
         let s = 0.25;
         let r = Rect::new(-0.94, ui.top - s - 0.06, s, s);
-        if let Some(record) = &self.record {
-            let icon = icon_index(record.score as _, record.full_combo);
-            ui.fill_rect(r, (*self.icons[icon], r, ScaleType::Fit, c));
-        }
+        let icon = self.record.as_ref().map_or(0, |it| icon_index(it.score as _, it.full_combo));
+        ui.fill_rect(r, (*self.icons[icon], r, ScaleType::Fit, c));
         let score = self.record.as_ref().map(|it| it.score).unwrap_or_default();
         let accuracy = self.record.as_ref().map(|it| it.accuracy).unwrap_or_default();
         let r = ui
@@ -677,6 +853,9 @@ impl Scene for SongScene {
                 let d = 0.28;
                 self.menu.show(ui, t, Rect::new(r.x - d, r.bottom(), r.w + d, 0.4));
             }
+            ui.dx(-r.w - 0.03);
+            ui.fill_rect(r, (*self.icon_edit, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
+            self.edit_btn.set(ui, r);
         });
 
         if let Some(dl) = &self.downloading {
@@ -688,7 +867,31 @@ impl Scene for SongScene {
             self.cancel_download_btn.render_text(ui, r, t, 1., tl!("dl-cancel"), 0.6, true);
         }
 
+        let rt = tm.real_time() as f32;
+        if self.side_enter_time.is_finite() {
+            let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
+            let p = 1. - (1. - p).powi(3);
+            let p = if self.side_enter_time < 0. { 1. - p } else { p };
+            ui.fill_rect(ui.screen_rect(), Color::new(0., 0., 0., p * 0.6));
+            let w = self.side_content.width();
+            let lf = f32::tween(&1.04, &(1. - w), p);
+            ui.scope(|ui| {
+                ui.dx(lf);
+                ui.dy(-ui.top);
+                let r = Rect::new(-0.2, 0., 0.2 + w, ui.top * 2.);
+                ui.fill_rect(r, (Color::default(), (r.x, r.y), Color::new(0., 0., 0., p * 0.6), (r.right(), r.y)));
+
+                match self.side_content {
+                    SideContent::Edit => self.side_chart_info(ui, rt),
+                }
+            })?;
+        }
+
         self.menu.render(ui, t, 1.);
+
+        if self.save_task.is_some() {
+            ui.full_loading(tl!("edit-saving"), t);
+        }
         Ok(())
     }
 

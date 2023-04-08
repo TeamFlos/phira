@@ -25,3 +25,11 @@ switched-to-offline = オフラインモードに切り替わる
 delete = Delete
 exercise = Exercise
 offset = 補正遅延
+
+edit-cancel = Cancel
+edit-save = Save
+edit-saving = Saving
+edit-load-file-failed = 外部ファイルの読み込みに失敗しました
+edit-save-failed = Save failed
+edit-saved = Saved
+edit-preview-invalid = Preview time out of bounds

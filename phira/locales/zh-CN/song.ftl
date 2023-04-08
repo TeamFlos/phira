@@ -25,3 +25,11 @@ switched-to-offline = 已切换到离线模式
 delete = 删除
 exercise = 练习
 offset = 调整延迟
+
+edit-cancel = 取消
+edit-save = 保存
+edit-saving = 保存中
+edit-load-file-failed = 加载外部文件失败
+edit-save-failed = 保存失败
+edit-saved = 保存成功
+edit-preview-invalid = 预览时间超出范围
