@@ -109,23 +109,23 @@ impl Popup {
                     let alpha = alpha * c.a;
                     let r = Rect::new(0., 0., r.w, r.h);
                     let mut cfg = ShadowConfig {
-                        radius: 0.,
+                        radius: 0.01,
                         elevation: 0.01,
                         ..Default::default()
                     };
                     cfg.base *= alpha;
                     rounded_rect_shadow(ui, r, &cfg);
-                    ui.fill_rect(r, semi_white(alpha));
+                    ui.fill_path(&r.rounded(0.01), Color { a: alpha, ..ui.background() });
                     self.scroll.render(ui, |ui| {
                         for (id, (opt, btn)) in self.options.iter_mut().enumerate() {
                             if id != 0 {
-                                ui.fill_rect(Rect::new(0.02, -0.001, r.w - 0.04, 0.002), semi_black(0.4));
+                                ui.fill_rect(Rect::new(0.02, -0.001, r.w - 0.04, 0.002), semi_white(0.7 * alpha));
                             }
                             let r = Rect::new(0., 0., r.w, self.height);
                             btn.set(ui, r);
                             let chosen = id == self.selected;
                             if chosen {
-                                ui.fill_rect(r.feather(-0.005), Color { a: alpha, ..ui.background() });
+                                ui.fill_rect(r.feather(-0.007), semi_black(0.4 * alpha));
                             }
                             ui.text(opt.as_str())
                                 .pos(self.left, self.height / 2.)
@@ -133,7 +133,7 @@ impl Popup {
                                 .no_baseline()
                                 .size(self.size)
                                 .max_width(r.w - self.left * 2.)
-                                .color(if chosen { semi_white(alpha) } else { semi_black(alpha) })
+                                .color(semi_white(alpha))
                                 .draw();
                             ui.dy(self.height);
                         }
