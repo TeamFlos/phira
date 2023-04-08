@@ -174,6 +174,18 @@ impl Client {
     pub async fn best_record(id: i32) -> Result<SimpleRecord> {
         Ok(recv_raw(Self::get(format!("/record/best/{id}"))).await?.json().await?)
     }
+
+    pub async fn upload_file(name: &str, bytes: Vec<u8>) -> Result<String> {
+        #[derive(Deserialize)]
+        struct Resp {
+            id: String,
+        }
+        let resp: Resp = recv_raw(Self::request(Method::POST, format!("/upload/{name}")).body(bytes))
+            .await?
+            .json()
+            .await?;
+        Ok(resp.id)
+    }
 }
 
 #[must_use]

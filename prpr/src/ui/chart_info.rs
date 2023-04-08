@@ -2,8 +2,7 @@ crate::tl_file!("chart_info");
 
 use super::Ui;
 use crate::{ext::parse_time, info::ChartInfo, scene::show_message};
-use anyhow::{anyhow, bail, Context, Result};
-use miniquad::warn;
+use anyhow::Result;
 use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Clone)]

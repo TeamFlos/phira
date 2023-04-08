@@ -168,7 +168,7 @@ impl Dialog {
                     .max_width(wr.w - pad * 3.)
                     .multiline()
                     .draw();
-                (r.w, r.h)
+                (r.w, r.h + 0.04)
             });
         });
         ui.scope(|ui| {

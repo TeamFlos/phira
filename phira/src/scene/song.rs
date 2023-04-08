@@ -30,9 +30,11 @@ use prpr::{
 };
 use sasa::{AudioClip, Frame, Music, MusicParams};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::{
     any::Any,
     borrow::Cow,
+    fs::File,
     io::{Cursor, Write},
     path::Path,
     sync::{
@@ -40,9 +42,13 @@ use std::{
         Arc, Mutex, Weak,
     },
 };
+use walkdir::WalkDir;
+use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 
 const FADE_IN_TIME: f32 = 0.3;
 const EDIT_TRANSIT: f32 = 0.32;
+
+static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
 
 fn create_music(clip: AudioClip) -> Result<Music> {
     let mut music = UI_AUDIO.with(|it| {
@@ -145,11 +151,12 @@ pub struct SongScene {
     side_enter_time: f32,
 
     save_task: Option<Task<Result<(ChartInfo, AudioClip)>>>,
+    upload_task: Option<Task<Result<()>>>,
 }
 
 impl SongScene {
     pub fn new(
-        chart: ChartItem,
+        mut chart: ChartItem,
         local_path: Option<String>,
         icon_back: SafeTexture,
         icon_play: SafeTexture,
@@ -158,6 +165,11 @@ impl SongScene {
         icon_edit: SafeTexture,
         icons: [SafeTexture; 8],
     ) -> Self {
+        if let Some(path) = &local_path {
+            if let Some(id) = path.strip_prefix("download/") {
+                chart.info.id = Some(id.parse().unwrap());
+            }
+        }
         let illu = if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
@@ -247,6 +259,7 @@ impl SongScene {
             side_enter_time: f32::INFINITY,
 
             save_task: None,
+            upload_task: None,
         }
     }
 
@@ -461,42 +474,27 @@ impl SongScene {
             self.side_enter_time = -rt;
         }
         r.x += dx;
-        // if ui.button(
-        //     "upload",
-        //     r,
-        //     if self.upload_task.is_some() {
-        //         UPLOAD_STATUS.lock().unwrap().clone().unwrap()
-        //     } else {
-        //         tl!("edit-upload")
-        //     },
-        // ) && self.upload_task.is_none()
-        //     && self.save_task.is_none()
-        // {
-        //     if get_data().me.is_none() {
-        //         show_message(tl!("upload-login-first"));
-        //     } else if self.chart.path.starts_with(':') {
-        //         show_message(tl!("upload-builtin"));
-        //     } else if self.get_id().is_some() {
-        //         show_message(tl!("upload-downloaded"));
-        //     } else if !CONFIRM_UPLOAD.load(Ordering::SeqCst) {
-        //         Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
-        //             .buttons(vec![tl!("upload-cancel").to_string(), tl!("upload-confirm").to_string()])
-        //             .listener(|pos| {
-        //                 if pos == 1 {
-        //                     CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
-        //                 }
-        //             })
-        //             .show();
-        //     }
-        // }
+        if ui.button("upload", r, tl!("edit-upload")) && self.upload_task.is_none() && self.save_task.is_none() {
+            let path = self.local_path.as_ref().unwrap();
+            if get_data().me.is_none() {
+                show_message(tl!("upload-login-first"));
+            } else if path.starts_with(':') {
+                show_message(tl!("upload-builtin"));
+            } else if self.info.id.is_some() {
+                show_message(tl!("upload-downloaded"));
+            } else {
+                Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
+                    .buttons(vec![tl!("upload-cancel").to_string(), tl!("upload-confirm").to_string()])
+                    .listener(|pos| {
+                        if pos == 1 {
+                            CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
+                        }
+                    })
+                    .show();
+            }
+        }
         r.x += dx;
-        if ui.button(
-            "save",
-            r,
-                tl!("edit-save")
-        ) /*&& self.upload_task.is_none()*/
-            && self.save_task.is_none()
-        {
+        if ui.button("save", r, tl!("edit-save")) && self.upload_task.is_none() && self.save_task.is_none() {
             self.save_edit();
         }
 
@@ -632,7 +630,8 @@ impl Scene for SongScene {
         }
         if self.local_path.is_some() && self.edit_btn.touch(touch) {
             let Some(path) = self.local_path.as_ref() else { unreachable!() };
-            let info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
+            let mut info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
+            info.id = self.info.id;
             self.info_edit = Some(ChartInfoEdit::new(info));
             self.side_content = SideContent::Edit;
             self.side_enter_time = tm.real_time() as _;
@@ -761,10 +760,64 @@ impl Scene for SongScene {
                 self.save_task = None;
             }
         }
+        if let Some(task) = &mut self.upload_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("upload-failed")));
+                    }
+                    Ok(_) => {
+                        show_message(tl!("upload-success")).ok();
+                    }
+                }
+                self.upload_task = None;
+            }
+        }
         match self.side_content {
             SideContent::Edit => {
                 self.edit_scroll.update(t);
             }
+        }
+        if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
+            let path = self.local_path.clone().unwrap();
+            self.upload_task = Some(Task::new(async move {
+                let root = format!("{}/{path}", dir::charts()?);
+                let root = Path::new(&root);
+                let chart_bytes = {
+                    let mut bytes = Vec::new();
+                    let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
+                    let options = FileOptions::default()
+                        .compression_method(CompressionMethod::Deflated)
+                        .unix_permissions(0o755);
+                    #[allow(deprecated)]
+                    for entry in WalkDir::new(root) {
+                        let entry = entry?;
+                        let path = entry.path();
+                        let name = path.strip_prefix(root)?;
+                        if path.is_file() {
+                            zip.start_file_from_path(name, options)?;
+                            let mut f = File::open(path)?;
+                            std::io::copy(&mut f, &mut zip)?;
+                        } else if !name.as_os_str().is_empty() {
+                            zip.add_directory_from_path(name, options)?;
+                        }
+                    }
+                    zip.finish()?;
+                    drop(zip);
+                    bytes
+                };
+                let id = Client::upload_file("chart.zip", chart_bytes)
+                    .await
+                    .with_context(|| tl!("upload-chart-failed"))?;
+                recv_raw(Client::post(
+                    "/chart/upload",
+                    &json!({
+                        "file": id,
+                    }),
+                ))
+                .await?;
+                Ok(())
+            }));
         }
         Ok(())
     }
