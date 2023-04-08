@@ -1,3 +1,4 @@
+
 edit-chart = Edit beatmap
 level-displayed = Level
 chart-name = Name

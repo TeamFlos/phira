@@ -1,3 +1,4 @@
+
 edit-chart = 编辑谱面
 level-displayed = 显示难度
 chart-name = 谱面名

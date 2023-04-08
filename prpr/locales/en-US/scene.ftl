@@ -1,3 +1,4 @@
+
 input = Input
 input-msg = Please input text
 input-hint = text

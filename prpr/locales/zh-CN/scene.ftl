@@ -1,3 +1,4 @@
+
 input = 输入
 input-msg = 请输入文字
 input-hint = 文字

@@ -16,9 +16,9 @@ use std::{
 };
 use sys_locale::get_locale;
 
-static LANGS: [&str; 2] = ["zh-CN", "en-US"]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_NAMES: [&str; 2] = ["简体中文", "English"]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 2]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
+static LANGS: [&str; 3] = ["zh-CN", "en-US", "ja-JP"]; // this should be consistent with the macro below (create_bundles)
+pub static LANG_NAMES: [&str; 3] = ["简体中文", "English", "日本語"]; // this should be consistent with the macro below (create_bundles)
+pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 3]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
 
 #[macro_export]
 macro_rules! create_bundle {
@@ -43,6 +43,7 @@ macro_rules! create_bundles {
         let mut bundles = Vec::new();
         bundles.push($crate::create_bundle!("zh-CN", $file));
         bundles.push($crate::create_bundle!("en-US", $file));
+        bundles.push($crate::create_bundle!("ja-JP", $file));
         bundles
     }};
 }

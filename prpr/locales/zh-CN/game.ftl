@@ -1,3 +1,4 @@
+
 to = 至
 adjust-offset = 调整延迟
 offset-cancel = 取消
