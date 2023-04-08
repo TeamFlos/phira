@@ -1,6 +1,5 @@
 use super::{Chart, Object, Ptr, User};
 use chrono::{DateTime, Utc};
-use prpr::scene::SimpleRecord;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -26,15 +25,5 @@ impl Object for Record {
 
     fn id(&self) -> i32 {
         self.id
-    }
-}
-
-impl Record {
-    pub fn to_simple(&self) -> SimpleRecord {
-        SimpleRecord {
-            score: self.score,
-            accuracy: self.accuracy,
-            full_combo: self.full_combo,
-        }
     }
 }
