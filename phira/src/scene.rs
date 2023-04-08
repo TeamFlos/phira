@@ -16,8 +16,15 @@ use cap_std::ambient_authority;
 use prpr::{
     ext::SafeTexture,
     fs::{self, FileSystem},
+    ui::Dialog,
 };
-use std::{cell::RefCell, sync::Arc};
+use std::{
+    cell::RefCell,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 thread_local! {
     pub static TEX_BACKGROUND: RefCell<Option<SafeTexture>> = RefCell::new(None);
@@ -28,7 +35,7 @@ pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem>> {
     if let Some(name) = path.strip_prefix(':') {
         fs::fs_from_assets(format!("charts/{name}/"))
     } else {
-        let full_path = format!("{}/{}", dir::charts()?, path);
+        let full_path = format!("{}/{path}", dir::charts()?);
         if path.starts_with("download/") {
             let dir = Arc::new(cap_std::fs::Dir::open_ambient_dir(full_path, ambient_authority())?);
             Ok(Box::new(fs::ExternalFileSystem(dir)))
@@ -36,4 +43,15 @@ pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem>> {
             fs::fs_from_file(std::path::Path::new(&full_path))
         }
     }
+}
+
+pub fn confirm_delete(res: Arc<AtomicBool>) {
+    Dialog::plain(ttl!("del-confirm"), ttl!("del-confirm-content"))
+        .buttons(vec![ttl!("del-confirm-cancel").into_owned(), ttl!("del-confirm-ok").into_owned()])
+        .listener(move |id| {
+            if id == 1 {
+                res.store(true, Ordering::SeqCst);
+            }
+        })
+        .show();
 }

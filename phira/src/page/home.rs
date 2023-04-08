@@ -31,6 +31,7 @@ pub struct HomePage {
     icon_user: SafeTexture,
     icon_info: SafeTexture,
     icon_delete: SafeTexture,
+    icon_menu: SafeTexture,
 
     btn_play: DRectButton,
     btn_event: DRectButton,
@@ -76,6 +77,7 @@ impl HomePage {
             icon_user: load_texture("user.png").await?.into(),
             icon_info: load_texture("info.png").await?.into(),
             icon_delete: load_texture("delete.png").await?.into(),
+            icon_menu: load_texture("menu.png").await?.into(),
 
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
@@ -118,8 +120,12 @@ impl Page for HomePage {
         }
         if self.btn_play.touch(touch, t) {
             button_hit_large();
-            self.next_page =
-                Some(NextPage::Overlay(Box::new(LibraryPage::new(self.icon_back.clone(), self.icon_play.clone(), self.icon_download.clone())?)));
+            self.next_page = Some(NextPage::Overlay(Box::new(LibraryPage::new(
+                self.icon_back.clone(),
+                self.icon_play.clone(),
+                self.icon_download.clone(),
+                self.icon_menu.clone(),
+            )?)));
             return Ok(true);
         }
         if self.btn_event.touch(touch, t) {

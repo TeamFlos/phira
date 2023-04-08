@@ -112,10 +112,7 @@ impl Data {
         Ok(())
     }
 
-    pub fn find_chart(&self, chart: &ChartItem) -> Option<usize> {
-        chart
-            .local_path
-            .as_ref()
-            .and_then(|it| self.charts.iter().position(|local| &local.local_path == it))
+    pub fn find_chart_by_path(&self, local_path: Option<&str>) -> Option<usize> {
+        local_path.and_then(|it| self.charts.iter().position(|local| &local.local_path == it))
     }
 }

@@ -1,3 +1,5 @@
+prpr::tl_file!("common" ttl crate::);
+
 mod client;
 mod data;
 mod images;
@@ -15,7 +17,7 @@ use prpr::{
     l10n::{set_locale_order, LanguageIdentifier, LANG_IDENTS},
     time::TimeManager,
     ui::{FontArc, TextPainter, Ui},
-    Main,
+    Main, scene::show_error,
 };
 use scene::MainScene;
 use std::sync::{mpsc, Mutex};
@@ -153,14 +155,21 @@ async fn the_main() -> Result<()> {
     let mut fps_time = -1;
     'app: loop {
         let frame_start = tm.real_time();
-        main.update()?;
-        main.render(&mut Ui::new(&mut painter))?;
-        if let Ok(paused) = rx.try_recv() {
-            if paused {
-                main.pause()?;
-            } else {
-                main.resume()?;
+        let res = || -> Result<()> {
+            main.update()?;
+            main.render(&mut Ui::new(&mut painter))?;
+            if let Ok(paused) = rx.try_recv() {
+                if paused {
+                    main.pause()?;
+                } else {
+                    main.resume()?;
+                }
             }
+            Ok(())
+        }();
+        if let Err(err) = res {
+            warn!("uncaught error: {:?}", err);
+            show_error(err);
         }
         if main.should_exit() {
             break 'app;

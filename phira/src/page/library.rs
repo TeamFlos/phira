@@ -3,7 +3,7 @@ prpr::tl_file!("library");
 use super::{load_local, ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Chart, Client, File},
-    dir,
+    dir, get_data_mut, save_data,
     scene::{ChartOrder, SongScene},
 };
 use anyhow::Result;
@@ -48,6 +48,7 @@ struct TransitState {
     next_scene: Option<NextScene>,
     back: bool,
     done: bool,
+    delete: bool,
 }
 
 pub struct LibraryPage {
@@ -73,10 +74,11 @@ pub struct LibraryPage {
     icon_back: SafeTexture,
     icon_play: SafeTexture,
     icon_download: SafeTexture,
+    icon_menu: SafeTexture,
 }
 
 impl LibraryPage {
-    pub fn new(icon_back: SafeTexture, icon_play: SafeTexture, icon_download: SafeTexture) -> Result<Self> {
+    pub fn new(icon_back: SafeTexture, icon_play: SafeTexture, icon_download: SafeTexture, icon_menu: SafeTexture) -> Result<Self> {
         Ok(Self {
             btn_local: DRectButton::new(),
             btn_online: DRectButton::new(),
@@ -100,6 +102,7 @@ impl LibraryPage {
             icon_back,
             icon_play,
             icon_download,
+            icon_menu,
         })
     }
 }
@@ -265,13 +268,14 @@ impl Page for LibraryPage {
     }
 
     fn on_result(&mut self, res: Box<dyn Any>, s: &mut SharedState) -> Result<()> {
-        let _res = match res.downcast::<()>() {
+        let _res = match res.downcast::<bool>() {
             Err(res) => res,
-            Ok(_) => {
+            Ok(delete) => {
                 let transit = self.transit.as_mut().unwrap();
                 transit.start_time = s.t;
                 transit.back = true;
                 transit.done = false;
+                transit.delete = *delete;
                 return Ok(());
             }
         };
@@ -279,7 +283,9 @@ impl Page for LibraryPage {
     }
 
     fn enter(&mut self, s: &mut SharedState) -> Result<()> {
-        s.charts_local = load_local(&BLACK_TEXTURE, &(ChartOrder::Default, false));
+        if self.transit.is_none() {
+            s.reload_local_charts();
+        }
         Ok(())
     }
 
@@ -349,6 +355,7 @@ impl Page for LibraryPage {
                         self.icon_back.clone(),
                         self.icon_play.clone(),
                         self.icon_download.clone(),
+                        self.icon_menu.clone(),
                         s.icons.clone(),
                     );
                     self.transit = Some(TransitState {
@@ -359,6 +366,7 @@ impl Page for LibraryPage {
                         next_scene: Some(NextScene::Overlay(Box::new(scene))),
                         back: false,
                         done: false,
+                        delete: false,
                     });
                     return Ok(true);
                 }
@@ -395,7 +403,17 @@ impl Page for LibraryPage {
             transit.chart.illu.settle(t);
             if t > transit.start_time + TRANSIT_TIME {
                 if transit.back {
-                    self.back_fade_in = Some((transit.id, t));
+                    if transit.delete {
+                        let data = get_data_mut();
+                        let path = s.charts_local[transit.id as usize].local_path.clone().unwrap();
+                        std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
+                        data.charts.remove(data.find_chart_by_path(Some(path.as_str())).unwrap());
+                        save_data()?;
+                        s.reload_local_charts();
+                    } else {
+                        self.back_fade_in = Some((transit.id, t));
+                    }
+                    s.reload_local_charts();
                     self.transit = None;
                 } else {
                     transit.done = true;

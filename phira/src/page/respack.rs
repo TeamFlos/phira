@@ -1,7 +1,7 @@
 prpr::tl_file!("respack");
 
 use super::{Page, SharedState};
-use crate::{dir, get_data, get_data_mut, save_data};
+use crate::{dir, get_data, get_data_mut, save_data, scene::confirm_delete};
 use anyhow::{Context, Result};
 use cap_std::ambient_authority;
 use macroquad::prelude::*;
@@ -16,11 +16,12 @@ use std::{
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use uuid7::uuid7;
-
-static SHOULD_DELETE: AtomicBool = AtomicBool::new(false);
 
 fn build_emitter(pack: &ResourcePack) -> Result<ParticleEmitter> {
     ParticleEmitter::new(&pack, get_data().config.note_scale * 0.6, pack.info.hide_particles)
@@ -68,6 +69,8 @@ pub struct ResPackPage {
     info_btn: DRectButton,
     delete_btn: DRectButton,
 
+    should_delete: Arc<AtomicBool>,
+
     emitter: Option<ParticleEmitter>,
     sfxs: Option<[Sfx; 3]>,
     last_round: u32,
@@ -101,6 +104,8 @@ impl ResPackPage {
 
             info_btn: delete_btn.clone(),
             delete_btn,
+
+            should_delete: Arc::new(AtomicBool::default()),
 
             emitter: None,
             sfxs: None,
@@ -163,15 +168,9 @@ impl Page for ResPackPage {
         if self.delete_btn.touch(touch, t) {
             if self.index == 0 {
                 show_message(tl!("cant-delete-builtin")).error();
+                return Ok(true);
             }
-            Dialog::plain(tl!("confirm"), tl!("confirm-content"))
-                .buttons(vec![tl!("confirm-cancel").into_owned(), tl!("confirm-ok").into_owned()])
-                .listener(|id| {
-                    if id == 1 {
-                        SHOULD_DELETE.store(true, Ordering::SeqCst);
-                    }
-                })
-                .show();
+            confirm_delete(self.should_delete.clone());
             return Ok(true);
         }
         Ok(false)
@@ -200,7 +199,7 @@ impl Page for ResPackPage {
                 item.load_task = None;
             }
         }
-        if SHOULD_DELETE.fetch_and(false, Ordering::Relaxed) {
+        if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             std::fs::remove_dir_all(self.items[self.index].path.as_ref().unwrap())?;
             self.items.remove(self.index);
             get_data_mut().respacks.remove(self.index);

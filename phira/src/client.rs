@@ -20,8 +20,8 @@ static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_point
 
 pub struct Client;
 
-// const API_URL: &str = "http://localhost:2924";
-const API_URL: &str = "https://api.phira.cn:2925";
+const API_URL: &str = "http://localhost:2924";
+// const API_URL: &str = "https://api.phira.cn:2925";
 
 fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
     let mut headers = header::HeaderMap::new();
@@ -53,6 +53,7 @@ pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
     if !response.status().is_success() {
         let text = response.text().await.context("failed to receive text")?;
         if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
+            println!("{:?}", what);
             if let Some(detail) = what["detail"].as_str() {
                 bail!("request failed: {detail}");
             }

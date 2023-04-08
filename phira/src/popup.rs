@@ -36,7 +36,7 @@ impl Popup {
 
     #[inline]
     pub fn with_options(mut self, options: Vec<String>) -> Self {
-        self.options = options.into_iter().map(|it| (it, RectButton::new())).collect();
+        self.set_options(options);
         self
     }
 
@@ -67,6 +67,16 @@ impl Popup {
     #[inline]
     pub fn selected(&self) -> usize {
         self.selected
+    }
+
+    #[inline]
+    pub fn set_options(&mut self, options: Vec<String>) {
+        self.options = options.into_iter().map(|it| (it, RectButton::new())).collect();
+    }
+
+    #[inline]
+    pub fn set_selected(&mut self, selected: usize) {
+        self.selected = selected;
     }
 
     pub fn set_bottom(&mut self, bottom: bool) {
@@ -108,6 +118,9 @@ impl Popup {
                     ui.fill_rect(r, semi_white(alpha));
                     self.scroll.render(ui, |ui| {
                         for (id, (opt, btn)) in self.options.iter_mut().enumerate() {
+                            if id != 0 {
+                                ui.fill_rect(Rect::new(0.02, -0.001, r.w - 0.04, 0.002), semi_black(0.4));
+                            }
                             let r = Rect::new(0., 0., r.w, self.height);
                             btn.set(ui, r);
                             let chosen = id == self.selected;
@@ -119,6 +132,7 @@ impl Popup {
                                 .anchor(0., 0.5)
                                 .no_baseline()
                                 .size(self.size)
+                                .max_width(r.w - self.left * 2.)
                                 .color(if chosen { semi_white(alpha) } else { semi_black(alpha) })
                                 .draw();
                             ui.dy(self.height);

@@ -21,3 +21,7 @@ failed-to-play = 启动在线模式失败
 play-cancel = 取消
 play-switch-to-offline = 切换到离线模式
 switched-to-offline = 已切换到离线模式
+
+delete = 删除
+exercise = 练习
+offset = 调整延迟

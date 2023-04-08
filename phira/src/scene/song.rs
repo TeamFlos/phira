@@ -1,11 +1,12 @@
 prpr::tl_file!("song");
 
-use super::fs_from_path;
+use super::{confirm_delete, fs_from_path};
 use crate::{
     client::{recv_raw, Chart, Client, Ptr, UserManager},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     page::{ChartItem, Illustration},
+    popup::Popup,
     save_data,
 };
 use anyhow::{anyhow, Context, Result};
@@ -32,7 +33,10 @@ use std::{
     borrow::Cow,
     io::{Cursor, Write},
     path::Path,
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, Weak,
+    },
 };
 
 const FADE_IN_TIME: f32 = 0.3;
@@ -76,6 +80,7 @@ pub struct SongScene {
     icon_back: SafeTexture,
     icon_play: SafeTexture,
     icon_download: SafeTexture,
+    icon_menu: SafeTexture,
 
     next_scene: Option<NextScene>,
 
@@ -95,6 +100,12 @@ pub struct SongScene {
     record: Option<SimpleRecord>,
 
     fetch_best_task: Option<Task<Result<SimpleRecord>>>,
+
+    menu: Popup,
+    menu_btn: RectButton,
+    need_show_menu: bool,
+    should_delete: Arc<AtomicBool>,
+    menu_options: Vec<&'static str>,
 }
 
 impl SongScene {
@@ -104,6 +115,7 @@ impl SongScene {
         icon_back: SafeTexture,
         icon_play: SafeTexture,
         icon_download: SafeTexture,
+        icon_menu: SafeTexture,
         icons: [SafeTexture; 8],
     ) -> Self {
         let illu = if let Some(id) = chart.info.id {
@@ -143,6 +155,7 @@ impl SongScene {
             icon_back,
             icon_play,
             icon_download,
+            icon_menu,
 
             next_scene: None,
 
@@ -182,6 +195,12 @@ impl SongScene {
             record,
 
             fetch_best_task,
+
+            menu: Popup::new(),
+            menu_btn: RectButton::new(),
+            need_show_menu: false,
+            should_delete: Arc::new(AtomicBool::default()),
+            menu_options: Vec::new(),
         }
     }
 
@@ -242,6 +261,7 @@ impl SongScene {
                     if prog_wk.strong_count() != 0 {
                         unzip_into(Cursor::new(bytes), &dir)?;
                     }
+                    // tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     *status.lock().unwrap() = tl!("dl-status-saving");
                     if let Some(prog) = prog_wk.upgrade() {
                         *prog.lock().unwrap() = None;
@@ -289,6 +309,98 @@ impl SongScene {
         self.record = chart.record.clone();
         Ok(())
     }
+
+    fn update_menu(&mut self) {
+        self.menu_options.clear();
+        if self.local_path.is_some() {
+            self.menu_options.push("delete");
+            self.menu_options.push("exercise");
+            self.menu_options.push("offset");
+        }
+        self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
+    }
+
+    fn launch(&mut self, mode: GameMode) -> Result<()> {
+        let mut fs = fs_from_path(self.local_path.as_ref().unwrap())?;
+        #[cfg(feature = "closed")]
+        let rated = {
+            let config = &get_data().config;
+            !config.offline_mode && self.info.id.is_some() && !config.autoplay && config.speed >= 1.0 - 1e-3
+        };
+        #[cfg(not(feature = "closed"))]
+        let rated = false;
+        if !rated && self.info.id.is_some() && mode == GameMode::Normal {
+            show_message(tl!("warn-unrated")).warn();
+        }
+        let id = self.info.id.clone();
+        load_scene(async move {
+            let mut info = fs::load_info(fs.as_mut()).await?;
+            info.id = id;
+            LoadingScene::new(
+                mode,
+                info,
+                Config {
+                    player_name: get_data()
+                        .me
+                        .as_ref()
+                        .map(|it| it.name.clone())
+                        .unwrap_or_else(|| tl!("guest").to_string()),
+                    res_pack_path: {
+                        let id = get_data().respack_id;
+                        if id == 0 {
+                            None
+                        } else {
+                            Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
+                        }
+                    },
+                    ..get_data().config.clone()
+                },
+                fs,
+                get_data().me.as_ref().map(|it| BasicPlayer {
+                    avatar: UserManager::get_avatar(it.id),
+                    id: it.id,
+                    rks: it.rks,
+                }),
+                None,
+                Some(Arc::new(move |data| {
+                    Task::new(async move {
+                        #[derive(Serialize)]
+                        struct Req {
+                            chart: i32,
+                            token: String,
+                        }
+                        #[derive(Deserialize)]
+                        #[serde(rename_all = "camelCase")]
+                        struct Resp {
+                            id: i32,
+                            exp_delta: f64,
+                            new_best: bool,
+                            improvement: u32,
+                            new_rks: f32,
+                        }
+                        let resp: Resp = recv_raw(Client::post(
+                            "/play/upload",
+                            &Req {
+                                chart: id.unwrap(),
+                                token: base64::encode(data),
+                            },
+                        ))
+                        .await?
+                        .json()
+                        .await?;
+                        Ok(RecordUpdateState {
+                            best: resp.new_best,
+                            improvement: resp.improvement,
+                            gain_exp: resp.exp_delta as f32,
+                            new_rks: resp.new_rks,
+                        })
+                    })
+                })),
+            )
+            .await
+        });
+        Ok(())
+    }
 }
 
 impl Scene for SongScene {
@@ -326,11 +438,16 @@ impl Scene for SongScene {
             music.seek_to(0.)?;
             music.play()?;
         }
+        self.update_menu();
         Ok(())
     }
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
+        if self.menu.showing() {
+            self.menu.touch(touch, t);
+            return Ok(true);
+        }
         if loading_scene() {
             return Ok(false);
         }
@@ -343,92 +460,20 @@ impl Scene for SongScene {
         }
         if self.back_btn.touch(touch) {
             button_hit();
-            self.next_scene = Some(NextScene::PopWithResult(Box::new(())));
+            self.next_scene = Some(NextScene::PopWithResult(Box::new(false)));
             return Ok(true);
         }
         if self.play_btn.touch(touch, t) {
-            if let Some(local_path) = &self.local_path {
-                let mut fs = fs_from_path(local_path)?;
-                #[cfg(feature = "closed")]
-                let rated = {
-                    let config = &get_data().config;
-                    !config.offline_mode && self.info.id.is_some() && !config.autoplay && config.speed >= 1.0 - 1e-3
-                };
-                #[cfg(not(feature = "closed"))]
-                let rated = false;
-                if !rated && self.info.id.is_some() {
-                    show_message(tl!("warn-unrated")).warn();
-                }
-                let id = self.info.id.clone();
-                load_scene(async move {
-                    let mut info = fs::load_info(fs.as_mut()).await?;
-                    info.id = id;
-                    LoadingScene::new(
-                        GameMode::Normal,
-                        info,
-                        Config {
-                            player_name: get_data()
-                                .me
-                                .as_ref()
-                                .map(|it| it.name.clone())
-                                .unwrap_or_else(|| tl!("guest").to_string()),
-                            res_pack_path: {
-                                let id = get_data().respack_id;
-                                if id == 0 {
-                                    None
-                                } else {
-                                    Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
-                                }
-                            },
-                            ..get_data().config.clone()
-                        },
-                        fs,
-                        get_data().me.as_ref().map(|it| BasicPlayer {
-                            avatar: UserManager::get_avatar(it.id),
-                            id: it.id,
-                            rks: it.rks,
-                        }),
-                        None,
-                        Some(Arc::new(move |data| {
-                            Task::new(async move {
-                                #[derive(Serialize)]
-                                struct Req {
-                                    chart: i32,
-                                    token: String,
-                                }
-                                #[derive(Deserialize)]
-                                #[serde(rename_all = "camelCase")]
-                                struct Resp {
-                                    id: i32,
-                                    exp_delta: f64,
-                                    new_best: bool,
-                                    improvement: u32,
-                                    new_rks: f32,
-                                }
-                                let resp: Resp = recv_raw(Client::post(
-                                    "/play/upload",
-                                    &Req {
-                                        chart: id.unwrap(),
-                                        token: base64::encode(data),
-                                    },
-                                ))
-                                .await?
-                                .json()
-                                .await?;
-                                Ok(RecordUpdateState {
-                                    best: resp.new_best,
-                                    improvement: resp.improvement,
-                                    gain_exp: resp.exp_delta as f32,
-                                    new_rks: resp.new_rks,
-                                })
-                            })
-                        })),
-                    )
-                    .await
-                });
+            if self.local_path.is_some() {
+                self.launch(GameMode::Normal)?;
             } else {
                 self.start_download()?;
             }
+            return Ok(true);
+        }
+        if self.menu_btn.touch(touch) && !self.menu_options.is_empty() {
+            button_hit();
+            self.need_show_menu = true;
             return Ok(true);
         }
         Ok(false)
@@ -436,6 +481,7 @@ impl Scene for SongScene {
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         let t = tm.now() as f32;
+        self.menu.update(t);
         self.illu.settle(t);
         if let Some(task) = &mut self.load_task {
             if let Some(res) = task.take() {
@@ -487,6 +533,7 @@ impl Scene for SongScene {
                         self.local_path = Some(chart.local_path.clone());
                         get_data_mut().charts.push(chart);
                         save_data()?;
+                        self.update_menu();
                         show_message(tl!("dl-success")).ok();
                     }
                 }
@@ -523,6 +570,23 @@ impl Scene for SongScene {
                 }
                 self.fetch_best_task = None;
             }
+        }
+        if self.menu.changed() {
+            match self.menu_options[self.menu.selected()] {
+                "delete" => {
+                    confirm_delete(self.should_delete.clone());
+                }
+                "exercise" => {
+                    self.launch(GameMode::Normal)?;
+                }
+                "offset" => {
+                    self.launch(GameMode::TweakOffset)?;
+                }
+                _ => {}
+            }
+        }
+        if self.should_delete.fetch_and(false, Ordering::Relaxed) {
+            self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
         }
         Ok(())
     }
@@ -597,6 +661,23 @@ impl Scene for SongScene {
             ),
         );
 
+        ui.scope(|ui| {
+            ui.dx(1. - 0.03);
+            ui.dy(-ui.top + 0.03);
+            let s = 0.08;
+            let r = Rect::new(-s, 0., s, s);
+            let cc = semi_white(c.a * 0.4);
+            ui.fill_rect(r, (*self.icon_menu, r.feather(-0.02), ScaleType::Fit, if self.menu_options.is_empty() { cc } else { c }));
+            self.menu_btn.set(ui, r);
+            if self.need_show_menu {
+                self.need_show_menu = false;
+                self.menu.set_bottom(true);
+                self.menu.set_selected(usize::MAX);
+                let d = 0.28;
+                self.menu.show(ui, t, Rect::new(r.x - d, r.bottom(), r.w + d, 0.4));
+            }
+        });
+
         if let Some(dl) = &self.downloading {
             ui.fill_rect(ui.screen_rect(), semi_black(0.6));
             ui.loading(0., -0.06, t, WHITE, (*dl.prog.lock().unwrap(), &mut self.loading_last));
@@ -606,6 +687,7 @@ impl Scene for SongScene {
             self.cancel_download_btn.render_text(ui, r, t, 1., tl!("dl-cancel"), 0.6, true);
         }
 
+        self.menu.render(ui, t, 1.);
         Ok(())
     }
 

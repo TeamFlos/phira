@@ -324,6 +324,10 @@ impl SharedState {
     pub fn render_fader<R>(&mut self, ui: &mut Ui, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
         self.fader.render(ui, self.t, f)
     }
+
+    pub fn reload_local_charts(&mut self) {
+        self.charts_local = load_local(&BLACK_TEXTURE, &(ChartOrder::Default, false));
+    }
 }
 
 #[derive(Default)]
