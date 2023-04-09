@@ -146,13 +146,15 @@ impl Page for ResPackPage {
             request_file("respack");
             return Ok(true);
         }
-        for (index, item) in self.items.iter_mut().enumerate() {
-            if item.btn.touch(touch, t) {
-                self.index = index;
-                get_data_mut().respack_id = index;
-                save_data()?;
-                item.load();
-                return Ok(true);
+        if self.items[self.index].load_task.is_none() {
+            for (index, item) in self.items.iter_mut().enumerate() {
+                if item.btn.touch(touch, t) {
+                    self.index = index;
+                    get_data_mut().respack_id = index;
+                    save_data()?;
+                    item.load();
+                    return Ok(true);
+                }
             }
         }
         if self.info_btn.touch(touch, t) {
