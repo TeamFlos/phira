@@ -21,7 +21,10 @@ use std::{
     borrow::Cow,
     ops::{Deref, Range},
     path::Path,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 const CHART_HEIGHT: f32 = 0.3;
@@ -30,6 +33,8 @@ const ROW_NUM: u32 = 4;
 const PAGE_NUM: u64 = 28;
 const TRANSIT_TIME: f32 = 0.4;
 const BACK_FADE_IN_TIME: f32 = 0.2;
+
+pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ChartListType {
@@ -92,6 +97,7 @@ impl LibraryPage {
         icon_edit: SafeTexture,
         icon_ldb: SafeTexture,
     ) -> Result<Self> {
+        NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
             btn_local: DRectButton::new(),
             btn_online: DRectButton::new(),
@@ -301,7 +307,7 @@ impl Page for LibraryPage {
     }
 
     fn enter(&mut self, s: &mut SharedState) -> Result<()> {
-        if self.transit.is_none() {
+        if self.transit.is_none() && NEED_UPDATE.fetch_and(false, Ordering::SeqCst) {
             s.reload_local_charts();
         }
         Ok(())
@@ -433,11 +439,13 @@ impl Page for LibraryPage {
                         std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
                         data.charts.remove(data.find_chart_by_path(path.as_str()).unwrap());
                         save_data()?;
-                        s.reload_local_charts();
+                        NEED_UPDATE.store(true, Ordering::SeqCst);
                     } else {
                         self.back_fade_in = Some((transit.id, t));
                     }
-                    s.reload_local_charts();
+                    if NEED_UPDATE.fetch_and(false, Ordering::SeqCst) {
+                        s.reload_local_charts();
+                    }
                     self.transit = None;
                 } else {
                     transit.done = true;

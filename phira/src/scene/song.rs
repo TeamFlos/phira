@@ -5,7 +5,7 @@ use crate::{
     client::{recv_raw, Chart, Client, Ptr, Record, UserManager},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
-    page::{ChartItem, Fader, Illustration},
+    page::{ChartItem, Fader, Illustration, NEED_UPDATE},
     popup::Popup,
     save_data,
 };
@@ -187,7 +187,9 @@ impl SongScene {
                 chart.info.id = Some(id.parse().unwrap());
             }
         }
-        let illu = if let Some(id) = chart.info.id {
+        let illu = if local_path.is_some() {
+            chart.illu.clone()
+        } else if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
                 task: Some(Task::new({
@@ -645,6 +647,7 @@ impl SongScene {
 
     fn update_chart_info(&mut self) -> Result<()> {
         get_data_mut().charts[get_data().find_chart_by_path(self.local_path.as_deref().unwrap()).unwrap()].info = self.info.clone();
+        NEED_UPDATE.store(true, Ordering::SeqCst);
         save_data()?;
         Ok(())
     }
@@ -807,6 +810,7 @@ impl Scene for SongScene {
                         show_error(err.context(tl!("dl-failed")));
                     }
                     Ok(chart) => {
+                        NEED_UPDATE.store(true, Ordering::SeqCst);
                         self.local_path = Some(chart.local_path.clone());
                         get_data_mut().charts.push(chart);
                         save_data()?;

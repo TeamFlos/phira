@@ -2,7 +2,7 @@ mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::LibraryPage;
+pub use library::{LibraryPage, NEED_UPDATE};
 
 mod offset;
 pub use offset::OffsetPage;
