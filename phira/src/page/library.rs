@@ -3,15 +3,16 @@ prpr::tl_file!("library");
 use super::{load_local, ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Chart, Client, File},
+    data::LocalChart,
     dir, get_data_mut, save_data,
-    scene::{ChartOrder, SongScene},
+    scene::{import_chart, ChartOrder, SongScene},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
     ext::{semi_black, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
-    scene::{show_error, show_message, NextScene},
+    scene::{request_file, return_file, show_error, show_message, take_file, NextScene},
     task::Task,
     ui::{button_hit_large, DRectButton, Scroll, Ui},
 };
@@ -76,6 +77,9 @@ pub struct LibraryPage {
     icon_download: SafeTexture,
     icon_menu: SafeTexture,
     icon_edit: SafeTexture,
+
+    import_btn: DRectButton,
+    import_task: Option<Task<Result<LocalChart>>>,
 }
 
 impl LibraryPage {
@@ -111,6 +115,9 @@ impl LibraryPage {
             icon_download,
             icon_menu,
             icon_edit,
+
+            import_btn: DRectButton::new(),
+            import_task: None,
         })
     }
 }
@@ -298,8 +305,8 @@ impl Page for LibraryPage {
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
-        if self.transit.is_some() {
-            return Ok(false);
+        if self.transit.is_some() || self.import_task.is_some() {
+            return Ok(true);
         }
         let t = s.t;
         if self.btn_local.touch(touch, t) {
@@ -381,6 +388,10 @@ impl Page for LibraryPage {
                 }
             }
         }
+        if matches!(self.chosen, ChartListType::Local) && self.import_btn.touch(touch, t) {
+            request_file("import");
+            return Ok(true);
+        }
         Ok(false)
     }
 
@@ -429,6 +440,29 @@ impl Page for LibraryPage {
                 }
             }
         }
+        if let Some((id, file)) = take_file() {
+            if id == "import" {
+                self.import_task = Some(Task::new(import_chart(file)));
+            } else {
+                return_file(id, file);
+            }
+        }
+        if let Some(task) = &mut self.import_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("import-failed")));
+                    }
+                    Ok(chart) => {
+                        show_message(tl!("import-success")).ok();
+                        get_data_mut().charts.push(chart);
+                        save_data()?;
+                        s.reload_local_charts();
+                    }
+                }
+                self.import_task = None;
+            }
+        }
         Ok(())
     }
 
@@ -449,6 +483,13 @@ impl Page for LibraryPage {
         });
         let mut r = ui.content_rect();
         r.h -= 0.08;
+        if matches!(self.chosen, ChartListType::Local) {
+            s.render_fader(ui, |ui, c| {
+                let w = 0.24;
+                let r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
+                self.import_btn.render_text(ui, r, t, c.a, tl!("import"), 0.6, false);
+            });
+        }
         s.fader.render(ui, t, |ui, c| {
             let path = r.rounded(0.02);
             ui.fill_path(&path, semi_black(0.4 * c.a));
@@ -489,6 +530,9 @@ impl Page for LibraryPage {
                 ui.fill_path(&path, (*transit.chart.illu.texture.1, r.feather(0.01 * (1. - p))));
                 ui.fill_path(&path, semi_black(0.55));
             }
+        }
+        if self.import_task.is_some() {
+            ui.full_loading(tl!("importing"), t);
         }
         Ok(())
     }

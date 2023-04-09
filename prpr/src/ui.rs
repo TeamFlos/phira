@@ -255,7 +255,7 @@ impl DRectButton {
             .pos(ct.x, ct.y)
             .anchor(0.5, 0.5)
             .no_baseline()
-            .size(size * r.h / oh)
+            .size(size * (1. - (1. - r.h / oh).powf(1.3)))
             .color(if chosen { Color::new(0.3, 0.3, 0.3, alpha) } else { semi_white(alpha) })
             .draw();
         (r, path)

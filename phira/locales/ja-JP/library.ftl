@@ -11,3 +11,7 @@ next-page = Next page
 not-opened = 現在利用できません
 failed-to-load-online = オンラインビートマップの読み込みに失敗しました
 
+import = Import
+importing = Importing
+import-success = Imported successfully
+import-failed = Import failed

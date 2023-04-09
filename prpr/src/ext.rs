@@ -3,7 +3,7 @@ use crate::{
     core::{Matrix, Point, Vector},
     ui::Ui,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use image::DynamicImage;
 use lyon::{
     math::Box2D,
@@ -435,20 +435,42 @@ pub fn semi_white(alpha: f32) -> Color {
     Color::new(1., 1., 1., alpha)
 }
 
-pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &cap_std::fs::Dir) -> Result<()> {
+pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &cap_std::fs::Dir, strip_root: bool) -> Result<()> {
     let mut zip = zip::ZipArchive::new(reader)?;
+    let root = if strip_root {
+        if let Some(root) = zip.file_names().min_by_key(|it| it.len()) {
+            if root.ends_with('/') && zip.file_names().all(|it| it.starts_with(&root)) {
+                root.to_owned()
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+    if strip_root {
+        info!("root is {}", root);
+    }
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i)?;
-        if entry.is_dir() {
-            dir.create_dir_all(entry.name())?;
-        } else {
-            if let Some(p) = entry.mangled_name().parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(p)?;
-                }
+        let path = entry.enclosed_name().ok_or_else(|| anyhow!("invalid zip"))?;
+        let path = path.display().to_string();
+        if entry.is_dir() && entry.name() != root {
+            if let Some(after) = path.strip_prefix(&root) {
+                dir.create_dir(after)?;
             }
-            let mut file = dir.create(entry.name())?;
-            std::io::copy(&mut entry, &mut file)?;
+        } else if entry.is_file() {
+            if let Some(after) = path.strip_prefix(&root) {
+                if let Some(p) = std::path::Path::new(after).parent() {
+                    if !p.exists() {
+                        std::fs::create_dir_all(p)?;
+                    }
+                }
+                let mut file = dir.create(after)?;
+                std::io::copy(&mut entry, &mut file)?;
+            }
         }
     }
     Ok(())

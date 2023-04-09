@@ -299,11 +299,6 @@ fn info_from_csv(text: &str) -> Result<ChartInfo> {
 }
 
 pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<()> {
-    enum FileStatus {
-        None,
-        One(String),
-        Multiple,
-    }
     async fn get(fs: &mut dyn FileSystem, path: &mut String) -> Result<Option<String>> {
         Ok(if fs.exists(path).await? { Some(std::mem::take(path)) } else { None })
     }

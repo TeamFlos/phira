@@ -123,7 +123,7 @@ impl ResPackPage {
         let id = id.to_string();
         dir.create_dir(&id)?;
         let dir = dir.open_dir(&id)?;
-        unzip_into(BufReader::new(File::open(file)?), &dir).context("failed to unzip")?;
+        unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
         let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;
         get_data_mut().respacks.push(id.clone());
         save_data()?;

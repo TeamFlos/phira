@@ -318,7 +318,7 @@ impl SongScene {
                     download(Cursor::new(&mut bytes), &entity.file.url, &prog_wk).await?;
                     *status.lock().unwrap() = tl!("dl-status-extract");
                     if prog_wk.strong_count() != 0 {
-                        unzip_into(Cursor::new(bytes), &dir)?;
+                        unzip_into(Cursor::new(bytes), &dir, false)?;
                     }
                     // tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     *status.lock().unwrap() = tl!("dl-status-saving");
