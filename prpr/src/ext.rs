@@ -442,6 +442,11 @@ pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &cap_std::fs
         if entry.is_dir() {
             dir.create_dir_all(entry.name())?;
         } else {
+            if let Some(p) = entry.mangled_name().parent() {
+                if !p.exists() {
+                    std::fs::create_dir_all(p)?;
+                }
+            }
             let mut file = dir.create(entry.name())?;
             std::io::copy(&mut entry, &mut file)?;
         }
