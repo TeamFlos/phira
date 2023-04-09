@@ -131,6 +131,7 @@ impl Page for HomePage {
                 self.icon_menu.clone(),
                 self.icon_edit.clone(),
                 self.icon_ldb.clone(),
+                self.icon_user.clone(),
             )?)));
             return Ok(true);
         }
@@ -262,7 +263,7 @@ impl Page for HomePage {
                 get_data()
                     .me
                     .as_ref()
-                    .map(|user| Ok(UserManager::get_avatar(user.id)))
+                    .map(|user| UserManager::opt_avatar(user.id, &self.icon_user))
                     .unwrap_or(Err(self.icon_user.clone())),
             );
             let rt = ct.0 - rad - 0.02;

@@ -127,6 +127,7 @@ pub struct SongScene {
     icon_menu: SafeTexture,
     icon_edit: SafeTexture,
     icon_ldb: SafeTexture,
+    icon_user: SafeTexture,
 
     next_scene: Option<NextScene>,
 
@@ -180,6 +181,7 @@ impl SongScene {
         icon_menu: SafeTexture,
         icon_edit: SafeTexture,
         icon_ldb: SafeTexture,
+        icon_user: SafeTexture,
         icons: [SafeTexture; 8],
     ) -> Self {
         if let Some(path) = &local_path {
@@ -230,6 +232,7 @@ impl SongScene {
             icon_menu,
             icon_edit,
             icon_ldb,
+            icon_user,
 
             next_scene: None,
 
@@ -449,7 +452,7 @@ impl SongScene {
                 },
                 fs,
                 get_data().me.as_ref().map(|it| BasicPlayer {
-                    avatar: UserManager::get_avatar(it.id),
+                    avatar: UserManager::get_avatar(it.id).flatten(),
                     id: it.id,
                     rks: it.rks,
                 }),
@@ -579,7 +582,7 @@ impl SongScene {
                             .color(c)
                             .draw();
                         let r = s / 2. - 0.02;
-                        ui.avatar(0.14, s / 2., r, c, rt, Ok(UserManager::get_avatar(item.inner.player.id)));
+                        ui.avatar(0.14, s / 2., r, c, rt, UserManager::opt_avatar(item.inner.player.id, &self.icon_user));
                         let mut rt = width - 0.04;
                         let r = ui
                             .text(format!("{:.2}%", item.inner.accuracy * 100.))

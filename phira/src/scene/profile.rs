@@ -130,7 +130,7 @@ impl Scene for ProfileScene {
             let lf = r.x + pad;
             let cx = r.center().x;
             let radius = 0.12;
-            let mut r = ui.avatar(cx, r.y + radius + 0.05, radius, WHITE, t, Ok(UserManager::get_avatar(self.id)));
+            let mut r = ui.avatar(cx, r.y + radius + 0.05, radius, WHITE, t, Ok(UserManager::get_avatar(self.id).flatten()));
             if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
                 let hw = 0.2;
                 r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);

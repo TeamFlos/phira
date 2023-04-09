@@ -32,8 +32,8 @@ impl Object for User {
     }
 }
 
-static TASKS: Lazy<Mutex<HashMap<i32, Task<Result<DynamicImage>>>>> = Lazy::new(Mutex::default);
-static RESULTS: Lazy<Mutex<HashMap<i32, (String, Option<SafeTexture>)>>> = Lazy::new(Mutex::default);
+static TASKS: Lazy<Mutex<HashMap<i32, Task<Result<Option<DynamicImage>>>>>> = Lazy::new(Mutex::default);
+static RESULTS: Lazy<Mutex<HashMap<i32, (String, Option<Option<SafeTexture>>)>>> = Lazy::new(Mutex::default);
 
 pub struct UserManager;
 
@@ -52,9 +52,13 @@ impl UserManager {
             Task::new(async move {
                 let user: Arc<User> = Client::load(id).await?;
                 RESULTS.lock().await.insert(id, (user.name.clone(), None));
-                let image = user.avatar.clone().ok_or_else(|| anyhow!("no avatar"))?.fetch().await?;
-                let image = image::load_from_memory(&image)?;
-                Ok(image)
+                if let Some(avatar) = &user.avatar {
+                    let image = avatar.fetch().await?;
+                    let image = image::load_from_memory(&image)?;
+                    Ok(Some(image))
+                } else {
+                    Ok(None)
+                }
             }),
         );
     }
@@ -67,7 +71,7 @@ impl UserManager {
         None
     }
 
-    pub fn get_avatar(id: i32) -> Option<SafeTexture> {
+    pub fn get_avatar(id: i32) -> Option<Option<SafeTexture>> {
         let mut guard = TASKS.blocking_lock();
         if let Some(task) = guard.get_mut(&id) {
             if let Some(result) = task.take() {
@@ -77,7 +81,7 @@ impl UserManager {
                         guard.remove(&id);
                     }
                     Ok(image) => {
-                        RESULTS.blocking_lock().get_mut(&id).unwrap().1 = Some(SafeTexture::from(image).with_mipmap());
+                        RESULTS.blocking_lock().get_mut(&id).unwrap().1 = Some(image.map(|it| SafeTexture::from(it).with_mipmap()));
                     }
                 }
             }
@@ -85,5 +89,9 @@ impl UserManager {
             drop(guard);
         }
         RESULTS.blocking_lock().get(&id).and_then(|it| it.1.clone())
+    }
+
+    pub fn opt_avatar(id: i32, tex: &SafeTexture) -> Result<Option<SafeTexture>, SafeTexture> {
+        Self::get_avatar(id).map(|it| it.ok_or_else(|| tex.clone())).transpose()
     }
 }

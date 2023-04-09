@@ -83,6 +83,7 @@ pub struct LibraryPage {
     icon_menu: SafeTexture,
     icon_edit: SafeTexture,
     icon_ldb: SafeTexture,
+    icon_user: SafeTexture,
 
     import_btn: DRectButton,
     import_task: Option<Task<Result<LocalChart>>>,
@@ -96,6 +97,7 @@ impl LibraryPage {
         icon_menu: SafeTexture,
         icon_edit: SafeTexture,
         icon_ldb: SafeTexture,
+        icon_user: SafeTexture,
     ) -> Result<Self> {
         NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
@@ -124,6 +126,7 @@ impl LibraryPage {
             icon_menu,
             icon_edit,
             icon_ldb,
+            icon_user,
 
             import_btn: DRectButton::new(),
             import_task: None,
@@ -382,6 +385,7 @@ impl Page for LibraryPage {
                         self.icon_menu.clone(),
                         self.icon_edit.clone(),
                         self.icon_ldb.clone(),
+                        self.icon_user.clone(),
                         s.icons.clone(),
                     );
                     self.transit = Some(TransitState {
