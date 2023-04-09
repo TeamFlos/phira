@@ -27,5 +27,6 @@ item-dhint = 双押提示
 item-dhint-sub = 同时触线的音符将会被高亮
 item-opt = 激进优化
 item-opt-sub = 采用激进的优化策略，提升性能但可能导致部分谱面显示出错
+item-note-size = 音符大小
 
 load-cali-failed = 加载音频失败

@@ -369,7 +369,7 @@ pub struct Slider {
 
 impl Slider {
     const RADIUS: f32 = 0.028;
-    const THRESHOLD: f32 = 0.1;
+    const THRESHOLD: f32 = 0.05;
 
     pub fn new(range: Range<f32>, step: f32) -> Self {
         Self {

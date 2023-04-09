@@ -433,6 +433,7 @@ struct ChartList {
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
+    size_slider: Slider,
 }
 
 impl ChartList {
@@ -442,6 +443,7 @@ impl ChartList {
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
+            size_slider: Slider::new(0.8..1.2, 0.005),
         }
     }
 
@@ -467,6 +469,9 @@ impl ChartList {
         if self.opt_btn.touch(touch, t) {
             config.aggressive ^= true;
             return Ok(Some(true));
+        }
+        if let wt @ Some(_) = self.size_slider.touch(touch, t, &mut config.note_scale) {
+            return Ok(wt);
         }
         Ok(None)
     }
@@ -504,6 +509,10 @@ impl ChartList {
         item! {
             render_title(ui, c, tl!("item-opt"), Some(tl!("item-opt-sub")));
             render_switch(ui, rr, t, c, &mut self.opt_btn, config.aggressive);
+        }
+        item! {
+            render_title(ui, c, tl!("item-note-size"), None);
+            self.size_slider.render(ui, rr, t,c, config.note_scale, format!("{:.3}", config.note_scale));
         }
         (w, h)
     }
