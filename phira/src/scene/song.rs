@@ -861,7 +861,7 @@ impl Scene for SongScene {
                     confirm_delete(self.should_delete.clone());
                 }
                 "exercise" => {
-                    self.launch(GameMode::Normal)?;
+                    self.launch(GameMode::Exercise)?;
                 }
                 "offset" => {
                     self.launch(GameMode::TweakOffset)?;

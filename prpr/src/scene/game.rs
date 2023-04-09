@@ -403,6 +403,7 @@ impl GameScene {
                 .size(0.5)
                 .color(Color { a: color.a * c.a, ..color })
                 .scale(scale)
+                .max_width(0.8)
                 .draw();
         });
         self.chart.with_element(ui, res, UIElement::Level, |ui, color, scale| {

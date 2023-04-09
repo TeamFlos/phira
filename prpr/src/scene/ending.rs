@@ -220,15 +220,12 @@ impl Scene for EndingScene {
         let rr = draw_text_aligned(ui, &self.info.level, r.right() - r.h / 7. * 13. * 0.13 - 0.01, r.bottom() - top / 20., (1., 1.), 0.46, WHITE);
         let p = (r.x + 0.04, r.bottom() - top / 20.);
         let mw = rr.x - 0.02 - p.0;
-        let mut size = 0.7;
-        loop {
-            let mut text = ui.text(&self.info.name).pos(p.0, p.1).anchor(0., 1.).size(size);
-            if text.measure().w > mw {
-                size *= 0.93;
-            } else {
-                text.draw();
-                break;
-            }
+        let mut text = ui.text(&self.info.name).pos(p.0, p.1).anchor(0., 1.).size(0.7);
+        if text.measure().w <= mw {
+            text.draw();
+        } else {
+            drop(text);
+            ui.text(&self.info.name).pos(p.0, p.1).anchor(0., 1.).size(0.5).max_width(mw).draw();
         }
         gl.pop_model_matrix();
 
