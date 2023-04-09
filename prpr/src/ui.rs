@@ -568,7 +568,7 @@ impl<'a> Ui<'a> {
         }
     }
 
-    fn ensure_touches(&mut self) -> &mut Vec<Touch> {
+    pub fn ensure_touches(&mut self) -> &mut Vec<Touch> {
         if self.touches.is_none() {
             self.touches = Some(Judge::get_touches());
         }

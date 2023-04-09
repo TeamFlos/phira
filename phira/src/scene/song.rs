@@ -498,6 +498,8 @@ impl SongScene {
             self.save_edit();
         }
 
+        ui.ensure_touches().retain(|it| !matches!(it.phase, TouchPhase::Started) || self.edit_scroll.contains(it));
+
         self.edit_scroll.size((width, ui.top * 2. - h));
         self.edit_scroll.render(ui, |ui| {
             let (w, h) = render_chart_info(ui, self.info_edit.as_mut().unwrap(), width);
