@@ -204,7 +204,7 @@ impl Page for ResPackPage {
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             std::fs::remove_dir_all(self.items[self.index].path.as_ref().unwrap())?;
             self.items.remove(self.index);
-            get_data_mut().respacks.remove(self.index);
+            get_data_mut().respacks.remove(self.index - 1);
             self.index -= 1;
             get_data_mut().respack_id = self.index;
             save_data()?;
