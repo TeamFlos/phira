@@ -13,7 +13,7 @@ use sasa::{PlaySfxParams, Sfx};
 use serde::Serialize;
 use std::{cell::RefCell, collections::HashMap, num::FpCategory};
 
-pub const FLICK_SPEED_THRESHOLD: f32 = 1.4;
+pub const FLICK_SPEED_THRESHOLD: f32 = 1.;
 pub const LIMIT_PERFECT: f32 = 0.08;
 pub const LIMIT_GOOD: f32 = 0.16;
 pub const LIMIT_BAD: f32 = 0.22;

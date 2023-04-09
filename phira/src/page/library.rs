@@ -370,6 +370,15 @@ impl Page for LibraryPage {
                     let scene = SongScene::new(
                         chart.clone(),
                         if matches!(self.chosen, ChartListType::Local) {
+                            None
+                        } else {
+                            let path = format!("download/{}", chart.info.id.unwrap());
+                            s.charts_local
+                                .iter()
+                                .find(|it| it.local_path.as_ref() == Some(&path))
+                                .map(|it| it.illu.clone())
+                        },
+                        if matches!(self.chosen, ChartListType::Local) {
                             chart.local_path.clone()
                         } else {
                             let path = format!("download/{}", chart.info.id.unwrap());

@@ -174,6 +174,7 @@ pub struct SongScene {
 impl SongScene {
     pub fn new(
         mut chart: ChartItem,
+        local_illu: Option<Illustration>,
         local_path: Option<String>,
         icon_back: SafeTexture,
         icon_play: SafeTexture,
@@ -189,8 +190,8 @@ impl SongScene {
                 chart.info.id = Some(id.parse().unwrap());
             }
         }
-        let illu = if local_path.is_some() {
-            chart.illu.clone()
+        let illu = if let Some(illu) = local_illu {
+            illu
         } else if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
