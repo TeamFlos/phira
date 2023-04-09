@@ -699,8 +699,8 @@ impl Scene for SongScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
-        if loading_scene() {
-            return Ok(false);
+        if loading_scene() || self.save_task.is_some() || self.upload_task.is_some() {
+            return Ok(true);
         }
         if self.menu.showing() {
             self.menu.touch(touch, t);
@@ -1140,6 +1140,9 @@ impl Scene for SongScene {
 
         if self.save_task.is_some() {
             ui.full_loading(tl!("edit-saving"), t);
+        }
+        if self.upload_task.is_some() {
+            ui.full_loading(tl!("uploading"), t);
         }
         Ok(())
     }
