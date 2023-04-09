@@ -63,7 +63,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 ui.dy(dy);
             }};
         }
-        let r = ui.text(tl!("edit-chart")).size(0.7).draw();
+        let r = ui.text(tl!("edit-chart")).size(0.8).draw();
         dy!(r.h + 0.04);
         let rt = 0.22;
         ui.dx(rt);

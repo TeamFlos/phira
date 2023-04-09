@@ -2,10 +2,10 @@ prpr::tl_file!("song");
 
 use super::{confirm_delete, fs_from_path};
 use crate::{
-    client::{recv_raw, Chart, Client, Ptr, UserManager},
+    client::{recv_raw, Chart, Client, Ptr, Record, UserManager},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
-    page::{ChartItem, Illustration},
+    page::{ChartItem, Fader, Illustration},
     popup::Popup,
     save_data,
 };
@@ -26,7 +26,7 @@ use prpr::{
     },
     task::Task,
     time::TimeManager,
-    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, RectButton, Scroll, Ui, UI_AUDIO},
+    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui, UI_AUDIO},
 };
 use sasa::{AudioClip, Frame, Music, MusicParams};
 use serde::{Deserialize, Serialize};
@@ -94,14 +94,23 @@ struct Downloading {
 
 enum SideContent {
     Edit,
+    Leaderboard,
 }
 
 impl SideContent {
     fn width(&self) -> f32 {
         match self {
             Self::Edit => 0.84,
+            Self::Leaderboard => 0.9,
         }
     }
+}
+
+#[derive(Deserialize)]
+struct LeaderboardItem {
+    #[serde(flatten)]
+    pub inner: Record,
+    pub rank: u32,
 }
 
 pub struct SongScene {
@@ -117,6 +126,7 @@ pub struct SongScene {
     icon_download: SafeTexture,
     icon_menu: SafeTexture,
     icon_edit: SafeTexture,
+    icon_ldb: SafeTexture,
 
     next_scene: Option<NextScene>,
 
@@ -152,6 +162,12 @@ pub struct SongScene {
 
     save_task: Option<Task<Result<(ChartInfo, AudioClip)>>>,
     upload_task: Option<Task<Result<()>>>,
+
+    ldb: Option<(Option<u32>, Vec<LeaderboardItem>)>,
+    ldb_task: Option<Task<Result<Vec<LeaderboardItem>>>>,
+    ldb_btn: RectButton,
+    ldb_scroll: Scroll,
+    ldb_fader: Fader,
 }
 
 impl SongScene {
@@ -163,6 +179,7 @@ impl SongScene {
         icon_download: SafeTexture,
         icon_menu: SafeTexture,
         icon_edit: SafeTexture,
+        icon_ldb: SafeTexture,
         icons: [SafeTexture; 8],
     ) -> Self {
         if let Some(path) = &local_path {
@@ -196,6 +213,7 @@ impl SongScene {
         } else {
             None
         };
+        let id = chart.info.id.clone();
         Self {
             illu,
 
@@ -209,12 +227,13 @@ impl SongScene {
             icon_download,
             icon_menu,
             icon_edit,
+            icon_ldb,
 
             next_scene: None,
 
             preview: None,
             preview_task: Some(Task::new({
-                let id = chart.info.id.clone();
+                let id = id.clone();
                 let local_path = local_path.clone();
                 async move {
                     if let Some(path) = local_path {
@@ -260,6 +279,12 @@ impl SongScene {
 
             save_task: None,
             upload_task: None,
+
+            ldb: None,
+            ldb_task: None,
+            ldb_btn: RectButton::new(),
+            ldb_scroll: Scroll::new(),
+            ldb_fader: Fader::new().with_distance(0.12),
         }
     }
 
@@ -342,6 +367,12 @@ impl SongScene {
             }),
         });
         Ok(())
+    }
+
+    fn load_ldb(&mut self) {
+        let Some(id) = self.info.id else { return };
+        self.ldb = None;
+        self.ldb_task = Some(Task::new(async move { Ok(recv_raw(Client::get(format!("/record/list15/{id}"))).await?.json().await?) }));
     }
 
     fn update_record(&mut self, new_rec: SimpleRecord) -> Result<()> {
@@ -498,7 +529,8 @@ impl SongScene {
             self.save_edit();
         }
 
-        ui.ensure_touches().retain(|it| !matches!(it.phase, TouchPhase::Started) || self.edit_scroll.contains(it));
+        ui.ensure_touches()
+            .retain(|it| !matches!(it.phase, TouchPhase::Started) || self.edit_scroll.contains(it));
 
         self.edit_scroll.size((width, ui.top * 2. - h));
         self.edit_scroll.render(ui, |ui| {
@@ -506,6 +538,83 @@ impl SongScene {
             (w, h + 0.1)
         });
         Ok(())
+    }
+
+    fn side_ldb(&mut self, ui: &mut Ui, rt: f32) {
+        let pad = 0.03;
+        let width = self.side_content.width() - pad;
+        ui.dy(0.02);
+        let r = ui.text(tl!("ldb")).size(0.8).draw();
+        ui.dy(r.h + 0.03);
+        let sh = ui.top * 2. - r.h - 0.08;
+        let Some((_, items)) = &self.ldb else {
+            ui.loading(width / 2., sh / 2., rt, WHITE, ());
+            return;
+        };
+        self.ldb_scroll.size((width, sh));
+        self.ldb_scroll.render(ui, |ui| {
+            ui.text(ttl!("release-to-refresh"))
+                .pos(width / 2., -0.13)
+                .anchor(0.5, 0.)
+                .size(0.8)
+                .draw();
+            let s = 0.14;
+            let mut h = 0.;
+            ui.dx(0.02);
+            self.ldb_fader.reset();
+            let me = get_data().me.as_ref().map(|it| it.id);
+            self.ldb_fader.for_sub(|f| {
+                for item in items {
+                    f.render(ui, rt, |ui, c| {
+                        if me == Some(item.inner.player.id) {
+                            ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), Color { a: c.a, ..ui.background() });
+                        }
+                        ui.text(format!("#{}", item.rank))
+                            .pos(0., s / 2.)
+                            .anchor(0., 0.5)
+                            .no_baseline()
+                            .size(0.52)
+                            .color(c)
+                            .draw();
+                        let r = s / 2. - 0.02;
+                        ui.avatar(0.14, s / 2., r, c, rt, Ok(UserManager::get_avatar(item.inner.player.id)));
+                        let mut rt = width - 0.04;
+                        let r = ui
+                            .text(format!("{:.2}%", item.inner.accuracy * 100.))
+                            .pos(rt, s / 2.)
+                            .anchor(1., 0.5)
+                            .no_baseline()
+                            .size(0.4)
+                            .color(semi_white(c.a * 0.6))
+                            .draw();
+                        rt -= r.w + 0.01;
+                        let r = ui
+                            .text(format!("{:07}", item.inner.score))
+                            .pos(rt, s / 2.)
+                            .anchor(1., 0.5)
+                            .no_baseline()
+                            .size(0.6)
+                            .color(c)
+                            .draw();
+                        rt -= r.w + 0.03;
+                        let lt = 0.2;
+                        if let Some(name) = UserManager::get_name(item.inner.player.id) {
+                            ui.text(name)
+                                .pos(lt, s / 2.)
+                                .anchor(0., 0.5)
+                                .no_baseline()
+                                .max_width(rt - lt - 0.01)
+                                .size(0.5)
+                                .color(c)
+                                .draw();
+                        }
+                    });
+                    ui.dy(s);
+                    h += s;
+                }
+            });
+            (width, h)
+        });
     }
 
     fn save_edit(&mut self) {
@@ -547,6 +656,7 @@ impl Scene for SongScene {
             Err(res) => res,
             Ok(rec) => {
                 self.update_record(*rec)?;
+                self.load_ldb();
                 return Ok(());
             }
         };
@@ -571,6 +681,7 @@ impl Scene for SongScene {
         if self.first_in {
             self.first_in = false;
             tm.seek_to(-FADE_IN_TIME as _);
+            self.load_ldb();
         }
         if let Some(music) = &mut self.preview {
             music.seek_to(0.)?;
@@ -598,6 +709,11 @@ impl Scene for SongScene {
                 match self.side_content {
                     SideContent::Edit => {
                         if self.edit_scroll.touch(touch, t) {
+                            return Ok(true);
+                        }
+                    }
+                    SideContent::Leaderboard => {
+                        if self.ldb_scroll.touch(touch, t) {
                             return Ok(true);
                         }
                     }
@@ -631,6 +747,7 @@ impl Scene for SongScene {
             return Ok(true);
         }
         if self.local_path.is_some() && self.edit_btn.touch(touch) {
+            button_hit();
             let Some(path) = self.local_path.as_ref() else { unreachable!() };
             let mut info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
             info.id = self.info.id;
@@ -638,6 +755,11 @@ impl Scene for SongScene {
             self.side_content = SideContent::Edit;
             self.side_enter_time = tm.real_time() as _;
             return Ok(true);
+        }
+        if self.info.id.is_some() && self.ldb_btn.touch(touch) {
+            button_hit();
+            self.side_content = SideContent::Leaderboard;
+            self.side_enter_time = tm.real_time() as _;
         }
         Ok(false)
     }
@@ -779,6 +901,13 @@ impl Scene for SongScene {
             SideContent::Edit => {
                 self.edit_scroll.update(t);
             }
+            SideContent::Leaderboard => {
+                if self.ldb_scroll.y_scroller.pulled {
+                    self.ldb_scroll.y_scroller.offset = 0.;
+                    self.load_ldb();
+                }
+                self.ldb_scroll.update(t);
+            }
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
             let path = self.local_path.clone().unwrap();
@@ -820,6 +949,27 @@ impl Scene for SongScene {
                 .await?;
                 Ok(())
             }));
+        }
+        if let Some(task) = &mut self.ldb_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("ldb-load-failed")));
+                    }
+                    Ok(items) => {
+                        let rank = get_data()
+                            .me
+                            .as_ref()
+                            .and_then(|me| items.iter().find(|it| it.inner.player.id == me.id).map(|it| it.rank));
+                        for item in &items {
+                            UserManager::request(item.inner.player.id);
+                        }
+                        self.ldb = Some((rank, items));
+                        self.ldb_fader.sub(tm.real_time() as _);
+                    }
+                }
+                self.ldb_task = None;
+            }
         }
         Ok(())
     }
@@ -872,6 +1022,39 @@ impl Scene for SongScene {
             .size(0.7)
             .color(semi_white(0.7 * c.a))
             .draw();
+
+        if self.info.id.is_some() {
+            let h = 0.09;
+            let mut r = Rect::new(r.x, r.y - h, h, h);
+            ui.fill_rect(r, (*self.icon_ldb, r, ScaleType::Fit, c));
+            if let Some((rank, _)) = &self.ldb {
+                ui.text(if let Some(rank) = rank {
+                    format!("#{rank}")
+                } else {
+                    tl!("ldb-no-rank").into_owned()
+                })
+                .pos(r.right() + 0.01, r.center().y)
+                .anchor(0., 0.5)
+                .no_baseline()
+                .color(c)
+                .size(0.7)
+                .draw();
+            } else {
+                ui.loading(
+                    r.right() + 0.04,
+                    r.center().y,
+                    t,
+                    c,
+                    LoadingParams {
+                        radius: 0.027,
+                        width: 0.007,
+                        ..Default::default()
+                    },
+                );
+            }
+            r.w += 0.13;
+            self.ldb_btn.set(ui, r);
+        }
 
         // play button
         let w = 0.26;
@@ -938,6 +1121,10 @@ impl Scene for SongScene {
 
                 match self.side_content {
                     SideContent::Edit => self.side_chart_info(ui, rt),
+                    SideContent::Leaderboard => {
+                        self.side_ldb(ui, rt);
+                        Ok(())
+                    }
                 }
             })?;
         }

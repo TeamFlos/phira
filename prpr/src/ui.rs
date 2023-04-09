@@ -1068,10 +1068,10 @@ impl<'a> Ui<'a> {
 }
 
 pub struct LoadingParams<'a> {
-    radius: f32,
-    width: f32,
-    progress: Option<f32>,
-    last: Option<&'a mut f32>,
+    pub radius: f32,
+    pub width: f32,
+    pub progress: Option<f32>,
+    pub last: Option<&'a mut f32>,
 }
 impl Default for LoadingParams<'_> {
     fn default() -> Self {

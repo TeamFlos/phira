@@ -1,11 +1,11 @@
 prpr::tl_file!("library");
 
-use super::{load_local, ChartItem, Fader, Page, SharedState};
+use super::{ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Chart, Client, File},
     data::LocalChart,
     dir, get_data_mut, save_data,
-    scene::{import_chart, ChartOrder, SongScene},
+    scene::{import_chart, SongScene},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -77,6 +77,7 @@ pub struct LibraryPage {
     icon_download: SafeTexture,
     icon_menu: SafeTexture,
     icon_edit: SafeTexture,
+    icon_ldb: SafeTexture,
 
     import_btn: DRectButton,
     import_task: Option<Task<Result<LocalChart>>>,
@@ -89,6 +90,7 @@ impl LibraryPage {
         icon_download: SafeTexture,
         icon_menu: SafeTexture,
         icon_edit: SafeTexture,
+        icon_ldb: SafeTexture,
     ) -> Result<Self> {
         Ok(Self {
             btn_local: DRectButton::new(),
@@ -115,6 +117,7 @@ impl LibraryPage {
             icon_download,
             icon_menu,
             icon_edit,
+            icon_ldb,
 
             import_btn: DRectButton::new(),
             import_task: None,
@@ -372,6 +375,7 @@ impl Page for LibraryPage {
                         self.icon_download.clone(),
                         self.icon_menu.clone(),
                         self.icon_edit.clone(),
+                        self.icon_ldb.clone(),
                         s.icons.clone(),
                     );
                     self.transit = Some(TransitState {

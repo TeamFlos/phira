@@ -51,3 +51,7 @@ uploading = 上传中…
 upload-chart-failed = 上传谱面失败
 upload-success = 上传成功，请等待审核！
 upload-failed = 上传失败
+
+ldb = 排行榜
+ldb-load-failed = 加载排行榜失败
+ldb-no-rank = 无

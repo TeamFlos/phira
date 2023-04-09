@@ -51,3 +51,7 @@ uploading = Uploading
 upload-chart-failed = Failed to upload beatmap
 upload-success = Uploaded successfully, please wait for review!
 upload-failed = Upload failed
+
+ldb = Leaderboard
+ldb-load-failed = Failed to load leaderboard
+ldb-no-rank = None

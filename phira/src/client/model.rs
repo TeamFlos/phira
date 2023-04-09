@@ -103,7 +103,7 @@ impl TryFrom<u8> for LevelType {
 
 #[derive(Debug)]
 pub struct Ptr<T> {
-    id: i32,
+    pub id: i32,
     _marker: PhantomData<T>,
 }
 impl<T: Object + 'static> Clone for Ptr<T> {
