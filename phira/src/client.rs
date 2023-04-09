@@ -16,7 +16,8 @@ use std::{borrow::Cow, collections::HashMap, marker::PhantomData, sync::Arc};
 // static CLIENT: Lazy<ArcSwap<reqwest::Client>> =
 // Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().add_root_certificate(CERT.clone()).build().unwrap()));
 
-static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().build().unwrap()));
+static CLIENT: Lazy<ArcSwap<reqwest::Client>> =
+    Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().danger_accept_invalid_certs(true).build().unwrap()));
 
 pub struct Client;
 
@@ -32,7 +33,7 @@ fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
         headers.insert(header::AUTHORIZATION, auth_value);
     }
     Ok(reqwest::ClientBuilder::new()
-        .danger_accept_invalid_certs(false)
+        .danger_accept_invalid_certs(true)
         .default_headers(headers)
         .build()?
         .into())
