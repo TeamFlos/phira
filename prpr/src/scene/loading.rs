@@ -8,12 +8,9 @@ use crate::{
     time::TimeManager,
     ui::Ui,
 };
+use ::rand::{seq::SliceRandom, thread_rng};
 use anyhow::{Context, Result};
-use chrono::Utc;
-use macroquad::{
-    prelude::*,
-    rand::{srand, ChooseRandom},
-};
+use macroquad::prelude::*;
 use regex::Regex;
 use std::{rc::Rc, sync::Arc};
 
@@ -75,7 +72,6 @@ impl LoadingScene {
                 }),
             ))
         }
-        srand(Utc::now().timestamp_millis() as u64);
 
         let background = match load(&mut fs, &info.illustration).await {
             Ok((ill, bg)) => Some((ill, bg)),
@@ -89,7 +85,7 @@ impl LoadingScene {
             .unwrap_or_else(|| (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()));
         let get_size_fn = get_size_fn.unwrap_or_else(|| Rc::new(|| (screen_width() as u32, screen_height() as u32)));
         if info.tip.is_none() {
-            info.tip = Some(crate::config::TIPS.choose().cloned().unwrap());
+            info.tip = Some(crate::config::TIPS.choose(&mut thread_rng()).unwrap().to_owned());
         }
         let future =
             Box::pin(GameScene::new(mode, info.clone(), config, fs, player, background.clone(), illustration.clone(), get_size_fn, upload_fn));
