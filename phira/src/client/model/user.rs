@@ -39,6 +39,7 @@ pub struct UserManager;
 
 impl UserManager {
     pub fn clear_cache(id: i32) {
+        TASKS.blocking_lock().remove(&id);
         RESULTS.blocking_lock().remove(&id);
     }
 

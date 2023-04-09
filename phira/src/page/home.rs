@@ -176,7 +176,7 @@ impl Page for HomePage {
         if self.btn_user.touch(touch, t) {
             if let Some(me) = &get_data().me {
                 self.need_back = true;
-                self.sf.goto(t, ProfileScene::new(me.id));
+                self.sf.goto(t, ProfileScene::new(me.id, self.icon_user.clone()));
             } else {
                 self.login.enter(t);
             }
@@ -269,7 +269,7 @@ impl Page for HomePage {
                 } else if let Some(last) = &self.board_tex_last {
                     let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
                     let p = 1. - (1. - p).powi(3);
-                    let p = if self.board_dir { 1. - p } else {p};
+                    let p = if self.board_dir { 1. - p } else { p };
                     let rad = self.btn_play.config.radius;
                     let mut nr = r;
                     nr.h = r.h * (1. - p);

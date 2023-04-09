@@ -2,7 +2,7 @@ prpr::tl_file!("profile");
 
 use super::{TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
-    client::{Client, User, UserManager},
+    client::{recv_raw, Client, User, UserManager},
     get_data, get_data_mut,
     page::SFader,
     save_data, sync_data,
@@ -11,11 +11,12 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     ext::{screen_aspect, RectExt, SafeTexture},
-    scene::{show_error, show_message, NextScene, Scene},
+    scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
     ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, ShadowConfig, Ui},
 };
+use serde_json::json;
 use std::sync::Arc;
 
 pub struct ProfileScene {
@@ -25,21 +26,24 @@ pub struct ProfileScene {
     background: SafeTexture,
 
     icon_back: SafeTexture,
-    btn_back: RectButton,
+    icon_user: SafeTexture,
 
+    btn_back: RectButton,
     btn_logout: DRectButton,
 
     load_task: Option<Task<Result<Arc<User>>>>,
+
+    avatar_btn: RectButton,
+    avatar_task: Option<Task<Result<()>>>,
 
     sf: SFader,
 }
 
 impl ProfileScene {
-    pub fn new(id: i32) -> Self {
+    pub fn new(id: i32, icon_user: SafeTexture) -> Self {
+        UserManager::clear_cache(id);
         UserManager::request(id);
-
         let load_task = Some(Task::new(Client::load(id)));
-
         Self {
             id,
             user: None,
@@ -47,11 +51,15 @@ impl ProfileScene {
             background: TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap()),
 
             icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
-            btn_back: RectButton::new(),
+            icon_user,
 
+            btn_back: RectButton::new(),
             btn_logout: DRectButton::new(),
 
             load_task,
+
+            avatar_btn: RectButton::new(),
+            avatar_task: None,
 
             sf: SFader::new(),
         }
@@ -64,7 +72,7 @@ impl Scene for ProfileScene {
         Ok(())
     }
 
-    fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
+    fn update(&mut self, _tm: &mut TimeManager) -> Result<()> {
         if let Some(task) = &mut self.load_task {
             if let Some(res) = task.take() {
                 match res {
@@ -74,6 +82,30 @@ impl Scene for ProfileScene {
                     }
                 }
                 self.load_task = None;
+            }
+        }
+        if let Some((id, file)) = take_file() {
+            if id == "avatar" {
+                self.avatar_task = Some(Task::new(async move {
+                    let id = Client::upload_file("avatar", std::fs::read(file)?).await?;
+                    recv_raw(Client::post("/edit/avatar", &json!({ "file": id }))).await?;
+                    Ok(())
+                }));
+            } else {
+                return_file(id, file);
+            }
+        }
+        if let Some(task) = &mut self.avatar_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("edit-avatar-failed")));
+                    }
+                    Ok(()) => {
+                        show_message(tl!("edit-avatar-success")).ok();
+                        UserManager::clear_cache(get_data().me.as_ref().unwrap().id);
+                    }
+                }
             }
         }
         Ok(())
@@ -93,6 +125,10 @@ impl Scene for ProfileScene {
             sync_data();
             show_message(tl!("logged-out")).ok();
             self.sf.next(t, NextScene::Pop);
+            return Ok(true);
+        }
+        if get_data().me.as_ref().map_or(false, |it| it.id == self.id) && self.avatar_btn.touch(touch) {
+            request_file("avatar");
             return Ok(true);
         }
         Ok(false)
@@ -130,7 +166,8 @@ impl Scene for ProfileScene {
             let lf = r.x + pad;
             let cx = r.center().x;
             let radius = 0.12;
-            let mut r = ui.avatar(cx, r.y + radius + 0.05, radius, WHITE, t, Ok(UserManager::get_avatar(self.id).flatten()));
+            let mut r = ui.avatar(cx, r.y + radius + 0.05, radius, WHITE, t, UserManager::opt_avatar(self.id, &self.icon_user));
+            self.avatar_btn.set(ui, r);
             if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
                 let hw = 0.2;
                 r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
@@ -149,8 +186,7 @@ impl Scene for ProfileScene {
                 .pos(cx, r.bottom() + 0.01)
                 .anchor(0.5, 0.)
                 .draw();
-            let r = ui
-                .text(user.bio.as_deref().unwrap_or(""))
+            ui.text(user.bio.as_deref().unwrap_or(""))
                 .pos(lf, r.y + 0.1)
                 .multiline()
                 .max_width(mw)
