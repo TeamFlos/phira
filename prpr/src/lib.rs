@@ -1,5 +1,6 @@
 pub mod config;
 pub mod core;
+pub mod dir;
 pub mod ext;
 pub mod fs;
 pub mod info;

@@ -1,7 +1,6 @@
 use crate::{ext::spawn_task, info::ChartInfo};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use cap_std::ambient_authority;
 use chardetng::EncodingDetector;
 use concat_string::concat_string;
 use macroquad::prelude::load_file;
@@ -84,7 +83,7 @@ impl FileSystem for AssetsFileSystem {
 }
 
 #[derive(Clone)]
-pub struct ExternalFileSystem(pub Arc<cap_std::fs::Dir>);
+pub struct ExternalFileSystem(pub Arc<crate::dir::Dir>);
 
 #[async_trait]
 impl FileSystem for ExternalFileSystem {
@@ -106,7 +105,7 @@ impl FileSystem for ExternalFileSystem {
     }
 
     async fn exists(&mut self, path: &str) -> Result<bool> {
-        Ok(self.0.exists(path))
+        self.0.exists(path)
     }
 
     fn list_root(&self) -> Result<Vec<String>> {
@@ -416,7 +415,7 @@ pub fn fs_from_file(path: &Path) -> Result<Box<dyn FileSystem>> {
         let bytes = fs::read(path).with_context(|| format!("Failed to read from {}", path.display()))?;
         Box::new(ZipFileSystem::new(bytes).with_context(|| format!("Cannot open {} as zip archive", path.display()))?)
     } else {
-        Box::new(ExternalFileSystem(Arc::new(cap_std::fs::Dir::open_ambient_dir(path, ambient_authority())?)))
+        Box::new(ExternalFileSystem(Arc::new(crate::dir::Dir::new(path)?)))
     })
 }
 

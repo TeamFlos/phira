@@ -10,7 +10,6 @@ use crate::{
     save_data,
 };
 use anyhow::{anyhow, Context, Result};
-use cap_std::ambient_authority;
 use futures_util::StreamExt;
 use macroquad::prelude::*;
 use prpr::{
@@ -319,7 +318,7 @@ impl SongScene {
                     } else {
                         tokio::fs::create_dir(path).await?;
                     }
-                    let dir = cap_std::fs::Dir::open_ambient_dir(path, ambient_authority())?;
+                    let dir = prpr::dir::Dir::new(path)?;
 
                     let chart = chart;
                     async fn download(mut file: impl Write, url: &str, prog_wk: &Weak<Mutex<Option<f32>>>) -> Result<()> {
@@ -629,7 +628,7 @@ impl SongScene {
         let path = self.local_path.clone().unwrap();
         let edit = edit.clone();
         self.save_task = Some(Task::new(async move {
-            let dir = cap_std::fs::Dir::open_ambient_dir(format!("{}/{path}", dir::charts()?), ambient_authority())?;
+            let dir = prpr::dir::Dir::new(format!("{}/{path}", dir::charts()?))?;
             let patches = edit.to_patches().await.with_context(|| tl!("edit-load-file-failed"))?;
             let bytes = if let Some(bytes) = patches.get(&info.music) {
                 bytes.clone()

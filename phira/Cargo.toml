@@ -14,7 +14,6 @@ anyhow = "1.0"
 arc-swap = "1.6.0"
 base64 = "0.20"
 bytes = "1.4.0"
-cap-std = "1.0.5"
 chrono = { version = "0.4.23", features = ["serde"] }
 futures-util = "0.3.25"
 hex = "0.4.3"

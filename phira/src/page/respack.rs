@@ -3,7 +3,6 @@ prpr::tl_file!("respack");
 use super::{Page, SharedState};
 use crate::{dir, get_data, get_data_mut, save_data, scene::confirm_delete};
 use anyhow::{Context, Result};
-use cap_std::ambient_authority;
 use macroquad::prelude::*;
 use prpr::{
     core::{NoteStyle, ParticleEmitter, ResPackInfo, ResourcePack, JUDGE_LINE_PERFECT_COLOR},
@@ -115,13 +114,13 @@ impl ResPackPage {
 
     fn import_from(&mut self, file: String) -> Result<()> {
         let root = dir::respacks()?;
-        let dir = cap_std::fs::Dir::open_ambient_dir(&root, ambient_authority())?;
+        let dir = prpr::dir::Dir::new(&root)?;
         let mut id = uuid7();
-        while dir.exists(id.to_string()) {
+        while dir.exists(id.to_string())? {
             id = uuid7();
         }
         let id = id.to_string();
-        dir.create_dir(&id)?;
+        dir.create_dir_all(&id)?;
         let dir = dir.open_dir(&id)?;
         unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
         let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;

@@ -435,7 +435,7 @@ pub fn semi_white(alpha: f32) -> Color {
     Color::new(1., 1., 1., alpha)
 }
 
-pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &cap_std::fs::Dir, strip_root: bool) -> Result<()> {
+pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &crate::dir::Dir, strip_root: bool) -> Result<()> {
     let mut zip = zip::ZipArchive::new(reader)?;
     let root = if strip_root {
         if let Some(root) = zip.file_names().min_by_key(|it| it.len()) {
@@ -450,24 +450,26 @@ pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &cap_std::fs
     } else {
         String::new()
     };
-    if strip_root {
-        info!("root is {}", root);
-    }
+    info!("root is {}", root);
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i)?;
         let path = entry.enclosed_name().ok_or_else(|| anyhow!("invalid zip"))?;
         let path = path.display().to_string();
+        info!("entry: {}", path);
         if entry.is_dir() && entry.name() != root {
             if let Some(after) = path.strip_prefix(&root) {
-                dir.create_dir(after)?;
+                info!("- mkdir: {}", after);
+                dir.create_dir_all(after)?;
             }
         } else if entry.is_file() {
             if let Some(after) = path.strip_prefix(&root) {
                 if let Some(p) = std::path::Path::new(after).parent() {
-                    if !p.exists() {
-                        std::fs::create_dir_all(p)?;
+                    if !dir.exists(p)? {
+                        info!("- mkdir {}", p.display());
+                        dir.create_dir_all(p)?;
                     }
                 }
+                info!("- create {}", after);
                 let mut file = dir.create(after)?;
                 std::io::copy(&mut entry, &mut file)?;
             }

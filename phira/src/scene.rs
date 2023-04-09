@@ -14,7 +14,6 @@ pub use profile::ProfileScene;
 
 use crate::{data::LocalChart, dir};
 use anyhow::{bail, Context, Result};
-use cap_std::ambient_authority;
 use prpr::{
     ext::{unzip_into, SafeTexture},
     fs::{self, FileSystem},
@@ -62,7 +61,7 @@ pub async fn import_chart(path: String) -> Result<LocalChart> {
         if !path.exists() || !path.is_file() {
             bail!("not a file");
         }
-        let dir = cap_std::fs::Dir::open_ambient_dir(dir, ambient_authority())?;
+        let dir = prpr::dir::Dir::new(dir)?;
         unzip_into(BufReader::new(File::open(path)?), &dir, true)?;
         let local_path = format!("custom/{id}");
         let mut fs = fs_from_path(&local_path)?;
