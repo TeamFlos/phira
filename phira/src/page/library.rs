@@ -10,7 +10,6 @@ use crate::{
     scene::{import_chart, ChartOrder, SongScene, ORDERS},
 };
 use anyhow::Result;
-use lyon::path::{builder::BorderRadii, Winding};
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
@@ -491,6 +490,7 @@ impl Page for LibraryPage {
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
                     button_hit();
                     self.search_str.clear();
+                    self.current_page = 0;
                     self.load_online();
                     return Ok(true);
                 }
@@ -565,6 +565,7 @@ impl Page for LibraryPage {
         if let Some((id, text)) = take_input() {
             if id == "search" {
                 self.search_str = text;
+                self.current_page = 0;
                 self.load_online();
             } else {
                 return_input(id, text);
@@ -588,6 +589,7 @@ impl Page for LibraryPage {
         }
         if self.order_menu.changed() {
             self.current_order = self.order_menu.selected();
+            self.current_page = 0;
             self.load_online();
         }
         Ok(())

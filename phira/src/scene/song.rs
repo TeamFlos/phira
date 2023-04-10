@@ -679,7 +679,7 @@ impl Scene for SongScene {
                     let dir = prpr::dir::Dir::new(format!("{}/{}", dir::charts()?, self.local_path.as_ref().unwrap()))?;
                     let mut info: ChartInfo = serde_yaml::from_reader(&dir.open("info.yml")?)?;
                     info.offset = offset;
-                    dir.open("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
+                    dir.create("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
                     let path = thumbnail_path(self.local_path.as_ref().unwrap())?;
                     if path.exists() {
                         std::fs::remove_file(path)?;
