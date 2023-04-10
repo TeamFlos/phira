@@ -12,9 +12,9 @@ use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
     ext::{semi_black, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
-    scene::{request_file, return_file, show_error, show_message, take_file, NextScene},
+    scene::{request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, NextScene},
     task::Task,
-    ui::{button_hit_large, DRectButton, Scroll, Ui},
+    ui::{button_hit, button_hit_large, DRectButton, RectButton, Scroll, Ui},
 };
 use std::{
     any::Any,
@@ -84,9 +84,15 @@ pub struct LibraryPage {
     icon_edit: SafeTexture,
     icon_ldb: SafeTexture,
     icon_user: SafeTexture,
+    icon_close: SafeTexture,
+    icon_search: SafeTexture,
 
     import_btn: DRectButton,
     import_task: Option<Task<Result<LocalChart>>>,
+
+    search_btn: DRectButton,
+    search_str: String,
+    search_clr_btn: RectButton,
 }
 
 impl LibraryPage {
@@ -98,6 +104,8 @@ impl LibraryPage {
         icon_edit: SafeTexture,
         icon_ldb: SafeTexture,
         icon_user: SafeTexture,
+        icon_close: SafeTexture,
+        icon_search: SafeTexture,
     ) -> Result<Self> {
         NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
@@ -127,9 +135,15 @@ impl LibraryPage {
             icon_edit,
             icon_ldb,
             icon_user,
+            icon_close,
+            icon_search,
 
             import_btn: DRectButton::new(),
             import_task: None,
+
+            search_btn: DRectButton::new(),
+            search_str: String::new(),
+            search_clr_btn: RectButton::new(),
         })
     }
 }
@@ -250,9 +264,16 @@ impl LibraryPage {
         self.scroll.y_scroller.offset = 0.;
         self.online_charts = None;
         let page = self.current_page;
+        let search = self.search_str.clone();
         self.online_task = Some(Task::new(async move {
-            let (remote_charts, count) = Client::query::<Chart>().order("-id").page(page).page_num(PAGE_NUM).send().await?;
-            let total_page = (count - 1) / PAGE_NUM + 1;
+            let (remote_charts, count) = Client::query::<Chart>()
+                .search(search)
+                .order("-id")
+                .page(page)
+                .page_num(PAGE_NUM)
+                .send()
+                .await?;
+            let total_page = if count == 0 { 0 } else { (count - 1) / PAGE_NUM + 1 };
             let charts: Vec<_> = remote_charts
                 .iter()
                 .map(|it| {
@@ -415,6 +436,16 @@ impl Page for LibraryPage {
             request_file("import");
             return Ok(true);
         }
+        if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
+            button_hit();
+            self.search_str.clear();
+            self.load_online();
+            return Ok(true);
+        }
+        if matches!(self.chosen, ChartListType::Online) && !self.search_clr_btn.rect.contains(touch.position) && self.search_btn.touch(touch, t) {
+            request_input("search", &self.search_str);
+            return Ok(true);
+        }
         Ok(false)
     }
 
@@ -472,6 +503,14 @@ impl Page for LibraryPage {
                 return_file(id, file);
             }
         }
+        if let Some((id, text)) = take_input() {
+            if id == "search" {
+                self.search_str = text;
+                self.load_online();
+            } else {
+                return_input(id, text);
+            }
+        }
         if let Some(task) = &mut self.import_task {
             if let Some(res) = task.take() {
                 match res {
@@ -508,12 +547,44 @@ impl Page for LibraryPage {
         });
         let mut r = ui.content_rect();
         r.h -= 0.08;
-        if matches!(self.chosen, ChartListType::Local) {
-            s.render_fader(ui, |ui, c| {
-                let w = 0.24;
-                let r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
-                self.import_btn.render_text(ui, r, t, c.a, tl!("import"), 0.6, false);
-            });
+        match self.chosen {
+            ChartListType::Local => {
+                s.render_fader(ui, |ui, c| {
+                    let w = 0.24;
+                    let r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
+                    self.import_btn.render_text(ui, r, t, c.a, tl!("import"), 0.6, false);
+                });
+            }
+            ChartListType::Online => {
+                s.render_fader(ui, |ui, c| {
+                    let empty = self.search_str.is_empty();
+                    let w = 0.53;
+                    let mut r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
+                    if empty {
+                        r.x += r.h;
+                        r.w -= r.h;
+                    }
+                    let rt = r.right();
+                    self.search_btn.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
+                    let mut r = r.feather(-0.01);
+                    r.w = r.h;
+                    if !empty {
+                        ui.fill_rect(r, (*self.icon_close, r, ScaleType::Fit, c));
+                        self.search_clr_btn.set(ui, r);
+                        r.x += r.w;
+                    }
+                    ui.fill_rect(r, (*self.icon_search, r, ScaleType::Fit, c));
+                    ui.text(&self.search_str)
+                        .pos(r.right() + 0.01, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.6)
+                        .max_width(rt - r.right() - 0.02)
+                        .color(c)
+                        .draw();
+                });
+            }
+            ChartListType::Popular => {}
         }
         s.fader.render(ui, t, |ui, c| {
             let path = r.rounded(0.02);

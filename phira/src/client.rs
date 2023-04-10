@@ -208,6 +208,11 @@ impl<T: Object> QueryBuilder<T> {
         self.query("order", order)
     }
 
+    #[inline]
+    pub fn search(self, search: impl Into<Cow<'static, str>>) -> Self {
+        self.query("search", search)
+    }
+
     pub fn flag(mut self, flag: impl Into<Cow<'static, str>>) -> Self {
         self.queries.insert(flag.into(), "1".into());
         self
