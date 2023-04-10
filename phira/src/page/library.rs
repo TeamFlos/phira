@@ -10,6 +10,7 @@ use crate::{
     scene::{import_chart, ChartOrder, SongScene, ORDERS},
 };
 use anyhow::Result;
+use lyon::path::{builder::BorderRadii, Winding};
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
@@ -258,6 +259,22 @@ impl LibraryPage {
                                 }
                             }
                             ui.fill_path(&path, (semi_black(0.4 * c.a), (0., 0.), semi_black(0.8 * c.a), (0., ch)));
+                            let mut t = ui
+                                .text(format!("{} Lv.{}", chart.info.level, chart.info.difficulty as i32))
+                                .pos(r.right() - 0.016, r.y + 0.016)
+                                .max_width(r.w * 2. / 3.)
+                                .anchor(1., 0.)
+                                .size(0.52 * r.w / cw)
+                                .color(c);
+                            let ms = t.measure();
+                            t.ui.fill_path(
+                                &ms.feather(0.008).rounded(0.01),
+                                Color {
+                                    a: c.a * 0.7,
+                                    ..t.ui.background()
+                                },
+                            );
+                            t.draw();
                             ui.text(&chart.info.name)
                                 .pos(r.x + 0.01, r.bottom() - 0.02)
                                 .max_width(r.w)
