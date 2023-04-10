@@ -34,17 +34,20 @@ use std::{
     any::Any,
     borrow::Cow,
     ops::DerefMut,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
+
+pub fn thumbnail_path(path: &str) -> Result<PathBuf> {
+    Ok(format!("{}/{}", dir::cache_image_local()?, path.replace('/', "_")).into())
+}
 
 pub fn illustration_task(path: String) -> Task<Result<(DynamicImage, Option<DynamicImage>)>> {
     Task::new(async move {
         let mut fs = fs_from_path(&path)?;
         let info = fs::load_info(fs.deref_mut()).await?;
         let image = image::load_from_memory(&fs.load_file(&info.illustration).await?)?;
-        let thumbnail =
-            Images::local_or_else(format!("{}/{}", dir::cache_image_local()?, path.replace('/', "_")), async { Ok(Images::thumbnail(&image)) })
-                .await?;
+        let thumbnail = Images::local_or_else(thumbnail_path(&path)?, async { Ok(Images::thumbnail(&image)) }).await?;
         Ok((thumbnail, Some(image)))
     })
 }

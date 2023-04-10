@@ -93,6 +93,13 @@ impl Client {
         CLIENT.load().request(method, API_URL.to_string() + path.as_ref())
     }
 
+    pub fn clear_cache<T: Object + 'static>(id: i32) -> Result<bool> {
+        let map = obtain_map_cache::<T>();
+        let mut guard = map.lock().unwrap();
+        let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else { unreachable!() };
+        Ok(actual_map.pop(&id).is_some())
+    }
+
     pub async fn load<T: Object + 'static>(id: i32) -> Result<Arc<T>> {
         {
             let map = obtain_map_cache::<T>();
@@ -114,7 +121,8 @@ impl Client {
         let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else {
             unreachable!()
         };
-        Ok(Arc::clone(actual_map.get_or_insert(id, || value)))
+        actual_map.put(id, Arc::clone(&value));
+        Ok(value)
     }
 
     pub async fn cache_objects<T: Object + 'static>(objects: Vec<T>) -> Result<()> {

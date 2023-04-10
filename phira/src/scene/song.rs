@@ -5,7 +5,7 @@ use crate::{
     client::{recv_raw, Chart, Client, Ptr, Record, UserManager},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
-    page::{ChartItem, Fader, Illustration, NEED_UPDATE},
+    page::{ChartItem, Fader, Illustration, NEED_UPDATE, thumbnail_path},
     popup::Popup,
     save_data,
 };
@@ -680,6 +680,10 @@ impl Scene for SongScene {
                     let mut info: ChartInfo = serde_yaml::from_reader(&dir.open("info.yml")?)?;
                     info.offset = offset;
                     dir.open("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
+                    let path = thumbnail_path(self.local_path.as_ref().unwrap())?;
+                    if path.exists() {
+                        std::fs::remove_file(path)?;
+                    }
                     show_message(tl!("edit-saved")).ok();
                 }
                 return Ok(());

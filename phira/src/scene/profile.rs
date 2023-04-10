@@ -41,7 +41,7 @@ pub struct ProfileScene {
 
 impl ProfileScene {
     pub fn new(id: i32, icon_user: SafeTexture) -> Self {
-        UserManager::clear_cache(id);
+        let _ = UserManager::clear_cache(id);
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
         Self {
@@ -103,15 +103,22 @@ impl Scene for ProfileScene {
                     }
                     Ok(()) => {
                         show_message(tl!("edit-avatar-success")).ok();
-                        UserManager::clear_cache(get_data().me.as_ref().unwrap().id);
+                        let id = get_data().me.as_ref().unwrap().id;
+                        Client::clear_cache::<User>(id)?;
+                        UserManager::clear_cache(id)?;
+                        UserManager::request(id);
                     }
                 }
+                self.avatar_task = None;
             }
         }
         Ok(())
     }
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
+        if self.avatar_task.is_some() {
+            return Ok(true);
+        }
         let t = tm.now() as f32;
         if self.btn_back.touch(touch) {
             button_hit();
@@ -197,6 +204,10 @@ impl Scene for ProfileScene {
         }
 
         self.sf.render(ui, t);
+
+        if self.avatar_task.is_some() {
+            ui.full_loading(tl!("uploading-avatar"), t);
+        }
         Ok(())
     }
 
