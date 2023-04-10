@@ -284,10 +284,7 @@ impl LibraryPage {
                     rev ^= true;
                     "updated"
                 }
-                ChartOrder::Name => {
-                    rev ^= true;
-                    "name"
-                }
+                ChartOrder::Name => "name",
             };
             if rev {
                 format!("-{order}")
@@ -631,8 +628,11 @@ impl Page for LibraryPage {
                         .max_width(rt - r.right() - 0.02)
                         .color(c)
                         .draw();
-                    r.x = w - r.w - 0.03;
-                    let r = r.feather(0.01);
+                    let mut r = r.feather(0.01);
+                    r.x = 1. - w - r.w - 0.05;
+                    if empty {
+                        r.x += r.w;
+                    }
                     let (cr, _) = self.order_btn.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
                     ui.fill_rect(cr, (*self.icon_order, cr, ScaleType::Fit, c));
                     if self.need_show_order_menu {
