@@ -4,8 +4,10 @@ use super::{ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Chart, Client, File},
     data::LocalChart,
-    dir, get_data_mut, save_data,
-    scene::{import_chart, SongScene},
+    dir, get_data_mut,
+    popup::Popup,
+    save_data,
+    scene::{import_chart, ChartOrder, SongScene, ORDERS},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -86,6 +88,7 @@ pub struct LibraryPage {
     icon_user: SafeTexture,
     icon_close: SafeTexture,
     icon_search: SafeTexture,
+    icon_order: SafeTexture,
 
     import_btn: DRectButton,
     import_task: Option<Task<Result<LocalChart>>>,
@@ -93,6 +96,11 @@ pub struct LibraryPage {
     search_btn: DRectButton,
     search_str: String,
     search_clr_btn: RectButton,
+
+    order_btn: DRectButton,
+    order_menu: Popup,
+    need_show_order_menu: bool,
+    current_order: usize,
 }
 
 impl LibraryPage {
@@ -106,6 +114,7 @@ impl LibraryPage {
         icon_user: SafeTexture,
         icon_close: SafeTexture,
         icon_search: SafeTexture,
+        icon_order: SafeTexture,
     ) -> Result<Self> {
         NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
@@ -137,6 +146,7 @@ impl LibraryPage {
             icon_user,
             icon_close,
             icon_search,
+            icon_order,
 
             import_btn: DRectButton::new(),
             import_task: None,
@@ -144,6 +154,11 @@ impl LibraryPage {
             search_btn: DRectButton::new(),
             search_str: String::new(),
             search_clr_btn: RectButton::new(),
+
+            order_btn: DRectButton::new(),
+            order_menu: Popup::new().with_options(ChartOrder::names()),
+            need_show_order_menu: false,
+            current_order: 0,
         })
     }
 }
@@ -258,17 +273,32 @@ impl LibraryPage {
     }
 
     pub fn load_online(&mut self) {
-        if self.online_task.is_some() {
-            return;
-        }
         self.scroll.y_scroller.offset = 0.;
         self.online_charts = None;
         let page = self.current_page;
         let search = self.search_str.clone();
+        let order = {
+            let (order, mut rev) = ORDERS[self.current_order];
+            let order = match order {
+                ChartOrder::Default => {
+                    rev ^= true;
+                    "updated"
+                }
+                ChartOrder::Name => {
+                    rev ^= true;
+                    "name"
+                }
+            };
+            if rev {
+                format!("-{order}")
+            } else {
+                order.to_owned()
+            }
+        };
         self.online_task = Some(Task::new(async move {
             let (remote_charts, count) = Client::query::<Chart>()
                 .search(search)
-                .order("-id")
+                .order(order)
                 .page(page)
                 .page_num(PAGE_NUM)
                 .send()
@@ -338,10 +368,14 @@ impl Page for LibraryPage {
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
+        let t = s.t;
+        if self.order_menu.showing() {
+            self.order_menu.touch(touch, t);
+            return Ok(true);
+        }
         if self.transit.is_some() || self.import_task.is_some() {
             return Ok(true);
         }
-        let t = s.t;
         if self.btn_local.touch(touch, t) {
             self.switch_to_type(ChartListType::Local);
             return Ok(true);
@@ -432,19 +466,30 @@ impl Page for LibraryPage {
                 }
             }
         }
-        if matches!(self.chosen, ChartListType::Local) && self.import_btn.touch(touch, t) {
-            request_file("import");
-            return Ok(true);
-        }
-        if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
-            button_hit();
-            self.search_str.clear();
-            self.load_online();
-            return Ok(true);
-        }
-        if matches!(self.chosen, ChartListType::Online) && !self.search_clr_btn.rect.contains(touch.position) && self.search_btn.touch(touch, t) {
-            request_input("search", &self.search_str);
-            return Ok(true);
+        match self.chosen {
+            ChartListType::Local => {
+                if self.import_btn.touch(touch, t) {
+                    request_file("import");
+                    return Ok(true);
+                }
+            }
+            ChartListType::Online => {
+                if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
+                    button_hit();
+                    self.search_str.clear();
+                    self.load_online();
+                    return Ok(true);
+                }
+                if !self.search_clr_btn.rect.contains(touch.position) && self.search_btn.touch(touch, t) {
+                    request_input("search", &self.search_str);
+                    return Ok(true);
+                }
+                if self.order_btn.touch(touch, t) {
+                    self.need_show_order_menu = true;
+                    return Ok(true);
+                }
+            }
+            ChartListType::Popular => {}
         }
         Ok(false)
     }
@@ -527,6 +572,10 @@ impl Page for LibraryPage {
                 self.import_task = None;
             }
         }
+        if self.order_menu.changed() {
+            self.current_order = self.order_menu.selected();
+            self.load_online();
+        }
         Ok(())
     }
 
@@ -582,6 +631,16 @@ impl Page for LibraryPage {
                         .max_width(rt - r.right() - 0.02)
                         .color(c)
                         .draw();
+                    r.x = w - r.w - 0.03;
+                    let r = r.feather(0.01);
+                    let (cr, _) = self.order_btn.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
+                    ui.fill_rect(cr, (*self.icon_order, cr, ScaleType::Fit, c));
+                    if self.need_show_order_menu {
+                        self.need_show_order_menu = false;
+                        self.order_menu.set_bottom(true);
+                        self.order_menu.set_selected(self.current_order);
+                        self.order_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.3, 0.4));
+                    }
                 });
             }
             ChartListType::Popular => {}
@@ -630,6 +689,7 @@ impl Page for LibraryPage {
         if self.import_task.is_some() {
             ui.full_loading(tl!("importing"), t);
         }
+        self.order_menu.render(ui, t, 1.);
         Ok(())
     }
 

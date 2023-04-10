@@ -43,6 +43,7 @@ pub struct HomePage {
     icon_ldb: SafeTexture,
     icon_close: SafeTexture,
     icon_search: SafeTexture,
+    icon_order: SafeTexture,
 
     btn_play: DRectButton,
     btn_event: DRectButton,
@@ -100,6 +101,7 @@ impl HomePage {
             icon_ldb: load_texture("leaderboard.png").await?.into(),
             icon_close: load_texture("close.png").await?.into(),
             icon_search: SafeTexture::from(load_texture("search.png").await?).with_mipmap(),
+            icon_order: SafeTexture::from(load_texture("order.png").await?).with_mipmap(),
 
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
@@ -159,6 +161,7 @@ impl Page for HomePage {
                 self.icon_user.clone(),
                 self.icon_close.clone(),
                 self.icon_search.clone(),
+                self.icon_order.clone(),
             )?)));
             return Ok(true);
         }

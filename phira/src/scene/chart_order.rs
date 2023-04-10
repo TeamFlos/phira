@@ -4,12 +4,17 @@ use crate::page::ChartItem;
 use macroquad::prelude::*;
 use prpr::{ext::SafeTexture, ui::RectButton};
 
+#[derive(Clone, Copy)]
 pub enum ChartOrder {
     Default,
     Name,
 }
 
 impl ChartOrder {
+    pub fn names() -> Vec<String> {
+        ORDER_LABELS.iter().map(|it| tl!(it).into_owned()).collect()
+    }
+
     pub fn apply(&self, charts: &mut [ChartItem]) {
         self.apply_delegate(charts, |it| it)
     }
@@ -28,7 +33,7 @@ impl ChartOrder {
 
 const ORDER_NUM: usize = 4;
 const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rev-time", "name", "rev-name"];
-static ORDERS: [(ChartOrder, bool); ORDER_NUM] = [
+pub static ORDERS: [(ChartOrder, bool); ORDER_NUM] = [
     (ChartOrder::Default, false),
     (ChartOrder::Default, true),
     (ChartOrder::Name, false),
