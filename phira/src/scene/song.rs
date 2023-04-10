@@ -658,13 +658,33 @@ impl SongScene {
 
 impl Scene for SongScene {
     fn on_result(&mut self, _tm: &mut TimeManager, res: Box<dyn Any>) -> Result<()> {
-        let _res = match res.downcast::<SimpleRecord>() {
+        let res = match res.downcast::<SimpleRecord>() {
             Err(res) => res,
             Ok(rec) => {
                 self.update_record(*rec)?;
                 self.load_ldb();
                 return Ok(());
             }
+        };
+        let res = match res.downcast::<anyhow::Error>() {
+            Ok(error) => {
+                show_error(error.context(tl!("load-chart-failed")));
+                return Ok(());
+            }
+            Err(res) => res,
+        };
+        let _res = match res.downcast::<Option<f32>>() {
+            Ok(offset) => {
+                if let Some(offset) = *offset {
+                    let dir = prpr::dir::Dir::new(format!("{}/{}", dir::charts()?, self.local_path.as_ref().unwrap()))?;
+                    let mut info: ChartInfo = serde_yaml::from_reader(&dir.open("info.yml")?)?;
+                    info.offset = offset;
+                    dir.open("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
+                    show_message(tl!("edit-saved")).ok();
+                }
+                return Ok(());
+            }
+            Err(res) => res,
         };
         Ok(())
     }

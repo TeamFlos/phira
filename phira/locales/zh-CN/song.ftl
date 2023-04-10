@@ -3,6 +3,8 @@ load-preview-failed = 加载歌曲预览失败
 load-charts-failed = 加载难度失败
 no-chart-for-download = 该谱面不提供下载
 
+load-chart-failed = 加载谱面失败
+
 dl-cancel = 取消
 dl-status-fetch = 加载信息
 dl-status-song = 下载歌曲

@@ -3,6 +3,8 @@ load-preview-failed = 曲のプレビューを読み込むのに失敗しまし�
 load-charts-failed = ビートマップの読み込みに失敗しました。
 no-chart-for-download = このビートマップはダウンロードできません。
 
+load-chart-failed = ビートマップの読み込みに失敗しました。
+
 dl-cancel = Cancel
 dl-status-fetch = 情報を取得する
 dl-status-song = 楽曲をダウンロード中

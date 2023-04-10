@@ -3,6 +3,8 @@ load-preview-failed = Failed to load song preview
 load-charts-failed = Failed to load beatmaps
 no-chart-for-download = This beatmap is not downloadable
 
+load-chart-failed = Failed to load the beatmap
+
 dl-cancel = Cancel
 dl-status-fetch = Fetching info
 dl-status-song = Downloading song
