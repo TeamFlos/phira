@@ -12,7 +12,6 @@ use crate::{
 use ::rand::{random, thread_rng, Rng};
 use anyhow::Result;
 use image::DynamicImage;
-use lyon::path::{builder::BorderRadii, Path, Winding};
 use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
@@ -162,6 +161,7 @@ impl Page for HomePage {
                 self.icon_close.clone(),
                 self.icon_search.clone(),
                 self.icon_order.clone(),
+                self.icon_info.clone(),
             )?)));
             return Ok(true);
         }

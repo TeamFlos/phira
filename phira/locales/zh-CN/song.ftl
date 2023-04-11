@@ -57,3 +57,8 @@ upload-failed = 上传失败
 ldb = 排行榜
 ldb-load-failed = 加载排行榜失败
 ldb-no-rank = 无
+
+info-name = 名字
+info-composer = 曲师
+info-charter = 谱师
+info-desc = 简介

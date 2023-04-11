@@ -5,7 +5,7 @@ use crate::{
     client::{recv_raw, Chart, Client, Ptr, Record, UserManager},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
-    page::{ChartItem, Fader, Illustration, NEED_UPDATE, thumbnail_path},
+    page::{thumbnail_path, ChartItem, Fader, Illustration, NEED_UPDATE},
     popup::Popup,
     save_data,
 };
@@ -94,6 +94,7 @@ struct Downloading {
 enum SideContent {
     Edit,
     Leaderboard,
+    Info,
 }
 
 impl SideContent {
@@ -101,6 +102,7 @@ impl SideContent {
         match self {
             Self::Edit => 0.84,
             Self::Leaderboard => 0.9,
+            Self::Info => 0.75,
         }
     }
 }
@@ -127,6 +129,7 @@ pub struct SongScene {
     icon_edit: SafeTexture,
     icon_ldb: SafeTexture,
     icon_user: SafeTexture,
+    icon_info: SafeTexture,
 
     next_scene: Option<NextScene>,
 
@@ -168,6 +171,9 @@ pub struct SongScene {
     ldb_btn: RectButton,
     ldb_scroll: Scroll,
     ldb_fader: Fader,
+
+    info_btn: RectButton,
+    info_scroll: Scroll,
 }
 
 impl SongScene {
@@ -182,6 +188,7 @@ impl SongScene {
         icon_edit: SafeTexture,
         icon_ldb: SafeTexture,
         icon_user: SafeTexture,
+        icon_info: SafeTexture,
         icons: [SafeTexture; 8],
     ) -> Self {
         if let Some(path) = &local_path {
@@ -233,6 +240,7 @@ impl SongScene {
             icon_edit,
             icon_ldb,
             icon_user,
+            icon_info,
 
             next_scene: None,
 
@@ -290,6 +298,9 @@ impl SongScene {
             ldb_btn: RectButton::new(),
             ldb_scroll: Scroll::new(),
             ldb_fader: Fader::new().with_distance(0.12),
+
+            info_btn: RectButton::new(),
+            info_scroll: Scroll::new(),
         }
     }
 
@@ -622,6 +633,34 @@ impl SongScene {
         });
     }
 
+    fn side_info(&mut self, ui: &mut Ui) {
+        let pad = 0.03;
+        ui.dx(pad);
+        ui.dy(0.03);
+        let width = self.side_content.width() - pad;
+        self.info_scroll.size((width - pad, ui.top * 2. - 0.06));
+        self.info_scroll.render(ui, |ui| {
+            let mut h = 0.;
+            macro_rules! dy {
+                ($e:expr) => {{
+                    let dy = $e;
+                    h += dy;
+                    ui.dy(dy);
+                }};
+            }
+            let mw = width - pad * 3.;
+            let mut item = |title: Cow<'_, str>, content: Cow<'_, str>| {
+                dy!(ui.text(title).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
+                dy!(ui.text(content).pos(pad, 0.).size(0.6).multiline().max_width(mw).draw().h + 0.03);
+            };
+            item(tl!("info-name"), self.info.name.as_str().into());
+            item(tl!("info-composer"), self.info.composer.as_str().into());
+            item(tl!("info-charter"), self.info.charter.as_str().into());
+            item(tl!("info-desc"), self.info.intro.as_str().into());
+            (width, h)
+        });
+    }
+
     fn save_edit(&mut self) {
         let Some(edit) = &self.info_edit else { unreachable!() };
         let info = edit.info.clone();
@@ -747,6 +786,11 @@ impl Scene for SongScene {
                             return Ok(true);
                         }
                     }
+                    SideContent::Info => {
+                        if self.info_scroll.touch(touch, t) {
+                            return Ok(true);
+                        }
+                    }
                 }
             }
             return Ok(false);
@@ -790,6 +834,12 @@ impl Scene for SongScene {
             button_hit();
             self.side_content = SideContent::Leaderboard;
             self.side_enter_time = tm.real_time() as _;
+        }
+        if self.info_btn.touch(touch) {
+            button_hit();
+            self.side_content = SideContent::Info;
+            self.side_enter_time = tm.real_time() as _;
+            return Ok(true);
         }
         Ok(false)
     }
@@ -939,6 +989,9 @@ impl Scene for SongScene {
                 }
                 self.ldb_scroll.update(t);
             }
+            SideContent::Info => {
+                self.info_scroll.update(t);
+            }
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
             let path = self.local_path.clone().unwrap();
@@ -1022,7 +1075,7 @@ impl Scene for SongScene {
 
         let r = ui
             .text(&self.info.name)
-            .max_width(0.76 - r.right())
+            .max_width(0.7 - r.right())
             .size(1.2)
             .pos(r.right() + 0.02, r.y)
             .color(c)
@@ -1123,6 +1176,9 @@ impl Scene for SongScene {
                 self.menu.show(ui, t, Rect::new(r.x - d, r.bottom(), r.w + d, 0.4));
             }
             ui.dx(-r.w - 0.03);
+            ui.fill_rect(r, (*self.icon_info, r, ScaleType::Fit, c));
+            self.info_btn.set(ui, r);
+            ui.dx(-r.w - 0.03);
             ui.fill_rect(r, (*self.icon_edit, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
             self.edit_btn.set(ui, r);
         });
@@ -1148,12 +1204,16 @@ impl Scene for SongScene {
                 ui.dx(lf);
                 ui.dy(-ui.top);
                 let r = Rect::new(-0.2, 0., 0.2 + w, ui.top * 2.);
-                ui.fill_rect(r, (Color::default(), (r.x, r.y), Color::new(0., 0., 0., p * 0.6), (r.right(), r.y)));
+                ui.fill_rect(r, (Color::default(), (r.x, r.y), Color::new(0., 0., 0., p * 0.7), (r.right(), r.y)));
 
                 match self.side_content {
                     SideContent::Edit => self.side_chart_info(ui, rt),
                     SideContent::Leaderboard => {
                         self.side_ldb(ui, rt);
+                        Ok(())
+                    }
+                    SideContent::Info => {
+                        self.side_info(ui);
                         Ok(())
                     }
                 }
