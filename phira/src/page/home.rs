@@ -19,7 +19,7 @@ use prpr::{
     info::ChartInfo,
     scene::{show_error, show_message, NextScene},
     task::Task,
-    ui::{button_hit_large, DRectButton, Ui},
+    ui::{button_hit_large, rounded_rect, DRectButton, Ui},
 };
 
 const BOARD_SWITCH_TIME: f32 = 4.;
@@ -280,33 +280,15 @@ impl Page for HomePage {
                     let p = 1. - (1. - p).powi(3);
                     let p = if self.board_dir { 1. - p } else { p };
                     let rad = self.btn_play.config.radius;
-                    let mut nr = r;
-                    nr.h = r.h * (1. - p);
-                    let mut path = Path::builder();
-                    path.add_rounded_rectangle(
-                        &nr.to_euclid(),
-                        &BorderRadii {
-                            top_left: rad,
-                            top_right: rad,
-                            ..Default::default()
-                        },
-                        Winding::Positive,
-                    );
-                    ui.fill_path(&path.build(), (**last, nr, ScaleType::CropCenter, c));
+                    rounded_rect(ui, r, rad, |ui| {
+                        let mut nr = r;
+                        nr.h = r.h * (1. - p);
+                        ui.fill_rect(nr, (**last, nr, ScaleType::CropCenter, c));
 
-                    nr.h = r.h * p;
-                    nr.y = r.bottom() - nr.h;
-                    let mut path = Path::builder();
-                    path.add_rounded_rectangle(
-                        &nr.to_euclid(),
-                        &BorderRadii {
-                            bottom_left: rad,
-                            bottom_right: rad,
-                            ..Default::default()
-                        },
-                        Winding::Positive,
-                    );
-                    ui.fill_path(&path.build(), (**cur, nr, ScaleType::CropCenter, c));
+                        nr.h = r.h * p;
+                        nr.y = r.bottom() - nr.h;
+                        ui.fill_rect(nr, (**cur, nr, ScaleType::CropCenter, c));
+                    });
                 } else {
                     ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p * c.a)));
                 }

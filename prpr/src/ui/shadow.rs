@@ -3,22 +3,29 @@ use macroquad::prelude::*;
 use miniquad::{BlendFactor, BlendState, BlendValue, Equation};
 use once_cell::sync::Lazy;
 
-static MATERIAL: Lazy<Material> = Lazy::new(|| {
+fn alpha_blend_material_params(uniforms: Vec<(String, UniformType)>) -> MaterialParams {
+    MaterialParams {
+        pipeline_params: PipelineParams {
+            color_blend: Some(BlendState::new(
+                Equation::Add,
+                BlendFactor::Value(BlendValue::SourceAlpha),
+                BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
+            )),
+            ..Default::default()
+        },
+        uniforms,
+        textures: Vec::new(),
+    }
+}
+
+static SHADOW_MATERIAL: Lazy<Material> =
+    Lazy::new(|| load_material(shader::VERTEX, shader::SHADOW_FRAGMENT, alpha_blend_material_params(ShadowConfig::uniforms())).unwrap());
+
+static RR_MATERIAL: Lazy<Material> = Lazy::new(|| {
     load_material(
         shader::VERTEX,
-        shader::FRAGMENT,
-        MaterialParams {
-            pipeline_params: PipelineParams {
-                color_blend: Some(BlendState::new(
-                    Equation::Add,
-                    BlendFactor::Value(BlendValue::SourceAlpha),
-                    BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
-                )),
-                ..Default::default()
-            },
-            uniforms: ShadowConfig::uniforms(),
-            textures: Vec::new(),
-        },
+        shader::RR_FRAGMENT,
+        alpha_blend_material_params(vec![("rect".to_owned(), UniformType::Float4), ("radius".to_owned(), UniformType::Float1)]),
     )
     .unwrap()
 });
@@ -58,7 +65,7 @@ impl ShadowConfig {
 
 pub fn rounded_rect_shadow(ui: &mut Ui, r: Rect, config: &ShadowConfig) {
     // r.y += elevation * 0.5;
-    let mat = *MATERIAL;
+    let mat = *SHADOW_MATERIAL;
     let gr = ui.rect_to_global(r);
     mat.set_uniform("rect", vec4(gr.x, gr.y, gr.right(), gr.bottom()));
     config.apply(&mat);
@@ -68,31 +75,44 @@ pub fn rounded_rect_shadow(ui: &mut Ui, r: Rect, config: &ShadowConfig) {
     gl_use_default_material();
 }
 
+pub fn rounded_rect<R>(ui: &mut Ui, r: Rect, radius: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
+    // r.y += elevation * 0.5;
+    let mat = *RR_MATERIAL;
+    let gr = ui.rect_to_global(r);
+    mat.set_uniform("rect", vec4(gr.x, gr.y, gr.right(), gr.bottom()));
+    mat.set_uniform("radius", radius);
+    gl_use_material(mat);
+    let res = f(ui);
+    gl_use_default_material();
+    res
+}
+
 mod shader {
     pub const VERTEX: &str = r#"#version 100
 attribute vec3 position;
 attribute vec2 texcoord;
 attribute vec4 color0;
 
-varying lowp vec2 uv;
 varying lowp vec4 color;
+varying lowp vec2 pos0;
+varying lowp vec2 uv;
 
 uniform mat4 Model;
 uniform mat4 Projection;
-uniform vec2 UVScale;
 
 void main() {
     gl_Position = Projection * Model * vec4(position, 1);
     color = color0 / 255.0;
-    uv = position.xy;
+    pos0 = position.xy;
+    uv = texcoord;
 }"#;
 
-    pub const FRAGMENT: &str = r#"#version 100
+    pub const SHADOW_FRAGMENT: &str = r#"#version 100
 // Adapted from https://madebyevan.com/shaders/fast-rounded-rectangle-shadows/
 precision highp float;
 
 varying lowp vec4 color;
-varying lowp vec2 uv;
+varying lowp vec2 pos0;
 
 // A standard gaussian function, used for weighting samples
 float gaussian(float x, float sigma) {
@@ -165,6 +185,40 @@ uniform highp float radius;
 uniform highp float base;
 
 void main() {
-    gl_FragColor = vec4(0.0, 0.0, 0.0, roundedBoxShadow(rect.xy, rect.zw, uv, elevation, radius) * base);
+  gl_FragColor = vec4(0.0, 0.0, 0.0, roundedBoxShadow(rect.xy, rect.zw, pos0, elevation, radius) * base);
+}"#;
+
+    pub const RR_FRAGMENT: &str = r#"#version 100
+precision highp float;
+
+varying lowp vec4 color;
+varying lowp vec2 pos0;
+varying lowp vec2 uv;
+
+uniform highp vec4 rect;
+uniform highp float radius;
+
+uniform sampler2D Texture;
+
+void main() {
+  vec2 lower = rect.xy, upper = rect.zw, point = pos0;
+  vec2 lowerp = lower + vec2(radius);
+  vec2 upperp = upper - vec2(radius);
+  float lf = step(point.x, lowerp.x);
+  float tp = step(point.y, lowerp.y);
+  float rt = step(upperp.x, point.x);
+  float bt = step(upperp.y, point.y);
+  float eps = 0.0003;
+  float factor =
+      (1.0 - step(radius - eps, distance(lowerp, point)) * lf * tp)
+    * (1.0 - step(radius - eps, distance(upperp, point)) * rt * bt)
+    * (1.0 - step(radius - eps, distance(vec2(lowerp.x, upperp.y), point)) * lf * bt)
+    * (1.0 - step(radius - eps, distance(vec2(upperp.x, lowerp.y), point)) * rt * tp)
+    * step(lower.x, point.x)
+    * step(lower.y, point.y)
+    * step(point.x, upper.x)
+    * step(point.y, upper.y);
+  gl_FragColor = texture2D(Texture, uv) * color;
+  gl_FragColor.a *= factor;
 }"#;
 }
