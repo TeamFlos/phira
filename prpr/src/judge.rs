@@ -20,7 +20,7 @@ pub const LIMIT_BAD: f32 = 0.22;
 pub const UP_TOLERANCE: f32 = 0.05;
 pub const DIST_FACTOR: f32 = 0.2;
 
-const EARLY_OFFSET: f32 = 0.2;
+const EARLY_OFFSET: f32 = 0.1;
 
 pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     if config.volume_sfx <= 1e-2 {
@@ -41,7 +41,9 @@ pub struct FlickTracker {
 }
 
 impl FlickTracker {
-    pub fn new(dpi: u32, time: f32, point: Point) -> Self {
+    pub fn new(_dpi: u32, time: f32, point: Point) -> Self {
+        // TODO maybe a better approach?
+        let dpi = 275;
         Self {
             threshold: FLICK_SPEED_THRESHOLD * dpi as f32 / 386.,
             last_point: point,
