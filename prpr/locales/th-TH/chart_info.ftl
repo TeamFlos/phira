@@ -1,0 +1,27 @@
+
+edit-chart = แก้ไข Chart
+level-displayed = Level
+chart-name = ชื่อ
+author = คนทำ Chart
+composer = ศิลปิน
+illustrator = นักวาด
+diff = ระดับความ
+preview-time = เวลาของ Preview
+preview-hint = ควรจะใช้ "จุดเริ่มต้น-จุดจบ"; สามารถใช้ช่องว่างได้
+invalid-time = เวลาไม่ถูกต้อง
+preview-too-short = Preview สั้นเกินไป
+preview-too-long = Preview ยาวเกินไป
+offset = Offset(s)
+aspect-ratio = Aspect ratio
+ps = ป.ล.
+aspect-hint = Aspect ratio สามารถใช้ตัวเลขหรือตัวอักษรก็ได้ ตัวอย่างเช่น "w:h"
+dim = ความสว่างของ Background
+chart-file = ไฟล์ Chart
+music-file = ไฟล์เพลง
+illu-file = ไฟล์ภาพ
+tip = Tip
+intro = Intro
+tags = Tags
+tag-exists = Tag นี้มีอยู่แล้ว
+
+illegal-input = Illegal input

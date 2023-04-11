@@ -256,6 +256,7 @@ impl DRectButton {
             .anchor(0.5, 0.5)
             .no_baseline()
             .size(size * (1. - (1. - r.h / oh).powf(1.3)))
+            .max_width(r.w)
             .color(if chosen { Color::new(0.3, 0.3, 0.3, alpha) } else { semi_white(alpha) })
             .draw();
         (r, path)
@@ -1050,7 +1051,7 @@ impl<'a> Ui<'a> {
     pub fn tab_rects<'b>(&mut self, c: Color, t: f32, it: impl IntoIterator<Item = (&'b mut DRectButton, Cow<'b, str>, bool)>) {
         let mut r = Rect::new(-0.92, -self.top + 0.18, 0.2, 0.11);
         for (btn, text, chosen) in it {
-            btn.render_text(self, r, t, c.a, text, 0.57, chosen);
+            btn.render_text(self, r, t, c.a, text, 0.5, chosen);
             r.y += 0.125;
         }
     }
