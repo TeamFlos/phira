@@ -31,6 +31,7 @@ struct PgrSpeedEvent {
     pub start_time: f32,
     pub end_time: f32,
     pub value: f32,
+    pub floor_position: Option<f32>,
 }
 
 #[derive(Deserialize)]
@@ -100,6 +101,7 @@ fn parse_speed_events(r: f32, mut pgr: Vec<PgrSpeedEvent>, max_time: f32) -> Res
         Keyframe::new(it.start_time * r, from_pos, 2)
     }));
     let last = pgr.last().unwrap();
+    kfs.push(Keyframe::new(last.end_time * r, pos, 2));
     kfs.push(Keyframe::new(max_time, pos + (max_time - last.start_time * r) * last.value, 0));
     for kf in &mut kfs {
         kf.value /= HEIGHT_RATIO;
