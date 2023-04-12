@@ -232,7 +232,7 @@ impl Page for ResPackPage {
         s.render_fader(ui, |ui, c| {
             ui.fill_path(&r.rounded(0.02), semi_black(c.a * 0.4));
             let pad = 0.02;
-            self.btns_scroll.size((r.w, r.h));
+            self.btns_scroll.size((r.w, r.h - pad));
             ui.dx(r.x);
             ui.dy(r.y + pad);
             self.btns_scroll.render(ui, |ui| {

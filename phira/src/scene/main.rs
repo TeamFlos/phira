@@ -164,6 +164,7 @@ impl Scene for MainScene {
             }
         } else if let Some(true) = s.fader.done(s.t) {
             self.pages.pop().unwrap().exit()?;
+            self.pages.last_mut().unwrap().enter(s)?;
         }
         Ok(())
     }

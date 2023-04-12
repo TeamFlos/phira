@@ -1,9 +1,7 @@
 use std::collections::VecDeque;
 
 use super::Ui;
-use crate::{
-    core::{Matrix, Point, Vector},
-};
+use crate::core::{Matrix, Point, Vector};
 use macroquad::prelude::{Rect, Touch, TouchPhase, Vec2};
 use nalgebra::Translation2;
 
@@ -94,6 +92,7 @@ pub struct Scroller {
     last_time: f32,
     tracker: VelocityTracker,
     pub pulled: bool,
+    pub pulled_down: bool,
     frame_touched: bool,
     pub step: f32,
     pub last_step: usize,
@@ -116,6 +115,7 @@ impl Scroller {
             last_time: 0.,
             tracker: VelocityTracker::empty(),
             pulled: false,
+            pulled_down: false,
             frame_touched: true,
             step: f32::NAN,
             last_step: 0,
@@ -162,6 +162,9 @@ impl Scroller {
                     if self.offset <= -EXTEND * 0.7 {
                         self.pulled = true;
                     }
+                    if self.offset >= self.size + EXTEND * 0.4 {
+                        self.pulled_down = true;
+                    }
                     let res = self.touch.map(|it| it.3).unwrap_or_default();
                     self.touch = None;
                     self.frame_touched = true;
@@ -207,17 +210,16 @@ impl Scroller {
                 self.speed = (to - self.offset) * K;
             }
         }
-        // if !unlock && self.offset < 0. {
-        // self.speed = -self.offset * K;
-        // } else if !unlock && self.offset > self.size {
-        // self.speed = (self.size - self.offset) * K;
-        // } else {
-        // self.speed *= (0.5_f32).powf((t - self.last_time) / 0.4);
-        // }
-        self.last_time = t;
-        if self.pulled {
-            self.pulled = false;
+        if !unlock && self.offset < 0. {
+            self.speed = -self.offset * K;
+        } else if !unlock && self.offset > self.size {
+            self.speed = (self.size - self.offset) * K;
+        } else {
+            self.speed *= (0.5_f32).powf((t - self.last_time) / 0.4);
         }
+        self.last_time = t;
+        self.pulled = false;
+        self.pulled_down = false;
         self.frame_touched = false;
     }
 

@@ -4,6 +4,9 @@ pub use home::HomePage;
 mod library;
 pub use library::{LibraryPage, NEED_UPDATE};
 
+mod message;
+pub use message::{MessagePage};
+
 mod offset;
 pub use offset::OffsetPage;
 

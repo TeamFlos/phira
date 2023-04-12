@@ -1,8 +1,8 @@
 prpr::tl_file!("home");
 
-use super::{LibraryPage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
+use super::{LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
-    client::{Client, LoginParams, User, UserManager},
+    client::{recv_raw, Client, LoginParams, User, UserManager},
     dir, get_data, get_data_mut,
     login::Login,
     save_data,
@@ -20,6 +20,7 @@ use prpr::{
     task::Task,
     ui::{button_hit_large, rounded_rect, DRectButton, Ui},
 };
+use serde::Deserialize;
 
 const BOARD_SWITCH_TIME: f32 = 4.;
 const BOARD_TRANSIT_TIME: f32 = 1.2;
@@ -65,6 +66,9 @@ pub struct HomePage {
     board_tex_last: Option<SafeTexture>,
     board_tex: Option<SafeTexture>,
     board_dir: bool,
+
+    has_new_task: Option<Task<Result<bool>>>,
+    has_new: bool,
 }
 
 impl HomePage {
@@ -123,7 +127,27 @@ impl HomePage {
             board_tex_last: None,
             board_tex: None,
             board_dir: false,
+
+            has_new_task: None,
+            has_new: false,
         })
+    }
+}
+
+impl HomePage {
+    fn fetch_has_new(&mut self) {
+        let time = get_data().message_check_time.unwrap_or_default();
+        self.has_new_task = Some(Task::new(async move {
+            #[derive(Deserialize)]
+            struct Resp {
+                has: bool,
+            }
+            let resp: Resp = recv_raw(Client::get("/message/has_new").query(&[("checked", time)]))
+                .await?
+                .json()
+                .await?;
+            Ok(resp.has)
+        }));
     }
 }
 
@@ -137,6 +161,7 @@ impl Page for HomePage {
             self.sf.enter(s.t);
             self.need_back = false;
         }
+        self.fetch_has_new();
         Ok(())
     }
 
@@ -176,6 +201,7 @@ impl Page for HomePage {
             return Ok(true);
         }
         if self.btn_msg.touch(touch, t) {
+            self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new())));
             return Ok(true);
         }
         if self.btn_settings.touch(touch, t) {
@@ -251,6 +277,18 @@ impl Page for HomePage {
                 }
                 self.board_last_time = t;
                 self.board_task = None;
+            }
+        }
+        if let Some(task) = &mut self.has_new_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!("fail to load has new {:?}", err);
+                    }
+                    Ok(has) => {
+                        self.has_new = has;
+                    }
+                }
             }
         }
         Ok(())
@@ -334,6 +372,10 @@ impl Page for HomePage {
             let (r, _) = self.btn_msg.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
             let r = r.feather(-0.01);
             ui.fill_rect(r, (*self.icon_msg, r, ScaleType::Fit, c));
+            if self.has_new {
+                let pad = 0.007;
+                ui.fill_circle(r.right() - pad, r.y + pad, 0.01, Color { a: c.a, ..RED });
+            }
 
             let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
             let (r, _) = self.btn_settings.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));

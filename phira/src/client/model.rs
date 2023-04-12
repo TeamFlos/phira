@@ -1,6 +1,9 @@
 mod chart;
 pub use chart::*;
 
+mod message;
+pub use message::*;
+
 mod record;
 pub use record::*;
 

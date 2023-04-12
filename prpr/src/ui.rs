@@ -262,17 +262,17 @@ impl DRectButton {
         (r, path)
     }
 
-    pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32) -> (Rect, Path) {
+    pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) -> (Rect, Path) {
         let oh = r.h;
         let (r, path) = self.build(ui, t, r);
-        ui.fill_path(&path, semi_black(alpha * 0.4));
+        ui.fill_path(&path, if chosen { semi_white(alpha) } else { semi_black(alpha * 0.4) });
         ui.text(text)
             .pos(r.x + 0.02, r.center().y)
             .anchor(0., 0.5)
             .max_width(r.w - 0.04)
             .no_baseline()
             .size(size * r.h / oh)
-            .color(semi_white(alpha))
+            .color(if chosen { Color::new(0.3, 0.3, 0.3, alpha) } else { semi_white(alpha) })
             .draw();
         (r, path)
     }
@@ -290,9 +290,9 @@ impl DRectButton {
     ) {
         let text = text.into();
         if text.trim().is_empty() {
-            self.render_text_left(ui, r, t, alpha * 0.7, hint, size);
+            self.render_text_left(ui, r, t, alpha * 0.7, hint, size, false);
         } else {
-            self.render_text_left(ui, r, t, alpha, text, size);
+            self.render_text_left(ui, r, t, alpha, text, size, false);
         }
     }
 
