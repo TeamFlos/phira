@@ -1,5 +1,5 @@
 
-load-preview-failed = ไม่สามารถโหลด Preview เพลงได้
+load-preview-failed = ไม่สามารถโหลด PV เพลงได้
 load-charts-failed = ไม่สามารถโหลด Chart ได้
 no-chart-for-download = Chart นี้ไม่สามารถ Download ได้
 
@@ -18,7 +18,7 @@ dl-success = Download เสร็จเรียบร้อย
 
 guest = Guest
 
-warn-unrated = Chart นี้จะไม่มีการบันทึกข้อมูลใดทั้งสิ้น
+warn-unrated = Chart นี้จะไม่มีการบันทึกข้อมูลใดๆทั้งสิ้น
 failed-to-play = ไม่สามารถเล่นในโหมด online ได้
 play-cancel = ยกเลิก
 play-switch-to-offline = เปลี่ยนไปเป็น offline
@@ -34,10 +34,10 @@ edit-saving = กำลังบันทึก
 edit-load-file-failed = ไม่สามารถโหลด external file ได้
 edit-save-failed = บันทึกล้มเหลว
 edit-saved = บันทึกเสร็จเรียบร้อย
-edit-preview-invalid = เวลา Preview อยู่นอกขอบเขต
+edit-preview-invalid = เวลา PV อยู่นอกขอบเขต
 
 edit-upload = อัพโหลด
-upload-login-first = กรุณา Log in ก่อน
+upload-login-first = กรุณา Login ก่อน
 upload-builtin = Built-in chart ไม่สามารถอัพโหลดได้
 upload-downloaded = Chart ที่ Download แล้วไม่สามารถอัพโหลดได้
 upload-rules = อัพโหลดกฎ
@@ -56,4 +56,4 @@ upload-failed = อัพโหลดล้มเหลว
 
 ldb = Leaderboard
 ldb-load-failed = ไม่สามารถโหลดข้อมูล leaderboard ได้
-ldb-no-rank = ไม่มี
+ldb-no-rank = ไม่มีการเล่น
