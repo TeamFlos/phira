@@ -251,9 +251,9 @@ pub fn request_file(id: impl Into<String>) {
                     msg_send![picker, initForOpeningContentTypes: types]
                 } else {
                     let ext = |e: &str| str_to_ns(e);
-                    let types = NSArray::from_vec(vec![ext(".zip"), ext(".pez"), ext(".jpg"), ext(".png"), ext(".jpeg")]);
+                    let types = NSArray::from_vec(vec![ext(".zip"), ext(".pez")]);
                     let types: ObjcId = std::mem::transmute(types);
-                    msg_send![picker, documentTypes: types inMode: 0]
+                    msg_send![picker, initWithDocumentTypes: types inMode: 0]
                 };
                 let dlg_obj: ObjcId = msg_send![*PICKER_DELEGATE as ObjcId, alloc];
                 let dlg_obj: ObjcId = msg_send![dlg_obj, init];

@@ -27,6 +27,7 @@ item-dhint = Double hint
 item-dhint-sub = Notes that touch line simutaneously will be highlighted
 item-opt = Aggressive optimization
 item-opt-sub = Improves performance, but can cause incorrect behavior
+item-speed = Speed
 item-note-size = Note size
 
 load-cali-failed = Failed to load audio
