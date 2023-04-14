@@ -27,6 +27,7 @@ item-dhint = Note highlight
 item-dhint-sub = Note 2 ตัวจะถูก highlight
 item-opt = Aggressive optimization
 item-opt-sub = เพิ่มประสิทธิภาพให้กับตัวเกม (อาจจะมีข้อผิดผลาด)
+item-speed = ความเร็ว
 item-note-size = ขนาดของ Note
 
 load-cali-failed = ไม่สามารถโหลดเสียงได้
