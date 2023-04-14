@@ -48,10 +48,12 @@ impl ResPackItem {
     }
 
     fn load(&mut self) {
-        if self.loaded.is_some() || self.load_task.is_some() {
-            return;
+        if self.load_task.is_some() {}
+        if let Some(loaded) = self.loaded.take() {
+            self.load_task = Some(Box::pin(async move { Ok(loaded) }));
+        } else {
+            self.load_task = Some(Box::pin(ResourcePack::from_path(self.path.clone())));
         }
-        self.load_task = Some(Box::pin(ResourcePack::from_path(self.path.clone())));
     }
 }
 
