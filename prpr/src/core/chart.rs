@@ -34,7 +34,7 @@ impl Chart {
         let mut order = (0..lines.len())
             .filter(|it| {
                 if let Some(element) = lines[*it].attach_ui {
-                    attach_ui[element as usize] = Some(*it);
+                    attach_ui[element as usize - 1] = Some(*it);
                     false
                 } else {
                     true
