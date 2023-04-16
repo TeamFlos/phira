@@ -58,7 +58,7 @@ ldb = Leaderboard
 ldb-load-failed = Failed to load leaderboard
 ldb-no-rank = None
 ldb-score = Score
-ldb-std = SD
+ldb-std = Purity
 
 info-name = Name
 info-composer = Composer

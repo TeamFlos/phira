@@ -633,7 +633,7 @@ impl Judge {
             self.commit(
                 judgement,
                 if matches!(judgement, Judgement::Miss) {
-                    0.3
+                    0.25
                 } else {
                     diff.unwrap_or((t - note.time) / spd)
                 },

@@ -632,7 +632,7 @@ impl SongScene {
                         rt -= r.w + 0.01;
                         let r = ui
                             .text(if self.ldb_std {
-                                format!("{:08}", item.inner.std_score.unwrap_or(0.) as i64)
+                                format!("{:07}", item.inner.std_score.unwrap_or(0.) as i64)
                             } else {
                                 format!("{:07}", item.inner.score)
                             })
@@ -815,6 +815,7 @@ impl Scene for SongScene {
                     SideContent::Leaderboard => {
                         if self.ldb_type_btn.touch(touch, t) {
                             self.ldb_std ^= true;
+                            self.ldb_scroll.y_scroller.offset = 0.;
                             self.load_ldb();
                             return Ok(true);
                         }
