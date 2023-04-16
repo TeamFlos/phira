@@ -4,10 +4,10 @@ use super::{ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Chart, Client, File},
     data::LocalChart,
-    dir, get_data_mut,
+    dir, get_data, get_data_mut,
     popup::Popup,
     save_data,
-    scene::{import_chart, ChartOrder, SongScene, ORDERS}, get_data,
+    scene::{import_chart, ChartOrder, SongScene, ORDERS},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -412,7 +412,7 @@ impl Page for LibraryPage {
             show_message(tl!("not-opened")).warn();
             return Ok(true);
         }
-        if self.online_task.is_none() {
+        if !matches!(self.chosen, ChartListType::Local) && self.online_task.is_none() {
             if self.prev_page_btn.touch(touch, t) {
                 if self.current_page != 0 {
                     self.current_page -= 1;
@@ -620,7 +620,9 @@ impl Page for LibraryPage {
             );
         });
         let mut r = ui.content_rect();
-        r.h -= 0.08;
+        if !matches!(self.chosen, ChartListType::Local) {
+            r.h -= 0.08;
+        }
         match self.chosen {
             ChartListType::Local => {
                 s.render_fader(ui, |ui, c| {
@@ -678,26 +680,28 @@ impl Page for LibraryPage {
             ui.fill_path(&path, semi_black(0.4 * c.a));
             self.render_charts(ui, c, s.t, &s.charts_local, r.feather(-0.01))
         });
-        let total_page = self.total_page(s);
-        s.render_fader(ui, |ui, c| {
-            let cx = r.center().x;
-            let r = ui
-                .text(tl!("page", "current" => self.current_page + 1, "total" => total_page))
-                .pos(cx, r.bottom() + 0.034)
-                .anchor(0.5, 0.)
-                .no_baseline()
-                .size(0.5)
-                .color(c)
-                .draw();
-            let dist = 0.3;
-            let ft = 0.024;
-            let prev_page = tl!("prev-page");
-            let r = ui.text(prev_page.deref()).pos(cx - dist, r.y).anchor(0.5, 0.).size(0.5).measure();
-            self.prev_page_btn.render_text(ui, r.feather(ft), t, c.a, prev_page, 0.5, false);
-            let next_page = tl!("next-page");
-            let r = ui.text(next_page.deref()).pos(cx + dist, r.y).anchor(0.5, 0.).size(0.5).measure();
-            self.next_page_btn.render_text(ui, r.feather(ft), t, c.a, next_page, 0.5, false);
-        });
+        if !matches!(self.chosen, ChartListType::Local) {
+            let total_page = self.total_page(s);
+            s.render_fader(ui, |ui, c| {
+                let cx = r.center().x;
+                let r = ui
+                    .text(tl!("page", "current" => self.current_page + 1, "total" => total_page))
+                    .pos(cx, r.bottom() + 0.034)
+                    .anchor(0.5, 0.)
+                    .no_baseline()
+                    .size(0.5)
+                    .color(c)
+                    .draw();
+                let dist = 0.3;
+                let ft = 0.024;
+                let prev_page = tl!("prev-page");
+                let r = ui.text(prev_page.deref()).pos(cx - dist, r.y).anchor(0.5, 0.).size(0.5).measure();
+                self.prev_page_btn.render_text(ui, r.feather(ft), t, c.a, prev_page, 0.5, false);
+                let next_page = tl!("next-page");
+                let r = ui.text(next_page.deref()).pos(cx + dist, r.y).anchor(0.5, 0.).size(0.5).measure();
+                self.next_page_btn.render_text(ui, r.feather(ft), t, c.a, next_page, 0.5, false);
+            });
+        }
         if let Some(transit) = &self.transit {
             if let Some(fr) = transit.rect {
                 let p = ((t - transit.start_time) / TRANSIT_TIME).clamp(0., 1.);
