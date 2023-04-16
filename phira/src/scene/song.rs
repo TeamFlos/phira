@@ -660,6 +660,7 @@ impl SongScene {
             item(tl!("info-composer"), self.info.composer.as_str().into());
             item(tl!("info-charter"), self.info.charter.as_str().into());
             item(tl!("info-desc"), self.info.intro.as_str().into());
+            item(tl!("info-difficulty"), format!("{} ({:.1})", self.info.level, self.info.difficulty).into());
             (width, h)
         });
     }
