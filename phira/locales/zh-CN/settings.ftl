@@ -4,6 +4,7 @@ label = 设置
 general = 通用
 audio = 音频
 chart = 谱面
+debug = 调试
 
 switch-on = 开
 switch-off = 关
