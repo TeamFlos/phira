@@ -120,7 +120,7 @@ impl Scene for MainScene {
         }
         let s = &mut self.state;
         s.t = tm.now() as _;
-        if self.btn_back.touch(touch) {
+        if self.btn_back.touch(touch) && self.pages.len() > 1 {
             button_hit();
             if self.pages.len() == 2 {
                 if let Some(bgm) = &mut self.bgm {
