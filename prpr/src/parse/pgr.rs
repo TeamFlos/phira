@@ -31,7 +31,6 @@ struct PgrSpeedEvent {
     pub start_time: f32,
     pub end_time: f32,
     pub value: f32,
-    pub floor_position: Option<f32>,
 }
 
 #[derive(Deserialize)]
@@ -85,7 +84,7 @@ macro_rules! validate_events {
             }
         }
         // if $pgr.last().unwrap().end_time <= 900000000.0 {
-            // bail!("End time is not great enough ({})", $pgr.last().unwrap().end_time);
+        // bail!("End time is not great enough ({})", $pgr.last().unwrap().end_time);
         // }
     };
 }
