@@ -278,7 +278,6 @@ impl Page for ResPackPage {
                 draw(r, *pack.note_style.flick, *pack.note_style_mh.flick);
                 r.y += sp;
                 let mut r = Rect::new(0.1, cr.y + 0.1, width, cr.h - 0.38);
-                // ui.fill_rect(r, WHITE);
                 let draw = |mut r: Rect, style: &NoteStyle, width: f32| {
                     let conv = |r: Rect, tex: &SafeTexture| Rect::new(r.x * tex.width(), r.y * tex.height(), r.w * tex.width(), r.h * tex.height());
                     let tr = conv(style.hold_tail_rect(), &style.hold);
