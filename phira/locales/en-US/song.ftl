@@ -61,5 +61,5 @@ ldb-no-rank = None
 info-name = Name
 info-composer = Composer
 info-charter = Charter
-info-desc = Description
 info-difficulty = Difficulty
+info-desc = Description
