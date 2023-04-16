@@ -185,7 +185,7 @@ impl JudgeLine {
                 res.apply_model(|res| match &self.kind {
                     JudgeLineKind::Normal => {
                         let mut color = color.unwrap_or(res.judge_line_color);
-                        color.a = alpha.max(0.0);
+                        color.a *= alpha.max(0.0);
                         let len = res.info.line_length;
                         draw_line(-len, 0., len, 0., 0.01, color);
                     }
