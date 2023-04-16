@@ -190,10 +190,10 @@ impl Page for MessagePage {
                 dy!(th + 0.016);
                 ui.fill_rect(Rect::new(0., 0., mw, 0.006), semi_white(c.a * 0.8));
                 dy!(0.015);
-                self.scroll.size((mw, cr.h - h));
+                self.scroll.size((mw, cr.h - h - pad));
                 self.scroll.render(ui, |ui| {
                     let r = ui.text(&msg.content).size(0.6).multiline().max_width(mw).color(c).draw();
-                    (mw, r.h)
+                    (mw, r.h + 0.04)
                 });
             }
         });
