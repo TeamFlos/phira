@@ -57,6 +57,8 @@ upload-failed = Upload failed
 ldb = Leaderboard
 ldb-load-failed = Failed to load leaderboard
 ldb-no-rank = None
+ldb-score = Score
+ldb-std = SD
 
 info-name = Name
 info-composer = Composer

@@ -19,6 +19,8 @@ pub struct Record {
     pub best: bool,
     pub mods: i32,
     pub time: DateTime<Utc>,
+    pub std: Option<f32>,
+    pub std_score: Option<f32>,
 }
 impl Object for Record {
     const QUERY_PATH: &'static str = "records";

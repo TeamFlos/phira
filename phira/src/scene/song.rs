@@ -171,6 +171,8 @@ pub struct SongScene {
     ldb_btn: RectButton,
     ldb_scroll: Scroll,
     ldb_fader: Fader,
+    ldb_type_btn: DRectButton,
+    ldb_std: bool,
 
     info_btn: RectButton,
     info_scroll: Scroll,
@@ -298,6 +300,8 @@ impl SongScene {
             ldb_btn: RectButton::new(),
             ldb_scroll: Scroll::new(),
             ldb_fader: Fader::new().with_distance(0.12),
+            ldb_type_btn: DRectButton::new(),
+            ldb_std: false,
 
             info_btn: RectButton::new(),
             info_scroll: Scroll::new(),
@@ -391,7 +395,13 @@ impl SongScene {
         }
         let Some(id) = self.info.id else { return };
         self.ldb = None;
-        self.ldb_task = Some(Task::new(async move { Ok(recv_raw(Client::get(format!("/record/list15/{id}"))).await?.json().await?) }));
+        let std = self.ldb_std;
+        self.ldb_task = Some(Task::new(async move {
+            Ok(recv_raw(Client::get(format!("/record/list15/{id}")).query(&[("std", std)]))
+                .await?
+                .json()
+                .await?)
+        }));
     }
 
     fn update_record(&mut self, new_rec: SimpleRecord) -> Result<()> {
@@ -562,7 +572,16 @@ impl SongScene {
     fn side_ldb(&mut self, ui: &mut Ui, rt: f32) {
         let pad = 0.03;
         let width = self.side_content.width() - pad;
-        ui.dy(0.02);
+        ui.dy(0.03);
+        self.ldb_type_btn.render_text(
+            ui,
+            Rect::new(width - 0.24, -0.01, 0.23, 0.09),
+            rt,
+            1.,
+            if self.ldb_std { tl!("ldb-std") } else { tl!("ldb-score") },
+            0.6,
+            true,
+        );
         let r = ui.text(tl!("ldb")).size(0.8).draw();
         ui.dy(r.h + 0.03);
         let sh = ui.top * 2. - r.h - 0.08;
@@ -599,7 +618,11 @@ impl SongScene {
                         ui.avatar(0.14, s / 2., r, c, rt, UserManager::opt_avatar(item.inner.player.id, &self.icon_user));
                         let mut rt = width - 0.04;
                         let r = ui
-                            .text(format!("{:.2}%", item.inner.accuracy * 100.))
+                            .text(if self.ldb_std {
+                                format!("{}ms", (item.inner.std.unwrap_or(0.) * 1000.) as i32)
+                            } else {
+                                format!("{:.2}%", item.inner.accuracy * 100.)
+                            })
                             .pos(rt, s / 2.)
                             .anchor(1., 0.5)
                             .no_baseline()
@@ -608,7 +631,11 @@ impl SongScene {
                             .draw();
                         rt -= r.w + 0.01;
                         let r = ui
-                            .text(format!("{:07}", item.inner.score))
+                            .text(if self.ldb_std {
+                                format!("{:08}", item.inner.std_score.unwrap_or(0.) as i64)
+                            } else {
+                                format!("{:07}", item.inner.score)
+                            })
                             .pos(rt, s / 2.)
                             .anchor(1., 0.5)
                             .no_baseline()
@@ -786,6 +813,11 @@ impl Scene for SongScene {
                         }
                     }
                     SideContent::Leaderboard => {
+                        if self.ldb_type_btn.touch(touch, t) {
+                            self.ldb_std ^= true;
+                            self.load_ldb();
+                            return Ok(true);
+                        }
                         if self.ldb_scroll.touch(touch, t) {
                             return Ok(true);
                         }

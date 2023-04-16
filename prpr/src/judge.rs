@@ -120,9 +120,9 @@ impl JudgeInner {
         }
     }
 
-    pub fn commit(&mut self, what: Judgement, diff: Option<f32>) {
+    pub fn commit(&mut self, what: Judgement, diff: f32) {
         use Judgement::*;
-        if let Some(diff) = diff {
+        if matches!(what, Judgement::Good) {
             self.diffs.push(diff);
         }
         self.counts[what as usize] += 1;
@@ -233,7 +233,7 @@ impl Judge {
         self.inner.reset();
     }
 
-    pub fn commit(&mut self, what: Judgement, diff: Option<f32>) {
+    pub fn commit(&mut self, what: Judgement, diff: f32) {
         self.inner.commit(what, diff);
     }
 
@@ -632,10 +632,10 @@ impl Judge {
             let line_tr = line.now_transform(res, &chart.lines);
             self.commit(
                 judgement,
-                if matches!(judgement, Judgement::Good | Judgement::Bad) {
-                    Some(diff.unwrap_or((t - note.time) / spd))
+                if matches!(judgement, Judgement::Miss) {
+                    0.3
                 } else {
-                    None
+                    diff.unwrap_or((t - note.time) / spd)
                 },
             );
             if matches!(note.kind, NoteKind::Hold { .. }) {
@@ -734,7 +734,7 @@ impl Judge {
             }
         }
         for (line_id, id) in judgements.into_iter() {
-            self.commit(Judgement::Perfect, None);
+            self.commit(Judgement::Perfect, 0.);
             let (note_transform, note_kind) = {
                 let line = &mut chart.lines[line_id];
                 let note = &mut line.notes[id as usize];

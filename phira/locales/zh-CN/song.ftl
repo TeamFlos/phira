@@ -57,6 +57,8 @@ upload-failed = 上传失败
 ldb = 排行榜
 ldb-load-failed = 加载排行榜失败
 ldb-no-rank = 无
+ldb-score = 分数
+ldb-std = 标准差
 
 info-name = 名字
 info-composer = 曲师
