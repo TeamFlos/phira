@@ -57,3 +57,11 @@ upload-failed = Ошибка загрузки.
 ldb = Список лидеров
 ldb-load-failed = Ошибка загрузки списка лидеров
 ldb-no-rank = Пусто
+ldb-score = Очки
+ldb-std = Чистота
+
+info-name = Имя трека
+info-composer = Композитор
+info-charter = Автор чартп
+info-difficulty = Сложность
+info-desc = Описание

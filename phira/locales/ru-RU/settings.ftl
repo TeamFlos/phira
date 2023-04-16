@@ -4,6 +4,7 @@ label = НАСТРОЙКИ
 general = Общие
 audio = Аудио
 chart = Игра
+debug = Отладка
 
 switch-on = Вкл. 
 switch-off = Выкл. 
@@ -29,5 +30,10 @@ item-opt = Агрессивная оптимизация
 item-opt-sub = Улучшает производительность, но снижает стабильность
 item-speed = Скорость чарта
 item-note-size = Размер нот
+
+item-chart-debug = Отладка чарта
+item-chart-debug-sub = Отображаются номера и направление линий
+item-touch-debug = Отладка касаний
+item-touch-debug-sub = Точки нажатия отображаются
 
 load-cali-failed = Ошибка загрузки аудио
