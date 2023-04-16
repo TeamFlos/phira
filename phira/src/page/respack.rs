@@ -5,7 +5,7 @@ use crate::{dir, get_data, get_data_mut, save_data, scene::confirm_delete};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use prpr::{
-    core::{NoteStyle, ParticleEmitter, ResPackInfo, ResourcePack, JUDGE_LINE_PERFECT_COLOR},
+    core::{NoteStyle, ParticleEmitter, ResPackInfo, ResourcePack},
     ext::{create_audio_manger, poll_future, semi_black, unzip_into, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, return_file, show_error, show_message, take_file},
     ui::{DRectButton, Dialog, Scroll, Ui},
@@ -366,7 +366,7 @@ impl Page for ResPackPage {
                     ui.fill_rect(r, (tex, r, ScaleType::Fit, c));
                 } else if irnd != self.last_round {
                     if let Some(emitter) = &mut self.emitter {
-                        emitter.emit_at(vec2(cx, line), 0., JUDGE_LINE_PERFECT_COLOR);
+                        emitter.emit_at(vec2(cx, line), 0., pack.info.fx_perfect());
                     }
                     if let Some(sfxs) = &mut self.sfxs {
                         let _ = sfxs[(irnd % 3) as usize].play(PlaySfxParams::default());

@@ -11,7 +11,7 @@ use super::{
 use crate::{
     bin::{BinaryReader, BinaryWriter},
     config::Config,
-    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, JUDGE_LINE_GOOD_COLOR, JUDGE_LINE_PERFECT_COLOR},
+    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector},
     ext::{parse_time, screen_aspect, RectExt, SafeTexture},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
@@ -149,7 +149,7 @@ macro_rules! reset {
         $self.bad_notes.clear();
         $self.judge.reset();
         $self.chart.reset();
-        $res.judge_line_color = JUDGE_LINE_PERFECT_COLOR;
+        $res.judge_line_color = $res.res_pack.info.fx_perfect();
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
         $tm.reset();
@@ -862,9 +862,9 @@ impl Scene for GameScene {
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 {
             if counts[1] == 0 {
-                JUDGE_LINE_PERFECT_COLOR
+                self.res.res_pack.info.fx_perfect()
             } else {
-                JUDGE_LINE_GOOD_COLOR
+                self.res.res_pack.info.fx_good()
             }
         } else {
             WHITE

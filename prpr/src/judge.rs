@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    core::{BadNote, Chart, NoteKind, Point, Resource, Vector, JUDGE_LINE_GOOD_COLOR, JUDGE_LINE_PERFECT_COLOR, NOTE_WIDTH_RATIO_BASE},
+    core::{BadNote, Chart, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
     ext::{get_viewport, NotNanExt},
 };
 use macroquad::prelude::{
@@ -643,11 +643,11 @@ impl Judge {
             }
             if match judgement {
                 Judgement::Perfect => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), JUDGE_LINE_PERFECT_COLOR));
+                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect()));
                     true
                 }
                 Judgement::Good => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), JUDGE_LINE_GOOD_COLOR));
+                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good()));
                     true
                 }
                 Judgement::Bad => {
@@ -745,7 +745,7 @@ impl Judge {
             };
             let line = &chart.lines[line_id];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                res.emit_at_origin(line.notes[id as usize].rotation(line), JUDGE_LINE_PERFECT_COLOR)
+                res.emit_at_origin(line.notes[id as usize].rotation(line), res.res_pack.info.fx_perfect())
             });
             if let Some(sfx) = match note_kind {
                 NoteKind::Click => Some(&mut res.sfx_click),

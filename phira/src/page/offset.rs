@@ -1,9 +1,9 @@
-use crate::{get_data, get_data_mut, save_data};
 use super::{Page, SharedState};
+use crate::{get_data, get_data_mut, save_data};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use prpr::{
-    core::{ParticleEmitter, ResourcePack, JUDGE_LINE_PERFECT_COLOR, NOTE_WIDTH_RATIO_BASE},
+    core::{ParticleEmitter, ResourcePack, NOTE_WIDTH_RATIO_BASE},
     ext::{create_audio_manger, semi_black, RectExt, SafeTexture, ScaleType},
     time::TimeManager,
     ui::{Slider, Ui},
@@ -11,7 +11,7 @@ use prpr::{
 use sasa::{AudioClip, AudioManager, Music, MusicParams, PlaySfxParams, Sfx};
 
 pub struct OffsetPage {
-    audio: AudioManager,
+    _audio: AudioManager,
     cali: Music,
     cali_hit: Sfx,
 
@@ -21,6 +21,7 @@ pub struct OffsetPage {
     click: SafeTexture,
     _hit_fx: SafeTexture,
     emitter: ParticleEmitter,
+    color: Color,
 
     slider: Slider,
 
@@ -51,7 +52,7 @@ impl OffsetPage {
         let click = respack.note_style.click.clone();
         let emitter = ParticleEmitter::new(&respack, get_data().config.note_scale, respack.info.hide_particles)?;
         Ok(Self {
-            audio,
+            _audio: audio,
             cali,
             cali_hit,
 
@@ -61,6 +62,7 @@ impl OffsetPage {
             click,
             _hit_fx: respack.hit_fx,
             emitter,
+            color: respack.info.fx_perfect(),
 
             slider: Slider::new(-500.0..500.0, 10.),
 
@@ -168,7 +170,7 @@ impl Page for OffsetPage {
             } else {
                 if self.cali_last {
                     let g = ui.to_global(ct);
-                    self.emitter.emit_at(vec2(g.0, g.1), 0., JUDGE_LINE_PERFECT_COLOR);
+                    self.emitter.emit_at(vec2(g.0, g.1), 0., self.color);
                     let _ = self.cali_hit.play(PlaySfxParams::default());
                 }
                 self.cali_last = false;
@@ -181,8 +183,8 @@ impl Page for OffsetPage {
                 } else {
                     let p = p.max(0.);
                     let c = Color {
-                        a: (if p <= 0.5 { 1. } else { (1. - p) * 2. }) * c.a,
-                        ..JUDGE_LINE_PERFECT_COLOR
+                        a: (if p <= 0.5 { 1. } else { (1. - p) * 2. }) * c.a * self.color.a,
+                        ..self.color
                     };
                     ui.fill_rect(Rect::new(ct.0 - hw, pos - hh, hw * 2., hh * 2.), c);
                 }

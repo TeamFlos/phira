@@ -3,14 +3,13 @@ use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, JudgeLine, JudgeLineCache,
         JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
-        JUDGE_LINE_PERFECT_COLOR,
     },
     ext::NotNanExt,
     fs::FileSystem,
     judge::JudgeStatus,
 };
 use anyhow::{bail, Context, Result};
-use macroquad::prelude::Color;
+use macroquad::prelude::{Color, WHITE};
 use serde::Deserialize;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -449,7 +448,7 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
             )
         },
         color: if let Some(events) = rpe.extended.as_ref().and_then(|e| e.color_events.as_ref()) {
-            parse_events(r, events, Some(JUDGE_LINE_PERFECT_COLOR), bezier_map).context("Failed to parse color events")?
+            parse_events(r, events, Some(WHITE), bezier_map).context("Failed to parse color events")?
         } else {
             Anim::default()
         },

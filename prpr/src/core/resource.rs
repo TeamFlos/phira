@@ -1,4 +1,4 @@
-use super::{MSRenderTarget, Matrix, Point, JUDGE_LINE_PERFECT_COLOR, NOTE_WIDTH_RATIO_BASE};
+use super::{MSRenderTarget, Matrix, Point, NOTE_WIDTH_RATIO_BASE};
 use crate::{
     config::Config,
     ext::{create_audio_manger, nalgebra_to_glm, SafeTexture},
@@ -26,6 +26,21 @@ fn default_duration() -> f32 {
     0.5
 }
 
+#[inline]
+fn default_perfect() -> u32 {
+    0xe1ffec9f
+}
+
+#[inline]
+fn default_good() -> u32 {
+    0xebb4e1ff
+}
+
+#[inline]
+fn default_tinted() -> bool {
+    true
+}
+
 #[allow(dead_code)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +57,8 @@ pub struct ResPackInfo {
     pub hit_fx_rotate: bool,
     #[serde(default)]
     pub hide_particles: bool,
+    #[serde(default = "default_tinted")]
+    pub hit_fx_tinted: bool,
 
     pub hold_atlas: (u32, u32),
     #[serde(rename = "holdAtlasMH")]
@@ -54,8 +71,31 @@ pub struct ResPackInfo {
     #[serde(default)]
     pub hold_compact: bool,
 
+    #[serde(default = "default_perfect")]
+    pub color_perfect: u32,
+    #[serde(default = "default_good")]
+    pub color_good: u32,
+
     #[serde(default)]
     pub description: String,
+}
+
+impl ResPackInfo {
+    pub fn fx_perfect(&self) -> Color {
+        if self.hit_fx_tinted {
+            Color::from_hex(self.color_perfect)
+        } else {
+            WHITE
+        }
+    }
+
+    pub fn fx_good(&self) -> Color {
+        if self.hit_fx_tinted {
+            Color::from_hex(self.color_good)
+        } else {
+            WHITE
+        }
+    }
 }
 
 pub struct NoteStyle {
@@ -431,7 +471,7 @@ impl Resource {
             time: 0.,
 
             alpha: 1.,
-            judge_line_color: JUDGE_LINE_PERFECT_COLOR,
+            judge_line_color: res_pack.info.fx_perfect(),
 
             camera,
             camera_matrix: camera.matrix(),

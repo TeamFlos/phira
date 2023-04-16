@@ -1,4 +1,4 @@
-use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource, JUDGE_LINE_GOOD_COLOR, JUDGE_LINE_PERFECT_COLOR};
+use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
 use crate::{judge::JudgeStatus, parse::RPE_HEIGHT};
 use macroquad::prelude::*;
 
@@ -133,7 +133,11 @@ impl Note {
         if let Some(color) = if let JudgeStatus::Hold(perfect, at, ..) = &mut self.judge {
             if res.time > *at {
                 *at += HOLD_PARTICLE_INTERVAL / res.config.speed;
-                Some(if *perfect { JUDGE_LINE_PERFECT_COLOR } else { JUDGE_LINE_GOOD_COLOR })
+                Some(if *perfect {
+                    res.res_pack.info.fx_perfect()
+                } else {
+                    res.res_pack.info.fx_good()
+                })
             } else {
                 None
             }
