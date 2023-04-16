@@ -532,6 +532,7 @@ impl Page for LibraryPage {
             }
         }
         self.scroll.update(t);
+        self.order_menu.update(t);
         for chart in &mut s.charts_local {
             chart.illu.settle(t);
         }
