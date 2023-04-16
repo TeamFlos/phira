@@ -1,5 +1,6 @@
-use super::{BpmList, Effect, JudgeLine, Matrix, Resource, UIElement, Vector, Video};
-use crate::{judge::JudgeStatus, ui::Ui};
+use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIElement, Vector, Video};
+use crate::{fs::FileSystem, judge::JudgeStatus, ui::Ui};
+use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use std::cell::RefCell;
 
@@ -65,6 +66,15 @@ impl Chart {
         } else {
             f(ui, WHITE, Matrix::identity())
         }
+    }
+
+    pub async fn load_textures(&mut self, fs: &mut dyn FileSystem) -> Result<()> {
+        for line in &mut self.lines {
+            if let JudgeLineKind::Texture(tex, path) = &mut line.kind {
+                *tex = image::load_from_memory(&fs.load_file(path).await.with_context(|| format!("failed to load illustration {path}"))?)?.into();
+            }
+        }
+        Ok(())
     }
 
     pub fn reset(&mut self) {

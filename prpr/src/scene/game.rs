@@ -9,6 +9,7 @@ use super::{
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
+    bin::{BinaryReader, BinaryWriter},
     config::Config,
     core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, JUDGE_LINE_GOOD_COLOR, JUDGE_LINE_PERFECT_COLOR},
     ext::{parse_time, screen_aspect, RectExt, SafeTexture},
@@ -28,7 +29,8 @@ use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
-    io::ErrorKind,
+    fs::File,
+    io::{ErrorKind, Cursor},
     ops::{DerefMut, Range},
     path::PathBuf,
     process::{Command, Stdio},
@@ -117,7 +119,7 @@ pub struct GameScene {
     pub judge: Judge,
     pub gl: InternalGlContext<'static>,
     player: Option<BasicPlayer>,
-    chart_str: String,
+    chart_bytes: Vec<u8>,
     chart_format: ChartFormat,
     info_offset: f32,
     compatible_mode: bool,
@@ -172,7 +174,7 @@ impl GameScene {
         bail!("Cannot find chart file")
     }
 
-    pub async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<(Chart, String, ChartFormat)> {
+    pub async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<(Chart, Vec<u8>, ChartFormat)> {
         let extra = fs.load_file("extra.json").await.ok().map(String::from_utf8).transpose()?;
         let extra = if let Some(extra) = extra {
             let ffmpeg: PathBuf = FFMPEG_PATH.lock().unwrap().to_owned().unwrap_or_else(|| "ffmpeg".into());
@@ -189,25 +191,34 @@ impl GameScene {
         } else {
             ChartExtra::default()
         };
-        let text = String::from_utf8(Self::load_chart_bytes(fs, info).await.context("Failed to load chart")?)?;
+        let bytes = Self::load_chart_bytes(fs, info).await.context("Failed to load chart")?;
         let format = info.format.clone().unwrap_or_else(|| {
-            if text.starts_with('{') {
-                if text.contains("\"META\"") {
-                    ChartFormat::Rpe
+            if let Ok(text) = String::from_utf8(bytes.clone()) {
+                if text.starts_with('{') {
+                    if text.contains("\"META\"") {
+                        ChartFormat::Rpe
+                    } else {
+                        ChartFormat::Pgr
+                    }
                 } else {
-                    ChartFormat::Pgr
+                    ChartFormat::Pec
                 }
             } else {
-                ChartFormat::Pec
+                ChartFormat::Pbc
             }
         });
         let mut chart = match format {
-            ChartFormat::Rpe => parse_rpe(&text, fs, extra).await,
-            ChartFormat::Pgr => parse_phigros(&text, extra),
-            ChartFormat::Pec => parse_pec(&text, extra),
+            ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, extra).await,
+            ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), extra),
+            ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), extra),
+            ChartFormat::Pbc => {
+                let mut r = BinaryReader::new(Cursor::new(&bytes));
+                r.read()
+            }
         }?;
+        chart.load_textures(fs).await?;
         chart.settings.hold_partial_cover = info.hold_partial_cover;
-        Ok((chart, text, format))
+        Ok((chart, bytes, format))
     }
 
     pub async fn new(
@@ -230,7 +241,7 @@ impl GameScene {
             }
             _ => {}
         }
-        let (mut chart, chart_str, chart_format) = Self::load_chart(fs.deref_mut(), &info).await?;
+        let (mut chart, chart_bytes, chart_format) = Self::load_chart(fs.deref_mut(), &info).await?;
         let effects = std::mem::take(&mut chart.extra.global_effects);
         if config.fxaa {
             chart
@@ -266,7 +277,7 @@ impl GameScene {
             judge,
             gl: unsafe { get_internal_gl() },
             player,
-            chart_str,
+            chart_bytes,
             chart_format,
             compatible_mode: false,
             effects,

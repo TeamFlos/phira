@@ -442,7 +442,7 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
                 image::load_from_memory(
                     &fs.load_file(&rpe.texture)
                         .await
-                        .with_context(|| format!("加载插图 {} 失败", rpe.texture))?,
+                        .with_context(|| format!("failed to load illustration {}", rpe.texture))?,
                 )?
                 .into(),
                 rpe.texture.clone(),

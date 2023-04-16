@@ -95,13 +95,13 @@ fn parse_speed_events(r: f32, mut pgr: Vec<PgrSpeedEvent>, max_time: f32) -> Res
     assert_eq!(pgr[0].start_time, 0.0);
     let mut kfs = Vec::new();
     let mut pos = 0.;
-    kfs.extend(pgr.iter().map(|it| {
+    kfs.extend(pgr[..pgr.len().saturating_sub(1)].iter().map(|it| {
         let from_pos = pos;
         pos += (it.end_time - it.start_time) * r * it.value;
         Keyframe::new(it.start_time * r, from_pos, 2)
     }));
     let last = pgr.last().unwrap();
-    kfs.push(Keyframe::new(last.end_time * r, pos, 2));
+    kfs.push(Keyframe::new(last.start_time * r, pos, 2));
     kfs.push(Keyframe::new(max_time, pos + (max_time - last.start_time * r) * last.value, 0));
     for kf in &mut kfs {
         kf.value /= HEIGHT_RATIO;
