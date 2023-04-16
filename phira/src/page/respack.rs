@@ -379,18 +379,20 @@ impl Page for ResPackPage {
                     .max_width(cr.right() - x - 0.05)
                     .size(1.2)
                     .draw();
-                let s = 0.12;
-                let mut tr = Rect::new(cr.right() - 0.04 - s, cr.bottom() - 0.04 - s, s, s);
-                let (r, _) = self.delete_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
-                let r = r.feather(-0.02);
-                ui.fill_rect(r, (*self.icon_delete, r, ScaleType::Fit, c));
+            } else {
+                let ct = cr.center();
+                ui.loading(ct.x, ct.y, t, c, ());
+            }
+            let s = 0.12;
+            let mut tr = Rect::new(cr.right() - 0.04 - s, cr.bottom() - 0.04 - s, s, s);
+            let (r, _) = self.delete_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
+            let r = r.feather(-0.02);
+            ui.fill_rect(r, (*self.icon_delete, r, ScaleType::Fit, c));
+            if item.loaded.is_some() {
                 tr.x -= tr.w + 0.02;
                 let (r, _) = self.info_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
                 let r = r.feather(-0.02);
                 ui.fill_rect(r, (*self.icon_info, r, ScaleType::Fit, c));
-            } else {
-                let ct = cr.center();
-                ui.loading(ct.x, ct.y, t, c, ());
             }
         });
         Ok(())
