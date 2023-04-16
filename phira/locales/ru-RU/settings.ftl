@@ -1,9 +1,9 @@
 
-label = Settings
+label = НАСТРОЙКИ
 
-general = General
+general = Общие
 audio = Аудио
-chart = Чарт
+chart = Игра
 
 switch-on = Вкл. 
 switch-off = Выкл. 
@@ -27,6 +27,7 @@ item-dhint = Подсветка одновременных нот
 item-dhint-sub = Ноты,что касаются линии одновременно, будут подсвечиваться. 
 item-opt = Агрессивная оптимизация
 item-opt-sub = Улучшает производительность, но снижает стабильность
+item-speed = Скорость чарта
 item-note-size = Размер нот
 
 load-cali-failed = Ошибка загрузки аудио

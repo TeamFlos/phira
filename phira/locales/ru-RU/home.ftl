@@ -1,7 +1,7 @@
 
 play = Играть
 event = События
-respack = Ресурспак
+respack = Скины
 
 not-opened = Не доступно
 not-logged-in = Не вошëл
