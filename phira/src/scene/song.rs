@@ -1210,7 +1210,7 @@ impl Scene for SongScene {
                 self.menu.set_bottom(true);
                 self.menu.set_selected(usize::MAX);
                 let d = 0.28;
-                self.menu.show(ui, t, Rect::new(r.x - d, r.bottom(), r.w + d, 0.4));
+                self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.4));
             }
             ui.dx(-r.w - 0.03);
             ui.fill_rect(r, (*self.icon_info, r, ScaleType::Fit, c));
