@@ -15,3 +15,5 @@ import = 导入
 importing = 导入中
 import-success = 导入成功
 import-failed = 导入失败
+
+offline-mode = 离线模式下无法加载在线谱面

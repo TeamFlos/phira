@@ -15,3 +15,5 @@ import = Import
 importing = Importing
 import-success = Imported successfully
 import-failed = Import failed
+
+offline-mode = Can't load online beatmaps in offline mode

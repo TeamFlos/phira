@@ -74,7 +74,9 @@ pub struct HomePage {
 impl HomePage {
     pub async fn new() -> Result<Self> {
         let character = SafeTexture::from(load_texture("char.png").await?).with_mipmap();
-        let update_task = if let Some(u) = &get_data().me {
+        let update_task = if get_data().config.offline_mode {
+            None
+        } else if let Some(u) = &get_data().me {
             UserManager::request(u.id);
             Some(Task::new(async {
                 Client::login(LoginParams::RefreshToken {

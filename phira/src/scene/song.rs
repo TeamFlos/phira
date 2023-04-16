@@ -386,6 +386,9 @@ impl SongScene {
     }
 
     fn load_ldb(&mut self) {
+        if get_data().config.offline_mode {
+            return;
+        }
         let Some(id) = self.info.id else { return };
         self.ldb = None;
         self.ldb_task = Some(Task::new(async move { Ok(recv_raw(Client::get(format!("/record/list15/{id}"))).await?.json().await?) }));

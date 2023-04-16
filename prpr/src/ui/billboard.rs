@@ -142,7 +142,7 @@ impl BillBoard {
                 .anchor(1., 0.5)
                 .no_baseline()
                 .size(0.64)
-                .max_width(0.7);
+                .max_width(0.8);
             let r = tx.measure();
             let mut r = Rect::new(r.x - pd - h, tp, r.w + pd * 2. + h, h);
             msg.width = r.w + 0.2;

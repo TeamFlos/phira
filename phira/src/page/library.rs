@@ -7,7 +7,7 @@ use crate::{
     dir, get_data_mut,
     popup::Popup,
     save_data,
-    scene::{import_chart, ChartOrder, SongScene, ORDERS},
+    scene::{import_chart, ChartOrder, SongScene, ORDERS}, get_data,
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -292,6 +292,10 @@ impl LibraryPage {
     }
 
     pub fn load_online(&mut self) {
+        if get_data().config.offline_mode {
+            show_message(tl!("offline-mode")).error();
+            return;
+        }
         self.scroll.y_scroller.offset = 0.;
         self.online_charts = None;
         let page = self.current_page;
