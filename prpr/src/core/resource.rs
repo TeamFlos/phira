@@ -128,7 +128,7 @@ impl ResourcePack {
     pub async fn load(fs: &mut dyn FileSystem) -> Result<Self> {
         macro_rules! load_tex {
             ($path:literal) => {
-                image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?.into()
+                SafeTexture::from(image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?).with_mipmap()
             };
         }
         let info: ResPackInfo = serde_yaml::from_str(&String::from_utf8(fs.load_file("info.yml").await.context("Missing info.yml")?)?)?;
@@ -394,7 +394,9 @@ impl Resource {
                 SafeTexture::from(Texture2D::from_image(&load_image($path).await?))
             };
         }
-        let res_pack = ResourcePack::from_path(config.res_pack_path.as_ref()).await.context("Failed to load resource pack")?;
+        let res_pack = ResourcePack::from_path(config.res_pack_path.as_ref())
+            .await
+            .context("Failed to load resource pack")?;
         let camera = Camera2D {
             target: vec2(0., 0.),
             zoom: vec2(1., -config.aspect_ratio.unwrap_or(info.aspect_ratio)),
