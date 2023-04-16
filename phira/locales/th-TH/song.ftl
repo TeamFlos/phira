@@ -57,3 +57,11 @@ upload-failed = อัพโหลดล้มเหลว
 ldb = Leaderboard
 ldb-load-failed = ไม่สามารถโหลดข้อมูล leaderboard ได้
 ldb-no-rank = ไม่มีการเล่น
+ldb-score = Score
+ldb-std = SD
+
+info-name = ชื่อ
+info-composer = ศิลปิน
+info-charter = ผู้ทำ Chart
+info-difficulty = ความยาก
+info-desc = คำอธิบาย
