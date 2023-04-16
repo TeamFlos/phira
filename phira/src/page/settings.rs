@@ -20,17 +20,20 @@ enum SettingListType {
     General,
     Audio,
     Chart,
+    Debug,
 }
 
 pub struct SettingsPage {
     btn_general: DRectButton,
     btn_audio: DRectButton,
     btn_chart: DRectButton,
+    btn_debug: DRectButton,
     chosen: SettingListType,
 
     list_general: GeneralList,
     list_audio: AudioList,
     list_chart: ChartList,
+    list_debug: DebugList,
 
     scroll: Scroll,
     save_time: f32,
@@ -44,11 +47,13 @@ impl SettingsPage {
             btn_general: DRectButton::new(),
             btn_audio: DRectButton::new(),
             btn_chart: DRectButton::new(),
+            btn_debug: DRectButton::new(),
             chosen: SettingListType::General,
 
             list_general: GeneralList::new(icon_lang),
             list_audio: AudioList::new(),
             list_chart: ChartList::new(),
+            list_debug: DebugList::new(),
 
             scroll: Scroll::new(),
             save_time: f32::INFINITY,
@@ -82,6 +87,7 @@ impl Page for SettingsPage {
             SettingListType::General => self.list_general.top_touch(touch, t),
             SettingListType::Audio => self.list_audio.top_touch(touch, t),
             SettingListType::Chart => self.list_chart.top_touch(touch, t),
+            SettingListType::Debug => self.list_debug.top_touch(touch, t),
         } {
             return Ok(true);
         }
@@ -98,6 +104,10 @@ impl Page for SettingsPage {
             self.switch_to_type(SettingListType::Chart);
             return Ok(true);
         }
+        if self.btn_debug.touch(touch, t) {
+            self.switch_to_type(SettingListType::Debug);
+            return Ok(true);
+        }
         if self.scroll.touch(touch, t) {
             return Ok(true);
         }
@@ -105,6 +115,7 @@ impl Page for SettingsPage {
             SettingListType::General => self.list_general.touch(touch, t)?,
             SettingListType::Audio => self.list_audio.touch(touch, t)?,
             SettingListType::Chart => self.list_chart.touch(touch, t)?,
+            SettingListType::Debug => self.list_debug.touch(touch, t)?,
         } {
             if p {
                 self.save_time = t;
@@ -122,6 +133,7 @@ impl Page for SettingsPage {
             SettingListType::General => self.list_general.update(t)?,
             SettingListType::Audio => self.list_audio.update(t)?,
             SettingListType::Chart => self.list_chart.update(t)?,
+            SettingListType::Debug => self.list_debug.update(t)?,
         } {
             self.save_time = t;
         }
@@ -142,6 +154,7 @@ impl Page for SettingsPage {
                     (&mut self.btn_general, tl!("general"), SettingListType::General),
                     (&mut self.btn_audio, tl!("audio"), SettingListType::Audio),
                     (&mut self.btn_chart, tl!("chart"), SettingListType::Chart),
+                    (&mut self.btn_debug, tl!("debug"), SettingListType::Debug),
                 ]
                 .into_iter()
                 .map(|(btn, text, ty)| (btn, text, ty == self.chosen)),
@@ -160,6 +173,7 @@ impl Page for SettingsPage {
                     SettingListType::General => self.list_general.render(ui, r, t, c),
                     SettingListType::Audio => self.list_audio.render(ui, r, t, c),
                     SettingListType::Chart => self.list_chart.render(ui, r, t, c),
+                    SettingListType::Debug => self.list_debug.render(ui, r, t, c),
                 });
             });
         });
@@ -522,6 +536,67 @@ impl ChartList {
         item! {
             render_title(ui, c, tl!("item-note-size"), None);
             self.size_slider.render(ui, rr, t,c, config.note_scale, format!("{:.3}", config.note_scale));
+        }
+        (w, h)
+    }
+}
+
+struct DebugList {
+    chart_debug_btn: DRectButton,
+    touch_debug_btn: DRectButton,
+}
+
+impl DebugList {
+    pub fn new() -> Self {
+        Self {
+            chart_debug_btn: DRectButton::new(),
+            touch_debug_btn: DRectButton::new(),
+        }
+    }
+
+    pub fn top_touch(&mut self, _touch: &Touch, _t: f32) -> bool {
+        false
+    }
+
+    pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
+        let data = get_data_mut();
+        let config = &mut data.config;
+        if self.chart_debug_btn.touch(touch, t) {
+            config.chart_debug ^= true;
+            return Ok(Some(true));
+        }
+        if self.touch_debug_btn.touch(touch, t) {
+            config.touch_debug ^= true;
+            return Ok(Some(true));
+        }
+        Ok(None)
+    }
+
+    pub fn update(&mut self, _t: f32) -> Result<bool> {
+        Ok(false)
+    }
+
+    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32, c: Color) -> (f32, f32) {
+        let w = r.w;
+        let mut h = 0.;
+        macro_rules! item {
+            ($($b:tt)*) => {{
+                $($b)*
+                ui.dy(ITEM_HEIGHT);
+                h += ITEM_HEIGHT;
+            }}
+        }
+        let rr = right_rect(w);
+
+        let data = get_data();
+        let config = &data.config;
+        item! {
+            render_title(ui, c, tl!("item-chart-debug"), Some(tl!("item-chart-debug-sub")));
+            render_switch(ui, rr, t, c, &mut self.chart_debug_btn, config.chart_debug);
+        }
+        item! {
+            render_title(ui, c, tl!("item-touch-debug"), Some(tl!("item-touch-debug-sub")));
+            render_switch(ui, rr, t, c, &mut self.touch_debug_btn, config.touch_debug);
         }
         (w, h)
     }

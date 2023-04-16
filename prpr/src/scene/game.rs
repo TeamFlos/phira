@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     fs::File,
-    io::{ErrorKind, Cursor},
+    io::{Cursor, ErrorKind},
     ops::{DerefMut, Range},
     path::PathBuf,
     process::{Command, Stdio},
@@ -639,6 +639,11 @@ impl GameScene {
                 let h = 1. / self.res.aspect_ratio;
                 draw_rectangle(-1., -h, 2., h * 2., Color::new(0., 0., 0., a));
                 ui.text(t.to_string()).anchor(0.5, 0.5).size(1.).color(c).draw();
+            }
+        }
+        if self.res.config.touch_debug {
+            for touch in Judge::get_touches() {
+                ui.fill_circle(touch.position.x, touch.position.y, 0.04, Color { a: 0.4, ..RED });
             }
         }
         Ok(())

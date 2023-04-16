@@ -4,6 +4,7 @@ label = Settings
 general = General
 audio = Audio
 chart = Beatmap
+debug = Debug
 
 switch-on = On
 switch-off = Off
@@ -29,5 +30,10 @@ item-opt = Aggressive optimization
 item-opt-sub = Improves performance, but can cause incorrect behavior
 item-speed = Speed
 item-note-size = Note size
+
+item-chart-debug = Beatmap debug mode
+item-chart-debug-sub = Display line number and orientation
+item-touch-debug = Touch debug mode
+item-touch-debug-sub = Display touch points
 
 load-cali-failed = Failed to load audio

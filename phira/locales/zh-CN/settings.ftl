@@ -30,4 +30,9 @@ item-opt-sub = 采用激进的优化策略，提升性能但可能导致部分�
 item-speed = 速度
 item-note-size = 音符大小
 
+item-chart-debug = 谱面调试
+item-chart-debug-sub = 显示判定线编号和朝向
+item-touch-debug = 触摸调试
+item-touch-debug-sub = 游玩过程中显示触摸点
+
 load-cali-failed = 加载音频失败
