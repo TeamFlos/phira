@@ -282,8 +282,9 @@ impl Page for ResPackPage {
                 let draw = |mut r: Rect, style: &NoteStyle, width: f32| {
                     let conv = |r: Rect, tex: &SafeTexture| Rect::new(r.x * tex.width(), r.y * tex.height(), r.w * tex.width(), r.h * tex.height());
                     let tr = conv(style.hold_tail_rect(), &style.hold);
+                    let factor = if pack.info.hold_compact { 0.5 } else { 1. };
                     let h = tr.h / tr.w * width;
-                    let r2 = Rect::new(r.x, r.y - h, width, h);
+                    let r2 = Rect::new(r.x, r.y - h * factor, width, h);
                     let r2 = ui.rect_to_global(r2);
                     draw_texture_ex(
                         *style.hold,
@@ -298,7 +299,7 @@ impl Page for ResPackPage {
                     );
                     let tr = conv(style.hold_head_rect(), &style.hold);
                     let h = tr.h / tr.w * width;
-                    let r2 = Rect::new(r.x, r.bottom(), width, h);
+                    let r2 = Rect::new(r.x, r.bottom() - h * (1. - factor), width, h);
                     let r2 = ui.rect_to_global(r2);
                     draw_texture_ex(
                         *style.hold,
