@@ -13,7 +13,7 @@ use sasa::{PlaySfxParams, Sfx};
 use serde::Serialize;
 use std::{cell::RefCell, collections::HashMap, num::FpCategory};
 
-pub const FLICK_SPEED_THRESHOLD: f32 = 1.;
+pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
 pub const LIMIT_PERFECT: f32 = 0.08;
 pub const LIMIT_GOOD: f32 = 0.16;
 pub const LIMIT_BAD: f32 = 0.22;
@@ -60,10 +60,19 @@ impl FlickTracker {
         if let Some(last_delta) = &self.last_delta {
             let dt = time - self.last_time;
             let speed = delta.dot(last_delta) / dt;
-            if speed < self.threshold || self.stopped {
-                self.stopped = delta.magnitude() / dt < self.threshold * 5.;
-                self.flicked = !self.stopped;
+            if speed < self.threshold {
+                self.stopped = true;
             }
+            if self.stopped && !self.flicked {
+                self.flicked = delta.magnitude() / dt >= self.threshold * 2.;
+            }
+            // if speed < self.threshold || self.stopped {
+            // self.stopped = delta.magnitude() / dt < self.threshold * 5.;
+            // self.flicked = self.threshold <= speed;
+            // if self.flicked {
+            // warn!("new flick!");
+            // }
+            // }
         }
         self.last_delta = Some(delta.normalize());
         self.last_time = time;

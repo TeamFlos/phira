@@ -12,9 +12,9 @@ use std::cell::RefCell;
 
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "lowercase")]
-#[repr(usize)]
+#[repr(u8)]
 pub enum UIElement {
-    Bar,
+    Bar = 1,
     Pause,
     ComboNumber,
     Combo,
@@ -23,11 +23,26 @@ pub enum UIElement {
     Level,
 }
 
+impl UIElement {
+    pub fn from_u8(val: u8) -> Option<Self> {
+        Some(match val {
+            1 => Self::Bar,
+            2 => Self::Pause,
+            3 => Self::ComboNumber,
+            4 => Self::Combo,
+            5 => Self::Score,
+            6 => Self::Name,
+            7 => Self::Level,
+            _ => return None,
+        })
+    }
+}
+
 #[derive(Default)]
 pub enum JudgeLineKind {
     #[default]
     Normal,
-    Texture(SafeTexture),
+    Texture(SafeTexture, String),
     Text(Anim<String>),
     Paint(Anim<f32>, RefCell<(Option<RenderPass>, bool)>),
 }
@@ -174,7 +189,7 @@ impl JudgeLine {
                         let len = res.info.line_length;
                         draw_line(-len, 0., len, 0., 0.01, color);
                     }
-                    JudgeLineKind::Texture(texture) => {
+                    JudgeLineKind::Texture(texture, _) => {
                         let mut color = color.unwrap_or(WHITE);
                         color.a = alpha.max(0.0);
                         let hf = vec2(texture.width() / res.aspect_ratio, texture.height() / res.aspect_ratio);

@@ -1,6 +1,6 @@
 use macroquad::prelude::{vec2, Color, Vec2};
 use once_cell::sync::Lazy;
-use std::{ops::Range, rc::Rc};
+use std::{ops::Range, rc::Rc, any::Any};
 
 pub type TweenId = u8;
 
@@ -121,12 +121,17 @@ thread_local! {
 
 pub trait TweenFunction {
     fn y(&self, x: f32) -> f32;
+    fn as_any(&self) -> &dyn Any;
 }
 
 pub struct StaticTween(pub TweenId);
 impl TweenFunction for StaticTween {
     fn y(&self, x: f32) -> f32 {
         TWEEN_FUNCTIONS[self.0 as usize](x)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -137,10 +142,14 @@ impl StaticTween {
 }
 
 // TODO assuming monotone, but actually they're not (e.g. Back tween)
-pub struct ClampedTween(TweenId, Range<f32>, Range<f32>);
+pub struct ClampedTween(pub TweenId, pub Range<f32>, pub Range<f32>);
 impl TweenFunction for ClampedTween {
     fn y(&self, x: f32) -> f32 {
         (TWEEN_FUNCTIONS[self.0 as usize](f32::tween(&self.1.start, &self.1.end, x)) - self.2.start) / (self.2.end - self.2.start)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -164,13 +173,17 @@ const SLOPE_EPS: f32 = 1e-7;
 
 pub struct BezierTween {
     sample_table: [f32; SAMPLE_TABLE_SIZE],
-    p1: (f32, f32),
-    p2: (f32, f32),
+    pub p1: (f32, f32),
+    pub p2: (f32, f32),
 }
 
 impl TweenFunction for BezierTween {
     fn y(&self, x: f32) -> f32 {
         Self::sample(self.p1.1, self.p2.1, self.t_for_x(x))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
