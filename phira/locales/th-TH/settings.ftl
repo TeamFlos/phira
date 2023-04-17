@@ -4,6 +4,7 @@ label = ตั้งค่า
 general = ทั่วไป
 audio = เสียง
 chart = Chart
+debug = Debug
 
 switch-on = เปิด
 switch-off = ปิด
@@ -29,5 +30,10 @@ item-opt = Aggressive optimization
 item-opt-sub = เพิ่มประสิทธิภาพให้กับตัวเกม (อาจจะมีข้อผิดผลาด)
 item-speed = ความเร็ว
 item-note-size = ขนาดของ Note
+
+item-chart-debug = Chart debug mode
+item-chart-debug-sub = แสดงตัวเลขของ Line
+item-touch-debug = Touch debug mode
+item-touch-debug-sub = แสดงจุดที่สัมผัส
 
 load-cali-failed = ไม่สามารถโหลดเสียงได้
