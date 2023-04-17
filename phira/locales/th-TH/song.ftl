@@ -58,7 +58,7 @@ ldb = Leaderboard
 ldb-load-failed = ไม่สามารถโหลดข้อมูล leaderboard ได้
 ldb-no-rank = ไม่มีการเล่น
 ldb-score = Score
-ldb-std = SD
+ldb-std = Purity
 
 info-name = ชื่อ
 info-composer = ศิลปิน
