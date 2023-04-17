@@ -45,7 +45,7 @@ enum ChartListType {
     Popular,
 }
 
-type OnlineTaskResult = (Vec<(ChartItem, File)>, Vec<Chart>, u64);
+type OnlineTaskResult = (Vec<(ChartItem, bool)>, Vec<Chart>, u64);
 type OnlineTask = Task<Result<OnlineTaskResult>>;
 
 struct TransitState {
@@ -78,6 +78,7 @@ pub struct LibraryPage {
 
     online_task: Option<OnlineTask>,
     online_charts: Option<Vec<ChartItem>>,
+    online_charts_reviewed: Option<Vec<bool>>,
 
     icon_back: SafeTexture,
     icon_play: SafeTexture,
@@ -138,6 +139,7 @@ impl LibraryPage {
 
             online_task: None,
             online_charts: None,
+            online_charts_reviewed: None,
 
             icon_back,
             icon_play,
@@ -264,7 +266,7 @@ impl LibraryPage {
                                 }
                             }
                             ui.fill_path(&path, (semi_black(0.4 * c.a), (0., 0.), semi_black(0.8 * c.a), (0., ch)));
-                            let mut level =chart.info.level.clone();
+                            let mut level = chart.info.level.clone();
                             if !level.contains("Lv.") {
                                 use std::fmt::Write;
                                 write!(&mut level, " Lv.{}", chart.info.difficulty as i32).unwrap();
@@ -292,6 +294,11 @@ impl LibraryPage {
                                 .size(0.6 * r.w / cw)
                                 .color(c)
                                 .draw();
+                            if !matches!(self.chosen, ChartListType::Local)
+                                && self.online_charts_reviewed.as_ref().map_or(false, |it| !it[id as usize])
+                            {
+                                ui.text("*").pos(r.x + 0.01, r.y + 0.01).size(0.8 * r.w / cw).color(c).draw();
+                            }
                         });
                     })
                 })
@@ -306,6 +313,7 @@ impl LibraryPage {
         }
         self.scroll.y_scroller.offset = 0.;
         self.online_charts = None;
+        self.online_charts_reviewed = None;
         let page = self.current_page;
         let search = self.search_str.clone();
         let order = {
@@ -349,7 +357,7 @@ impl LibraryPage {
                             },
                             local_path: None,
                         },
-                        it.illustration.clone(),
+                        it.reviewed,
                     )
                 })
                 .collect();
@@ -532,7 +540,9 @@ impl Page for LibraryPage {
                     Err(err) => show_error(err.context(tl!("failed-to-load-online"))),
                     Ok(res) => {
                         self.online_total_page = res.2;
-                        self.online_charts = Some(res.0.into_iter().map(|it| it.0).collect());
+                        let (online_charts, online_charts_reviewed) = res.0.into_iter().unzip();
+                        self.online_charts = Some(online_charts);
+                        self.online_charts_reviewed = Some(online_charts_reviewed);
                         self.charts_fader.sub(t);
                     }
                 }
