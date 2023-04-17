@@ -65,3 +65,13 @@ info-composer = ศิลปิน
 info-charter = ผู้ทำ Chart
 info-difficulty = ความยาก
 info-desc = คำอธิบาย
+
+review-approve = อนุมัติ
+review-deny = ไม่อนุมัติ
+review-del = ลบ
+review-approved = ได้รับการอนุมัติเรียบร้อย
+review-passed = ผ่าน
+review-denied = ไม่ผ่าน
+review-deleted = ลบเรียบร้อย
+review-action-failed = การ Review ล้มเหลว
+review-doing = กำลังอยู่ในขั้นตอน Review
