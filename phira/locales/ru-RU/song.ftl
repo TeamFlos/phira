@@ -65,3 +65,13 @@ info-composer = Композитор
 info-charter = Автор чартп
 info-difficulty = Сложность
 info-desc = Описание
+
+review-approve = Подтвердить
+review-deny = Отвергнуть
+review-del = Удалить из онлайн-списка
+review-approved = Подтверждëн
+review-passed = Модерация пройдена
+review-denied = Модерация не пройдена
+review-deleted = Удалëн
+review-action-failed = Ошибка выполнения модерации
+review-doing = На модерации
