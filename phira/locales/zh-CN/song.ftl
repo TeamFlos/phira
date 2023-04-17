@@ -65,3 +65,13 @@ info-composer = 曲师
 info-charter = 谱师
 info-difficulty = 难度
 info-desc = 简介
+
+review-approve = 通过
+review-deny = 拒绝
+review-del = 删除在线
+review-approved = 已通过
+review-passed = 已通过，谱面已过审
+review-denied = 已拒绝
+review-deleted = 已删除
+review-action-failed = 执行审核操作失败
+review-doing = 执行操作中

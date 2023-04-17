@@ -2,7 +2,7 @@ prpr::tl_file!("song");
 
 use super::{confirm_delete, fs_from_path};
 use crate::{
-    client::{recv_raw, Chart, Client, Ptr, Record, UserManager},
+    client::{recv_raw, Chart, Client, Ptr, Record, UserManager, UserRole},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     page::{thumbnail_path, ChartItem, Fader, Illustration, NEED_UPDATE},
@@ -20,8 +20,8 @@ use prpr::{
     info::ChartInfo,
     judge::icon_index,
     scene::{
-        load_scene, loading_scene, show_error, show_message, take_loaded_scene, BasicPlayer, GameMode, LoadingScene, NextScene, RecordUpdateState,
-        Scene, SimpleRecord,
+        load_scene, loading_scene, request_input, return_input, show_error, show_message, take_input, take_loaded_scene, BasicPlayer, GameMode,
+        LoadingScene, NextScene, RecordUpdateState, Scene, SimpleRecord,
     },
     task::Task,
     time::TimeManager,
@@ -176,6 +176,9 @@ pub struct SongScene {
 
     info_btn: RectButton,
     info_scroll: Scroll,
+
+    review_task: Option<Task<Result<String>>>,
+    chart_should_delete: Arc<AtomicBool>,
 }
 
 impl SongScene {
@@ -305,6 +308,9 @@ impl SongScene {
 
             info_btn: RectButton::new(),
             info_scroll: Scroll::new(),
+
+            review_task: None,
+            chart_should_delete: Arc::default(),
         }
     }
 
@@ -435,6 +441,13 @@ impl SongScene {
             self.menu_options.push("delete");
             self.menu_options.push("exercise");
             self.menu_options.push("offset");
+        }
+        if self.info.id.is_some() && get_data().me.as_ref().map_or(false, |it| it.role >= UserRole::Reviewer) {
+            if self.entity.as_ref().map_or(false, |it| !it.reviewed) {
+                self.menu_options.push("review-approve");
+                self.menu_options.push("review-deny");
+            }
+            self.menu_options.push("review-del");
         }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
     }
@@ -663,7 +676,7 @@ impl SongScene {
         });
     }
 
-    fn side_info(&mut self, ui: &mut Ui) {
+    fn side_info(&mut self, ui: &mut Ui, rt: f32) {
         let pad = 0.03;
         ui.dx(pad);
         ui.dy(0.03);
@@ -677,6 +690,19 @@ impl SongScene {
                     h += dy;
                     ui.dy(dy);
                 }};
+            }
+            if let Some(uploader) = &self.info.uploader {
+                let r = ui.avatar(0.06, 0.06, 0.05, WHITE, rt, UserManager::opt_avatar(uploader.id, &self.icon_user));
+                if let Some(name) = UserManager::get_name(uploader.id) {
+                    ui.text(name)
+                        .pos(r.right() + 0.02, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .max_width(width - 0.15)
+                        .size(0.6)
+                        .draw();
+                }
+                dy!(0.14);
             }
             let mw = width - pad * 3.;
             let mut item = |title: Cow<'_, str>, content: Cow<'_, str>| {
@@ -793,7 +819,7 @@ impl Scene for SongScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
-        if loading_scene() || self.save_task.is_some() || self.upload_task.is_some() {
+        if loading_scene() || self.save_task.is_some() || self.upload_task.is_some() || self.review_task.is_some() {
             return Ok(true);
         }
         if self.menu.showing() {
@@ -874,6 +900,9 @@ impl Scene for SongScene {
         }
         if self.info_btn.touch(touch) {
             button_hit();
+            if let Some(uploader) = &self.info.uploader {
+                UserManager::request(uploader.id);
+            }
             self.side_content = SideContent::Info;
             self.side_enter_time = tm.real_time() as _;
             return Ok(true);
@@ -894,6 +923,7 @@ impl Scene for SongScene {
                     Err(err) => show_error(err.context(tl!("load-charts-failed"))),
                     Ok(chart) => {
                         self.entity = Some(chart);
+                        self.update_menu();
                     }
                 }
                 self.load_task = None;
@@ -977,11 +1007,43 @@ impl Scene for SongScene {
                 "offset" => {
                     self.launch(GameMode::TweakOffset)?;
                 }
+                "review-approve" => {
+                    let id = self.info.id.unwrap();
+                    self.review_task = Some(Task::new(async move {
+                        #[derive(Deserialize)]
+                        struct Resp {
+                            passed: bool,
+                        }
+                        let resp: Resp = recv_raw(Client::post(
+                            format!("/chart/{id}/review"),
+                            &json!({
+                                "approve": true
+                            }),
+                        ))
+                        .await?
+                        .json()
+                        .await?;
+                        Ok((if resp.passed { tl!("review-passed") } else { tl!("review-approved") }).into_owned())
+                    }));
+                }
+                "review-deny" => {
+                    request_input("deny-reason", "");
+                }
+                "review-del" => {
+                    confirm_delete(self.chart_should_delete.clone());
+                }
                 _ => {}
             }
         }
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
+        }
+        if self.chart_should_delete.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.review_task = Some(Task::new(async move {
+                recv_raw(Client::delete(format!("/chart/{id}"))).await?;
+                Ok(tl!("review-deleted").into_owned())
+            }));
         }
         if let Some(task) = &mut self.save_task {
             if let Some(res) = task.take() {
@@ -1090,6 +1152,37 @@ impl Scene for SongScene {
                     }
                 }
                 self.ldb_task = None;
+            }
+        }
+        if let Some((id, text)) = take_input() {
+            if id == "deny-reason" {
+                let id = self.info.id.unwrap();
+                self.review_task = Some(Task::new(async move {
+                    recv_raw(Client::post(
+                        format!("/chart/{id}/review"),
+                        &json!({
+                            "approve": false,
+                            "reason": text,
+                        }),
+                    ))
+                    .await?;
+                    Ok(tl!("review-denied").into_owned())
+                }));
+            } else {
+                return_input(id, text);
+            }
+        }
+        if let Some(task) = &mut self.review_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("review-action-failed")));
+                    }
+                    Ok(msg) => {
+                        show_message(msg).ok();
+                    }
+                }
+                self.review_task = None;
             }
         }
         Ok(())
@@ -1250,7 +1343,7 @@ impl Scene for SongScene {
                         Ok(())
                     }
                     SideContent::Info => {
-                        self.side_info(ui);
+                        self.side_info(ui, rt);
                         Ok(())
                     }
                 }
@@ -1264,6 +1357,9 @@ impl Scene for SongScene {
         }
         if self.upload_task.is_some() {
             ui.full_loading(tl!("uploading"), t);
+        }
+        if self.review_task.is_some() {
+            ui.full_loading(tl!("review-doing"), t);
         }
         Ok(())
     }

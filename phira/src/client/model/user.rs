@@ -1,14 +1,43 @@
 use super::{File, Object};
 use crate::{client::Client, dir, images::Images};
-use anyhow::{anyhow, Result};
+use anyhow::{Result};
 use chrono::{DateTime, Utc};
 use image::DynamicImage;
 use macroquad::prelude::warn;
 use once_cell::sync::Lazy;
 use prpr::{ext::SafeTexture, task::Task};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::{Path, PathBuf}, sync::Arc};
+use std::{collections::HashMap, path::{PathBuf}, sync::Arc};
 use tokio::sync::Mutex;
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[repr(i16)]
+#[serde(rename_all = "lowercase")]
+pub enum UserRole {
+    Nobody = -1,
+    Normal = 0,
+    Reviewer = 5,
+    Admin = 10,
+}
+
+impl TryFrom<i16> for UserRole {
+    type Error = &'static str;
+
+    fn try_from(value: i16) -> Result<Self, Self::Error> {
+        Ok(match value {
+            -1 => Self::Nobody,
+            0 => Self::Normal,
+            5 => Self::Reviewer,
+            10 => Self::Admin,
+            _ => panic!("unknown role {value}"),
+        })
+    }
+}
+impl From<UserRole> for i16 {
+    fn from(value: UserRole) -> Self {
+        value as _
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct User {
@@ -20,6 +49,7 @@ pub struct User {
     pub bio: Option<String>,
     pub exp: i64,
     pub rks: f32,
+    pub role: UserRole,
 
     pub joined: DateTime<Utc>,
     pub last_login: DateTime<Utc>,

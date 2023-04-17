@@ -65,3 +65,13 @@ info-composer = Composer
 info-charter = Charter
 info-difficulty = Difficulty
 info-desc = Description
+
+review-approve = Approve
+review-deny = Deny
+review-del = Delete online
+review-approved = Approved
+review-passed = Passed
+review-denied = Denied
+review-deleted = Deleted
+review-action-failed = Failed to perform review action
+review-doing = Executing action
