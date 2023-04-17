@@ -89,6 +89,11 @@ impl Client {
         Self::request(Method::POST, path).json(data)
     }
 
+    #[inline]
+    pub fn delete(path: impl AsRef<str>) -> RequestBuilder {
+        Self::request(Method::DELETE, path)
+    }
+
     pub fn request(method: Method, path: impl AsRef<str>) -> RequestBuilder {
         CLIENT.load().request(method, API_URL.to_string() + path.as_ref())
     }

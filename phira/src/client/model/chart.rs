@@ -14,6 +14,7 @@ pub struct Chart {
     pub illustrator: String,
     pub description: Option<String>,
     pub ranked: bool,
+    pub reviewed: bool,
 
     pub illustration: File,
     pub preview: File,

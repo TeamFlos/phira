@@ -215,6 +215,9 @@ impl LibraryPage {
             ui.dx(r.x);
             ui.dy(r.y);
             self.scroll.render(ui, |ui| {
+                if !matches!(self.chosen, ChartListType::Local) {
+                    ui.text(ttl!("release-to-refresh")).pos(r.w / 2., -0.13).anchor(0.5, 0.).size(0.8).draw();
+                }
                 let cw = r.w / ROW_NUM as f32;
                 let ch = CHART_HEIGHT;
                 let p = CHART_PADDING;
@@ -261,8 +264,13 @@ impl LibraryPage {
                                 }
                             }
                             ui.fill_path(&path, (semi_black(0.4 * c.a), (0., 0.), semi_black(0.8 * c.a), (0., ch)));
+                            let mut level =chart.info.level.clone();
+                            if !level.contains("Lv.") {
+                                use std::fmt::Write;
+                                write!(&mut level, " Lv.{}", chart.info.difficulty as i32).unwrap();
+                            }
                             let mut t = ui
-                                .text(format!("{} Lv.{}", chart.info.level, chart.info.difficulty as i32))
+                                .text(level)
                                 .pos(r.right() - 0.016, r.y + 0.016)
                                 .max_width(r.w * 2. / 3.)
                                 .anchor(1., 0.)
@@ -530,6 +538,9 @@ impl Page for LibraryPage {
                 }
                 self.online_task = None;
             }
+        }
+        if !matches!(self.chosen, ChartListType::Local) && self.scroll.y_scroller.pulled && self.online_task.is_none() {
+            self.load_online();
         }
         self.scroll.update(t);
         self.order_menu.update(t);
