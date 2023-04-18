@@ -22,7 +22,7 @@ static CLIENT: Lazy<ArcSwap<reqwest::Client>> =
 pub struct Client;
 
 // const API_URL: &str = "http://localhost:2924";
-const API_URL: &str = "https://api.phira.cn:2925";
+const API_URL: &str = "https://api.phira.cn";
 
 fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
     let mut headers = header::HeaderMap::new();
@@ -219,6 +219,11 @@ impl<T: Object> QueryBuilder<T> {
     #[inline]
     pub fn order(self, order: impl Into<Cow<'static, str>>) -> Self {
         self.query("order", order)
+    }
+
+    #[inline]
+    pub fn tags(self, tags: impl Into<Cow<'static, str>>) -> Self {
+        self.query("tags", tags)
     }
 
     #[inline]
