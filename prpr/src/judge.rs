@@ -20,7 +20,7 @@ pub const LIMIT_BAD: f32 = 0.22;
 pub const UP_TOLERANCE: f32 = 0.05;
 pub const DIST_FACTOR: f32 = 0.2;
 
-const EARLY_OFFSET: f32 = 0.1;
+const EARLY_OFFSET: f32 = 0.07;
 
 pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     if config.volume_sfx <= 1e-2 {
