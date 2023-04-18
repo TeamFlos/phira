@@ -227,15 +227,21 @@ impl Page for HomePage {
         self.login.update(t)?;
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {
-                if let Err(err) = res {
-                    // wtf bro
-                    if format!("{err:?}").contains("invalid token") {
-                        get_data_mut().me = None;
-                        get_data_mut().tokens = None;
-                        let _ = save_data();
-                        sync_data();
+                match res {
+                    Err(err) => {
+                        // wtf bro
+                        if format!("{err:?}").contains("invalid token") {
+                            get_data_mut().me = None;
+                            get_data_mut().tokens = None;
+                            let _ = save_data();
+                            sync_data();
+                        }
+                        show_error(err.context(tl!("failed-to-update")));
                     }
-                    show_error(err.context(tl!("failed-to-update")));
+                    Ok(val) => {
+                        get_data_mut().me = Some(val);
+                        save_data()?;
+                    }
                 }
                 self.update_task = None;
             }
