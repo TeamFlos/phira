@@ -2,7 +2,7 @@ prpr::tl_file!("library");
 
 use super::{ChartItem, Fader, Page, SharedState};
 use crate::{
-    client::{Chart, Client, File},
+    client::{Chart, Client},
     data::LocalChart,
     dir, get_data, get_data_mut,
     popup::Popup,

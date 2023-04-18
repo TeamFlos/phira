@@ -78,7 +78,7 @@ impl EndingScene {
             bgm,
             MusicParams {
                 amplifier: config.volume_music,
-                loop_: true,
+                loop_mix_time: 0.,
                 ..Default::default()
             },
         )?;

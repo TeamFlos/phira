@@ -55,7 +55,7 @@ fn create_music(clip: AudioClip) -> Result<Music> {
             clip,
             MusicParams {
                 amplifier: 0.7,
-                loop_: true,
+                loop_mix_time: 0.,
                 ..Default::default()
             },
         )
