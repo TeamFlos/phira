@@ -1,5 +1,8 @@
 prpr::tl_file!("common" ttl crate::);
 
+#[cfg(feature = "closed")]
+mod inner;
+
 mod client;
 mod data;
 mod images;
@@ -26,6 +29,12 @@ static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
 static DATA_PATH: Mutex<Option<String>> = Mutex::new(None);
 static CACHE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static mut DATA: Option<Data> = None;
+
+#[cfg(feature = "closed")]
+pub async fn load_res(name: &str) -> Vec<u8> {
+    let bytes = load_file(name).await.unwrap();
+    inner::resolve_data(bytes)
+}
 
 pub fn sync_data() {
     let mut langs: Vec<LanguageIdentifier> = Vec::new();

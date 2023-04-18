@@ -37,7 +37,7 @@ impl OffsetPage {
         let cali = audio.create_music(
             AudioClip::new(load_file("cali.ogg").await?)?,
             MusicParams {
-                loop_: true,
+                loop_mix_time: 0.,
                 ..Default::default()
             },
         )?;

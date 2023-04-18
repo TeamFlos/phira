@@ -12,7 +12,7 @@ use prpr::{
     time::TimeManager,
     ui::{button_hit, RectButton, Ui, UI_AUDIO},
 };
-use sasa::{AudioClip, Music, MusicParams};
+use sasa::{AudioClip, Music};
 
 const LOW_PASS: f32 = 0.95;
 
@@ -33,19 +33,23 @@ impl MainScene {
     pub async fn new() -> Result<Self> {
         Self::init().await?;
 
-        let bgm_clip = AudioClip::new(load_file("ending.mp3").await?)?;
-        let mut bgm = UI_AUDIO.with(|it| {
-            it.borrow_mut().create_music(
-                bgm_clip,
-                MusicParams {
-                    loop_: true,
-                    ..Default::default()
-                },
-            )
-        })?;
-        // bgm.play()?;
+        #[cfg(feature = "closed")]
+        let bgm = {
+            let bgm_clip = AudioClip::new(crate::load_res("res/bgm").await)?;
+            Some(UI_AUDIO.with(|it| {
+                it.borrow_mut().create_music(
+                    bgm_clip,
+                    sasa::MusicParams {
+                        loop_mix_time: 6.99,
+                        ..Default::default()
+                    },
+                )
+            })?)
+        };
+        #[cfg(not(feature = "closed"))]
+        let bgm = None;
 
-        let mut sf = Self::new_inner(Some(bgm)).await?;
+        let mut sf = Self::new_inner(bgm).await?;
         sf.pages.push(Box::new(HomePage::new().await?));
         Ok(sf)
     }
@@ -100,6 +104,9 @@ impl Scene for MainScene {
     }
 
     fn enter(&mut self, _tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
+        if let Some(bgm) = &mut self.bgm {
+            let _ = bgm.fade_in(1.3);
+        }
         self.pages.last_mut().unwrap().enter(&mut self.state)?;
         Ok(())
     }
@@ -215,6 +222,12 @@ impl Scene for MainScene {
     }
 
     fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
-        self.pages.last_mut().unwrap().next_scene(&mut self.state)
+        let res = self.pages.last_mut().unwrap().next_scene(&mut self.state);
+        if !matches!(res, NextScene::None) {
+            if let Some(bgm) = &mut self.bgm {
+                let _ = bgm.fade_out(0.5);
+            }
+        }
+        res
     }
 }
