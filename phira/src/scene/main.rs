@@ -112,11 +112,17 @@ impl Scene for MainScene {
     }
 
     fn resume(&mut self, _tm: &mut TimeManager) -> Result<()> {
+        if let Some(bgm) = &mut self.bgm {
+            bgm.play()?;
+        }
         self.pages.last_mut().unwrap().resume()?;
         Ok(())
     }
 
     fn pause(&mut self, _tm: &mut TimeManager) -> Result<()> {
+        if let Some(bgm) = &mut self.bgm {
+            bgm.pause()?;
+        }
         self.pages.last_mut().unwrap().pause()?;
         Ok(())
     }
