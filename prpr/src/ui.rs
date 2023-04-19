@@ -262,7 +262,16 @@ impl DRectButton {
         (r, path)
     }
 
-    pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) -> (Rect, Path) {
+    pub fn render_text_left<'a>(
+        &mut self,
+        ui: &mut Ui,
+        r: Rect,
+        t: f32,
+        alpha: f32,
+        text: impl Into<Cow<'a, str>>,
+        size: f32,
+        chosen: bool,
+    ) -> (Rect, Path) {
         let oh = r.h;
         let (r, path) = self.build(ui, t, r);
         ui.fill_path(&path, if chosen { semi_white(alpha) } else { semi_black(alpha * 0.4) });
@@ -656,6 +665,12 @@ impl<'a> Ui<'a> {
 
     pub fn screen_rect(&self) -> Rect {
         Rect::new(-1., -self.top, 2., self.top * 2.)
+    }
+
+    pub fn dialog_rect() -> Rect {
+        let hw = 0.45;
+        let hh = 0.34;
+        Rect::new(-hw, -hh, hw * 2., hh * 2.)
     }
 
     pub fn rect_to_global(&self, rect: Rect) -> Rect {

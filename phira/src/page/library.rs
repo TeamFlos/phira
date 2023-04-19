@@ -8,12 +8,13 @@ use crate::{
     popup::Popup,
     save_data,
     scene::{import_chart, ChartOrder, SongScene, ORDERS},
+    tags::TagsDialog,
 };
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
-    ext::{semi_black, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
+    ext::{semi_black, JoinToString, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     scene::{request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, NextScene},
     task::Task,
     ui::{button_hit, button_hit_large, DRectButton, RectButton, Scroll, Ui},
@@ -91,6 +92,7 @@ pub struct LibraryPage {
     icon_search: SafeTexture,
     icon_order: SafeTexture,
     icon_info: SafeTexture,
+    icon_filter: SafeTexture,
 
     import_btn: DRectButton,
     import_task: Option<Task<Result<LocalChart>>>,
@@ -103,6 +105,10 @@ pub struct LibraryPage {
     order_menu: Popup,
     need_show_order_menu: bool,
     current_order: usize,
+
+    filter_btn: DRectButton,
+    tags: TagsDialog,
+    tags_last_show: bool,
 }
 
 impl LibraryPage {
@@ -118,6 +124,7 @@ impl LibraryPage {
         icon_search: SafeTexture,
         icon_order: SafeTexture,
         icon_info: SafeTexture,
+        icon_filter: SafeTexture,
     ) -> Result<Self> {
         NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
@@ -152,6 +159,7 @@ impl LibraryPage {
             icon_search,
             icon_order,
             icon_info,
+            icon_filter,
 
             import_btn: DRectButton::new(),
             import_task: None,
@@ -164,6 +172,10 @@ impl LibraryPage {
             order_menu: Popup::new().with_options(ChartOrder::names()),
             need_show_order_menu: false,
             current_order: 0,
+
+            filter_btn: DRectButton::new(),
+            tags: TagsDialog::new(true),
+            tags_last_show: false,
         })
     }
 }
@@ -331,10 +343,19 @@ impl LibraryPage {
                 order.to_owned()
             }
         };
+        let tags = self
+            .tags
+            .tags
+            .tags
+            .iter()
+            .cloned()
+            .chain(self.tags.unwanted.as_ref().unwrap().tags.iter().map(|it| format!("-{it}")))
+            .join(",");
         self.online_task = Some(Task::new(async move {
             let (remote_charts, count) = Client::query::<Chart>()
                 .search(search)
                 .order(order)
+                .tags(tags)
                 .page(page)
                 .page_num(PAGE_NUM)
                 .send()
@@ -407,6 +428,9 @@ impl Page for LibraryPage {
         let t = s.t;
         if self.order_menu.showing() {
             self.order_menu.touch(touch, t);
+            return Ok(true);
+        }
+        if self.tags.touch(touch, t) {
             return Ok(true);
         }
         if self.transit.is_some() || self.import_task.is_some() {
@@ -526,6 +550,10 @@ impl Page for LibraryPage {
                     self.need_show_order_menu = true;
                     return Ok(true);
                 }
+                if self.filter_btn.touch(touch, t) {
+                    self.tags.enter(t);
+                    return Ok(true);
+                }
             }
             ChartListType::Popular => {}
         }
@@ -534,6 +562,11 @@ impl Page for LibraryPage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+        self.tags.update(t);
+        if self.tags_last_show && !self.tags.showing() {
+            self.load_online();
+        }
+        self.tags_last_show = self.tags.showing();
         if let Some(task) = &mut self.online_task {
             if let Some(res) = task.take() {
                 match res {
@@ -692,6 +725,10 @@ impl Page for LibraryPage {
                         self.order_menu.set_selected(self.current_order);
                         self.order_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.3, 0.4));
                     }
+                    r.x -= r.w + 0.02;
+                    let (cr, _) = self.filter_btn.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
+                    let cr = cr.feather(-0.005);
+                    ui.fill_rect(cr, (*self.icon_filter, cr, ScaleType::Fit, c));
                 });
             }
             ChartListType::Popular => {}
@@ -743,6 +780,7 @@ impl Page for LibraryPage {
             ui.full_loading(tl!("importing"), t);
         }
         self.order_menu.render(ui, t, 1.);
+        self.tags.render(ui, t);
         Ok(())
     }
 

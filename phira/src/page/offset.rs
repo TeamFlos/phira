@@ -73,6 +73,10 @@ impl OffsetPage {
 }
 
 impl Page for OffsetPage {
+    fn can_play_bgm(&self) -> bool {
+        false
+    }
+
     fn label(&self) -> std::borrow::Cow<'static, str> {
         "CALIBRATION".into()
     }

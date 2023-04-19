@@ -133,7 +133,7 @@ impl Login {
             return true;
         }
         if self.show {
-            if !Self::dialog_rect().contains(touch.position) {
+            if !Ui::dialog_rect().contains(touch.position) {
                 self.dismiss(t);
                 return true;
             }
@@ -235,12 +235,6 @@ impl Login {
         Ok(())
     }
 
-    fn dialog_rect() -> Rect {
-        let hw = 0.45;
-        let hh = 0.34;
-        Rect::new(-hw, -hh, hw * 2., hh * 2.)
-    }
-
     pub fn render(&mut self, ui: &mut Ui, t: f32) {
         self.fader.reset();
         if self.show || self.fader.transiting() {
@@ -248,7 +242,7 @@ impl Login {
             ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
             self.fader.for_sub(|f| {
                 f.render(ui, t, |ui, c| {
-                    let wr = Self::dialog_rect();
+                    let wr = Ui::dialog_rect();
                     ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
                     ui.scissor(Some(wr));
 

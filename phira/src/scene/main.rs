@@ -96,6 +96,15 @@ impl MainScene {
             pages: Vec::new(),
         })
     }
+
+    fn pop(&mut self) {
+        if !self.pages.last().unwrap().can_play_bgm() && self.pages[self.pages.len() - 2].can_play_bgm() {
+            if let Some(bgm) = &mut self.bgm {
+                let _ = bgm.fade_in(0.5);
+            }
+        }
+        self.state.fader.back(self.state.t);
+    }
 }
 
 impl Scene for MainScene {
@@ -140,7 +149,7 @@ impl Scene for MainScene {
                     bgm.set_low_pass(0.)?;
                 }
             }
-            s.fader.back(s.t);
+            self.pop();
             return Ok(true);
         }
         if self.pages.last_mut().unwrap().touch(touch, s)? {
@@ -167,11 +176,16 @@ impl Scene for MainScene {
                         }
                     }
                     sub.enter(s)?;
+                    if !sub.can_play_bgm() {
+                        if let Some(bgm) = &mut self.bgm {
+                            let _ = bgm.fade_out(0.5);
+                        }
+                    }
                     self.pages.push(sub);
                     s.fader.sub(s.t);
                 }
                 NextPage::Pop => {
-                    s.fader.back(s.t);
+                    self.pop();
                 }
                 NextPage::None => {}
             }

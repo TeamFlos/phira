@@ -8,6 +8,7 @@ use crate::{
     page::{thumbnail_path, ChartItem, Fader, Illustration, NEED_UPDATE},
     popup::Popup,
     save_data,
+    tags::TagsDialog,
 };
 use anyhow::{anyhow, Context, Result};
 use futures_util::StreamExt;
@@ -137,7 +138,7 @@ pub struct SongScene {
     preview_task: Option<Task<Result<AudioClip>>>,
 
     load_task: Option<Task<Result<Arc<Chart>>>>,
-    entity: Option<Arc<Chart>>,
+    entity: Option<Chart>,
     info: BriefChartInfo,
     local_path: Option<String>,
 
@@ -179,6 +180,9 @@ pub struct SongScene {
 
     review_task: Option<Task<Result<String>>>,
     chart_should_delete: Arc<AtomicBool>,
+
+    edit_tags_task: Option<Task<Result<()>>>,
+    tags: TagsDialog,
 }
 
 impl SongScene {
@@ -311,12 +315,15 @@ impl SongScene {
 
             review_task: None,
             chart_should_delete: Arc::default(),
+
+            edit_tags_task: None,
+            tags: TagsDialog::new(false),
         }
     }
 
     fn start_download(&mut self) -> Result<()> {
         let chart = self.info.clone();
-        let Some(entity) = self.entity.as_ref().map(Arc::clone) else {
+        let Some(entity) = self.entity.clone() else {
             show_error(anyhow!(tl!("no-chart-for-download")));
             return Ok(());
         };
@@ -448,6 +455,7 @@ impl SongScene {
                 self.menu_options.push("review-deny");
             }
             self.menu_options.push("review-del");
+            self.menu_options.push("review-edit-tags");
         }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
     }
@@ -576,7 +584,13 @@ impl SongScene {
 
         self.edit_scroll.size((width, ui.top * 2. - h));
         self.edit_scroll.render(ui, |ui| {
-            let (w, h) = render_chart_info(ui, self.info_edit.as_mut().unwrap(), width);
+            let (w, mut h) = render_chart_info(ui, self.info_edit.as_mut().unwrap(), width);
+            h += 0.06;
+            ui.dy(h);
+            if ui.button("edit_tags", Rect::new(0.04, 0., 0.2, 0.07), tl!("edit-tags")) {
+                self.tags.tags.set(self.info_edit.as_ref().unwrap().info.tags.clone());
+                self.tags.enter(rt);
+            }
             (w, h + 0.1)
         });
         Ok(())
@@ -819,7 +833,10 @@ impl Scene for SongScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
-        if loading_scene() || self.save_task.is_some() || self.upload_task.is_some() || self.review_task.is_some() {
+        if loading_scene() || self.save_task.is_some() || self.upload_task.is_some() || self.review_task.is_some() || self.edit_tags_task.is_some() {
+            return Ok(true);
+        }
+        if self.tags.touch(touch, tm.real_time() as _) {
             return Ok(true);
         }
         if self.menu.showing() {
@@ -914,6 +931,26 @@ impl Scene for SongScene {
         let t = tm.now() as f32;
         self.menu.update(t);
         self.illu.settle(t);
+        self.tags.update(tm.real_time() as _);
+        if let Some(true) = self.tags.confirmed.take() {
+            if !self.side_enter_time.is_infinite() && matches!(self.side_content, SideContent::Edit) {
+                self.info_edit.as_mut().unwrap().info.tags = self.tags.tags.tags.clone();
+            } else {
+                let id = self.info.id.unwrap();
+                let tags = self.tags.tags.tags.clone();
+                self.entity.as_mut().unwrap().tags = tags.clone();
+                self.edit_tags_task = Some(Task::new(async move {
+                    recv_raw(Client::post(
+                        format!("/chart/{id}/edit_tags"),
+                        &json!({
+                            "tags": tags,
+                        }),
+                    ))
+                    .await?;
+                    Ok(())
+                }));
+            }
+        }
         if self.side_enter_time < 0. && -tm.real_time() as f32 + EDIT_TRANSIT < self.side_enter_time {
             self.side_enter_time = f32::INFINITY;
         }
@@ -922,7 +959,7 @@ impl Scene for SongScene {
                 match res {
                     Err(err) => show_error(err.context(tl!("load-charts-failed"))),
                     Ok(chart) => {
-                        self.entity = Some(chart);
+                        self.entity = Some(chart.as_ref().clone());
                         self.update_menu();
                     }
                 }
@@ -1031,6 +1068,14 @@ impl Scene for SongScene {
                 }
                 "review-del" => {
                     confirm_delete(self.chart_should_delete.clone());
+                }
+                "review-edit-tags" => {
+                    let Some(entity) = self.entity.as_ref() else {
+                        show_message(tl!("review-not-loaded")).warn();
+                        return Ok(());
+                    };
+                    self.tags.tags.set(entity.tags.clone());
+                    self.tags.enter(t);
                 }
                 _ => {}
             }
@@ -1183,6 +1228,19 @@ impl Scene for SongScene {
                     }
                 }
                 self.review_task = None;
+            }
+        }
+        if let Some(task) = &mut self.edit_tags_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("review-edit-tags-failed")));
+                    }
+                    Ok(_) => {
+                        show_message(tl!("review-edit-tags-done")).ok();
+                    }
+                }
+                self.edit_tags_task = None;
             }
         }
         Ok(())
@@ -1361,6 +1419,10 @@ impl Scene for SongScene {
         if self.review_task.is_some() {
             ui.full_loading(tl!("review-doing"), t);
         }
+        if self.edit_tags_task.is_some() {
+            ui.full_loading("", t);
+        }
+        self.tags.render(ui, tm.real_time() as _);
         Ok(())
     }
 
