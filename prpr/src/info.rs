@@ -35,6 +35,7 @@ pub struct ChartInfo {
     pub line_length: f32,
     pub offset: f32,
     pub tip: Option<String>,
+    pub tags: Vec<String>,
 
     pub intro: String,
 
@@ -65,6 +66,7 @@ impl Default for ChartInfo {
             line_length: 6.,
             offset: 0.,
             tip: None,
+            tags: Vec::new(),
 
             intro: String::new(),
 

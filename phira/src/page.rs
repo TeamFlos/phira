@@ -5,7 +5,7 @@ mod library;
 pub use library::{LibraryPage, NEED_UPDATE};
 
 mod message;
-pub use message::{MessagePage};
+pub use message::MessagePage;
 
 mod offset;
 pub use offset::OffsetPage;
@@ -347,7 +347,10 @@ pub enum NextPage {
 pub trait Page {
     fn label(&self) -> Cow<'static, str>;
 
-    fn on_result(&mut self, result: Box<dyn Any>, _s: &mut SharedState) -> Result<()> {
+    fn can_play_bgm(&self) -> bool {
+        true
+    }
+    fn on_result(&mut self, _result: Box<dyn Any>, _s: &mut SharedState) -> Result<()> {
         Ok(())
     }
     fn enter(&mut self, _s: &mut SharedState) -> Result<()> {

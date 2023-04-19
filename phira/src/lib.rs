@@ -10,6 +10,7 @@ mod login;
 mod page;
 mod popup;
 mod scene;
+mod tags;
 
 use anyhow::Result;
 use data::Data;

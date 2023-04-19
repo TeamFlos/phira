@@ -24,6 +24,8 @@ pub struct Chart {
 
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 impl Object for Chart {
     const QUERY_PATH: &'static str = "chart";

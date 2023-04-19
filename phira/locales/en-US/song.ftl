@@ -35,6 +35,7 @@ edit-load-file-failed = Failed to load external file
 edit-save-failed = Save failed
 edit-saved = Saved
 edit-preview-invalid = Preview time out of bounds
+edit-tags = Edit tags
 
 edit-upload = Upload
 upload-login-first = Please login first
@@ -75,3 +76,7 @@ review-denied = Denied
 review-deleted = Deleted
 review-action-failed = Failed to perform review action
 review-doing = Executing action
+review-not-loaded = Info is not loaded, please wait
+review-edit-tags = Edit tags
+review-edit-tags-failed = Failed to edit tags
+review-edit-tags-done = Tags updated

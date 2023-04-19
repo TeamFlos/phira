@@ -35,6 +35,7 @@ edit-load-file-failed = 加载外部文件失败
 edit-save-failed = 保存失败
 edit-saved = 保存成功
 edit-preview-invalid = 预览时间超出范围
+edit-tags = 编辑标签
 
 edit-upload = 上传
 upload-login-first = 请先登录
@@ -75,3 +76,7 @@ review-denied = 已拒绝
 review-deleted = 已删除
 review-action-failed = 执行审核操作失败
 review-doing = 执行操作中
+review-not-loaded = 信息尚未加载完成，请稍等
+review-edit-tags = 编辑标签
+review-edit-tags-failed = 编辑标签失败
+review-edit-tags-done = 标签已更新
