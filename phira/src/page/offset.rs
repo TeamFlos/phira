@@ -64,7 +64,7 @@ impl OffsetPage {
             emitter,
             color: respack.info.fx_perfect(),
 
-            slider: Slider::new(-500.0..500.0, 10.),
+            slider: Slider::new(-500.0..500.0, 5.),
 
             touched: false,
             touch: None,
