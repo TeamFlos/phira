@@ -40,7 +40,7 @@ impl MainScene {
                 it.borrow_mut().create_music(
                     bgm_clip,
                     sasa::MusicParams {
-                        loop_mix_time: 6.99,
+                        loop_mix_time: 5.46,
                         ..Default::default()
                     },
                 )
