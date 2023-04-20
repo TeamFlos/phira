@@ -16,6 +16,7 @@ pub struct BriefChartInfo {
     pub name: String,
     pub level: String,
     pub difficulty: f32,
+    #[serde(alias = "description")]
     pub intro: String,
     pub charter: String,
     pub composer: String,
