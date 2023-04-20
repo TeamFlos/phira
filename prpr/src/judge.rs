@@ -150,6 +150,14 @@ impl JudgeInner {
         (self.counts[0] as f64 + self.counts[1] as f64 * 0.65) / self.num_of_notes as f64
     }
 
+    pub fn real_time_accuracy(&self) -> f64 {
+        let cnt = self.counts.iter().sum::<u32>();
+        if cnt == 0 {
+            return 1.;
+        }
+        (self.counts[0] as f64 + self.counts[1] as f64 * 0.65) / cnt as f64
+    }
+
     pub fn score(&self) -> u32 {
         const TOTAL: u32 = 1000000;
         if self.counts[0] == self.num_of_notes {
@@ -240,6 +248,11 @@ impl Judge {
     #[inline]
     pub fn accuracy(&self) -> f64 {
         self.inner.accuracy()
+    }
+
+    #[inline]
+    pub fn real_time_accuracy(&self) -> f64 {
+        self.inner.real_time_accuracy()
     }
 
     #[inline]
