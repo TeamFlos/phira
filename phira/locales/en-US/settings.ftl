@@ -23,6 +23,7 @@ item-cali = Adjust offset
 
 item-autoplay = Autoplay
 item-autoplay-sub = Enabling this would disable record uploading
+item-show-acc = Show real-time accuracy
 item-dc-pause = Double click to pause
 item-dhint = Double hint
 item-dhint-sub = Notes that touch line simutaneously will be highlighted
