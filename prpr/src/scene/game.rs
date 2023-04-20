@@ -149,7 +149,7 @@ macro_rules! reset {
         $self.bad_notes.clear();
         $self.judge.reset();
         $self.chart.reset();
-        $res.judge_line_color = $res.res_pack.info.fx_perfect();
+        $res.judge_line_color = Color::from_hex($res.res_pack.info.color_perfect);
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
         $tm.reset();
@@ -861,11 +861,11 @@ impl Scene for GameScene {
         }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 {
-            if counts[1] == 0 {
-                self.res.res_pack.info.fx_perfect()
+            Color::from_hex(if counts[1] == 0 {
+                self.res.res_pack.info.color_perfect
             } else {
-                self.res.res_pack.info.fx_good()
-            }
+                self.res.res_pack.info.color_good
+            })
         } else {
             WHITE
         };
