@@ -229,6 +229,7 @@ impl TextPainter {
     }
 
     fn new_cache_texture(dim: (u32, u32)) -> Texture2D {
+        debug!("creating cache texture: {}x{}", dim.0, dim.1);
         Texture2D::from_miniquad_texture(Texture::new_render_texture(
             unsafe { get_internal_gl() }.quad_context,
             TextureParams {
