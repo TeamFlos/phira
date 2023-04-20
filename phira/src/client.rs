@@ -150,6 +150,7 @@ impl Client {
         QueryBuilder {
             queries: HashMap::new(),
             page: None,
+            suffix: "",
             _phantom: PhantomData::default(),
         }
     }
@@ -207,6 +208,7 @@ impl Client {
 pub struct QueryBuilder<T> {
     queries: HashMap<Cow<'static, str>, Cow<'static, str>>,
     page: Option<u64>,
+    suffix: &'static str,
     _phantom: PhantomData<T>,
 }
 
@@ -241,6 +243,12 @@ impl<T: Object> QueryBuilder<T> {
         self.query("page_num", page_num.to_string())
     }
 
+    #[inline]
+    pub fn suffix(mut self, suffix: &'static str) -> Self {
+        self.suffix = suffix;
+        self
+    }
+
     pub fn page(mut self, page: u64) -> Self {
         self.page = Some(page);
         self
@@ -253,7 +261,7 @@ impl<T: Object> QueryBuilder<T> {
             count: u64,
             results: Vec<T>,
         }
-        let res: PagedResult<T> = recv_raw(Client::get(format!("/{}", T::QUERY_PATH)).query(&self.queries))
+        let res: PagedResult<T> = recv_raw(Client::get(format!("/{}{}", T::QUERY_PATH, self.suffix)).query(&self.queries))
             .await?
             .json()
             .await?;

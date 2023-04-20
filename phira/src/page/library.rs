@@ -212,8 +212,7 @@ impl LibraryPage {
         self.scroll.size(content_size);
         let charts = match self.chosen {
             ChartListType::Local => Some(local),
-            ChartListType::Online => self.online_charts.as_ref(),
-            _ => unreachable!(),
+            ChartListType::Online | ChartListType::Popular => self.online_charts.as_ref(),
         };
         let Some(charts) = charts else {
             let ct = r.center();
@@ -351,15 +350,15 @@ impl LibraryPage {
             .cloned()
             .chain(self.tags.unwanted.as_ref().unwrap().tags.iter().map(|it| format!("-{it}")))
             .join(",");
+        let popular = matches!(self.chosen, ChartListType::Popular);
         self.online_task = Some(Task::new(async move {
-            let (remote_charts, count) = Client::query::<Chart>()
-                .search(search)
-                .order(order)
-                .tags(tags)
-                .page(page)
-                .page_num(PAGE_NUM)
-                .send()
-                .await?;
+            let mut q = Client::query::<Chart>();
+            if popular {
+                q = q.suffix("/popular");
+            } else {
+                q = q.search(search).order(order).tags(tags);
+            }
+            let (remote_charts, count) = q.page(page).page_num(PAGE_NUM).send().await?;
             let total_page = if count == 0 { 0 } else { (count - 1) / PAGE_NUM + 1 };
             let charts: Vec<_> = remote_charts
                 .iter()
@@ -441,6 +440,10 @@ impl Page for LibraryPage {
             return Ok(true);
         }
         if self.btn_online.touch(touch, t) {
+            if matches!(self.chosen, ChartListType::Popular) {
+                self.online_charts = None;
+                self.online_task = None;
+            }
             self.switch_to_type(ChartListType::Online);
             if self.online_charts.is_none() {
                 self.load_online();
@@ -448,8 +451,14 @@ impl Page for LibraryPage {
             return Ok(true);
         }
         if self.btn_popular.touch(touch, t) {
-            // self.chosen = ChartListType::Popular;
-            show_message(tl!("not-opened")).warn();
+            if matches!(self.chosen, ChartListType::Online) {
+                self.online_charts = None;
+                self.online_task = None;
+            }
+            self.switch_to_type(ChartListType::Popular);
+            if self.online_charts.is_none() {
+                self.load_online();
+            }
             return Ok(true);
         }
         if !matches!(self.chosen, ChartListType::Local) && self.online_task.is_none() {
@@ -476,8 +485,7 @@ impl Page for LibraryPage {
         if self.scroll.contains(touch) {
             let charts = match self.chosen {
                 ChartListType::Local => Some(&s.charts_local),
-                ChartListType::Online => self.online_charts.as_ref(),
-                _ => unreachable!(),
+                ChartListType::Online | ChartListType::Popular => self.online_charts.as_ref(),
             };
             for (id, (btn, chart)) in self.chart_btns.iter_mut().zip(charts.into_iter().flatten()).enumerate() {
                 if btn.touch(touch, t) {
