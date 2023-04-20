@@ -12,7 +12,7 @@ use crate::{
     bin::{BinaryReader, BinaryWriter},
     config::Config,
     core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector},
-    ext::{parse_time, screen_aspect, RectExt, SafeTexture},
+    ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
     judge::Judge,
@@ -375,6 +375,14 @@ impl GameScene {
                 .scale(scale)
                 .draw();
         });
+        if res.config.show_acc {
+            ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
+                .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
+                .anchor(1., 0.)
+                .size(0.4)
+                .color(semi_white(0.7))
+                .draw();
+        }
         self.chart.with_element(ui, res, UIElement::Pause, |ui, color, scale| {
             let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
             let ct = pause_center.coords;
