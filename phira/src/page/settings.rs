@@ -389,7 +389,7 @@ impl AudioList {
         Ok(None)
     }
 
-    pub fn update(&mut self, t: f32) -> Result<bool> {
+    pub fn update(&mut self, _t: f32) -> Result<bool> {
         if let Some(task) = &mut self.cali_task {
             if let Some(res) = poll_future(task.as_mut()) {
                 match res {
