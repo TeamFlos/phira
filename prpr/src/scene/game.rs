@@ -518,6 +518,17 @@ impl GameScene {
                     }
                     Some(1) => {
                         let mut pos = self.music.position();
+                        if (tm.speed - res.config.speed as f64).abs() > 0.01 {
+                            debug!("recreating music");
+                            self.music = res.audio.create_music(
+                                res.music.clone(),
+                                MusicParams {
+                                    amplifier: res.config.volume_music as _,
+                                    playback_rate: res.config.speed as _,
+                                    ..Default::default()
+                                },
+                            )?;
+                        }
                         if self.mode == GameMode::Exercise && tm.now() > self.exercise_range.end as f64 {
                             tm.seek_to(self.exercise_range.start as f64);
                             self.music.seek_to(self.exercise_range.start)?;
@@ -532,14 +543,21 @@ impl GameScene {
                         } else {
                             self.music.seek_to(dst)?;
                         }
+                        let now = tm.now();
+                        tm.speed = res.config.speed as _;
                         tm.resume();
-                        tm.seek_to(tm.now() - 3.);
+                        tm.seek_to(now - 3.);
                         self.pause_rewind = Some(tm.now() - 0.2);
                     }
                     _ => {}
                 }
             }
             if self.mode == GameMode::Exercise {
+                ui.scope(|ui| {
+                    ui.dx(0.3);
+                    ui.dy(-0.3);
+                    ui.slider(tl!("speed"), 0.5..2.0, 0.05, &mut self.res.config.speed, Some(0.5));
+                });
                 ui.dy(0.06);
                 let hw = 0.7;
                 let h = 0.06;
