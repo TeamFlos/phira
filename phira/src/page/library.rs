@@ -609,7 +609,11 @@ impl Page for LibraryPage {
                 if transit.back {
                     if transit.delete {
                         let data = get_data_mut();
-                        let path = s.charts_local[transit.id as usize].local_path.clone().unwrap();
+                        let path = if matches!(self.chosen, ChartListType::Local) {
+                            s.charts_local[transit.id as usize].local_path.clone().unwrap()
+                        } else {
+                            format!("download/{}", self.online_charts.as_ref().unwrap()[transit.id as usize].info.id.unwrap())
+                        };
                         std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
                         data.charts.remove(data.find_chart_by_path(path.as_str()).unwrap());
                         save_data()?;
