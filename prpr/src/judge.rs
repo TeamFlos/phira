@@ -31,6 +31,13 @@ pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     });
 }
 
+fn get_uptime() -> f64 {
+    let mut time = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let ret = unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) };
+    assert!(ret == 0);
+    time.tv_sec as f64 + time.tv_nsec as f64 * 1e-9
+}
+
 pub struct FlickTracker {
     threshold: f32,
     last_point: Point,
@@ -301,6 +308,8 @@ impl Judge {
         const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
         let spd = res.config.speed;
 
+        let uptime = get_uptime();
+
         let t = res.time;
         // TODO optimize
         let mut touches: HashMap<u64, Touch> = {
@@ -313,6 +322,7 @@ impl Judge {
                     id,
                     phase: TouchPhase::Started,
                     position: vec2(p.0, p.1),
+                    time: f64::NEG_INFINITY,
                 });
             } else if is_mouse_button_down(btn) {
                 let p = mouse_position();
@@ -320,6 +330,7 @@ impl Judge {
                     id,
                     phase: TouchPhase::Moved,
                     position: vec2(p.0, p.1),
+                    time: f64::NEG_INFINITY,
                 });
             } else if is_mouse_button_released(btn) {
                 let p = mouse_position();
@@ -327,6 +338,7 @@ impl Judge {
                     id,
                     phase: TouchPhase::Ended,
                     position: vec2(p.0, p.1),
+                    time: f64::NEG_INFINITY,
                 });
             }
             let tr = Self::touch_transform();
@@ -349,7 +361,13 @@ impl Judge {
             }
             let delta = (t / spd - self.last_time) as f64 / (events.len() + 1) as f64;
             let mut t = self.last_time as f64;
-            for Touch { id, phase, position: p } in events.into_iter() {
+            for Touch {
+                id,
+                phase,
+                position: p,
+                time,
+            } in events.into_iter()
+            {
                 t += delta;
                 let t = t as f32;
                 let p = to_local(p);
@@ -362,6 +380,7 @@ impl Judge {
                                 id,
                                 phase: TouchPhase::Started,
                                 position: vec2(p.x, p.y),
+                                time,
                             })
                             .phase = TouchPhase::Started;
                     }
@@ -376,7 +395,17 @@ impl Judge {
                 }
             }
         }
-        let touches: Vec<Touch> = touches.into_values().collect();
+        let touches: Vec<Touch> = touches
+            .into_values()
+            .map(|mut it| {
+                it.time = if it.time.is_infinite() {
+                    f64::NEG_INFINITY
+                } else {
+                    t as f64 - (uptime - it.time) * spd as f64
+                };
+                it
+            })
+            .collect();
         // pos[line][touch]
         let mut pos = Vec::<Vec<Option<Point>>>::with_capacity(chart.lines.len());
         for id in 0..pos.capacity() {
@@ -400,6 +429,13 @@ impl Judge {
                     .collect(),
             );
         }
+        let time_of = |touch: &Touch| {
+            if touch.time.is_infinite() {
+                t
+            } else {
+                touch.time as f32
+            }
+        };
         let mut judgements = Vec::new();
         // clicks & flicks
         for (id, touch) in touches.iter().enumerate() {
@@ -409,6 +445,7 @@ impl Judge {
             if !(click || flick) {
                 continue;
             }
+            let t = time_of(touch);
             let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
             for (line_id, ((line, pos), (idx, st))) in chart.lines.iter_mut().zip(pos.iter()).zip(self.notes.iter_mut()).enumerate() {
                 let Some(pos) = pos[id] else { continue; };
@@ -467,11 +504,11 @@ impl Judge {
                         match note.kind {
                             NoteKind::Click => {
                                 note.judge = JudgeStatus::Judged;
-                                judgements.push((if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good }, line_id, id, None));
+                                judgements.push((if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good }, line_id, id, Some(t)));
                             }
                             NoteKind::Hold { .. } => {
                                 play_sfx(&mut res.sfx_click, &res.config);
-                                note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f32::INFINITY);
+                                note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f32::INFINITY);
                             }
                             _ => unreachable!(),
                         };
@@ -647,8 +684,10 @@ impl Judge {
                 judgement,
                 if matches!(judgement, Judgement::Miss) {
                     0.25
+                } else if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
+                    0.
                 } else {
-                    diff.unwrap_or((t - note.time) / spd)
+                    (diff.unwrap_or(t) - note.time) / spd
                 },
             );
             if matches!(note.kind, NoteKind::Hold { .. }) {
@@ -795,6 +834,7 @@ impl Handler {
                 id: button_to_id(MouseButton::Left),
                 phase: TouchPhase::Moved,
                 position: mouse_position().into(),
+                time: f64::NEG_INFINITY,
             });
         }
     }
@@ -813,11 +853,12 @@ fn button_to_id(button: MouseButton) -> u64 {
 impl EventHandler for Handler {
     fn update(&mut self, _: &mut miniquad::Context) {}
     fn draw(&mut self, _: &mut miniquad::Context) {}
-    fn touch_event(&mut self, _: &mut miniquad::Context, phase: miniquad::TouchPhase, id: u64, x: f32, y: f32) {
+    fn touch_event(&mut self, _: &mut miniquad::Context, phase: miniquad::TouchPhase, id: u64, x: f32, y: f32, time: f64) {
         self.0.push(Touch {
             id,
             phase: phase.into(),
             position: vec2(x, y),
+            time,
         });
     }
 
@@ -826,6 +867,7 @@ impl EventHandler for Handler {
             id: button_to_id(button),
             phase: TouchPhase::Started,
             position: vec2(x, y),
+            time: f64::NEG_INFINITY,
         });
     }
 
@@ -834,6 +876,7 @@ impl EventHandler for Handler {
             id: button_to_id(button),
             phase: TouchPhase::Ended,
             position: vec2(x, y),
+            time: f64::NEG_INFINITY,
         });
     }
 
