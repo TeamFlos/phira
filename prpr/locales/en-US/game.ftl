@@ -4,6 +4,7 @@ adjust-offset = Adjust offset
 offset-cancel = Cancel
 offset-reset = Reset
 offset-save = Save
+speed = Speed
 
 ex-time-out-of-range = Time is out of range
 ex-invalid-format = Invalid format
