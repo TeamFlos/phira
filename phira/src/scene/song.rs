@@ -1075,7 +1075,7 @@ impl Scene for SongScene {
                         return Ok(());
                     };
                     self.tags.tags.set(entity.tags.clone());
-                    self.tags.enter(t);
+                    self.tags.enter(tm.real_time() as _);
                 }
                 _ => {}
             }
