@@ -23,6 +23,7 @@ item-cali = ปรับ offset
 
 item-autoplay = Autoplay
 item-autoplay-sub = เล่นอัตโนมัติโดยจะไม่บันทึก Score
+item-show-acc = โชว์ค่า Accuracy
 item-dc-pause = กด 2 ครั้งเพื่อหยุด
 item-dhint = Note highlight
 item-dhint-sub = Note 2 ตัวจะถูก highlight
