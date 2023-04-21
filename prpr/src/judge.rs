@@ -31,6 +31,7 @@ pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     });
 }
 
+#[cfg(not(target_os = "windows"))]
 fn get_uptime() -> f64 {
     let mut time = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     let ret = unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) };
@@ -308,6 +309,7 @@ impl Judge {
         const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
         let spd = res.config.speed;
 
+        #[cfg(not(target_os = "windows"))]
         let uptime = get_uptime();
 
         let t = res.time;
@@ -401,7 +403,14 @@ impl Judge {
                 it.time = if it.time.is_infinite() {
                     f64::NEG_INFINITY
                 } else {
-                    t as f64 - (uptime - it.time) * spd as f64
+                    #[cfg(target_os = "windows")]
+                    {
+                        it.time
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        t as f64 - (uptime - it.time) * spd as f64
+                    }
                 };
                 it
             })
