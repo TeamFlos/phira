@@ -51,6 +51,7 @@ miniz_oxide = "0.7.1"
 obfstr = "=0.4.1"
 sha2 = "0.10.6"
 subtle = "2.4.1"
+libc = "0.2.142"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = "0.10"
