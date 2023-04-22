@@ -31,12 +31,18 @@ pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     });
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "ios")))]
 fn get_uptime() -> f64 {
     let mut time = libc::timespec { tv_sec: 0, tv_nsec: 0 };
     let ret = unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) };
     assert!(ret == 0);
     time.tv_sec as f64 + time.tv_nsec as f64 * 1e-9
+}
+
+#[cfg(target_os = "ios")]
+fn get_uptime() -> f64 {
+    use crate::objc::*;
+    msg_send![msg_send![class(ProcessInfo), proecssInfo], systemUptime]
 }
 
 pub struct FlickTracker {
