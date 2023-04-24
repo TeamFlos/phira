@@ -42,7 +42,10 @@ fn get_uptime() -> f64 {
 #[cfg(target_os = "ios")]
 fn get_uptime() -> f64 {
     use crate::objc::*;
-    msg_send![msg_send![class(ProcessInfo), proecssInfo], systemUptime]
+    unsafe {
+        let process_info: ObjcId = msg_send![class!(NSProcessInfo), processInfo];
+        msg_send![process_info, systemUptime]
+    }
 }
 
 pub struct FlickTracker {
