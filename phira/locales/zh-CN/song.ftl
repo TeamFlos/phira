@@ -36,11 +36,13 @@ edit-save-failed = 保存失败
 edit-saved = 保存成功
 edit-preview-invalid = 预览时间超出范围
 edit-tags = 编辑标签
+edit-downloaded = 你不能编辑下载的谱面
 
 edit-upload = 上传
+edit-update = 更新
+
 upload-login-first = 请先登录
 upload-builtin = 不能上传内置谱面
-upload-downloaded = 不能上传下载的谱面
 upload-rules = 上传须知
 upload-rules-content =
   在上传前，你需要确认：

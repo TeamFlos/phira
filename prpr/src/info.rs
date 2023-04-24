@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -15,6 +16,7 @@ pub enum ChartFormat {
 #[serde(rename_all = "camelCase")]
 pub struct ChartInfo {
     pub id: Option<i32>,
+    pub uploader: Option<i32>,
 
     pub name: String,
     pub difficulty: f32,
@@ -40,12 +42,14 @@ pub struct ChartInfo {
     pub intro: String,
 
     pub hold_partial_cover: bool,
+    pub created: Option<DateTime<Utc>>,
 }
 
 impl Default for ChartInfo {
     fn default() -> Self {
         Self {
             id: None,
+            uploader: None,
 
             name: "UK".to_string(),
             difficulty: 10.,
@@ -71,6 +75,8 @@ impl Default for ChartInfo {
             intro: String::new(),
 
             hold_partial_cover: false,
+
+            created: None,
         }
     }
 }

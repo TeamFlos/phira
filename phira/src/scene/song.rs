@@ -10,7 +10,8 @@ use crate::{
     save_data,
     tags::TagsDialog,
 };
-use anyhow::{anyhow, Context, Result, bail};
+use anyhow::{anyhow, bail, Context, Result};
+use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use macroquad::prelude::*;
 use prpr::{
@@ -28,6 +29,7 @@ use prpr::{
     time::TimeManager,
     ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui, UI_AUDIO},
 };
+use reqwest::Method;
 use sasa::{AudioClip, Frame, Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -383,6 +385,11 @@ impl SongScene {
                     if let Some(prog) = prog_wk.upgrade() {
                         *prog.lock().unwrap() = None;
                     }
+                    let mut info: ChartInfo = serde_yaml::from_reader(dir.open("info.yml")?)?;
+                    info.id = Some(entity.id);
+                    info.created = Some(entity.created);
+                    info.uploader = Some(entity.uploader.id);
+                    serde_yaml::to_writer(dir.create("info.yml")?, &info)?;
 
                     if prog_wk.strong_count() == 0 {
                         // cancelled
@@ -547,35 +554,45 @@ impl SongScene {
         let pad = 0.03;
         let width = self.side_content.width() - pad;
 
+        let is_owner = self.info.id.is_none()
+            || (self.info.created.is_some() && self.info.uploader.as_ref().map(|it| it.id) == get_data().me.as_ref().map(|it| it.id));
         let vpad = 0.02;
         let hpad = 0.01;
-        let dx = width / 3.;
+        let dx = width / if is_owner { 3. } else { 2. };
         let mut r = Rect::new(hpad, ui.top * 2. - h + vpad, dx - hpad * 2., h - vpad * 2.);
         if ui.button("cancel", r, tl!("edit-cancel")) {
             self.side_enter_time = -rt;
         }
-        r.x += dx;
-        if ui.button("upload", r, tl!("edit-upload")) && self.upload_task.is_none() && self.save_task.is_none() {
-            let path = self.local_path.as_ref().unwrap();
-            if get_data().me.is_none() {
-                show_message(tl!("upload-login-first"));
-            } else if path.starts_with(':') {
-                show_message(tl!("upload-builtin"));
-            } else if self.info.id.is_some() {
-                show_message(tl!("upload-downloaded"));
-            } else {
-                Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
-                    .buttons(vec![tl!("upload-cancel").to_string(), tl!("upload-confirm").to_string()])
-                    .listener(|pos| {
-                        if pos == 1 {
-                            CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
-                        }
-                    })
-                    .show();
+        if is_owner {
+            r.x += dx;
+            if ui.button(
+                "upload",
+                r,
+                if self.info.id.is_none() {
+                    tl!("edit-upload")
+                } else {
+                    tl!("edit-update")
+                },
+            ) {
+                let path = self.local_path.as_ref().unwrap();
+                if get_data().me.is_none() {
+                    show_message(tl!("upload-login-first"));
+                } else if path.starts_with(':') {
+                    show_message(tl!("upload-builtin"));
+                } else {
+                    Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
+                        .buttons(vec![tl!("upload-cancel").to_string(), tl!("upload-confirm").to_string()])
+                        .listener(|pos| {
+                            if pos == 1 {
+                                CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
+                            }
+                        })
+                        .show();
+                }
             }
         }
         r.x += dx;
-        if ui.button("save", r, tl!("edit-save")) && self.upload_task.is_none() && self.save_task.is_none() {
+        if ui.button("save", r, tl!("edit-save")) {
             self.save_edit();
         }
 
@@ -1120,6 +1137,7 @@ impl Scene for SongScene {
                     }
                     Ok(_) => {
                         show_message(tl!("upload-success")).ok();
+                        self.side_enter_time = -tm.real_time() as _;
                     }
                 }
                 self.upload_task = None;
@@ -1142,6 +1160,7 @@ impl Scene for SongScene {
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
             let path = self.local_path.clone().unwrap();
+            let mut info = self.info.clone();
             self.upload_task = Some(Task::new(async move {
                 let root = format!("{}/{path}", dir::charts()?);
                 let root = Path::new(&root);
@@ -1168,16 +1187,35 @@ impl Scene for SongScene {
                     drop(zip);
                     bytes
                 };
-                let id = Client::upload_file("chart.zip", chart_bytes)
+                let file = Client::upload_file("chart.zip", chart_bytes)
                     .await
                     .with_context(|| tl!("upload-chart-failed"))?;
-                recv_raw(Client::post(
-                    "/chart/upload",
-                    &json!({
-                        "file": id,
-                    }),
-                ))
-                .await?;
+                if let Some(id) = info.id {
+                    recv_raw(Client::request(Method::PATCH, format!("/chart/{id}")).json(&json!({
+                        "file": file,
+                        "created": info.created.unwrap(),
+                    })))
+                    .await?;
+                } else {
+                    #[derive(Deserialize)]
+                    struct Resp {
+                        id: i32,
+                        created: DateTime<Utc>,
+                    }
+                    let resp: Resp = recv_raw(Client::post(
+                        "/chart/upload",
+                        &json!({
+                            "file": file,
+                        }),
+                    ))
+                    .await?
+                    .json()
+                    .await?;
+                    info.id = Some(resp.id);
+                    info.created = Some(resp.created);
+                    info.uploader = Some(Ptr::new(get_data().me.as_ref().unwrap().id));
+                    std::fs::write(root.join("info.yml"), &serde_yaml::to_string(&info)?)?;
+                }
                 Ok(())
             }));
         }
