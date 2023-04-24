@@ -10,7 +10,7 @@ use crate::{
     save_data,
     tags::TagsDialog,
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result, bail};
 use futures_util::StreamExt;
 use macroquad::prelude::*;
 use prpr::{
@@ -740,6 +740,9 @@ impl SongScene {
         self.save_task = Some(Task::new(async move {
             let dir = prpr::dir::Dir::new(format!("{}/{path}", dir::charts()?))?;
             let patches = edit.to_patches().await.with_context(|| tl!("edit-load-file-failed"))?;
+            if patches.contains_key(&info.chart) {
+                bail!(tl!("edit-downloaded"));
+            }
             let bytes = if let Some(bytes) = patches.get(&info.music) {
                 bytes.clone()
             } else {
