@@ -10,6 +10,7 @@ use macroquad::{
     miniquad::{Texture, TextureParams},
     prelude::*,
 };
+use once_cell::sync::Lazy;
 use std::borrow::Cow;
 
 use super::Ui;
@@ -207,6 +208,13 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
     }
 }
 
+static TEXTURE_DIM: Lazy<u32> = Lazy::new(|| unsafe {
+    use miniquad::gl::*;
+    let mut size = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &mut size);
+    (size as u32).min(2048)
+});
+
 pub struct TextPainter {
     brush: GlyphBrush<[Vertex; 4]>,
     cache_texture: Texture2D,
@@ -217,7 +225,8 @@ pub struct TextPainter {
 impl TextPainter {
     pub fn new(font: FontArc) -> Self {
         let mut brush = GlyphBrushBuilder::using_font(font).build();
-        brush.resize_texture(2048, 2048);
+        let dim = *TEXTURE_DIM;
+        brush.resize_texture(dim, dim);
         // TODO optimize
         let cache_texture = Self::new_cache_texture(brush.texture_dimensions());
         Self {
