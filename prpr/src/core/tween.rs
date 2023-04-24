@@ -1,6 +1,6 @@
 use macroquad::prelude::{vec2, Color, Vec2};
 use once_cell::sync::Lazy;
-use std::{ops::Range, rc::Rc, any::Any};
+use std::{any::Any, ops::Range, rc::Rc};
 
 pub type TweenId = u8;
 

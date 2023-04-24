@@ -1,13 +1,13 @@
 use super::{File, Object};
 use crate::{client::Client, dir, images::Images};
-use anyhow::{Result};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use image::DynamicImage;
 use macroquad::prelude::warn;
 use once_cell::sync::Lazy;
 use prpr::{ext::SafeTexture, task::Task};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::{PathBuf}, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
