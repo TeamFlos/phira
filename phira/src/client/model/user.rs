@@ -10,11 +10,12 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[repr(i16)]
 #[serde(rename_all = "lowercase")]
 pub enum UserRole {
     Nobody = -1,
+    #[default]
     Normal = 0,
     Reviewer = 5,
     Admin = 10,
@@ -49,6 +50,7 @@ pub struct User {
     pub bio: Option<String>,
     pub exp: i64,
     pub rks: f32,
+    #[serde(default)]
     pub role: UserRole,
 
     pub joined: DateTime<Utc>,
