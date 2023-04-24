@@ -19,9 +19,10 @@ use prpr::{
     build_conf,
     core::init_assets,
     l10n::{set_locale_order, LanguageIdentifier, LANG_IDENTS},
+    scene::show_error,
     time::TimeManager,
     ui::{FontArc, TextPainter, Ui},
-    Main, scene::show_error,
+    Main,
 };
 use scene::MainScene;
 use std::sync::{mpsc, Mutex};

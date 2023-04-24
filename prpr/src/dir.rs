@@ -1,5 +1,8 @@
 use anyhow::{bail, Result};
-use std::{path::{Component, Path, PathBuf}, fs::{File, ReadDir}};
+use std::{
+    fs::{File, ReadDir},
+    path::{Component, Path, PathBuf},
+};
 
 pub struct Dir(PathBuf);
 
