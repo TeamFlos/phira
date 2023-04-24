@@ -36,7 +36,7 @@ edit-save-failed = Save failed
 edit-saved = Saved
 edit-preview-invalid = Preview time out of bounds
 edit-tags = Edit tags
-edit-downloaded  You can't edit downloaded chart
+edit-downloaded = You can't edit downloaded chart
 
 edit-upload = Upload
 upload-login-first = Please login first

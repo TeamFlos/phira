@@ -47,6 +47,7 @@ impl Chart {
             charter: self.charter.clone(),
             composer: self.composer.clone(),
             illustrator: self.illustrator.clone(),
+            created: Some(self.created),
         }
     }
 }

@@ -21,13 +21,14 @@ pub struct BriefChartInfo {
     pub charter: String,
     pub composer: String,
     pub illustrator: String,
+    pub created: Option<DateTime<Utc>>,
 }
 
 impl From<ChartInfo> for BriefChartInfo {
     fn from(info: ChartInfo) -> Self {
         Self {
             id: info.id,
-            uploader: None,
+            uploader: info.uploader.map(Ptr::new),
             name: info.name,
             level: info.level,
             difficulty: info.difficulty,
@@ -35,22 +36,7 @@ impl From<ChartInfo> for BriefChartInfo {
             charter: info.charter,
             composer: info.composer,
             illustrator: info.illustrator,
-        }
-    }
-}
-
-impl BriefChartInfo {
-    pub fn into_full(self) -> ChartInfo {
-        ChartInfo {
-            id: self.id,
-            name: self.name,
-            level: self.level,
-            difficulty: self.difficulty,
-            intro: self.intro,
-            charter: self.charter,
-            composer: self.composer,
-            illustrator: self.illustrator,
-            ..Default::default()
+            created: info.created,
         }
     }
 }
