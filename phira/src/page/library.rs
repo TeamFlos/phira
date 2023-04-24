@@ -390,7 +390,6 @@ impl LibraryPage {
         if self.chosen != ty {
             self.chosen = ty;
             self.chart_btns.clear();
-            self.current_page = 0;
             self.scroll.y_scroller.offset = 0.;
         }
     }
@@ -443,6 +442,7 @@ impl Page for LibraryPage {
             if matches!(self.chosen, ChartListType::Popular) {
                 self.online_charts = None;
                 self.online_task = None;
+                self.current_page = 0;
             }
             self.switch_to_type(ChartListType::Online);
             if self.online_charts.is_none() {
@@ -454,6 +454,7 @@ impl Page for LibraryPage {
             if matches!(self.chosen, ChartListType::Online) {
                 self.online_charts = None;
                 self.online_task = None;
+                self.current_page = 0;
             }
             self.switch_to_type(ChartListType::Popular);
             if self.online_charts.is_none() {
