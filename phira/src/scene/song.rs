@@ -139,7 +139,7 @@ pub struct SongScene {
     preview: Option<Music>,
     preview_task: Option<Task<Result<AudioClip>>>,
 
-    load_task: Option<Task<Result<Arc<Chart>>>>,
+    load_task: Option<Task<Result<Option<Arc<Chart>>>>>,
     entity: Option<Chart>,
     info: BriefChartInfo,
     local_path: Option<String>,
@@ -274,7 +274,7 @@ impl SongScene {
                 }
             })),
 
-            load_task: chart.info.id.clone().map(|it| Task::new(async move { Ptr::new(it).fetch().await })),
+            load_task: chart.info.id.clone().map(|it| Task::new(async move { Ptr::new(it).fetch_opt().await })),
             entity: None,
             info: chart.info,
             local_path,
@@ -984,9 +984,22 @@ impl Scene for SongScene {
         if let Some(task) = &mut self.load_task {
             if let Some(res) = task.take() {
                 match res {
-                    Err(err) => show_error(err.context(tl!("load-charts-failed"))),
+                    Err(err) => {
+                        show_error(err.context(tl!("load-charts-failed")));
+                    }
                     Ok(chart) => {
-                        self.entity = Some(chart.as_ref().clone());
+                        if let Some(chart) = chart {
+                            self.entity = Some(chart.as_ref().clone());
+                        } else if let Some(local) = &self.local_path {
+                            let conf = format!("{}/{}/info.yml", dir::charts()?, local);
+                            let mut info: ChartInfo = serde_yaml::from_reader(File::open(&conf)?)?;
+                            info.id = None;
+                            info.uploader = None;
+                            info.created = None;
+                            serde_yaml::to_writer(File::create(conf)?, &info)?;
+                            self.info = info.into();
+                            self.update_chart_info()?;
+                        }
                         self.update_menu();
                     }
                 }
