@@ -167,7 +167,7 @@ pub struct SongScene {
     side_enter_time: f32,
 
     save_task: Option<Task<Result<(ChartInfo, AudioClip)>>>,
-    upload_task: Option<Task<Result<()>>>,
+    upload_task: Option<Task<Result<BriefChartInfo>>>,
 
     ldb: Option<(Option<u32>, Vec<LeaderboardItem>)>,
     ldb_task: Option<Task<Result<Vec<LeaderboardItem>>>>,
@@ -463,7 +463,12 @@ impl SongScene {
             }
             self.menu_options.push("review-edit-tags");
         }
-        if self.info.id.is_some() && get_data().me.as_ref().map_or(false, |it| it.role >= UserRole::Reviewer || Some(it.id) == self.info.uploader.as_ref().map(|it| it.id)) {
+        if self.info.id.is_some()
+            && get_data()
+                .me
+                .as_ref()
+                .map_or(false, |it| it.role >= UserRole::Reviewer || Some(it.id) == self.info.uploader.as_ref().map(|it| it.id))
+        {
             self.menu_options.push("review-del");
         }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
@@ -1137,8 +1142,10 @@ impl Scene for SongScene {
                     Err(err) => {
                         show_error(err.context(tl!("upload-failed")));
                     }
-                    Ok(_) => {
+                    Ok(info) => {
                         show_message(tl!("upload-success")).ok();
+                        self.info = info;
+                        self.update_chart_info()?;
                         self.side_enter_time = -tm.real_time() as _;
                     }
                 }
@@ -1162,7 +1169,7 @@ impl Scene for SongScene {
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
             let path = self.local_path.clone().unwrap();
-            let mut info = self.info.clone();
+            let info = self.info.clone();
             self.upload_task = Some(Task::new(async move {
                 let root = format!("{}/{path}", dir::charts()?);
                 let root = Path::new(&root);
@@ -1198,6 +1205,7 @@ impl Scene for SongScene {
                         "created": info.created.unwrap(),
                     })))
                     .await?;
+                    Ok(info.into())
                 } else {
                     #[derive(Deserialize)]
                     struct Resp {
@@ -1213,12 +1221,14 @@ impl Scene for SongScene {
                     .await?
                     .json()
                     .await?;
+                    let conf = root.join("info.yml");
+                    let mut info: ChartInfo = serde_yaml::from_reader(File::open(&conf)?)?;
                     info.id = Some(resp.id);
                     info.created = Some(resp.created);
-                    info.uploader = Some(Ptr::new(get_data().me.as_ref().unwrap().id));
-                    std::fs::write(root.join("info.yml"), &serde_yaml::to_string(&info)?)?;
+                    info.uploader = Some(get_data().me.as_ref().unwrap().id);
+                    std::fs::write(conf, &serde_yaml::to_string(&info)?)?;
+                    Ok(info.into())
                 }
-                Ok(())
             }));
         }
         if let Some(task) = &mut self.ldb_task {
