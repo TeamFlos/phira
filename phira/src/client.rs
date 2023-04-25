@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
 use prpr::{l10n::LANG_IDENTS, scene::SimpleRecord};
-use reqwest::{header, Method, RequestBuilder, Response};
+use reqwest::{header, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, sync::Arc};
@@ -120,30 +120,39 @@ impl Client {
     }
 
     pub async fn fetch<T: Object + 'static>(id: i32) -> Result<Arc<T>> {
-        let value = Arc::new(Client::fetch_inner::<T>(id).await?.ok_or_else(|| anyhow!("entry not found"))?);
+        Self::fetch_opt(id).await?.ok_or_else(|| anyhow!("entry not found"))
+    }
+
+    pub async fn fetch_opt<T: Object + 'static>(id: i32) -> Result<Option<Arc<T>>> {
+        let value = Client::fetch_inner::<T>(id).await?;
+        let Some(value) = value else { return Ok(None) };
+        let value = Arc::new(value);
         let map = obtain_map_cache::<T>();
         let mut guard = map.lock().unwrap();
         let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else {
             unreachable!()
         };
         actual_map.put(id, Arc::clone(&value));
-        Ok(value)
-    }
-
-    pub async fn cache_objects<T: Object + 'static>(objects: Vec<T>) -> Result<()> {
-        let map = obtain_map_cache::<T>();
-        let mut guard = map.lock().unwrap();
-        let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else {
-            unreachable!()
-        };
-        for obj in objects {
-            actual_map.put(obj.id(), Arc::new(obj));
-        }
-        Ok(())
+        Ok(Some(value))
     }
 
     async fn fetch_inner<T: Object>(id: i32) -> Result<Option<T>> {
-        Ok(recv_raw(Self::get(format!("/{}/{id}", T::QUERY_PATH))).await?.json().await?)
+        let resp = Self::get(format!("/{}/{id}", T::QUERY_PATH)).send().await?;
+        if resp.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !resp.status().is_success() {
+            let status = resp.status().as_str().to_owned();
+            let text = resp.text().await.context("failed to receive text")?;
+            if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
+                println!("{:?}", what);
+                if let Some(detail) = what["detail"].as_str() {
+                    bail!("request failed ({status}): {detail}");
+                }
+            }
+            bail!("request failed ({status}): {text}");
+        }
+        Ok(Some(resp.json().await?))
     }
 
     pub fn query<T: Object>() -> QueryBuilder<T> {

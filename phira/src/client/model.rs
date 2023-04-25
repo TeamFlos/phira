@@ -133,6 +133,11 @@ impl<T: Object + 'static> Ptr<T> {
         Client::fetch(self.id).await
     }
 
+    #[inline]
+    pub async fn fetch_opt(&self) -> Result<Option<Arc<T>>> {
+        Client::fetch_opt(self.id).await
+    }
+
     pub async fn load(&self) -> Result<Arc<T>> {
         // sync locks can not be held accross await point
         {
