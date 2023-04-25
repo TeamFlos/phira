@@ -461,8 +461,10 @@ impl SongScene {
                 self.menu_options.push("review-approve");
                 self.menu_options.push("review-deny");
             }
-            self.menu_options.push("review-del");
             self.menu_options.push("review-edit-tags");
+        }
+        if self.info.id.is_some() && get_data().me.as_ref().map_or(false, |it| it.role >= UserRole::Reviewer || Some(it.id) == self.info.uploader.as_ref().map(|it| it.id)) {
+            self.menu_options.push("review-del");
         }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
     }
