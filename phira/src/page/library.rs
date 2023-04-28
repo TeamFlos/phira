@@ -13,6 +13,7 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
+    config::Mods,
     core::Tweenable,
     ext::{semi_black, JoinToString, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     scene::{request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, NextScene},
@@ -93,6 +94,7 @@ pub struct LibraryPage {
     icon_order: SafeTexture,
     icon_info: SafeTexture,
     icon_filter: SafeTexture,
+    icon_mod: SafeTexture,
 
     import_btn: DRectButton,
     import_task: Option<Task<Result<LocalChart>>>,
@@ -125,6 +127,7 @@ impl LibraryPage {
         icon_order: SafeTexture,
         icon_info: SafeTexture,
         icon_filter: SafeTexture,
+        icon_mod: SafeTexture,
     ) -> Result<Self> {
         NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
@@ -160,6 +163,7 @@ impl LibraryPage {
             icon_order,
             icon_info,
             icon_filter,
+            icon_mod,
 
             import_btn: DRectButton::new(),
             import_task: None,
@@ -521,6 +525,17 @@ impl Page for LibraryPage {
                         self.icon_user.clone(),
                         self.icon_info.clone(),
                         s.icons.clone(),
+                        self.icon_mod.clone(),
+                        if matches!(self.chosen, ChartListType::Local) {
+                            get_data()
+                                .charts
+                                .iter()
+                                .find(|it| Some(&it.local_path) == chart.local_path.as_ref())
+                                .unwrap()
+                                .mods
+                        } else {
+                            Mods::default()
+                        },
                     );
                     self.transit = Some(TransitState {
                         id: id as _,

@@ -5,3 +5,6 @@ del-confirm-cancel = キャンセルする
 del-confirm-ok = 確認する
 
 release-to-refresh = Relase to refresh
+
+switch-on = On
+switch-off = Off

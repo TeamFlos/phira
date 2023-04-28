@@ -81,3 +81,9 @@ review-not-loaded = Info is not loaded, please wait
 review-edit-tags = Edit tags
 review-edit-tags-failed = Failed to edit tags
 review-edit-tags-done = Tags updated
+
+mods = Mods
+mods-autoplay = Autoplay
+mods-autoplay-sub = Enabling this would disable record uploading
+mods-flip-x = Flip X
+mods-flip-x-sub = Flip on the X-axis

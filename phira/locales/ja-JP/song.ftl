@@ -57,3 +57,6 @@ upload-failed = Upload failed
 ldb = Leaderboard
 ldb-load-failed = Failed to load leaderboard
 ldb-no-rank = None
+
+mods-autoplay = Autoplay
+mods-autoplay-sub = これを有効にすると、レコードのアップロードが無効になります

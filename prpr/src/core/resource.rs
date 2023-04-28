@@ -347,7 +347,6 @@ pub struct Resource {
     pub judge_line_color: Color,
 
     pub camera: Camera2D,
-    pub camera_matrix: Mat4,
 
     pub background: SafeTexture,
     pub illustration: SafeTexture,
@@ -474,7 +473,6 @@ impl Resource {
             judge_line_color: res_pack.info.fx_perfect(),
 
             camera,
-            camera_matrix: camera.matrix(),
 
             background,
             illustration,
@@ -510,9 +508,11 @@ impl Resource {
             return;
         }
         let pt = self.world_to_screen(Point::default());
-
-        self.emitter
-            .emit_at(vec2(pt.x, -pt.y), if self.res_pack.info.hit_fx_rotate { rotation.to_radians() } else { 0. }, color);
+        self.emitter.emit_at(
+            vec2(if self.config.flip_x() { -pt.x } else { pt.x }, -pt.y),
+            if self.res_pack.info.hit_fx_rotate { rotation.to_radians() } else { 0. },
+            color,
+        );
     }
 
     pub fn update_size(&mut self, dim: (u32, u32)) -> bool {
@@ -543,8 +543,7 @@ impl Resource {
             self.camera.viewport = Some(viewport(aspect_ratio, dim));
         } else {
             self.aspect_ratio = aspect_ratio.min(dim.0 as f32 / dim.1 as f32);
-            self.camera.zoom = vec2(1., -self.aspect_ratio);
-            self.camera_matrix = self.camera.matrix();
+            self.camera.zoom.y = -self.aspect_ratio;
             self.camera.viewport = Some(viewport(self.aspect_ratio, dim));
         };
         true

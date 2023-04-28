@@ -15,7 +15,7 @@ use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use macroquad::prelude::*;
 use prpr::{
-    config::Config,
+    config::Mods,
     core::Tweenable,
     ext::{screen_aspect, semi_black, semi_white, unzip_into, RectExt, SafeTexture, ScaleType},
     fs,
@@ -98,6 +98,7 @@ enum SideContent {
     Edit,
     Leaderboard,
     Info,
+    Mods,
 }
 
 impl SideContent {
@@ -106,6 +107,7 @@ impl SideContent {
             Self::Edit => 0.84,
             Self::Leaderboard => 0.94,
             Self::Info => 0.75,
+            Self::Mods => 0.8,
         }
     }
 }
@@ -133,6 +135,7 @@ pub struct SongScene {
     icon_ldb: SafeTexture,
     icon_user: SafeTexture,
     icon_info: SafeTexture,
+    icon_mod: SafeTexture,
 
     next_scene: Option<NextScene>,
 
@@ -162,6 +165,11 @@ pub struct SongScene {
     info_edit: Option<ChartInfoEdit>,
     edit_btn: RectButton,
     edit_scroll: Scroll,
+
+    mods: Mods,
+    mod_btn: RectButton,
+    mod_scroll: Scroll,
+    mod_btns: Vec<(DRectButton, bool)>,
 
     side_content: SideContent,
     side_enter_time: f32,
@@ -201,6 +209,8 @@ impl SongScene {
         icon_user: SafeTexture,
         icon_info: SafeTexture,
         icons: [SafeTexture; 8],
+        icon_mod: SafeTexture,
+        mods: Mods,
     ) -> Self {
         if let Some(path) = &local_path {
             if let Some(id) = path.strip_prefix("download/") {
@@ -252,6 +262,7 @@ impl SongScene {
             icon_ldb,
             icon_user,
             icon_info,
+            icon_mod,
 
             next_scene: None,
 
@@ -297,6 +308,11 @@ impl SongScene {
             info_edit: None,
             edit_btn: RectButton::new(),
             edit_scroll: Scroll::new(),
+
+            mods,
+            mod_btn: RectButton::new(),
+            mod_scroll: Scroll::new(),
+            mod_btns: Vec::new(),
 
             side_content: SideContent::Edit,
             side_enter_time: f32::INFINITY,
@@ -402,6 +418,7 @@ impl SongScene {
                         info: entity.to_info(),
                         local_path,
                         record: None,
+                        mods: Mods::default(),
                     })
                 }
             }),
@@ -479,7 +496,7 @@ impl SongScene {
         #[cfg(feature = "closed")]
         let rated = {
             let config = &get_data().config;
-            !config.offline_mode && self.info.id.is_some() && !config.autoplay && config.speed >= 1.0 - 1e-3
+            !config.offline_mode && self.info.id.is_some() && !self.mods.contains(Mods::AUTOPLAY) && config.speed >= 1.0 - 1e-3
         };
         #[cfg(not(feature = "closed"))]
         let rated = false;
@@ -487,28 +504,29 @@ impl SongScene {
             show_message(tl!("warn-unrated")).warn();
         }
         let id = self.info.id.clone();
+        let mods = self.mods;
         load_scene(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
+            let mut config = get_data().config.clone();
+            config.player_name = get_data()
+                .me
+                .as_ref()
+                .map(|it| it.name.clone())
+                .unwrap_or_else(|| tl!("guest").to_string());
+            config.res_pack_path = {
+                let id = get_data().respack_id;
+                if id == 0 {
+                    None
+                } else {
+                    Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
+                }
+            };
+            config.mods = mods;
             LoadingScene::new(
                 mode,
                 info,
-                Config {
-                    player_name: get_data()
-                        .me
-                        .as_ref()
-                        .map(|it| it.name.clone())
-                        .unwrap_or_else(|| tl!("guest").to_string()),
-                    res_pack_path: {
-                        let id = get_data().respack_id;
-                        if id == 0 {
-                            None
-                        } else {
-                            Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
-                        }
-                    },
-                    ..get_data().config.clone()
-                },
+                config,
                 fs,
                 get_data().me.as_ref().map(|it| BasicPlayer {
                     avatar: UserManager::get_avatar(it.id).flatten(),
@@ -756,6 +774,87 @@ impl SongScene {
         });
     }
 
+    fn side_mods(&mut self, ui: &mut Ui, rt: f32) {
+        let pad = 0.03;
+        ui.dx(pad);
+        ui.dy(0.03);
+        let width = self.side_content.width() - pad;
+        self.mod_scroll.size((width - pad, ui.top * 2. - 0.06));
+        self.mod_scroll.render(ui, |ui| {
+            const ITEM_HEIGHT: f32 = 0.15;
+            let mut h = 0.;
+            macro_rules! dy {
+                ($e:expr) => {{
+                    let dy = $e;
+                    h += dy;
+                    ui.dy(dy);
+                }};
+            }
+            dy!(ui.text(tl!("mods")).size(0.8).draw().h + 0.02);
+            let rh = ITEM_HEIGHT * 3. / 5.;
+            let rr = Rect::new(width - 0.24, (ITEM_HEIGHT - rh) / 2., 0.2, rh);
+            let mut index = 0;
+            let mut item = |title: Cow<'_, str>, subtitle: Option<Cow<'_, str>>, flag: Mods| {
+                const TITLE_SIZE: f32 = 0.6;
+                const SUBTITLE_SIZE: f32 = 0.35;
+                const LEFT: f32 = 0.03;
+                const PAD: f32 = 0.01;
+                const SUB_MAX_WIDTH: f32 = 1.;
+                if let Some(subtitle) = subtitle {
+                    let r1 = ui.text(Cow::clone(&title)).size(TITLE_SIZE).measure();
+                    let r2 = ui
+                        .text(Cow::clone(&subtitle))
+                        .size(SUBTITLE_SIZE)
+                        .max_width(SUB_MAX_WIDTH)
+                        .no_baseline()
+                        .measure();
+                    let h = r1.h + PAD + r2.h;
+                    ui.text(subtitle)
+                        .pos(LEFT, (ITEM_HEIGHT + h) / 2.)
+                        .anchor(0., 1.)
+                        .size(SUBTITLE_SIZE)
+                        .max_width(SUB_MAX_WIDTH)
+                        .color(semi_white(0.6))
+                        .draw();
+                    ui.text(title).pos(LEFT, (ITEM_HEIGHT - h) / 2.).no_baseline().size(TITLE_SIZE).draw();
+                } else {
+                    ui.text(title)
+                        .pos(LEFT, ITEM_HEIGHT / 2.)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(TITLE_SIZE)
+                        .draw();
+                }
+                if self.mod_btns.len() <= index {
+                    self.mod_btns.push(Default::default());
+                }
+                let (btn, clicked) = &mut self.mod_btns[index];
+                if *clicked {
+                    *clicked = false;
+                    self.mods.toggle(flag);
+                }
+                let on = self.mods.contains(flag);
+                let oh = rr.h;
+                let (r, path) = btn.build(ui, rt, rr);
+                let ct = r.center();
+                ui.fill_path(&path, if on { WHITE } else { ui.background() });
+                ui.text(if on { ttl!("switch-on") } else { ttl!("switch-off") })
+                    .pos(ct.x, ct.y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.5 * (1. - (1. - r.h / oh).powf(1.3)))
+                    .max_width(r.w)
+                    .color(if on { Color::new(0.3, 0.3, 0.3, 1.) } else { WHITE })
+                    .draw();
+                dy!(ITEM_HEIGHT);
+                index += 1;
+            };
+            item(tl!("mods-autoplay"), Some(tl!("mods-autoplay-sub")), Mods::AUTOPLAY);
+            item(tl!("mods-flip-x"), Some(tl!("mods-flip-x-sub")), Mods::FLIP_X);
+            (width, h)
+        });
+    }
+
     fn save_edit(&mut self) {
         let Some(edit) = &self.info_edit else { unreachable!() };
         let info = edit.info.clone();
@@ -873,6 +972,13 @@ impl Scene for SongScene {
         if !self.side_enter_time.is_infinite() {
             if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
                 if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
+                    if matches!(self.side_content, SideContent::Mods) {
+                        let chart = &mut get_data_mut().charts[get_data().find_chart_by_path(self.local_path.as_deref().unwrap()).unwrap()];
+                        if chart.mods != self.mods {
+                            chart.mods = self.mods;
+                            save_data()?;
+                        }
+                    }
                     self.side_enter_time = -tm.real_time() as _;
                     return Ok(true);
                 }
@@ -896,6 +1002,18 @@ impl Scene for SongScene {
                     SideContent::Info => {
                         if self.info_scroll.touch(touch, t) {
                             return Ok(true);
+                        }
+                    }
+                    SideContent::Mods => {
+                        if self.mod_scroll.touch(touch, t) {
+                            return Ok(true);
+                        }
+                        let rt = tm.real_time() as _;
+                        for (btn, clicked) in &mut self.mod_btns {
+                            if btn.touch(touch, rt) {
+                                *clicked = true;
+                                return Ok(true);
+                            }
                         }
                     }
                 }
@@ -927,15 +1045,22 @@ impl Scene for SongScene {
             self.need_show_menu = true;
             return Ok(true);
         }
-        if self.local_path.is_some() && self.edit_btn.touch(touch) {
-            button_hit();
-            let Some(path) = self.local_path.as_ref() else { unreachable!() };
-            let mut info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
-            info.id = self.info.id;
-            self.info_edit = Some(ChartInfoEdit::new(info));
-            self.side_content = SideContent::Edit;
-            self.side_enter_time = tm.real_time() as _;
-            return Ok(true);
+        if let Some(path) = &self.local_path {
+            if self.edit_btn.touch(touch) {
+                button_hit();
+                let mut info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
+                info.id = self.info.id;
+                self.info_edit = Some(ChartInfoEdit::new(info));
+                self.side_content = SideContent::Edit;
+                self.side_enter_time = tm.real_time() as _;
+                return Ok(true);
+            }
+            if self.mod_btn.touch(touch) {
+                button_hit();
+                self.side_content = SideContent::Mods;
+                self.side_enter_time = tm.real_time() as _;
+                return Ok(true);
+            }
         }
         if self.info.id.is_some() && self.ldb_btn.touch(touch) {
             button_hit();
@@ -1179,6 +1304,9 @@ impl Scene for SongScene {
             SideContent::Info => {
                 self.info_scroll.update(t);
             }
+            SideContent::Mods => {
+                self.mod_scroll.update(t);
+            }
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
             let path = self.local_path.clone().unwrap();
@@ -1329,7 +1457,7 @@ impl Scene for SongScene {
 
         let r = ui
             .text(&self.info.name)
-            .max_width(0.7 - r.right())
+            .max_width(0.6 - r.right())
             .size(1.2)
             .pos(r.right() + 0.02, r.y)
             .color(c)
@@ -1435,6 +1563,9 @@ impl Scene for SongScene {
             ui.dx(-r.w - 0.03);
             ui.fill_rect(r, (*self.icon_edit, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
             self.edit_btn.set(ui, r);
+            ui.dx(-r.w - 0.03);
+            ui.fill_rect(r, (*self.icon_mod, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
+            self.mod_btn.set(ui, r);
         });
 
         if let Some(dl) = &self.downloading {
@@ -1468,6 +1599,10 @@ impl Scene for SongScene {
                     }
                     SideContent::Info => {
                         self.side_info(ui, rt);
+                        Ok(())
+                    }
+                    SideContent::Mods => {
+                        self.side_mods(ui, rt);
                         Ok(())
                     }
                 }

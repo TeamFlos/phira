@@ -5,3 +5,6 @@ del-confirm-cancel = Batal
 del-confirm-ok = Hapus
 
 release-to-refresh = Lepas untuk refresh
+
+switch-on = On
+switch-off = Off

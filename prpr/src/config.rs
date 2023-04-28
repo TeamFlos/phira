@@ -1,3 +1,4 @@
+use bitflags::bitflags;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +15,15 @@ pub enum ChallengeModeColor {
     Rainbow,
 }
 
+bitflags! {
+    #[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+    #[serde(transparent)]
+    pub struct Mods: i32 {
+        const AUTOPLAY = 1;
+        const FLIP_X = 2;
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
@@ -23,7 +33,6 @@ pub struct Config {
     pub aggressive: bool,
     pub aspect_ratio: Option<f32>,
     pub audio_buffer_size: Option<u32>,
-    pub autoplay: bool,
     pub challenge_color: ChallengeModeColor,
     pub challenge_rank: u32,
     pub chart_debug: bool,
@@ -34,6 +43,7 @@ pub struct Config {
     pub fxaa: bool,
     pub interactive: bool,
     pub note_scale: f32,
+    pub mods: Mods,
     pub offline_mode: bool,
     pub offset: f32,
     pub particle: bool,
@@ -46,6 +56,9 @@ pub struct Config {
     pub touch_debug: bool,
     pub volume_music: f32,
     pub volume_sfx: f32,
+
+    // for compatibility
+    autoplay: Option<bool>,
 }
 
 impl Default for Config {
@@ -55,7 +68,6 @@ impl Default for Config {
             aggressive: true,
             aspect_ratio: None,
             audio_buffer_size: None,
-            autoplay: false,
             challenge_color: ChallengeModeColor::Golden,
             challenge_rank: 45,
             chart_debug: false,
@@ -65,6 +77,7 @@ impl Default for Config {
             fix_aspect_ratio: false,
             fxaa: false,
             interactive: true,
+            mods: Mods::default(),
             note_scale: 1.0,
             offline_mode: false,
             offset: 0.,
@@ -78,6 +91,31 @@ impl Default for Config {
             touch_debug: false,
             volume_music: 1.,
             volume_sfx: 1.,
+
+            autoplay: None,
         }
+    }
+}
+
+impl Config {
+    pub fn init(&mut self) {
+        if let Some(flag) = self.autoplay {
+            self.mods.set(Mods::AUTOPLAY, flag);
+        }
+    }
+
+    #[inline]
+    pub fn has_mod(&self, m: Mods) -> bool {
+        self.mods.contains(m)
+    }
+
+    #[inline]
+    pub fn autoplay(&self) -> bool {
+        self.has_mod(Mods::AUTOPLAY)
+    }
+
+    #[inline]
+    pub fn flip_x(&self) -> bool {
+        self.has_mod(Mods::FLIP_X)
     }
 }
