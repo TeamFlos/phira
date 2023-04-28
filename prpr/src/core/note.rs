@@ -43,6 +43,7 @@ pub struct RenderConfig<'a> {
     pub ctrl_obj: &'a mut CtrlObject,
     pub line_height: f32,
     pub appear_before: f32,
+    pub invisible_time: f32,
     pub draw_below: bool,
     pub incline_sin: f32,
 }
@@ -181,6 +182,9 @@ impl Note {
             if time > res.time {
                 return;
             }
+        }
+        if config.invisible_time.is_finite() && self.time - config.invisible_time < res.time {
+            return;
         }
         let scale = (if self.multiple_hint {
             res.res_pack.note_style_mh.click.width() / res.res_pack.note_style.click.width()

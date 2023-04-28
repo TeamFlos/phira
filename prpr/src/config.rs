@@ -21,6 +21,7 @@ bitflags! {
     pub struct Mods: i32 {
         const AUTOPLAY = 1;
         const FLIP_X = 2;
+        const FADE_OUT = 4;
     }
 }
 

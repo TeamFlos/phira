@@ -88,3 +88,5 @@ mods-autoplay = 自动游玩
 mods-autoplay-sub = 启用后将无法上传成绩
 mods-flip-x = X 轴反转
 mods-flip-x-sub = 在 X 轴上反转谱面
+mods-fade-out = 下隐
+mods-fade-out-sub = 音符在靠近判定线时会隐藏
