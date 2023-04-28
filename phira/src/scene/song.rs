@@ -104,7 +104,7 @@ impl SideContent {
     fn width(&self) -> f32 {
         match self {
             Self::Edit => 0.84,
-            Self::Leaderboard => 0.9,
+            Self::Leaderboard => 0.94,
             Self::Info => 0.75,
         }
     }
@@ -658,15 +658,15 @@ impl SongScene {
                         if me == Some(item.inner.player.id) {
                             ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), Color { a: c.a, ..ui.background() });
                         }
+                        let r = s / 2. - 0.02;
                         ui.text(format!("#{}", item.rank))
-                            .pos(0., s / 2.)
-                            .anchor(0., 0.5)
+                            .pos((0.18 - r) / 2., s / 2.)
+                            .anchor(0.5, 0.5)
                             .no_baseline()
                             .size(0.52)
                             .color(c)
                             .draw();
-                        let r = s / 2. - 0.02;
-                        ui.avatar(0.14, s / 2., r, c, rt, UserManager::opt_avatar(item.inner.player.id, &self.icon_user));
+                        ui.avatar(0.18, s / 2., r, c, rt, UserManager::opt_avatar(item.inner.player.id, &self.icon_user));
                         let mut rt = width - 0.04;
                         let r = ui
                             .text(if self.ldb_std {
@@ -694,7 +694,7 @@ impl SongScene {
                             .color(c)
                             .draw();
                         rt -= r.w + 0.03;
-                        let lt = 0.2;
+                        let lt = 0.24;
                         if let Some(name) = UserManager::get_name(item.inner.player.id) {
                             ui.text(name)
                                 .pos(lt, s / 2.)
