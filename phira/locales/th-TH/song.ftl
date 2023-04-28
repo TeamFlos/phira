@@ -80,3 +80,6 @@ review-not-loaded = ข้อมูลยังโหลดไม่เสร็
 review-edit-tags = แก้ไข Tag
 review-edit-tags-failed = แก้ไขไม่สำเร็จ
 review-edit-tags-done = อัพเดทเรียบร้อย
+
+mods-autoplay = Autoplay
+mods-autoplay-sub = เล่นอัตโนมัติโดยจะไม่บันทึก Score

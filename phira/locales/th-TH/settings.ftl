@@ -6,9 +6,6 @@ audio = เสียง
 chart = Chart
 debug = Debug
 
-switch-on = เปิด
-switch-off = ปิด
-
 item-lang = ภาษา
 item-offline = โหมด Offline
 item-offline-sub = Score จะไม่บันทึกถ้าเล่นโหมด Offline
@@ -21,8 +18,6 @@ item-music = เสียงเพลง
 item-sfx = เสียง Sound effect
 item-cali = ปรับ offset
 
-item-autoplay = Autoplay
-item-autoplay-sub = เล่นอัตโนมัติโดยจะไม่บันทึก Score
 item-show-acc = โชว์ค่า Accuracy
 item-dc-pause = กด 2 ครั้งเพื่อหยุด
 item-dhint = Note highlight

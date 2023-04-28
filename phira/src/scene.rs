@@ -15,6 +15,7 @@ pub use profile::ProfileScene;
 use crate::{data::LocalChart, dir};
 use anyhow::{bail, Context, Result};
 use prpr::{
+    config::Mods,
     ext::{unzip_into, SafeTexture},
     fs::{self, FileSystem},
     ui::Dialog,
@@ -72,6 +73,7 @@ pub async fn import_chart(path: String) -> Result<LocalChart> {
             info: info.into(),
             local_path,
             record: None,
+            mods: Mods::default(),
         })
     }
     let dir = dir::custom_charts()?;

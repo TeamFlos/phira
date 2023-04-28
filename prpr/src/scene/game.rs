@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     bin::{BinaryReader, BinaryWriter},
-    config::Config,
+    config::{Config, Mods},
     core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector},
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture},
     fs::FileSystem,
@@ -234,10 +234,10 @@ impl GameScene {
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
-                config.autoplay = true;
+                config.mods.insert(Mods::AUTOPLAY);
             }
             GameMode::Exercise => {
-                config.autoplay = false;
+                config.mods.remove(Mods::AUTOPLAY);
             }
             _ => {}
         }
@@ -404,7 +404,7 @@ impl GameScene {
                     .bottom()
             });
             self.chart.with_element(ui, res, UIElement::Combo, |ui, color, scale| {
-                ui.text(if res.config.autoplay { "AUTOPLAY" } else { "COMBO" })
+                ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
                     .pos(0., btm + 0.01)
                     .anchor(0.5, 0.)
                     .size(0.4)
@@ -834,7 +834,7 @@ impl Scene for GameScene {
                     // TODO strengthen the protection
                     #[cfg(feature = "closed")]
                     if let Some(upload_fn) = &self.upload_fn {
-                        if !self.res.config.offline_mode && !self.res.config.autoplay && self.res.config.speed >= 1.0 - 1e-3 {
+                        if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {
                                 if let Some(chart) = &self.res.info.id {
                                     record_data = Some(encode_record(self, player.id, *chart));
@@ -843,7 +843,7 @@ impl Scene for GameScene {
                         }
                     }
                     let result = self.judge.result();
-                    let record = if self.res.config.autoplay || self.res.config.speed < 1.0 - 1e-3 {
+                    let record = if self.res.config.autoplay() || self.res.config.speed < 1.0 - 1e-3 {
                         None
                     } else {
                         Some(SimpleRecord {

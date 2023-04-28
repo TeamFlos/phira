@@ -236,7 +236,7 @@ fn render_title<'a>(ui: &mut Ui, c: Color, title: impl Into<Cow<'a, str>>, subti
 
 #[inline]
 fn render_switch(ui: &mut Ui, r: Rect, t: f32, c: Color, btn: &mut DRectButton, on: bool) {
-    btn.render_text(ui, r, t, c.a, if on { tl!("switch-on") } else { tl!("switch-off") }, 0.5, on);
+    btn.render_text(ui, r, t, c.a, if on { ttl!("switch-on") } else { ttl!("switch-off") }, 0.5, on);
 }
 
 #[inline]
@@ -443,7 +443,6 @@ impl AudioList {
 }
 
 struct ChartList {
-    autoplay_btn: DRectButton,
     show_acc_btn: DRectButton,
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
@@ -455,7 +454,6 @@ struct ChartList {
 impl ChartList {
     pub fn new() -> Self {
         Self {
-            autoplay_btn: DRectButton::new(),
             show_acc_btn: DRectButton::new(),
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
@@ -472,10 +470,6 @@ impl ChartList {
     pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
         let data = get_data_mut();
         let config = &mut data.config;
-        if self.autoplay_btn.touch(touch, t) {
-            config.autoplay ^= true;
-            return Ok(Some(true));
-        }
         if self.show_acc_btn.touch(touch, t) {
             config.show_acc ^= true;
             return Ok(Some(true));
@@ -519,10 +513,6 @@ impl ChartList {
 
         let data = get_data();
         let config = &data.config;
-        item! {
-            render_title(ui, c, tl!("item-autoplay"), Some(tl!("item-autoplay-sub")));
-            render_switch(ui, rr, t, c, &mut self.autoplay_btn, config.autoplay);
-        }
         item! {
             render_title(ui, c, tl!("item-show-acc"), None);
             render_switch(ui, rr, t, c, &mut self.show_acc_btn, config.show_acc);

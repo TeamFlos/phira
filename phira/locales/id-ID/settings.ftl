@@ -5,9 +5,6 @@ general = Umum
 audio = Suara
 chart = Chart
 
-switch-on = On
-switch-off = Off
-
 item-lang = Bahasa
 item-offline = Mode Offline
 item-offline-sub = Anda tidak bisa mengupload skor anda di Mode Offline.
@@ -20,8 +17,6 @@ item-music = Volume musik
 item-sfx = Volume efek suara
 item-cali = Penyesuaian offset
 
-item-autoplay = Autoplay
-item-autoplay-sub = Mengaktifkan ini ada mengentikan ada mengupload skor. (karena autoplay bukan skor kalian.)
 item-dc-pause = Tekan dua kali untuk pause
 item-dhint = Double hint
 item-dhint-sub = Note-note yang perlu ditekan bersamaan akan bersinar.

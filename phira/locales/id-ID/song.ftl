@@ -57,3 +57,6 @@ upload-failed = Upload gagal
 ldb = Leaderboard
 ldb-load-failed = Gagal memuat leaderboard
 ldb-no-rank = Nihil
+
+mods-autoplay = Autoplay
+mods-autoplay-sub = Mengaktifkan ini ada mengentikan ada mengupload skor. (karena autoplay bukan skor kalian.)

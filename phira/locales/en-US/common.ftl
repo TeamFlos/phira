@@ -5,3 +5,6 @@ del-confirm-cancel = Cancel
 del-confirm-ok = Confirm
 
 release-to-refresh = Release to refresh
+
+switch-on = On
+switch-off = Off

@@ -57,3 +57,6 @@ upload-failed = Nie przesłano pomyślnie
 ldb = Wyniki
 ldb-load-failed = Nie załadowano wyników
 ldb-no-rank = Brak
+
+mods-autoplay = Autoplay
+mods-autoplay-sub = Włączanie tego wyłączy opcje wysyłania wyników

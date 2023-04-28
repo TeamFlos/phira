@@ -6,9 +6,6 @@ audio = Audio
 chart = Beatmap
 debug = Debug
 
-switch-on = On
-switch-off = Off
-
 item-lang = Language
 item-offline = Offline mode
 item-offline-sub = You can't upload playing record in offline mode
@@ -21,8 +18,6 @@ item-music = Music volume
 item-sfx = Sound effect volume
 item-cali = Adjust offset
 
-item-autoplay = Autoplay
-item-autoplay-sub = Enabling this would disable record uploading
 item-show-acc = Show real-time accuracy
 item-dc-pause = Double click to pause
 item-dhint = Double hint

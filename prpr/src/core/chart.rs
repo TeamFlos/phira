@@ -110,7 +110,7 @@ impl Chart {
         for video in &self.extra.videos {
             video.render(res);
         }
-        res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(1.0, -1.0)), |res| {
+        res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(if res.config.flip_x() { -1. } else { 1. }, -1.)), |res| {
             let mut guard = self.bpm_list.borrow_mut();
             for id in &self.order {
                 self.lines[*id].render(ui, res, &self.lines, &mut guard, &self.settings, *id);

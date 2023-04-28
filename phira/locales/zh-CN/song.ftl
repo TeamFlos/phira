@@ -82,3 +82,9 @@ review-not-loaded = 信息尚未加载完成，请稍等
 review-edit-tags = 编辑标签
 review-edit-tags-failed = 编辑标签失败
 review-edit-tags-done = 标签已更新
+
+mods = Mods
+mods-autoplay = 自动游玩
+mods-autoplay-sub = 启用后将无法上传成绩
+mods-flip-x = X 轴反转
+mods-flip-x-sub = 在 X 轴上反转谱面

@@ -4,7 +4,11 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use prpr::{config::Config, info::ChartInfo, scene::SimpleRecord};
+use prpr::{
+    config::{Config, Mods},
+    info::ChartInfo,
+    scene::SimpleRecord,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, ops::DerefMut, path::Path};
 
@@ -47,6 +51,8 @@ pub struct LocalChart {
     pub info: BriefChartInfo,
     pub local_path: String,
     pub record: Option<SimpleRecord>,
+    #[serde(default)]
+    pub mods: Mods,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -86,6 +92,7 @@ impl Data {
                     info: BriefChartInfo { id: None, ..info.into() },
                     local_path: filename,
                     record: None,
+                    mods: Mods::default(),
                 });
             }
         }
@@ -95,6 +102,7 @@ impl Data {
                 *res_pack_path = "chart.zip".to_owned();
             }
         }
+        self.config.init();
         Ok(())
     }
 

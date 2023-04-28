@@ -1,13 +1,9 @@
 
-
 label = 設定
 
 general = General
 audio = Audio
 chart = Beatmap
-
-switch-on = On
-switch-off = Off
 
 item-lang = 言語
 item-offline = Offline mode
@@ -21,8 +17,6 @@ item-music = BGMの音量
 item-sfx = 音響効果ボリューム
 item-cali = 判定調整
 
-item-autoplay = Autoplay
-item-autoplay-sub = これを有効にすると、レコードのアップロードが無効になります
 item-dc-pause = ダブルクリックで一時停止
 item-dhint = ダブルヒント
 item-dhint-sub = 多点タップサポートがオンになります

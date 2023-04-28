@@ -6,9 +6,6 @@ audio = 音频
 chart = 谱面
 debug = 调试
 
-switch-on = 开
-switch-off = 关
-
 item-lang = 语言
 item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
@@ -21,8 +18,6 @@ item-music = 音乐音量
 item-sfx = 音效音量
 item-cali = 调整延迟
 
-item-autoplay = 自动游玩
-item-autoplay-sub = 启用后将无法上传成绩
 item-show-acc = 显示实时准度
 item-dc-pause = 双击暂停
 item-dhint = 双押提示
