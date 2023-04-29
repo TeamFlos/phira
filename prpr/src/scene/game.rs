@@ -314,6 +314,10 @@ impl GameScene {
         )
     }
 
+    fn touch_scale(&self) -> f32 {
+        (screen_width() / screen_height()) / self.res.aspect_ratio
+    }
+
     fn ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
         let time = tm.now() as f32;
         let p = match self.state {
@@ -553,6 +557,10 @@ impl GameScene {
                 }
             }
             if self.mode == GameMode::Exercise {
+                let asp = self.touch_scale();
+                for touch in ui.ensure_touches() {
+                    touch.position *= asp;
+                }
                 ui.scope(|ui| {
                     ui.dx(0.3);
                     ui.dy(-0.3);
@@ -653,6 +661,9 @@ impl GameScene {
                 tx.ui
                     .fill_rect(re.feather(0.01), Color::new(1., 1., 1., if self.exercise_btns.1.touching() { 0.5 } else { 1. }));
                 tx.draw();
+                for touch in ui.ensure_touches() {
+                    touch.position /= asp;
+                }
             }
         }
         if let Some(time) = self.pause_rewind {
@@ -966,11 +977,15 @@ impl Scene for GameScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         if self.mode == GameMode::Exercise && tm.paused() {
-            if self.exercise_btns.0.touch(touch) {
+            let touch = Touch {
+                position: touch.position * self.touch_scale(),
+                ..touch.clone()
+            };
+            if self.exercise_btns.0.touch(&touch) {
                 request_input("exercise_start", &fmt_time(self.exercise_range.start));
                 return Ok(true);
             }
-            if self.exercise_btns.1.touch(touch) {
+            if self.exercise_btns.1.touch(&touch) {
                 request_input("exercise_end", &fmt_time(self.exercise_range.end));
                 return Ok(true);
             }
