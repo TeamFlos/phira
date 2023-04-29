@@ -4,7 +4,7 @@ use crate::page::Fader;
 use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
-    ui::{DRectButton, Ui}, scene::show_message,
+    ui::{DRectButton, Ui},
 };
 
 pub struct RateDialog {
