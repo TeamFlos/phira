@@ -249,7 +249,7 @@ impl<T: Object> QueryBuilder<T> {
 
     #[inline]
     pub fn page_num(self, page_num: u64) -> Self {
-        self.query("page_num", page_num.to_string())
+        self.query("pageNum", page_num.to_string())
     }
 
     #[inline]

@@ -133,7 +133,7 @@ impl TagsDialog {
             return true;
         }
         if self.show {
-            if !Ui::dialog_rect().contains(touch.position) {
+            if !Ui::dialog_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
                 self.dismiss(t);
                 return true;
             }
@@ -194,7 +194,6 @@ impl TagsDialog {
                 f.render(ui, t, |ui, c| {
                     let wr = Ui::dialog_rect();
                     ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
-                    ui.scissor(Some(wr));
                     let r = ui
                         .text(if self.unwanted.is_some() { tl!("filter") } else { tl!("edit") })
                         .pos(wr.x + 0.04, wr.y + 0.033)

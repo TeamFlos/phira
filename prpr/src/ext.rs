@@ -55,6 +55,7 @@ impl<T: Sized + Float> NotNanExt for T {
 
 pub trait RectExt: Sized {
     fn feather(&self, radius: f32) -> Self;
+    fn nonuniform_feather(&self, x: f32, y: f32) -> Self;
     fn to_euclid(&self) -> Box2D;
     fn rounded(&self, radius: f32) -> Path;
 }
@@ -62,6 +63,10 @@ pub trait RectExt: Sized {
 impl RectExt for Rect {
     fn feather(&self, radius: f32) -> Self {
         Self::new(self.x - radius, self.y - radius, self.w + radius * 2., self.h + radius * 2.)
+    }
+
+    fn nonuniform_feather(&self, x: f32, y: f32) -> Self {
+        Self::new(self.x - x, self.y - y, self.w + x * 2., self.h + y * 2.)
     }
 
     fn to_euclid(&self) -> Box2D {

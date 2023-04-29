@@ -25,6 +25,7 @@ play-switch-to-offline = Switch to offline mode
 switched-to-offline = Switched to offline mode
 
 delete = Delete
+rate = Rate
 exercise = Exercise
 offset = Adjust offset
 
@@ -89,3 +90,6 @@ mods-flip-x = Flip X
 mods-flip-x-sub = Flip on the X-axis
 mods-fade-out = Fade out
 mods-fade-out-sub = Notes disappear when they approach the line
+
+rate-failed = Rate failed
+rate-done = Rated successfully
