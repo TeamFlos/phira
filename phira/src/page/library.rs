@@ -95,6 +95,7 @@ pub struct LibraryPage {
     icon_info: SafeTexture,
     icon_filter: SafeTexture,
     icon_mod: SafeTexture,
+    icon_star: SafeTexture,
 
     import_btn: DRectButton,
     import_task: Option<Task<Result<LocalChart>>>,
@@ -128,6 +129,7 @@ impl LibraryPage {
         icon_info: SafeTexture,
         icon_filter: SafeTexture,
         icon_mod: SafeTexture,
+        icon_star: SafeTexture,
     ) -> Result<Self> {
         NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
@@ -164,6 +166,7 @@ impl LibraryPage {
             icon_info,
             icon_filter,
             icon_mod,
+            icon_star,
 
             import_btn: DRectButton::new(),
             import_task: None,
@@ -526,6 +529,7 @@ impl Page for LibraryPage {
                         self.icon_info.clone(),
                         s.icons.clone(),
                         self.icon_mod.clone(),
+                        self.icon_star.clone(),
                         if matches!(self.chosen, ChartListType::Local) {
                             get_data()
                                 .charts

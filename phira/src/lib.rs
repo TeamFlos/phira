@@ -9,6 +9,7 @@ mod images;
 mod login;
 mod page;
 mod popup;
+mod rate;
 mod scene;
 mod tags;
 

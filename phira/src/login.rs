@@ -133,7 +133,7 @@ impl Login {
             return true;
         }
         if self.show {
-            if !Ui::dialog_rect().contains(touch.position) {
+            if !Ui::dialog_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
                 self.dismiss(t);
                 return true;
             }

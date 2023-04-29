@@ -25,6 +25,7 @@ play-switch-to-offline = 切换到离线模式
 switched-to-offline = 已切换到离线模式
 
 delete = 删除
+rate = 评分
 exercise = 练习
 offset = 调整延迟
 
@@ -90,3 +91,6 @@ mods-flip-x = X 轴反转
 mods-flip-x-sub = 在 X 轴上反转谱面
 mods-fade-out = 下隐
 mods-fade-out-sub = 音符在靠近判定线时会隐藏
+
+rate-failed = 评分失败
+rate-done = 评分成功

@@ -7,6 +7,7 @@ use crate::{
     dir, get_data, get_data_mut,
     page::{thumbnail_path, ChartItem, Fader, Illustration, NEED_UPDATE},
     popup::Popup,
+    rate::RateDialog,
     save_data,
     tags::TagsDialog,
 };
@@ -193,6 +194,9 @@ pub struct SongScene {
 
     edit_tags_task: Option<Task<Result<()>>>,
     tags: TagsDialog,
+
+    rate_dialog: RateDialog,
+    rate_task: Option<Task<Result<()>>>,
 }
 
 impl SongScene {
@@ -210,6 +214,7 @@ impl SongScene {
         icon_info: SafeTexture,
         icons: [SafeTexture; 8],
         icon_mod: SafeTexture,
+        icon_star: SafeTexture,
         mods: Mods,
     ) -> Self {
         if let Some(path) = &local_path {
@@ -336,6 +341,9 @@ impl SongScene {
 
             edit_tags_task: None,
             tags: TagsDialog::new(false),
+
+            rate_dialog: RateDialog::new(icon_star),
+            rate_task: None,
         }
     }
 
@@ -470,6 +478,11 @@ impl SongScene {
         self.menu_options.clear();
         if self.local_path.is_some() {
             self.menu_options.push("delete");
+        }
+        if self.info.id.is_some() {
+            self.menu_options.push("rate");
+        }
+        if self.local_path.is_some() {
             self.menu_options.push("exercise");
             self.menu_options.push("offset");
         }
@@ -960,10 +973,20 @@ impl Scene for SongScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
-        if loading_scene() || self.save_task.is_some() || self.upload_task.is_some() || self.review_task.is_some() || self.edit_tags_task.is_some() {
+        if loading_scene()
+            || self.save_task.is_some()
+            || self.upload_task.is_some()
+            || self.review_task.is_some()
+            || self.edit_tags_task.is_some()
+            || self.rate_task.is_some()
+        {
             return Ok(true);
         }
-        if self.tags.touch(touch, tm.real_time() as _) {
+        let rt = tm.real_time() as f32;
+        if self.tags.touch(touch, rt) {
+            return Ok(true);
+        }
+        if self.rate_dialog.touch(touch, rt) {
             return Ok(true);
         }
         if self.menu.showing() {
@@ -1084,8 +1107,10 @@ impl Scene for SongScene {
         let t = tm.now() as f32;
         self.menu.update(t);
         self.illu.settle(t);
-        self.tags.update(tm.real_time() as _);
-        if let Some(true) = self.tags.confirmed.take() {
+        let rt = tm.real_time() as f32;
+        self.tags.update(rt);
+        self.rate_dialog.update(rt);
+        if self.tags.confirmed.take() == Some(true) {
             if !self.side_enter_time.is_infinite() && matches!(self.side_content, SideContent::Edit) {
                 self.info_edit.as_mut().unwrap().info.tags = self.tags.tags.tags.clone();
             } else {
@@ -1094,7 +1119,7 @@ impl Scene for SongScene {
                 self.entity.as_mut().unwrap().tags = tags.clone();
                 self.edit_tags_task = Some(Task::new(async move {
                     recv_raw(Client::post(
-                        format!("/chart/{id}/edit_tags"),
+                        format!("/chart/{id}/edit-tags"),
                         &json!({
                             "tags": tags,
                         }),
@@ -1103,6 +1128,20 @@ impl Scene for SongScene {
                     Ok(())
                 }));
             }
+        }
+        if self.rate_dialog.confirmed.take() == Some(true) {
+            let id = self.info.id.unwrap();
+            let score = self.rate_dialog.score;
+            self.rate_task = Some(Task::new(async move {
+                recv_raw(Client::post(
+                    format!("/chart/{id}/rate"),
+                    &json!({
+                        "score": score,
+                    }),
+                ))
+                .await?;
+                Ok(())
+            }));
         }
         if self.side_enter_time < 0. && -tm.real_time() as f32 + EDIT_TRANSIT < self.side_enter_time {
             self.side_enter_time = f32::INFINITY;
@@ -1203,6 +1242,9 @@ impl Scene for SongScene {
             match self.menu_options[self.menu.selected()] {
                 "delete" => {
                     confirm_delete(self.should_delete.clone());
+                }
+                "rate" => {
+                    self.rate_dialog.enter(tm.real_time() as _);
                 }
                 "exercise" => {
                     self.launch(GameMode::Exercise)?;
@@ -1438,6 +1480,20 @@ impl Scene for SongScene {
                 self.edit_tags_task = None;
             }
         }
+        if let Some(task) = &mut self.rate_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("rate-failed")));
+                    }
+                    Ok(_) => {
+                        show_message(tl!("rate-done")).ok();
+                    }
+                }
+                self.rate_dialog.dismiss(rt);
+                self.rate_task = None;
+            }
+        }
         Ok(())
     }
 
@@ -1621,10 +1677,12 @@ impl Scene for SongScene {
         if self.review_task.is_some() {
             ui.full_loading(tl!("review-doing"), t);
         }
-        if self.edit_tags_task.is_some() {
+        if self.edit_tags_task.is_some() || self.rate_task.is_some() {
             ui.full_loading("", t);
         }
-        self.tags.render(ui, tm.real_time() as _);
+        let rt = tm.real_time() as f32;
+        self.tags.render(ui, rt);
+        self.rate_dialog.render(ui, rt);
         Ok(())
     }
 
