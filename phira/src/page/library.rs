@@ -342,6 +342,7 @@ impl LibraryPage {
                     "updated"
                 }
                 ChartOrder::Name => "name",
+                ChartOrder::Rating => "rating",
             };
             if rev {
                 format!("-{order}")
