@@ -8,6 +8,7 @@ use prpr::{ext::SafeTexture, ui::RectButton};
 pub enum ChartOrder {
     Default,
     Name,
+    Rating,
 }
 
 impl ChartOrder {
@@ -27,17 +28,20 @@ impl ChartOrder {
             Self::Name => {
                 charts.sort_by(|x, y| f(x).info.name.cmp(&f(y).info.name));
             }
+            Self::Rating => {}
         }
     }
 }
 
-const ORDER_NUM: usize = 4;
-const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rev-time", "name", "rev-name"];
+const ORDER_NUM: usize = 6;
+const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rev-time", "name", "rev-name", "rating", "rev-rating"];
 pub static ORDERS: [(ChartOrder, bool); ORDER_NUM] = [
     (ChartOrder::Default, false),
     (ChartOrder::Default, true),
     (ChartOrder::Name, false),
     (ChartOrder::Name, true),
+    (ChartOrder::Rating, true),
+    (ChartOrder::Rating, true),
 ];
 
 pub struct ChartOrderBox {
