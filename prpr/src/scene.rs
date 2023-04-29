@@ -464,6 +464,11 @@ impl Main {
         ui.set_touches(self.touches.take().unwrap());
         ui.scope(|ui| self.scenes.last_mut().unwrap().render(&mut self.tm, ui))?;
         if self.show_billboard {
+            push_camera_state();
+            set_camera(&Camera2D {
+                zoom: vec2(1., -screen_width() / screen_height()),
+                ..Default::default()
+            });
             let mut gl = unsafe { get_internal_gl() };
             gl.flush();
             gl.quad_gl.render_pass(None);
@@ -473,6 +478,7 @@ impl Main {
                 let t = guard.1.now() as f32;
                 guard.0.render(ui, t);
             });
+            pop_camera_state();
         }
         DIALOG.with(|it| {
             if let Some(dialog) = it.borrow_mut().as_mut() {
