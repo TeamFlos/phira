@@ -16,6 +16,7 @@ item-adjust = Automatic time adjustment
 item-adjust-sub = Adjusts time dynamically to sync the music and beatmap
 item-music = Music volume
 item-sfx = Sound effect volume
+item-bgm = BGM volume
 item-cali = Adjust offset
 
 item-show-acc = Show real-time accuracy

@@ -1,6 +1,6 @@
 prpr::tl_file!("settings");
 
-use crate::{get_data, get_data_mut, popup::ChooseButton, save_data, sync_data};
+use crate::{get_data, get_data_mut, popup::ChooseButton, save_data, sync_data, scene::BGM_VOLUME_UPDATED};
 
 use super::{NextPage, OffsetPage, Page, SharedState};
 use anyhow::Result;
@@ -11,7 +11,7 @@ use prpr::{
     scene::show_error,
     ui::{DRectButton, Scroll, Slider, Ui},
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 
@@ -75,6 +75,7 @@ impl Page for SettingsPage {
     }
 
     fn exit(&mut self) -> Result<()> {
+        BGM_VOLUME_UPDATED.store(true, Ordering::Relaxed);
         if self.save_time.is_finite() {
             save_data()?;
         }
@@ -346,6 +347,7 @@ struct AudioList {
     adjust_btn: DRectButton,
     music_slider: Slider,
     sfx_slider: Slider,
+    bgm_slider: Slider,
     cali_btn: DRectButton,
 
     cali_task: LocalTask<Result<OffsetPage>>,
@@ -358,6 +360,7 @@ impl AudioList {
             adjust_btn: DRectButton::new(),
             music_slider: Slider::new(0.0..2.0, 0.05),
             sfx_slider: Slider::new(0.0..2.0, 0.05),
+            bgm_slider: Slider::new(0.0..2.0, 0.05),
             cali_btn: DRectButton::new(),
 
             cali_task: None,
@@ -380,6 +383,13 @@ impl AudioList {
             return Ok(wt);
         }
         if let wt @ Some(_) = self.sfx_slider.touch(touch, t, &mut config.volume_sfx) {
+            return Ok(wt);
+        }
+        let old = config.volume_bgm;
+        if let wt @ Some(_) = self.bgm_slider.touch(touch, t, &mut config.volume_bgm) {
+            if (config.volume_bgm - old).abs() > 0.001 {
+                BGM_VOLUME_UPDATED.store(true, Ordering::Relaxed);
+            }
             return Ok(wt);
         }
         if self.cali_btn.touch(touch, t) {
@@ -429,6 +439,10 @@ impl AudioList {
         item! {
             render_title(ui, c, tl!("item-sfx"), None);
             self.sfx_slider.render(ui, rr, t, c, config.volume_sfx, format!("{:.2}", config.volume_sfx));
+        }
+        item! {
+            render_title(ui, c, tl!("item-bgm"), None);
+            self.bgm_slider.render(ui, rr, t, c, config.volume_bgm, format!("{:.2}", config.volume_bgm));
         }
         item! {
             render_title(ui, c, tl!("item-cali"), None);

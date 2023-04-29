@@ -57,6 +57,7 @@ pub struct Config {
     pub touch_debug: bool,
     pub volume_music: f32,
     pub volume_sfx: f32,
+    pub volume_bgm: f32,
 
     // for compatibility
     autoplay: Option<bool>,
@@ -92,6 +93,7 @@ impl Default for Config {
             touch_debug: false,
             volume_music: 1.,
             volume_sfx: 1.,
+            volume_bgm: 1.,
 
             autoplay: None,
         }

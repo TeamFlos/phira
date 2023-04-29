@@ -1,6 +1,10 @@
-use std::any::Any;
+use std::{
+    any::Any,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use crate::{
+    get_data,
     page::{HomePage, NextPage, Page, SharedState},
     scene::{TEX_BACKGROUND, TEX_ICON_BACK},
 };
@@ -15,6 +19,8 @@ use prpr::{
 use sasa::{AudioClip, Music};
 
 const LOW_PASS: f32 = 0.95;
+
+pub static BGM_VOLUME_UPDATED: AtomicBool = AtomicBool::new(false);
 
 pub struct MainScene {
     state: SharedState,
@@ -41,6 +47,7 @@ impl MainScene {
                     bgm_clip,
                     sasa::MusicParams {
                         loop_mix_time: 5.46,
+                        command_buffer_size: 64,
                         ..Default::default()
                     },
                 )
@@ -192,6 +199,11 @@ impl Scene for MainScene {
         } else if let Some(true) = s.fader.done(s.t) {
             self.pages.pop().unwrap().exit()?;
             self.pages.last_mut().unwrap().enter(s)?;
+        }
+        if let Some(bgm) = &mut self.bgm {
+            if BGM_VOLUME_UPDATED.fetch_and(false, Ordering::Relaxed) {
+                bgm.set_amplifier(get_data().config.volume_bgm)?;
+            }
         }
         Ok(())
     }

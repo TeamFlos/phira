@@ -16,6 +16,7 @@ item-adjust = 自动对齐时间
 item-adjust-sub = 自动调整延迟以同步音乐和谱面
 item-music = 音乐音量
 item-sfx = 音效音量
+item-bgm = BGM 音量
 item-cali = 调整延迟
 
 item-show-acc = 显示实时准度
