@@ -96,6 +96,29 @@ impl Data {
                 });
             }
         }
+        for entry in std::fs::read_dir(dir::downloaded_charts()?)? {
+            let entry = entry?;
+            let filename = entry.file_name();
+            let filename = filename.to_str().unwrap();
+            let filename = format!("download/{filename}");
+            let Ok(id): Result<i32, _> = filename.parse() else { continue };
+            if occurred.contains(&filename) {
+                continue;
+            }
+            let path = entry.path();
+            let Ok(mut fs) = prpr::fs::fs_from_file(&path) else {
+                continue;
+            };
+            let result = prpr::fs::load_info(fs.deref_mut()).await;
+            if let Ok(info) = result {
+                self.charts.push(LocalChart {
+                    info: BriefChartInfo { id: Some(id), ..info.into() },
+                    local_path: filename,
+                    record: None,
+                    mods: Mods::default(),
+                });
+            }
+        }
         if let Some(res_pack_path) = &mut self.config.res_pack_path {
             if res_pack_path.starts_with('/') {
                 // for compatibility
