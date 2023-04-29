@@ -4,7 +4,7 @@ mod chart_order;
 pub use chart_order::{ChartOrder, ChartOrderBox, ORDERS};
 
 mod main;
-pub use main::MainScene;
+pub use main::{MainScene, BGM_VOLUME_UPDATED};
 
 mod song;
 pub use song::SongScene;
