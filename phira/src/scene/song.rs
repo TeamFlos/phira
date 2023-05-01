@@ -275,7 +275,6 @@ impl SongScene {
 
             preview: None,
             preview_task: Some(Task::new({
-                let id = id.clone();
                 let local_path = local_path.clone();
                 async move {
                     if let Some(path) = local_path {
@@ -295,7 +294,7 @@ impl SongScene {
             load_task: if get_data().config.offline_mode {
                 None
             } else {
-                chart.info.id.clone().map(|it| Task::new(async move { Ptr::new(it).fetch_opt().await }))
+                chart.info.id.map(|it| Task::new(async move { Ptr::new(it).fetch_opt().await }))
             },
             entity: None,
             info: chart.info,
@@ -531,7 +530,7 @@ impl SongScene {
         if !rated && self.info.id.is_some() && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
-        let id = self.info.id.clone();
+        let id = self.info.id;
         let mods = self.mods;
         load_scene(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
@@ -1431,7 +1430,7 @@ impl Scene for SongScene {
                         "created": info.created.unwrap(),
                     })))
                     .await?;
-                    Ok(info.into())
+                    Ok(info)
                 } else {
                     #[derive(Deserialize)]
                     struct Resp {
@@ -1454,7 +1453,7 @@ impl Scene for SongScene {
                     info.updated = Some(resp.created);
                     info.chart_updated = Some(resp.created);
                     info.uploader = Some(get_data().me.as_ref().unwrap().id);
-                    std::fs::write(conf, &serde_yaml::to_string(&info)?)?;
+                    serde_yaml::to_writer(File::create(conf)?, &info)?;
                     Ok(info.into())
                 }
             }));
