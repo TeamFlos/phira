@@ -26,6 +26,8 @@ pub struct BriefChartInfo {
     pub composer: String,
     pub illustrator: String,
     pub created: Option<DateTime<Utc>>,
+    pub updated: Option<DateTime<Utc>>,
+    pub chart_updated: Option<DateTime<Utc>>,
 }
 
 impl From<ChartInfo> for BriefChartInfo {
@@ -41,6 +43,8 @@ impl From<ChartInfo> for BriefChartInfo {
             composer: info.composer,
             illustrator: info.illustrator,
             created: info.created,
+            updated: info.updated,
+            chart_updated: info.chart_updated,
         }
     }
 }

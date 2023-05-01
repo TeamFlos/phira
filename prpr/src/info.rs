@@ -43,6 +43,8 @@ pub struct ChartInfo {
 
     pub hold_partial_cover: bool,
     pub created: Option<DateTime<Utc>>,
+    pub updated: Option<DateTime<Utc>>,
+    pub chart_updated: Option<DateTime<Utc>>,
 }
 
 impl Default for ChartInfo {
@@ -77,6 +79,8 @@ impl Default for ChartInfo {
             hold_partial_cover: false,
 
             created: None,
+            updated: None,
+            chart_updated: None,
         }
     }
 }

@@ -93,3 +93,7 @@ mods-fade-out-sub = Notes disappear when they approach the line
 
 rate-failed = Rate failed
 rate-done = Rated successfully
+
+need-update = Update needed
+need-update-info-only-content = The info of beatmap has updated. Do you want to sync the update?
+need-update-content = This beatmap has updated. You must sync your local version before uploading record. Do you want to do it now?

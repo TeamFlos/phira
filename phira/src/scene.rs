@@ -45,15 +45,20 @@ pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem>> {
     }
 }
 
-pub fn confirm_delete(res: Arc<AtomicBool>) {
-    Dialog::plain(ttl!("del-confirm"), ttl!("del-confirm-content"))
-        .buttons(vec![ttl!("del-confirm-cancel").into_owned(), ttl!("del-confirm-ok").into_owned()])
+pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res: Arc<AtomicBool>) {
+    Dialog::plain(title.into(), content.into())
+        .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
         .listener(move |id| {
             if id == 1 {
                 res.store(true, Ordering::SeqCst);
             }
         })
         .show();
+}
+
+#[inline]
+pub fn confirm_delete(res: Arc<AtomicBool>) {
+    confirm_dialog(ttl!("del-confirm"), ttl!("del-confirm-content"), res)
 }
 
 pub async fn import_chart(path: String) -> Result<LocalChart> {
