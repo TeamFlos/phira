@@ -11,6 +11,7 @@ use crate::{
     save_data,
     tags::TagsDialog,
 };
+use ::rand::{thread_rng, Rng};
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
@@ -199,6 +200,9 @@ pub struct SongScene {
     rate_task: Option<Task<Result<()>>>,
 
     should_update: Arc<AtomicBool>,
+
+    my_rating_task: Option<Task<Result<i16>>>,
+    my_rate_score: Option<i16>,
 }
 
 impl SongScene {
@@ -253,6 +257,7 @@ impl SongScene {
             None
         };
         let id = chart.info.id.clone();
+        let offline_mode = get_data().config.offline_mode;
         Self {
             illu,
 
@@ -291,10 +296,10 @@ impl SongScene {
                 }
             })),
 
-            load_task: if get_data().config.offline_mode {
+            load_task: if offline_mode {
                 None
             } else {
-                chart.info.id.map(|it| Task::new(async move { Ptr::new(it).fetch_opt().await }))
+                id.map(|it| Task::new(async move { Ptr::new(it).fetch_opt().await }))
             },
             entity: None,
             info: chart.info,
@@ -351,6 +356,22 @@ impl SongScene {
             rate_task: None,
 
             should_update: Arc::default(),
+
+            my_rating_task: if offline_mode {
+                None
+            } else {
+                id.map(|id| {
+                    Task::new(async move {
+                        #[derive(Deserialize)]
+                        struct Resp {
+                            score: i16,
+                        }
+                        let resp: Resp = recv_raw(Client::get(format!("/chart/{id}/rate"))).await?.json().await?;
+                        Ok(resp.score)
+                    })
+                })
+            },
+            my_rate_score: None,
         }
     }
 
@@ -985,6 +1006,8 @@ impl Scene for SongScene {
             self.first_in = false;
             tm.seek_to(-FADE_IN_TIME as _);
             self.load_ldb();
+        } else if self.my_rate_score == Some(0) && thread_rng().gen_ratio(5, 5) {
+            self.rate_dialog.enter(tm.real_time() as _);
         }
         if let Some(music) = &mut self.preview {
             music.seek_to(0.)?;
@@ -1549,6 +1572,20 @@ impl Scene for SongScene {
         }
         if self.should_update.fetch_and(false, Ordering::Relaxed) {
             self.start_download()?;
+        }
+        if let Some(task) = &mut self.my_rating_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!("failed to fetch my rating status: {:?}", err);
+                    }
+                    Ok(score) => {
+                        self.rate_dialog.score = score;
+                        self.my_rate_score = Some(score);
+                    }
+                }
+                self.my_rating_task = None;
+            }
         }
         Ok(())
     }
