@@ -1608,7 +1608,7 @@ impl Scene for SongScene {
 
         let r = ui
             .text(&self.info.name)
-            .max_width(0.6 - r.right())
+            .max_width(0.57 - r.right())
             .size(1.2)
             .pos(r.right() + 0.02, r.y)
             .color(c)
