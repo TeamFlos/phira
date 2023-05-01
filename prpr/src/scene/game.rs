@@ -69,7 +69,7 @@ impl SimpleRecord {
             self.accuracy = other.accuracy;
             changed = true;
         }
-        if other.full_combo > self.full_combo {
+        if other.full_combo & !self.full_combo {
             self.full_combo = other.full_combo;
             changed = true;
         }

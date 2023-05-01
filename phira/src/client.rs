@@ -28,7 +28,7 @@ fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
     let mut headers = header::HeaderMap::new();
     headers.append(header::ACCEPT_LANGUAGE, header::HeaderValue::from_str(&get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string()))?);
     if let Some(token) = access_token {
-        let mut auth_value = header::HeaderValue::from_str(&format!("Bearer {}", token))?;
+        let mut auth_value = header::HeaderValue::from_str(&format!("Bearer {token}"))?;
         auth_value.set_sensitive(true);
         headers.insert(header::AUTHORIZATION, auth_value);
     }
@@ -55,7 +55,6 @@ pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
         let status = response.status().as_str().to_owned();
         let text = response.text().await.context("failed to receive text")?;
         if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-            println!("{:?}", what);
             if let Some(detail) = what["detail"].as_str() {
                 bail!("request failed ({status}): {detail}");
             }
