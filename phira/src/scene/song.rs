@@ -290,7 +290,11 @@ impl SongScene {
                 }
             })),
 
-            load_task: chart.info.id.clone().map(|it| Task::new(async move { Ptr::new(it).fetch_opt().await })),
+            load_task: if get_data().config.offline_mode {
+                None
+            } else {
+                chart.info.id.clone().map(|it| Task::new(async move { Ptr::new(it).fetch_opt().await }))
+            },
             entity: None,
             info: chart.info,
             local_path,

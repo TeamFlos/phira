@@ -91,12 +91,13 @@ impl Illustration {
     pub fn settle(&mut self, t: f32) {
         if let Some(task) = &mut self.task {
             if let Some(illu) = task.take() {
-                self.texture = match illu {
+                match illu {
                     Err(err) => {
                         warn!("failed to load illustration: {:?}", err);
-                        (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone())
                     }
-                    Ok(illu) => Images::into_texture(illu),
+                    Ok(illu) => {
+                        self.texture = Images::into_texture(illu);
+                    }
                 };
                 *self.loaded.lock().unwrap() = Some(self.texture.clone());
                 self.task = None;
