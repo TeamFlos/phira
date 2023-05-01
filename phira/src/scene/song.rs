@@ -1206,20 +1206,21 @@ impl Scene for SongScene {
                                 .updated
                                 .map_or(chart.updated != chart.created, |local_updated| local_updated != chart.updated)
                             {
-                                println!("{:?} {:?}", self.info.updated, chart.updated);
-                                let chart_updated = self
-                                    .info
-                                    .chart_updated
-                                    .map_or(chart.chart_updated != chart.created, |local_updated| local_updated != chart.chart_updated);
-                                confirm_dialog(
-                                    tl!("need-update"),
-                                    if chart_updated {
-                                        tl!("need-update-content")
-                                    } else {
-                                        tl!("need-update-info-only-content")
-                                    },
-                                    Arc::clone(&self.should_update),
-                                );
+                                if self.local_path.is_some() {
+                                    let chart_updated = self
+                                        .info
+                                        .chart_updated
+                                        .map_or(chart.chart_updated != chart.created, |local_updated| local_updated != chart.chart_updated);
+                                    confirm_dialog(
+                                        tl!("need-update"),
+                                        if chart_updated {
+                                            tl!("need-update-content")
+                                        } else {
+                                            tl!("need-update-info-only-content")
+                                        },
+                                        Arc::clone(&self.should_update),
+                                    );
+                                }
                             }
                         } else if let Some(local) = &self.local_path {
                             let conf = format!("{}/{}/info.yml", dir::charts()?, local);
