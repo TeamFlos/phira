@@ -1,8 +1,9 @@
 
 del-confirm = Na pewno chcesz to usunąć?
 del-confirm-content = Nie możesz tego cofnąć.
-del-confirm-cancel = Anuluj
-del-confirm-ok = Potwierdź
+
+cancel = Anuluj
+confirm = Potwierdź
 
 release-to-refresh = Puść, aby odświeżyć
 

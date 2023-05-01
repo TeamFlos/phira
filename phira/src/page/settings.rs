@@ -1,8 +1,7 @@
 prpr::tl_file!("settings");
 
-use crate::{get_data, get_data_mut, popup::ChooseButton, save_data, sync_data, scene::BGM_VOLUME_UPDATED};
-
 use super::{NextPage, OffsetPage, Page, SharedState};
+use crate::{get_data, get_data_mut, popup::ChooseButton, save_data, scene::BGM_VOLUME_UPDATED, sync_data};
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{

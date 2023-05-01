@@ -1,6 +1,6 @@
 prpr::tl_file!("song");
 
-use super::{confirm_delete, fs_from_path};
+use super::{confirm_delete, confirm_dialog, fs_from_path};
 use crate::{
     client::{recv_raw, Chart, Client, Ptr, Record, UserManager, UserRole},
     data::{BriefChartInfo, LocalChart},
@@ -197,6 +197,8 @@ pub struct SongScene {
 
     rate_dialog: RateDialog,
     rate_task: Option<Task<Result<()>>>,
+
+    should_update: Arc<AtomicBool>,
 }
 
 impl SongScene {
@@ -348,6 +350,8 @@ impl SongScene {
 
             rate_dialog: RateDialog::new(icon_star),
             rate_task: None,
+
+            should_update: Arc::default(),
         }
     }
 
@@ -366,16 +370,10 @@ impl SongScene {
             prog: progress,
             status: status_shared,
             task: Task::new({
-                let path = format!("{}/{}", dir::downloaded_charts()?, chart.id.unwrap());
+                let path = format!("{}/{}", dir::downloaded_charts()?, uuid7::uuid7());
                 async move {
                     let path = std::path::Path::new(&path);
-                    if path.exists() {
-                        if !path.is_dir() {
-                            tokio::fs::remove_file(path).await?;
-                        }
-                    } else {
-                        tokio::fs::create_dir(path).await?;
-                    }
+                    tokio::fs::create_dir(path).await?;
                     let dir = prpr::dir::Dir::new(path)?;
 
                     let chart = chart;
@@ -416,6 +414,8 @@ impl SongScene {
                     let mut info: ChartInfo = serde_yaml::from_reader(dir.open("info.yml")?)?;
                     info.id = Some(entity.id);
                     info.created = Some(entity.created);
+                    info.updated = Some(entity.updated);
+                    info.chart_updated = Some(entity.chart_updated);
                     info.uploader = Some(entity.uploader.id);
                     serde_yaml::to_writer(dir.create("info.yml")?, &info)?;
 
@@ -426,6 +426,17 @@ impl SongScene {
                     }
 
                     let local_path = format!("download/{}", chart.id.unwrap());
+                    let to_path = format!("{}/{local_path}", dir::charts()?);
+                    let to_path = Path::new(&to_path);
+                    if to_path.exists() {
+                        if to_path.is_file() {
+                            tokio::fs::remove_file(to_path).await?;
+                        } else {
+                            tokio::fs::remove_dir_all(to_path).await?;
+                        }
+                    }
+                    tokio::fs::rename(path, to_path).await?;
+
                     Ok(LocalChart {
                         info: entity.to_info(),
                         local_path,
@@ -539,6 +550,7 @@ impl SongScene {
                     Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
                 }
             };
+            let chart_updated = info.chart_updated;
             config.mods = mods;
             LoadingScene::new(
                 mode,
@@ -554,9 +566,11 @@ impl SongScene {
                 Some(Arc::new(move |data| {
                     Task::new(async move {
                         #[derive(Serialize)]
+                        #[serde(rename_all = "camelCase")]
                         struct Req {
                             chart: i32,
                             token: String,
+                            chart_updated: Option<DateTime<Utc>>,
                         }
                         #[derive(Deserialize)]
                         #[serde(rename_all = "camelCase")]
@@ -572,6 +586,7 @@ impl SongScene {
                             &Req {
                                 chart: id.unwrap(),
                                 token: base64::encode(data),
+                                chart_updated,
                             },
                         ))
                         .await?
@@ -1159,12 +1174,33 @@ impl Scene for SongScene {
                     Ok(chart) => {
                         if let Some(chart) = chart {
                             self.entity = Some(chart.as_ref().clone());
+                            if self
+                                .info
+                                .updated
+                                .map_or(chart.updated != chart.created, |local_updated| local_updated != chart.updated)
+                            {
+                                let chart_updated = self
+                                    .info
+                                    .chart_updated
+                                    .map_or(chart.chart_updated != chart.created, |local_updated| local_updated != chart.chart_updated);
+                                confirm_dialog(
+                                    tl!("need-update"),
+                                    if chart_updated {
+                                        tl!("need-update-content")
+                                    } else {
+                                        tl!("need-update-info-only-content")
+                                    },
+                                    Arc::clone(&self.should_update),
+                                );
+                            }
                         } else if let Some(local) = &self.local_path {
                             let conf = format!("{}/{}/info.yml", dir::charts()?, local);
                             let mut info: ChartInfo = serde_yaml::from_reader(File::open(&conf)?)?;
                             info.id = None;
                             info.uploader = None;
                             info.created = None;
+                            info.updated = None;
+                            info.chart_updated = None;
                             serde_yaml::to_writer(File::create(conf)?, &info)?;
                             self.info = info.into();
                             self.update_chart_info()?;
@@ -1201,8 +1237,10 @@ impl Scene for SongScene {
                     }
                     Ok(chart) => {
                         NEED_UPDATE.store(true, Ordering::SeqCst);
-                        self.local_path = Some(chart.local_path.clone());
-                        get_data_mut().charts.push(chart);
+                        if self.local_path.is_none() {
+                            self.local_path = Some(chart.local_path.clone());
+                            get_data_mut().charts.push(chart);
+                        }
                         save_data()?;
                         self.update_menu();
                         show_message(tl!("dl-success")).ok();
@@ -1413,6 +1451,8 @@ impl Scene for SongScene {
                     let mut info: ChartInfo = serde_yaml::from_reader(File::open(&conf)?)?;
                     info.id = Some(resp.id);
                     info.created = Some(resp.created);
+                    info.updated = Some(resp.created);
+                    info.chart_updated = Some(resp.created);
                     info.uploader = Some(get_data().me.as_ref().unwrap().id);
                     std::fs::write(conf, &serde_yaml::to_string(&info)?)?;
                     Ok(info.into())
@@ -1497,6 +1537,9 @@ impl Scene for SongScene {
                 self.rate_dialog.dismiss(rt);
                 self.rate_task = None;
             }
+        }
+        if self.should_update.fetch_and(false, Ordering::Relaxed) {
+            self.start_download()?;
         }
         Ok(())
     }

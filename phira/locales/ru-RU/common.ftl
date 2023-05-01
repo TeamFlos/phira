@@ -1,8 +1,9 @@
 
 del-confirm = Вы уверены?
 del-confirm-content = Файл будет удалëн навсегда!
-del-confirm-cancel = Отмена
-del-confirm-ok = Подтвердить
+
+cancel = Отмена
+confirm = Подтвердить
 
 release-to-refresh = Отпустите для обновления
 
