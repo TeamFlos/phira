@@ -41,7 +41,7 @@ pub static ORDERS: [(ChartOrder, bool); ORDER_NUM] = [
     (ChartOrder::Name, false),
     (ChartOrder::Name, true),
     (ChartOrder::Rating, true),
-    (ChartOrder::Rating, true),
+    (ChartOrder::Rating, false),
 ];
 
 pub struct ChartOrderBox {

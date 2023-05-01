@@ -1006,7 +1006,7 @@ impl Scene for SongScene {
             self.first_in = false;
             tm.seek_to(-FADE_IN_TIME as _);
             self.load_ldb();
-        } else if self.my_rate_score == Some(0) && thread_rng().gen_ratio(5, 5) {
+        } else if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
             self.rate_dialog.enter(tm.real_time() as _);
         }
         if let Some(music) = &mut self.preview {
