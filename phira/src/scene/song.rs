@@ -18,7 +18,7 @@ use macroquad::prelude::*;
 use prpr::{
     config::Mods,
     core::Tweenable,
-    ext::{screen_aspect, semi_black, semi_white, unzip_into, RectExt, SafeTexture, ScaleType},
+    ext::{screen_aspect, semi_black, semi_white, unzip_into, JoinToString, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
     judge::icon_index,
@@ -414,6 +414,7 @@ impl SongScene {
                     info.id = Some(entity.id);
                     info.created = Some(entity.created);
                     info.updated = Some(entity.updated);
+                    println!("SET UPDATED TO {}", entity.updated);
                     info.chart_updated = Some(entity.chart_updated);
                     info.uploader = Some(entity.uploader.id);
                     serde_yaml::to_writer(dir.create("info.yml")?, &info)?;
@@ -801,6 +802,10 @@ impl SongScene {
             item(tl!("info-charter"), self.info.charter.as_str().into());
             item(tl!("info-difficulty"), format!("{} ({:.1})", self.info.level, self.info.difficulty).into());
             item(tl!("info-desc"), self.info.intro.as_str().into());
+            if let Some(entity) = &self.entity {
+                item(tl!("info-rating"), entity.rating.map_or(Cow::Borrowed("NaN"), |r| format!("{:.2} / 5.00", r * 5.).into()));
+                item(tl!("info-tags"), entity.tags.iter().map(|it| format!("#{it}")).join(" ").into());
+            }
             (width, h)
         });
     }
@@ -1178,6 +1183,7 @@ impl Scene for SongScene {
                                 .updated
                                 .map_or(chart.updated != chart.created, |local_updated| local_updated != chart.updated)
                             {
+                                println!("{:?} {:?}", self.info.updated, chart.updated);
                                 let chart_updated = self
                                     .info
                                     .chart_updated
@@ -1235,10 +1241,14 @@ impl Scene for SongScene {
                         show_error(err.context(tl!("dl-failed")));
                     }
                     Ok(chart) => {
-                        NEED_UPDATE.store(true, Ordering::SeqCst);
+                        self.info = chart.info.clone();
                         if self.local_path.is_none() {
+                            NEED_UPDATE.store(true, Ordering::SeqCst);
                             self.local_path = Some(chart.local_path.clone());
                             get_data_mut().charts.push(chart);
+                        } else {
+                            // update
+                            self.update_chart_info()?;
                         }
                         save_data()?;
                         self.update_menu();

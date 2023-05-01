@@ -68,6 +68,8 @@ info-composer = Composer
 info-charter = Charter
 info-difficulty = Difficulty
 info-desc = Description
+info-rating = Rating
+info-tags = Tags
 
 review-approve = Approve
 review-deny = Deny

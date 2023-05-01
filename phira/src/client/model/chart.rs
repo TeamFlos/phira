@@ -28,6 +28,8 @@ pub struct Chart {
     pub chart_updated: DateTime<Utc>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub rating: Option<f32>,
 }
 impl Object for Chart {
     const QUERY_PATH: &'static str = "chart";
