@@ -69,6 +69,8 @@ info-composer = 曲师
 info-charter = 谱师
 info-difficulty = 难度
 info-desc = 简介
+info-rating = 评分
+info-tags = 标签
 
 review-approve = 通过
 review-deny = 拒绝
