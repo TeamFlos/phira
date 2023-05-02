@@ -19,7 +19,7 @@ dl-success = Téléchargé
 guest = Touriste
 
 warn-unrated = Ce jeu n'est pas noté
-failed-to-play = Impossible de démarrer en mode en ligne
+failed-to-play = Impossible de démarrer en mode en-ligne
 play-cancel = Annuler
 play-switch-to-offline = Passer en mode hors-ligne
 switched-to-offline = Passé en mode hors-ligne
