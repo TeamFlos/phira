@@ -1,5 +1,6 @@
 
 rate = Rate
+filter = Filter by rating
 
 cancel = Cancel
 confirm = Confirm
