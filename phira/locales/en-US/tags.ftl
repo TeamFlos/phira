@@ -9,3 +9,5 @@ unwanted = Unwanted
 
 cancel = Cancel
 confirm = Confirm
+
+filter-by-rating = Filter by rating

@@ -7,36 +7,105 @@ use prpr::{
     ui::{DRectButton, Ui},
 };
 
-pub struct RateDialog {
-    fader: Fader,
-    show: bool,
-
-    icon_star: SafeTexture,
+pub struct Rate {
     pub score: i16,
-
-    btn_cancel: DRectButton,
-    btn_confirm: DRectButton,
-    pub confirmed: Option<bool>,
 
     touch_x: Option<f32>,
     touch_rect: Rect,
 }
 
+impl Rate {
+    pub fn new() -> Self {
+        Self {
+            score: 0,
+
+            touch_x: None,
+            touch_rect: Rect::default(),
+        }
+    }
+
+    pub fn touch(&mut self, touch: &Touch) {
+        if self.touch_x.is_some() || self.touch_rect.contains(touch.position) {
+            if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                self.touch_x = None;
+            } else {
+                self.touch_x = Some(touch.position.x);
+            }
+        }
+    }
+
+    pub fn render(&mut self, ui: &mut Ui, c: Color, icon_star: &SafeTexture) -> Rect {
+        let wr = Ui::dialog_rect();
+        ui.scope(|ui| {
+            ui.dx(wr.center().x);
+            let s = 0.1;
+            let pad = 0.03;
+            let cc = semi_white(c.a * 0.5);
+            let tw = s * 2.5 + pad * 2.;
+            self.touch_rect = ui.rect_to_global(Rect::new(-tw, s / 2., tw * 2., s));
+            if let Some(x) = self.touch_x {
+                let rw = (x - self.touch_rect.x) / self.touch_rect.w * tw * 2. + pad;
+                let index = (rw / (pad + s)) as i16;
+                let rem = rw - index as f32 * (pad + s);
+                self.score = index * 2;
+                if rem > pad / 2. {
+                    self.score += 1;
+                    if rem > pad + s / 2. {
+                        self.score += 1;
+                    }
+                }
+                self.score = self.score.clamp(0, 10);
+            }
+            for i in 0..5 {
+                let pos = (i as f32 - 2.) * (pad + s);
+                let r = Rect::new(pos, s / 2., 0., 0.).feather(s / 2.);
+                if self.score >= (i + 1) * 2 {
+                    ui.fill_rect(r, (**icon_star, r, ScaleType::Fit, c));
+                } else {
+                    ui.fill_rect(r, (**icon_star, r, ScaleType::Fit, cc));
+                    if self.score == i * 2 + 1 {
+                        let hr = Rect { w: r.w / 2., ..r };
+                        ui.fill_rect(hr, (**icon_star, r, ScaleType::Fit, c));
+                    }
+                }
+            }
+        });
+        self.touch_rect
+    }
+}
+
+pub struct RateDialog {
+    fader: Fader,
+    show: bool,
+
+    icon_star: SafeTexture,
+
+    btn_cancel: DRectButton,
+    btn_confirm: DRectButton,
+    btn_tags: DRectButton,
+    pub confirmed: Option<bool>,
+    pub show_tags: bool,
+
+    pub rate: Rate,
+    pub rate_upper: Option<Rate>,
+}
+
 impl RateDialog {
-    pub fn new(icon_star: SafeTexture) -> Self {
+    pub fn new(icon_star: SafeTexture, range: bool) -> Self {
         Self {
             fader: Fader::new().with_distance(-0.4).with_time(0.5),
             show: false,
 
             icon_star,
-            score: 0,
 
             btn_cancel: DRectButton::new(),
             btn_confirm: DRectButton::new(),
+            btn_tags: DRectButton::new(),
             confirmed: None,
+            show_tags: false,
 
-            touch_x: None,
-            touch_rect: Rect::default(),
+            rate: Rate::new(),
+            rate_upper: if range { Some(Rate::new()) } else { None },
         }
     }
 
@@ -46,6 +115,10 @@ impl RateDialog {
 
     pub fn enter(&mut self, t: f32) {
         self.fader.sub(t);
+    }
+
+    fn dialog_rect(&self) -> Rect {
+        Ui::dialog_rect().nonuniform_feather(0., if self.rate_upper.is_some() { -0.02 } else { -0.1 })
     }
 
     pub fn dismiss(&mut self, t: f32) {
@@ -58,7 +131,7 @@ impl RateDialog {
             return true;
         }
         if self.show {
-            if !Ui::dialog_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
+            if !self.dialog_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
                 self.dismiss(t);
                 return true;
             }
@@ -68,17 +141,19 @@ impl RateDialog {
                 return true;
             }
             if self.btn_confirm.touch(touch, t) {
-                if self.score != 0 {
+                if self.rate.score != 0 {
                     self.confirmed = Some(true);
                 }
                 return true;
             }
-            if self.touch_x.is_some() || self.touch_rect.contains(touch.position) {
-                if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
-                    self.touch_x = None;
-                } else {
-                    self.touch_x = Some(touch.position.x);
-                }
+            if self.btn_tags.touch(touch, t) {
+                self.show_tags = true;
+                self.dismiss(t);
+                return true;
+            }
+            self.rate.touch(touch);
+            if let Some(upper) = &mut self.rate_upper {
+                upper.touch(touch);
             }
             return true;
         }
@@ -96,53 +171,57 @@ impl RateDialog {
         if self.show || self.fader.transiting() {
             let p = if self.show { 1. } else { -self.fader.progress(t) };
             ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
+            let wr = self.dialog_rect();
             self.fader.for_sub(|f| {
                 f.render(ui, t, |ui, c| {
-                    let wr = Ui::dialog_rect().nonuniform_feather(0., -0.1);
                     ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
                     let r = ui.text(tl!("rate")).pos(wr.x + 0.04, wr.y + 0.033).size(0.9).color(c).draw();
                     let bh = 0.09;
                     ui.scope(|ui| {
-                        ui.dx(wr.center().x);
-                        ui.dy(r.bottom() + 0.07);
-                        let s = 0.1;
-                        let pad = 0.03;
-                        let cc = semi_white(c.a * 0.5);
-                        let tw = s * 2.5 + pad * 2.;
-                        self.touch_rect = ui.rect_to_global(Rect::new(-tw, s / 2., tw * 2., s));
-                        if let Some(x) = self.touch_x {
-                            let rw = (x - self.touch_rect.x) / self.touch_rect.w * tw * 2. + pad;
-                            let index = (rw / (pad + s)) as i16;
-                            let rem = rw - index as f32 * (pad + s);
-                            self.score = index * 2;
-                            if rem > pad / 2. {
-                                self.score += 1;
-                                if rem > pad + s / 2. {
-                                    self.score += 1;
-                                }
-                            }
-                            self.score = self.score.clamp(1, 10);
+                        ui.dy(r.bottom() + 0.04);
+                        if self.rate_upper.is_some() {
+                            let h = ui
+                                .text(tl!("lower-bound"))
+                                .pos(wr.center().x, 0.)
+                                .anchor(0.5, 0.)
+                                .size(0.5)
+                                .color(c)
+                                .draw()
+                                .h;
+                            ui.dy(h + 0.02);
+                        } else {
+                            ui.dy(0.03);
                         }
-                        for i in 0..5 {
-                            let pos = (i as f32 - 2.) * (pad + s);
-                            let r = Rect::new(pos, s / 2., 0., 0.).feather(s / 2.);
-                            if self.score >= (i + 1) * 2 {
-                                ui.fill_rect(r, (*self.icon_star, r, ScaleType::Fit, c));
-                            } else {
-                                ui.fill_rect(r, (*self.icon_star, r, ScaleType::Fit, cc));
-                                if self.score == i * 2 + 1 {
-                                    let hr = Rect { w: r.w / 2., ..r };
-                                    ui.fill_rect(hr, (*self.icon_star, r, ScaleType::Fit, c));
-                                }
-                            }
+                        let h = self.rate.render(ui, c, &self.icon_star).h;
+                        if let Some(upper) = &mut self.rate_upper {
+                            upper.score = upper.score.max(self.rate.score);
+                        }
+                        ui.dy(h + 0.03);
+                        if let Some(upper) = &mut self.rate_upper {
+                            let h = ui
+                                .text(tl!("upper-bound"))
+                                .pos(wr.center().x, 0.)
+                                .anchor(0.5, 0.)
+                                .size(0.5)
+                                .color(c)
+                                .draw()
+                                .h;
+                            ui.dy(h + 0.02);
+                            upper.render(ui, c, &self.icon_star);
+                            self.rate.score = self.rate.score.min(upper.score);
                         }
                     });
                     let pad = 0.02;
-                    let bw = (wr.w - pad * 3.) / 2.;
-                    let mut r = Rect::new(wr.x + pad, wr.bottom() - 0.02 - bh, bw, bh);
-                    self.btn_cancel.render_text(ui, r, t, c.a, tl!("cancel"), 0.5, true);
-                    r.x += bw + pad;
-                    self.btn_confirm.render_text(ui, r, t, c.a, tl!("confirm"), 0.5, true);
+                    if self.rate_upper.is_none() {
+                        let bw = (wr.w - pad * 3.) / 2.;
+                        let mut r = Rect::new(wr.x + pad, wr.bottom() - 0.02 - bh, bw, bh);
+                        self.btn_cancel.render_text(ui, r, t, c.a, tl!("cancel"), 0.5, true);
+                        r.x += bw + pad;
+                        self.btn_confirm.render_text(ui, r, t, c.a, tl!("confirm"), 0.5, true);
+                    } else {
+                        let r = Rect::new(wr.x, wr.bottom() - 0.02 - bh, wr.w, bh).nonuniform_feather(-pad, 0.);
+                        self.btn_tags.render_text(ui, r, t, c.a, tl!("filter-by-tags"), 0.5, true);
+                    }
                 });
             });
         }

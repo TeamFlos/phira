@@ -352,7 +352,7 @@ impl SongScene {
             edit_tags_task: None,
             tags: TagsDialog::new(false),
 
-            rate_dialog: RateDialog::new(icon_star),
+            rate_dialog: RateDialog::new(icon_star, false),
             rate_task: None,
 
             should_update: Arc::default(),
@@ -1177,7 +1177,7 @@ impl Scene for SongScene {
         }
         if self.rate_dialog.confirmed.take() == Some(true) {
             let id = self.info.id.unwrap();
-            let score = self.rate_dialog.score;
+            let score = self.rate_dialog.rate.score;
             self.rate_task = Some(Task::new(async move {
                 recv_raw(Client::post(
                     format!("/chart/{id}/rate"),
@@ -1581,7 +1581,7 @@ impl Scene for SongScene {
                         warn!("failed to fetch my rating status: {:?}", err);
                     }
                     Ok(score) => {
-                        self.rate_dialog.score = score;
+                        self.rate_dialog.rate.score = score;
                         self.my_rate_score = Some(score);
                     }
                 }

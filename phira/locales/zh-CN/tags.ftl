@@ -9,3 +9,5 @@ unwanted = 不想包含的标签
 
 cancel = 取消
 confirm = 确认
+
+filter-by-rating = 按评分过滤
