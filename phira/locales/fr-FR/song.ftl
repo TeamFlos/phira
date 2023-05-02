@@ -30,12 +30,12 @@ exercise = Exercer
 offset = Ajuster le décalage
 
 edit-cancel = Annuler
-edit-save = Save
-edit-saving = Enregistrer
+edit-save = Entrgistrer
+edit-saving = Enregistrement
 edit-load-file-failed = Impossible de charger le fichier externe
-edit-save-failed = Échec de la sauvegarde
+edit-save-failed = Échec de l'enregistrement
 edit-saved = Enregistré
-edit-preview-invalid = Temps de prévisualisation hors limites
+edit-preview-invalid = Temps d'aperçu hors limites
 edit-tags = Modifier les étiquettes
 edit-downloaded = Vous ne pouvez pas modifier la partition téléchargée
 
