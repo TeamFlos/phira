@@ -951,10 +951,13 @@ impl SongScene {
 }
 
 impl Scene for SongScene {
-    fn on_result(&mut self, _tm: &mut TimeManager, res: Box<dyn Any>) -> Result<()> {
+    fn on_result(&mut self, tm: &mut TimeManager, res: Box<dyn Any>) -> Result<()> {
         let res = match res.downcast::<SimpleRecord>() {
             Err(res) => res,
             Ok(rec) => {
+                if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
+                    self.rate_dialog.enter(tm.real_time() as _);
+                }
                 self.update_record(*rec)?;
                 self.load_ldb();
                 return Ok(());
@@ -1006,8 +1009,6 @@ impl Scene for SongScene {
             self.first_in = false;
             tm.seek_to(-FADE_IN_TIME as _);
             self.load_ldb();
-        } else if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
-            self.rate_dialog.enter(tm.real_time() as _);
         }
         if let Some(music) = &mut self.preview {
             music.seek_to(0.)?;
