@@ -16,9 +16,10 @@ use std::{
 };
 use sys_locale::get_locale;
 
-static LANGS: [&str; 8] = ["en-US", "id-ID", "ja-JP", "ko-KR", "pl-PL", "ru-RU", "th-TH", "zh-CN"]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_NAMES: [&str; 8] = [
+static LANGS: [&str; 9] = ["en-US", "fr-FR", "id-ID", "ja-JP", "ko-KR", "pl-PL", "ru-RU", "th-TH", "zh-CN"]; // this should be consistent with the macro below (create_bundles)
+pub static LANG_NAMES: [&str; 9] = [
     "English",
+    "Français",
     "Bahasa Indonesia",
     "日本語",
     "한국어",
@@ -27,7 +28,7 @@ pub static LANG_NAMES: [&str; 8] = [
     "แบบไทย",
     "简体中文",
 ]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 8]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
+pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 9]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
 
 #[macro_export]
 macro_rules! create_bundle {
@@ -51,6 +52,7 @@ macro_rules! create_bundles {
     ($file:literal) => {{
         let mut bundles = Vec::new();
         bundles.push($crate::create_bundle!("en-US", $file));
+        bundles.push($crate::create_bundle!("fr-FR", $file));
         bundles.push($crate::create_bundle!("id-ID", $file));
         bundles.push($crate::create_bundle!("ja-JP", $file));
         bundles.push($crate::create_bundle!("ko-KR", $file));
