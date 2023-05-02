@@ -96,7 +96,9 @@ pub struct TagsDialog {
 
     btn_cancel: DRectButton,
     btn_confirm: DRectButton,
+    btn_rating: DRectButton,
     pub confirmed: Option<bool>,
+    pub show_rating: bool,
 }
 
 impl TagsDialog {
@@ -111,7 +113,9 @@ impl TagsDialog {
 
             btn_cancel: DRectButton::new(),
             btn_confirm: DRectButton::new(),
+            btn_rating: DRectButton::new(),
             confirmed: None,
+            show_rating: false,
         }
     }
 
@@ -160,6 +164,11 @@ impl TagsDialog {
                 self.dismiss(t);
                 return true;
             }
+            if self.btn_rating.touch(touch, t) {
+                self.show_rating = true;
+                self.dismiss(t);
+                return true;
+            }
             return true;
         }
         false
@@ -205,7 +214,7 @@ impl TagsDialog {
                     ui.scope(|ui| {
                         ui.dx(r.x);
                         ui.dy(r.bottom() + 0.02);
-                        self.scroll.size((mw, wr.h - r.y - 0.04 - if self.unwanted.is_some() { 0. } else { bh }));
+                        self.scroll.size((mw, wr.bottom() - r.bottom() - 0.06 - bh));
                         self.scroll.render(ui, |ui| {
                             let mut h = 0.;
                             if self.unwanted.is_some() {
@@ -227,13 +236,16 @@ impl TagsDialog {
                             (mw, h)
                         });
                     });
-                    if self.unwanted.is_none() {
                         let pad = 0.02;
+                    if self.unwanted.is_none() {
                         let bw = (wr.w - pad * 3.) / 2.;
                         let mut r = Rect::new(wr.x + pad, wr.bottom() - 0.02 - bh, bw, bh);
                         self.btn_cancel.render_text(ui, r, t, c.a, tl!("cancel"), 0.5, true);
                         r.x += bw + pad;
                         self.btn_confirm.render_text(ui, r, t, c.a, tl!("confirm"), 0.5, true);
+                    } else {
+                        let r = Rect::new(wr.x, wr.bottom() - 0.02 - bh, wr.w, bh).nonuniform_feather(-pad, 0.);
+                        self.btn_rating.render_text(ui, r, t, c.a, tl!("filter-by-rating"), 0.5, true);
                     }
                 });
             });

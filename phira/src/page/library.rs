@@ -6,6 +6,7 @@ use crate::{
     data::LocalChart,
     dir, get_data, get_data_mut,
     popup::Popup,
+    rate::RateDialog,
     save_data,
     scene::{import_chart, ChartOrder, SongScene, ORDERS},
     tags::TagsDialog,
@@ -113,6 +114,9 @@ pub struct LibraryPage {
     filter_btn: DRectButton,
     tags: TagsDialog,
     tags_last_show: bool,
+    rating: RateDialog,
+    rating_last_show: bool,
+    filter_show_tag: bool,
 }
 
 impl LibraryPage {
@@ -167,7 +171,7 @@ impl LibraryPage {
             icon_info,
             icon_filter,
             icon_mod,
-            icon_star,
+            icon_star: icon_star.clone(),
 
             import_btn: DRectButton::new(),
             import_task: None,
@@ -184,6 +188,12 @@ impl LibraryPage {
             filter_btn: DRectButton::new(),
             tags: TagsDialog::new(true).tap_mut(|it| it.unwanted.as_mut().unwrap().add("plain".to_owned())),
             tags_last_show: false,
+            rating: RateDialog::new(icon_star, true).tap_mut(|it| {
+                it.rate.score = 3;
+                it.rate_upper.as_mut().unwrap().score = 10;
+            }),
+            rating_last_show: false,
+            filter_show_tag: true,
         })
     }
 }
@@ -359,13 +369,14 @@ impl LibraryPage {
             .cloned()
             .chain(self.tags.unwanted.as_ref().unwrap().tags.iter().map(|it| format!("-{it}")))
             .join(",");
+        let rating_range = format!("{},{}", self.rating.rate.score as f32 / 10., self.rating.rate_upper.as_ref().unwrap().score as f32 / 10.);
         let popular = matches!(self.chosen, ChartListType::Popular);
         self.online_task = Some(Task::new(async move {
             let mut q = Client::query::<Chart>();
             if popular {
                 q = q.suffix("/popular");
             } else {
-                q = q.search(search).order(order).tags(tags);
+                q = q.search(search).order(order).tags(tags).query("rating", rating_range);
             }
             let (remote_charts, count) = q.page(page).page_num(PAGE_NUM).send().await?;
             let total_page = if count == 0 { 0 } else { (count - 1) / PAGE_NUM + 1 };
@@ -438,6 +449,9 @@ impl Page for LibraryPage {
             return Ok(true);
         }
         if self.tags.touch(touch, t) {
+            return Ok(true);
+        }
+        if self.rating.touch(touch, t) {
             return Ok(true);
         }
         if self.transit.is_some() || self.import_task.is_some() {
@@ -581,7 +595,11 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
                 if self.filter_btn.touch(touch, t) {
-                    self.tags.enter(t);
+                    if self.filter_show_tag {
+                        self.tags.enter(t);
+                    } else {
+                        self.rating.enter(t);
+                    }
                     return Ok(true);
                 }
             }
@@ -593,10 +611,23 @@ impl Page for LibraryPage {
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
         self.tags.update(t);
-        if self.tags_last_show && !self.tags.showing() {
+        self.rating.update(t);
+        if self.tags.show_rating {
+            self.tags.show_rating = false;
+            self.filter_show_tag = false;
+            self.rating.enter(t);
+        } else if self.tags_last_show && !self.tags.showing() {
+            self.load_online();
+        }
+        if self.rating.show_tags {
+            self.rating.show_tags = false;
+            self.filter_show_tag = true;
+            self.tags.enter(t);
+        } else if self.rating_last_show && !self.rating.showing() {
             self.load_online();
         }
         self.tags_last_show = self.tags.showing();
+        self.rating_last_show = self.rating.showing();
         if let Some(task) = &mut self.online_task {
             if let Some(res) = task.take() {
                 match res {
@@ -815,6 +846,7 @@ impl Page for LibraryPage {
         }
         self.order_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
+        self.rating.render(ui, t);
         Ok(())
     }
 
