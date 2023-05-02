@@ -468,9 +468,7 @@ impl Page for LibraryPage {
                 self.current_page = 0;
             }
             self.switch_to_type(ChartListType::Online);
-            if self.online_charts.is_none() {
-                self.load_online();
-            }
+            self.load_online();
             return Ok(true);
         }
         if self.btn_popular.touch(touch, t) {
@@ -480,9 +478,7 @@ impl Page for LibraryPage {
                 self.current_page = 0;
             }
             self.switch_to_type(ChartListType::Popular);
-            if self.online_charts.is_none() {
-                self.load_online();
-            }
+            self.load_online();
             return Ok(true);
         }
         if !matches!(self.chosen, ChartListType::Local) && self.online_task.is_none() {
