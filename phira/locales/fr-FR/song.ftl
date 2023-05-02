@@ -55,7 +55,7 @@ upload-confirm = Confirmer
 uploading = Téléchargement
 upload-chart-failed = Échec du téléchargement de la partition
 upload-success = Téléchargé avec succès, veuillez attendre l'examen !
-upload-failed = Échec du Téléchargement
+upload-failed = Échec du téléchargement
 
 ldb = Classement
 ldb-load-failed = Échec du chargement du classement
