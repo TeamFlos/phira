@@ -30,6 +30,7 @@ use std::{
         Arc,
     },
 };
+use tap::Tap;
 
 const CHART_HEIGHT: f32 = 0.3;
 const CHART_PADDING: f32 = 0.013;
@@ -181,7 +182,7 @@ impl LibraryPage {
             current_order: 0,
 
             filter_btn: DRectButton::new(),
-            tags: TagsDialog::new(true),
+            tags: TagsDialog::new(true).tap_mut(|it| it.unwanted.as_mut().unwrap().add("plain".to_owned())),
             tags_last_show: false,
         })
     }

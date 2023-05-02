@@ -34,14 +34,14 @@ impl ChartOrder {
 }
 
 const ORDER_NUM: usize = 6;
-const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rev-time", "name", "rev-name", "rating", "rev-rating"];
+const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rev-time", "rating", "rev-rating", "name", "rev-name"];
 pub static ORDERS: [(ChartOrder, bool); ORDER_NUM] = [
     (ChartOrder::Default, false),
     (ChartOrder::Default, true),
-    (ChartOrder::Name, false),
-    (ChartOrder::Name, true),
     (ChartOrder::Rating, true),
     (ChartOrder::Rating, false),
+    (ChartOrder::Name, false),
+    (ChartOrder::Name, true),
 ];
 
 pub struct ChartOrderBox {
