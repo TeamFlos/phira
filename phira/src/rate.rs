@@ -175,7 +175,12 @@ impl RateDialog {
             self.fader.for_sub(|f| {
                 f.render(ui, t, |ui, c| {
                     ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
-                    let r = ui.text(tl!("rate")).pos(wr.x + 0.04, wr.y + 0.033).size(0.9).color(c).draw();
+                    let r = ui
+                        .text(if self.rate_upper.is_some() { tl!("filter") } else { tl!("rate") })
+                        .pos(wr.x + 0.04, wr.y + 0.033)
+                        .size(0.9)
+                        .color(c)
+                        .draw();
                     let bh = 0.09;
                     ui.scope(|ui| {
                         ui.dy(r.bottom() + 0.04);
