@@ -46,6 +46,7 @@ impl MainScene {
                 it.borrow_mut().create_music(
                     bgm_clip,
                     sasa::MusicParams {
+                        amplifier: get_data().config.volume_bgm,
                         loop_mix_time: 5.46,
                         command_buffer_size: 64,
                         ..Default::default()
