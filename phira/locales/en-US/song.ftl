@@ -40,6 +40,8 @@ edit-tags = Edit tags
 edit-downloaded = You can't edit downloaded chart
 
 edit-upload = Upload
+edit-update = Update
+
 upload-login-first = Please login first
 upload-builtin = Built-in beatmaps cannot be uploaded
 upload-downloaded = Downloaded beatmaps cannot be uploaded
@@ -99,3 +101,5 @@ rate-done = Rated successfully
 need-update = Update needed
 need-update-info-only-content = The info of beatmap has updated. Do you want to sync the update?
 need-update-content = This beatmap has updated. You must sync your local version before uploading record. Do you want to do it now?
+
+request-failed = Request failed

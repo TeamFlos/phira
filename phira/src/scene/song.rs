@@ -627,13 +627,17 @@ impl SongScene {
         Ok(())
     }
 
+    fn is_owner(&self) -> bool {
+        self.info.id.is_none()
+            || (self.info.created.is_some() && self.info.uploader.as_ref().map(|it| it.id) == get_data().me.as_ref().map(|it| it.id))
+    }
+
     fn side_chart_info(&mut self, ui: &mut Ui, rt: f32) -> Result<()> {
         let h = 0.11;
         let pad = 0.03;
         let width = self.side_content.width() - pad;
 
-        let is_owner = self.info.id.is_none()
-            || (self.info.created.is_some() && self.info.uploader.as_ref().map(|it| it.id) == get_data().me.as_ref().map(|it| it.id));
+        let is_owner = self.is_owner();
         let vpad = 0.02;
         let hpad = 0.01;
         let dx = width / if is_owner { 3. } else { 2. };
@@ -918,10 +922,11 @@ impl SongScene {
         let info = edit.info.clone();
         let path = self.local_path.clone().unwrap();
         let edit = edit.clone();
+        let is_owner = self.is_owner();
         self.save_task = Some(Task::new(async move {
             let dir = prpr::dir::Dir::new(format!("{}/{path}", dir::charts()?))?;
             let patches = edit.to_patches().await.with_context(|| tl!("edit-load-file-failed"))?;
-            if patches.contains_key(&info.chart) {
+            if !is_owner && patches.contains_key(&info.chart) {
                 bail!(tl!("edit-downloaded"));
             }
             let bytes = if let Some(bytes) = patches.get(&info.music) {

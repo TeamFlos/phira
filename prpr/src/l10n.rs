@@ -87,7 +87,7 @@ impl L10nGlobal {
                 order.push(id);
             }
         }
-        order.push(1); // en-US
+        order.push(0); // en-US
         Self {
             lang_map,
             order: order.into(),

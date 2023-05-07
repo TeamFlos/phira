@@ -100,3 +100,5 @@ rate-done = 评分成功
 need-update = 谱面更新
 need-update-info-only-content = 谱面信息已更新，需要现在同步这些信息吗？
 need-update-content = 谱面已更新，若本地不更新您将无法上传成绩。需要现在更新吗？
+
+request-failed = 请求失败
