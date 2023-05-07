@@ -143,6 +143,13 @@ pub fn request_input(id: impl Into<String>, #[allow(unused_variables)] text: &st
 
                 let action: ObjcId = msg_send![
                     class!(UIAlertAction),
+                    actionWithTitle: str_to_ns("Cancel")
+                    style: 1
+                    handler: 0
+                ];
+                let _: () = msg_send![alert, addAction: action];
+                let action: ObjcId = msg_send![
+                    class!(UIAlertAction),
                     actionWithTitle: str_to_ns("OK")
                     style: 0
                     handler: ConcreteBlock::new({
