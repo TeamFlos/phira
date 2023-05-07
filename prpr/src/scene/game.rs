@@ -1068,6 +1068,7 @@ impl Scene for GameScene {
         }
         if msaa || !self.res.no_effect {
             // render the texture onto screen
+            self.compatible_mode = true;
             if let Some(target) = &self.res.chart_target {
                 self.gl.flush();
                 if !self.compatible_mode
