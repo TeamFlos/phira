@@ -513,6 +513,18 @@ impl GameScene {
                         }
                     }
                 }
+                let mut pos = self.music.position();
+                if clicked.map_or(false, |it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
+                    debug!("recreating music");
+                    self.music = res.audio.create_music(
+                        res.music.clone(),
+                        MusicParams {
+                            amplifier: res.config.volume_music as _,
+                            playback_rate: res.config.speed as _,
+                            ..Default::default()
+                        },
+                    )?;
+                }
                 match clicked {
                     Some(-1) => {
                         self.should_exit = true;
@@ -521,18 +533,6 @@ impl GameScene {
                         reset!(self, res, tm);
                     }
                     Some(1) => {
-                        let mut pos = self.music.position();
-                        if (tm.speed - res.config.speed as f64).abs() > 0.01 {
-                            debug!("recreating music");
-                            self.music = res.audio.create_music(
-                                res.music.clone(),
-                                MusicParams {
-                                    amplifier: res.config.volume_music as _,
-                                    playback_rate: res.config.speed as _,
-                                    ..Default::default()
-                                },
-                            )?;
-                        }
                         if self.mode == GameMode::Exercise && tm.now() > self.exercise_range.end as f64 {
                             tm.seek_to(self.exercise_range.start as f64);
                             self.music.seek_to(self.exercise_range.start)?;
