@@ -16,7 +16,7 @@ pub enum ChallengeModeColor {
 }
 
 bitflags! {
-    #[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+    #[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, Debug)]
     #[serde(transparent)]
     pub struct Mods: i32 {
         const AUTOPLAY = 1;

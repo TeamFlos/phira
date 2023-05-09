@@ -14,7 +14,6 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
-    config::Mods,
     core::Tweenable,
     ext::{semi_black, JoinToString, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     scene::{request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, NextScene},
@@ -510,21 +509,21 @@ impl Page for LibraryPage {
             for (id, (btn, chart)) in self.chart_btns.iter_mut().zip(charts.into_iter().flatten()).enumerate() {
                 if btn.touch(touch, t) {
                     button_hit_large();
+                    let download_path = chart.info.id.map(|it| format!("download/{it}"));
                     let scene = SongScene::new(
                         chart.clone(),
                         if matches!(self.chosen, ChartListType::Local) {
                             None
                         } else {
-                            let path = format!("download/{}", chart.info.id.unwrap());
                             s.charts_local
                                 .iter()
-                                .find(|it| it.local_path.as_ref() == Some(&path))
+                                .find(|it| it.local_path.as_ref() == Some(download_path.as_ref().unwrap()))
                                 .map(|it| it.illu.clone())
                         },
                         if matches!(self.chosen, ChartListType::Local) {
                             chart.local_path.clone()
                         } else {
-                            let path = format!("download/{}", chart.info.id.unwrap());
+                            let path = download_path.clone().unwrap();
                             if Path::new(&format!("{}/{path}", dir::charts()?)).exists() {
                                 Some(path)
                             } else {
@@ -542,16 +541,12 @@ impl Page for LibraryPage {
                         s.icons.clone(),
                         self.icon_mod.clone(),
                         self.icon_star.clone(),
-                        if matches!(self.chosen, ChartListType::Local) {
-                            get_data()
-                                .charts
-                                .iter()
-                                .find(|it| Some(&it.local_path) == chart.local_path.as_ref())
-                                .unwrap()
-                                .mods
-                        } else {
-                            Mods::default()
-                        },
+                        get_data()
+                            .charts
+                            .iter()
+                            .find(|it| Some(&it.local_path) == download_path.as_ref())
+                            .map(|it| it.mods)
+                            .unwrap_or_default(),
                     );
                     self.transit = Some(TransitState {
                         id: id as _,
