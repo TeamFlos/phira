@@ -115,6 +115,11 @@ impl SideContent {
 }
 
 #[derive(Deserialize)]
+struct StableR {
+    status: i8,
+}
+
+#[derive(Deserialize)]
 struct LeaderboardItem {
     #[serde(flatten)]
     pub inner: Record,
@@ -520,20 +525,27 @@ impl SongScene {
             self.menu_options.push("exercise");
             self.menu_options.push("offset");
         }
-        if self.info.id.is_some() && get_data().me.as_ref().map_or(false, |it| it.has_perm(Permissions::REVIEW)) {
-            if self.entity.as_ref().map_or(false, |it| !it.reviewed) {
+        let perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default();
+        if self.info.id.is_some() && perms.contains(Permissions::REVIEW) {
+            if self.entity.as_ref().map_or(false, |it| !it.reviewed && !it.stable_request) {
                 self.menu_options.push("review-approve");
                 self.menu_options.push("review-deny");
             }
             self.menu_options.push("review-edit-tags");
         }
         if self.info.id.is_some()
-            && get_data()
-                .me
-                .as_ref()
-                .map_or(false, |it| it.has_perm(Permissions::DELETE_UNSTABLE) || Some(it.id) == self.info.uploader.as_ref().map(|it| it.id))
+            && (perms.contains(Permissions::DELETE_UNSTABLE)
+                || get_data()
+                    .me
+                    .as_ref()
+                    .map_or(false, |it| Some(it.id) == self.info.uploader.as_ref().map(|it| it.id)))
+            && self.entity.as_ref().map_or(false, |it| !it.stable)
         {
             self.menu_options.push("review-del");
+        }
+        if self.info.id.is_some() && self.entity.as_ref().map_or(false, |it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
+            self.menu_options.push("stable-approve");
+            self.menu_options.push("stable-deny");
         }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
     }
@@ -1363,6 +1375,29 @@ impl Scene for SongScene {
                     self.tags.tags.set(entity.tags.clone());
                     self.tags.enter(tm.real_time() as _);
                 }
+                "stable-approve" => {
+                    let id = self.info.id.unwrap();
+                    self.review_task = Some(Task::new(async move {
+                        let resp: StableR = recv_raw(Client::post(
+                            format!("/chart/{id}/stabilize"),
+                            &json!({
+                                "approve": true
+                            }),
+                        ))
+                        .await?
+                        .json()
+                        .await?;
+                        Ok((if resp.status == 0 {
+                            tl!("stabilize-approved")
+                        } else {
+                            tl!("stabilize-approved-passed")
+                        })
+                        .into())
+                    }));
+                }
+                "stable-deny" => {
+                    request_input("stable-deny-reason", "");
+                }
                 _ => {}
             }
         }
@@ -1530,21 +1565,43 @@ impl Scene for SongScene {
             }
         }
         if let Some((id, text)) = take_input() {
-            if id == "deny-reason" {
-                let id = self.info.id.unwrap();
-                self.review_task = Some(Task::new(async move {
-                    recv_raw(Client::post(
-                        format!("/chart/{id}/review"),
-                        &json!({
-                            "approve": false,
-                            "reason": text,
-                        }),
-                    ))
-                    .await?;
-                    Ok(tl!("review-denied").into_owned())
-                }));
-            } else {
-                return_input(id, text);
+            match id.as_str() {
+                "deny-reason" => {
+                    let id = self.info.id.unwrap();
+                    self.review_task = Some(Task::new(async move {
+                        recv_raw(Client::post(
+                            format!("/chart/{id}/review"),
+                            &json!({
+                                "approve": false,
+                                "reason": text,
+                            }),
+                        ))
+                        .await?;
+                        Ok(tl!("review-denied").into_owned())
+                    }));
+                }
+                "stable-deny-reason" => {
+                    let id = self.info.id.unwrap();
+                    self.review_task = Some(Task::new(async move {
+                        let resp: StableR = recv_raw(Client::post(
+                            format!("/chart/{id}/stabilize"),
+                            &json!({
+                                "approve": false,
+                                "reason": text,
+                            }),
+                        ))
+                        .await?
+                        .json()
+                        .await?;
+                        Ok((if resp.status == 0 {
+                            tl!("stabilize-denied")
+                        } else {
+                            tl!("stabilize-denied-passed")
+                        })
+                        .into())
+                    }));
+                }
+                _ => return_input(id, text),
             }
         }
         if let Some(task) = &mut self.review_task {

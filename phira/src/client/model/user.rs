@@ -87,6 +87,10 @@ impl Object for User {
     }
 }
 impl User {
+    pub fn perms(&self) -> Permissions {
+        Roles::from_bits(self.roles).map(|it| it.perms(false)).unwrap_or_default()
+    }
+
     pub fn has_perm(&self, perm: Permissions) -> bool {
         Roles::from_bits(self.roles).map_or(false, |it| it.perms(false).contains(perm))
     }

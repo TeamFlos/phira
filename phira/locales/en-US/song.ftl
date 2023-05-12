@@ -103,3 +103,10 @@ need-update-info-only-content = The info of beatmap has updated. Do you want to 
 need-update-content = This beatmap has updated. You must sync your local version before uploading record. Do you want to do it now?
 
 request-failed = Request failed
+
+stabilize-approve = Approve stable
+stabilize-deny = Deny stable
+stabilize-approved = Approved
+stabilize-approved-passed = Approved, the beatmap is stablized
+stabilize-denied = Denied
+stabilize-denied-passed = Denied, the beatmap is rejected
