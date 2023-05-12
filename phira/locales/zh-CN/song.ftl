@@ -70,6 +70,7 @@ info-charter = 谱师
 info-difficulty = 难度
 info-desc = 简介
 info-rating = 评分
+info-type = 种类
 info-tags = 标签
 
 review-approve = 通过

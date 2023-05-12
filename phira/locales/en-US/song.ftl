@@ -71,6 +71,7 @@ info-charter = Charter
 info-difficulty = Difficulty
 info-desc = Description
 info-rating = Rating
+info-type = Type
 info-tags = Tags
 
 review-approve = Approve

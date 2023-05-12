@@ -845,6 +845,10 @@ impl SongScene {
             item(tl!("info-desc"), self.info.intro.as_str().into());
             if let Some(entity) = &self.entity {
                 item(tl!("info-rating"), entity.rating.map_or(Cow::Borrowed("NaN"), |r| format!("{:.2} / 5.00", r * 5.).into()));
+                item(
+                    tl!("info-type"),
+                    format!("{}{}", if entity.reviewed { "" } else { "[Unreviewed] " }, if entity.stable { "Stable" } else { "Unstable" }).into(),
+                );
                 item(tl!("info-tags"), entity.tags.iter().map(|it| format!("#{it}")).join(" ").into());
             }
             (width, h)
@@ -1180,11 +1184,11 @@ impl Scene for SongScene {
         self.rate_dialog.update(rt);
         if self.tags.confirmed.take() == Some(true) {
             if !self.side_enter_time.is_infinite() && matches!(self.side_content, SideContent::Edit) {
-                self.info_edit.as_mut().unwrap().info.tags = self.tags.tags.tags.clone();
+                self.info_edit.as_mut().unwrap().info.tags = self.tags.tags.tags().to_vec();
             } else {
                 let id = self.info.id.unwrap();
-                let tags = self.tags.tags.tags.clone();
-                self.entity.as_mut().unwrap().tags = tags.clone();
+                let tags = self.tags.tags.tags().to_vec();
+                self.entity.as_mut().unwrap().tags = tags.to_vec();
                 self.edit_tags_task = Some(Task::new(async move {
                     recv_raw(Client::post(
                         format!("/chart/{id}/edit-tags"),
