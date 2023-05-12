@@ -851,6 +851,9 @@ impl SongScene {
                 );
                 item(tl!("info-tags"), entity.tags.iter().map(|it| format!("#{it}")).join(" ").into());
             }
+            if let Some(id) = self.info.id {
+                item("ID".into(), id.to_string().into());
+            }
             (width, h)
         });
     }
