@@ -705,7 +705,7 @@ impl SongScene {
             h += 0.06;
             ui.dy(h);
             if ui.button("edit_tags", Rect::new(0.04, 0., 0.2, 0.07), tl!("edit-tags")) {
-                self.tags.tags.set(self.info_edit.as_ref().unwrap().info.tags.clone());
+                self.tags.set(self.info_edit.as_ref().unwrap().info.tags.clone());
                 self.tags.enter(rt);
             }
             (w, h + 0.1)
@@ -1398,7 +1398,7 @@ impl Scene for SongScene {
                         show_message(tl!("review-not-loaded")).warn();
                         return Ok(());
                     };
-                    self.tags.tags.set(entity.tags.clone());
+                    self.tags.set(entity.tags.clone());
                     self.tags.enter(tm.real_time() as _);
                 }
                 "stabilize" => {
