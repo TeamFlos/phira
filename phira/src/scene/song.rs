@@ -1188,12 +1188,13 @@ impl Scene for SongScene {
         self.tags.update(rt);
         self.rate_dialog.update(rt);
         if self.tags.confirmed.take() == Some(true) {
+            let mut tags = self.tags.tags.tags().to_vec();
+            tags.push(self.tags.division.to_owned());
             if !self.side_enter_time.is_infinite() && matches!(self.side_content, SideContent::Edit) {
-                self.info_edit.as_mut().unwrap().info.tags = self.tags.tags.tags().to_vec();
+                self.info_edit.as_mut().unwrap().info.tags = tags;
             } else {
                 let id = self.info.id.unwrap();
-                let tags = self.tags.tags.tags().to_vec();
-                self.entity.as_mut().unwrap().tags = tags.to_vec();
+                self.entity.as_mut().unwrap().tags = tags.clone();
                 self.edit_tags_task = Some(Task::new(async move {
                     recv_raw(Client::post(
                         format!("/chart/{id}/edit-tags"),
