@@ -740,9 +740,9 @@ impl Page for LibraryPage {
                 t,
                 [
                     (&mut self.btn_local, tl!("local"), ChartListType::Local),
-                    (&mut self.btn_ranked, tl!("ranked"), ChartListType::Ranked),
-                    (&mut self.btn_special, tl!("special"), ChartListType::Special),
-                    (&mut self.btn_unstable, tl!("unstable"), ChartListType::Unstable),
+                    (&mut self.btn_ranked, ttl!("chart-ranked"), ChartListType::Ranked),
+                    (&mut self.btn_special, ttl!("chart-special"), ChartListType::Special),
+                    (&mut self.btn_unstable, ttl!("chart-unstable"), ChartListType::Unstable),
                     (&mut self.btn_popular, tl!("popular"), ChartListType::Popular),
                 ]
                 .into_iter()

@@ -9,3 +9,7 @@ release-to-refresh = Release to refresh
 
 switch-on = On
 switch-off = Off
+
+chart-ranked = Ranked
+chart-special = Special
+chart-unstable = Unstable
