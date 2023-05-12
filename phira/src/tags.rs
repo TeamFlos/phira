@@ -248,7 +248,7 @@ impl TagsDialog {
                                 let bw = wr.w / DIVISION_TAGS.len() as f32 - pad;
                                 let mut r = Rect::new(0., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
                                 for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
-                                    btn.render_text(ui, r, t, c.a, *div, 0.5, self.division == *div);
+                                    btn.render_text(ui, r, t, c.a, tl!(*div), 0.5, self.division == *div);
                                     r.x += bw;
                                 }
                                 bh + 0.01
