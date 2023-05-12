@@ -594,7 +594,6 @@ impl SongScene {
                         #[derive(Deserialize)]
                         #[serde(rename_all = "camelCase")]
                         struct Resp {
-                            id: i32,
                             exp_delta: f64,
                             new_best: bool,
                             improvement: u32,

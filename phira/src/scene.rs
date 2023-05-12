@@ -1,7 +1,7 @@
 prpr::tl_file!("import" itl);
 
 mod chart_order;
-pub use chart_order::{ChartOrder, ChartOrderBox, ORDERS};
+pub use chart_order::{ChartOrder, ORDERS};
 
 mod main;
 pub use main::{MainScene, BGM_VOLUME_UPDATED};

@@ -241,11 +241,6 @@ impl<T: Object> QueryBuilder<T> {
         self.query("search", search)
     }
 
-    pub fn flag(mut self, flag: impl Into<Cow<'static, str>>) -> Self {
-        self.queries.insert(flag.into(), "1".into());
-        self
-    }
-
     #[inline]
     pub fn page_num(self, page_num: u64) -> Self {
         self.query("pageNum", page_num.to_string())
