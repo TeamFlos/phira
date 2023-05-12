@@ -11,3 +11,8 @@ cancel = Cancel
 confirm = Confirm
 
 filter-by-rating = Filter by rating
+
+regular = Regular
+troll = Troll
+plain = Plain
+visual = Visual

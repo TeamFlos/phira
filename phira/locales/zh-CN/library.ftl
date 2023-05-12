@@ -1,6 +1,8 @@
 
 local = 本地
-online = 在线
+ranked = 上架
+special = 特殊
+unstable = 未上架
 popular = 热门
 list-empty = 空空如也
 

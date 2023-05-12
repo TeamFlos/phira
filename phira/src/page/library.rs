@@ -44,7 +44,9 @@ pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ChartListType {
     Local,
-    Online,
+    Ranked,
+    Special,
+    Unstable,
     Popular,
 }
 
@@ -64,7 +66,9 @@ struct TransitState {
 
 pub struct LibraryPage {
     btn_local: DRectButton,
-    btn_online: DRectButton,
+    btn_ranked: DRectButton,
+    btn_special: DRectButton,
+    btn_unstable: DRectButton,
     btn_popular: DRectButton,
     chosen: ChartListType,
 
@@ -138,7 +142,9 @@ impl LibraryPage {
         NEED_UPDATE.store(true, Ordering::SeqCst);
         Ok(Self {
             btn_local: DRectButton::new(),
-            btn_online: DRectButton::new(),
+            btn_ranked: DRectButton::new(),
+            btn_special: DRectButton::new(),
+            btn_unstable: DRectButton::new(),
             btn_popular: DRectButton::new(),
             chosen: ChartListType::Local,
 
@@ -229,7 +235,7 @@ impl LibraryPage {
         self.scroll.size(content_size);
         let charts = match self.chosen {
             ChartListType::Local => Some(local),
-            ChartListType::Online | ChartListType::Popular => self.online_charts.as_ref(),
+            _ => self.online_charts.as_ref(),
         };
         let Some(charts) = charts else {
             let ct = r.center();
@@ -371,6 +377,12 @@ impl LibraryPage {
         let division = self.tags.division;
         let rating_range = format!("{},{}", self.rating.rate.score as f32 / 10., self.rating.rate_upper.as_ref().unwrap().score as f32 / 10.);
         let popular = matches!(self.chosen, ChartListType::Popular);
+        let typ = match self.chosen {
+            ChartListType::Ranked => 0,
+            ChartListType::Special => 1,
+            ChartListType::Unstable => 2,
+            _ => -1,
+        };
         self.online_task = Some(Task::new(async move {
             let mut q = Client::query::<Chart>();
             if popular {
@@ -378,7 +390,13 @@ impl LibraryPage {
             } else {
                 q = q.search(search).order(order).tags(tags).query("rating", rating_range);
             }
-            let (remote_charts, count) = q.query("division", division).page(page).page_num(PAGE_NUM).send().await?;
+            let (remote_charts, count) = q
+                .query("type", typ.to_string())
+                .query("division", division)
+                .page(page)
+                .page_num(PAGE_NUM)
+                .send()
+                .await?;
             let total_page = if count == 0 { 0 } else { (count - 1) / PAGE_NUM + 1 };
             let charts: Vec<_> = remote_charts
                 .iter()
@@ -461,24 +479,23 @@ impl Page for LibraryPage {
             self.switch_to_type(ChartListType::Local);
             return Ok(true);
         }
-        if self.btn_online.touch(touch, t) {
-            if matches!(self.chosen, ChartListType::Popular) {
+        let to_type = [
+            (&mut self.btn_ranked, ChartListType::Ranked),
+            (&mut self.btn_special, ChartListType::Special),
+            (&mut self.btn_unstable, ChartListType::Unstable),
+            (&mut self.btn_popular, ChartListType::Popular),
+        ]
+        .into_iter()
+        .filter_map(|it| if it.0.touch(touch, t) { Some(it.1) } else { None })
+        .next();
+        if let Some(typ) = to_type {
+            if self.chosen != typ {
                 self.online_charts = None;
                 self.online_task = None;
                 self.current_page = 0;
+                self.switch_to_type(typ);
+                self.load_online();
             }
-            self.switch_to_type(ChartListType::Online);
-            self.load_online();
-            return Ok(true);
-        }
-        if self.btn_popular.touch(touch, t) {
-            if matches!(self.chosen, ChartListType::Online) {
-                self.online_charts = None;
-                self.online_task = None;
-                self.current_page = 0;
-            }
-            self.switch_to_type(ChartListType::Popular);
-            self.load_online();
             return Ok(true);
         }
         if !matches!(self.chosen, ChartListType::Local) && self.online_task.is_none() {
@@ -505,7 +522,7 @@ impl Page for LibraryPage {
         if self.scroll.contains(touch) {
             let charts = match self.chosen {
                 ChartListType::Local => Some(&s.charts_local),
-                ChartListType::Online | ChartListType::Popular => self.online_charts.as_ref(),
+                _ => self.online_charts.as_ref(),
             };
             for (id, (btn, chart)) in self.chart_btns.iter_mut().zip(charts.into_iter().flatten()).enumerate() {
                 if btn.touch(touch, t) {
@@ -570,7 +587,7 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
             }
-            ChartListType::Online => {
+            ChartListType::Ranked | ChartListType::Special | ChartListType::Unstable => {
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
                     button_hit();
                     self.search_str.clear();
@@ -723,7 +740,9 @@ impl Page for LibraryPage {
                 t,
                 [
                     (&mut self.btn_local, tl!("local"), ChartListType::Local),
-                    (&mut self.btn_online, tl!("online"), ChartListType::Online),
+                    (&mut self.btn_ranked, tl!("ranked"), ChartListType::Ranked),
+                    (&mut self.btn_special, tl!("special"), ChartListType::Special),
+                    (&mut self.btn_unstable, tl!("unstable"), ChartListType::Unstable),
                     (&mut self.btn_popular, tl!("popular"), ChartListType::Popular),
                 ]
                 .into_iter()
@@ -742,7 +761,7 @@ impl Page for LibraryPage {
                     self.import_btn.render_text(ui, r, t, c.a, tl!("import"), 0.6, false);
                 });
             }
-            ChartListType::Online => {
+            ChartListType::Ranked | ChartListType::Special | ChartListType::Unstable => {
                 s.render_fader(ui, |ui, c| {
                     let empty = self.search_str.is_empty();
                     let w = 0.53;

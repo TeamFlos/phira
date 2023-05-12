@@ -1,6 +1,8 @@
 
 local = Local
-online = Online
+ranked = Ranked
+special = Special
+unstable = Unstable
 popular = Popular
 list-empty = Nothing here
 
