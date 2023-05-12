@@ -849,7 +849,16 @@ impl SongScene {
                 item(tl!("info-rating"), entity.rating.map_or(Cow::Borrowed("NaN"), |r| format!("{:.2} / 5.00", r * 5.).into()));
                 item(
                     tl!("info-type"),
-                    format!("{}{}", if entity.reviewed { "" } else { "[Unreviewed] " }, if entity.stable { "Stable" } else { "Unstable" }).into(),
+                    format!(
+                        "{}{}",
+                        if entity.reviewed { "" } else { "[Unreviewed] " },
+                        match (entity.stable, entity.ranked) {
+                            (true, true) => ttl!("chart-ranked"),
+                            (true, false) => ttl!("chart-special"),
+                            (false, _) => ttl!("chart-unstable"),
+                        }
+                    )
+                    .into(),
                 );
                 item(tl!("info-tags"), entity.tags.iter().map(|it| format!("#{it}")).join(" ").into());
             }
