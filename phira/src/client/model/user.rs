@@ -22,6 +22,7 @@ bitflags! {
         const STABILIZE_CHART   = 0x00000020;
         const EDIT_TAGS         = 0x00000040;
         const STABILIZE_JUDGE   = 0x00000080;
+        const DELETE_STABLE     = 0x00000080;
     }
 }
 
@@ -58,6 +59,7 @@ impl Roles {
         }
         if self.contains(Self::HEAD_SUPERVISOR) {
             perm |= Permissions::STABILIZE_JUDGE;
+            perm |= Permissions::DELETE_STABLE;
         }
         perm
     }
