@@ -16,6 +16,8 @@ pub struct Chart {
     pub description: Option<String>,
     pub ranked: bool,
     pub reviewed: bool,
+    pub stable: bool,
+    pub stable_request: bool,
 
     pub illustration: File,
     pub preview: File,

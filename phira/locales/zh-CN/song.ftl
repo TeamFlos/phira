@@ -102,3 +102,10 @@ need-update-info-only-content = 谱面信息已更新，需要现在同步这些
 need-update-content = 谱面已更新，若本地不更新您将无法上传成绩。需要现在更新吗？
 
 request-failed = 请求失败
+
+stabilize-approve = 通过 stable
+stabilize-deny = 拒绝 stable
+stabilize-approved = 已通过
+stabilize-approved-passed = 已通过，谱面已 stable
+stabilize-denied = 已拒绝
+stabilize-denied-passed = 已拒绝，谱面已打回
