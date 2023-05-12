@@ -105,6 +105,7 @@ need-update-content = 谱面已更新，若本地不更新您将无法上传成�
 request-failed = 请求失败
 
 stabilize = 申请 stable
+stabilize-warn = 普通用户每 3 天可以申请一次 stable 谱面。至少拥有一张 stable 谱面的用户每 1 天可以申请一次。
 stabilize-requested = 申请 stable 成功
 stabilize-failed = 申请 stable 失败
 stabilize-approve = 通过 stable

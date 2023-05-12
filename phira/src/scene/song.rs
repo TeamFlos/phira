@@ -210,6 +210,7 @@ pub struct SongScene {
     my_rate_score: Option<i16>,
 
     stabilize_task: Option<Task<Result<()>>>,
+    should_stabilize: Arc<AtomicBool>,
 }
 
 impl SongScene {
@@ -381,6 +382,7 @@ impl SongScene {
             my_rate_score: None,
 
             stabilize_task: None,
+            should_stabilize: Arc::default(),
         }
     }
 
@@ -1390,11 +1392,7 @@ impl Scene for SongScene {
                     self.tags.enter(tm.real_time() as _);
                 }
                 "stabilize" => {
-                    let id = self.info.id.unwrap();
-                    self.stabilize_task = Some(Task::new(async move {
-                        recv_raw(Client::post(format!("/chart/{id}/req-stabilize"), &())).await?;
-                        Ok(())
-                    }));
+                    confirm_dialog(tl!("stabilize"), tl!("stabilize-warn"), Arc::clone(&self.should_stabilize));
                 }
                 "stabilize-approve" => {
                     let id = self.info.id.unwrap();
@@ -1430,6 +1428,13 @@ impl Scene for SongScene {
             self.review_task = Some(Task::new(async move {
                 recv_raw(Client::delete(format!("/chart/{id}"))).await?;
                 Ok(tl!("review-deleted").into_owned())
+            }));
+        }
+        if self.should_stabilize.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.stabilize_task = Some(Task::new(async move {
+                recv_raw(Client::post(format!("/chart/{id}/req-stabilize"), &())).await?;
+                Ok(())
             }));
         }
         if let Some(task) = &mut self.save_task {

@@ -106,6 +106,7 @@ need-update-content = This beatmap has updated. You must sync your local version
 request-failed = Request failed
 
 stabilize = Stabilize
+stabilize-warn = Normal user can only request to stabilize beatmap once per 3 days. If you have beatmaps that are stabilized, the interval is reduced to 1 day.
 stabilize-requested = Stablizing request sent
 stabilize-failed = Stabilize failed
 stabilize-approve = Approve stable
