@@ -2,7 +2,7 @@ prpr::tl_file!("song");
 
 use super::{confirm_delete, confirm_dialog, fs_from_path};
 use crate::{
-    client::{recv_raw, Chart, Client, Ptr, Record, UserManager, UserRole},
+    client::{recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     page::{thumbnail_path, ChartItem, Fader, Illustration, NEED_UPDATE},
@@ -426,7 +426,6 @@ impl SongScene {
                     if prog_wk.strong_count() != 0 {
                         unzip_into(Cursor::new(bytes), &dir, false)?;
                     }
-                    // tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     *status.lock().unwrap() = tl!("dl-status-saving");
                     if let Some(prog) = prog_wk.upgrade() {
                         *prog.lock().unwrap() = None;
@@ -435,7 +434,6 @@ impl SongScene {
                     info.id = Some(entity.id);
                     info.created = Some(entity.created);
                     info.updated = Some(entity.updated);
-                    println!("SET UPDATED TO {}", entity.updated);
                     info.chart_updated = Some(entity.chart_updated);
                     info.uploader = Some(entity.uploader.id);
                     serde_yaml::to_writer(dir.create("info.yml")?, &info)?;
@@ -522,7 +520,7 @@ impl SongScene {
             self.menu_options.push("exercise");
             self.menu_options.push("offset");
         }
-        if self.info.id.is_some() && get_data().me.as_ref().map_or(false, |it| it.role >= UserRole::Reviewer) {
+        if self.info.id.is_some() && get_data().me.as_ref().map_or(false, |it| it.has_perm(Permissions::REVIEW)) {
             if self.entity.as_ref().map_or(false, |it| !it.reviewed) {
                 self.menu_options.push("review-approve");
                 self.menu_options.push("review-deny");
@@ -533,7 +531,7 @@ impl SongScene {
             && get_data()
                 .me
                 .as_ref()
-                .map_or(false, |it| it.role >= UserRole::Reviewer || Some(it.id) == self.info.uploader.as_ref().map(|it| it.id))
+                .map_or(false, |it| it.has_perm(Permissions::DELETE_UNSTABLE) || Some(it.id) == self.info.uploader.as_ref().map(|it| it.id))
         {
             self.menu_options.push("review-del");
         }
@@ -1465,12 +1463,25 @@ impl Scene for SongScene {
                     .await
                     .with_context(|| tl!("upload-chart-failed"))?;
                 if let Some(id) = info.id {
-                    recv_raw(Client::request(Method::PATCH, format!("/chart/{id}")).json(&json!({
+                    #[derive(Deserialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct Resp {
+                        updated: DateTime<Utc>,
+                        chart_updated: DateTime<Utc>,
+                    }
+                    let resp: Resp = recv_raw(Client::request(Method::PATCH, format!("/chart/{id}")).json(&json!({
                         "file": file,
                         "created": info.created.unwrap(),
                     })))
+                    .await?
+                    .json()
                     .await?;
-                    Ok(info)
+                    let conf = root.join("info.yml");
+                    let mut info: ChartInfo = serde_yaml::from_reader(File::open(&conf)?)?;
+                    info.updated = Some(resp.updated);
+                    info.chart_updated = Some(resp.chart_updated);
+                    serde_yaml::to_writer(File::create(conf)?, &info)?;
+                    Ok(info.into())
                 } else {
                     #[derive(Deserialize)]
                     struct Resp {
