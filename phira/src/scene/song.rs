@@ -551,8 +551,13 @@ impl SongScene {
             self.menu_options.push("stabilize-deny");
         }
         if self.info.id.is_some()
-            && (perms.contains(Permissions::DELETE_UNSTABLE) || is_uploader)
-            && self.entity.as_ref().map_or(false, |it| !it.stable)
+            && self.entity.as_ref().map_or(false, |it| {
+                if it.stable {
+                    perms.contains(Permissions::DELETE_STABLE)
+                } else {
+                    is_uploader || perms.contains(Permissions::DELETE_UNSTABLE)
+                }
+            })
         {
             self.menu_options.push("review-del");
         }
