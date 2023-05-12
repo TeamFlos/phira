@@ -208,6 +208,8 @@ pub struct SongScene {
 
     my_rating_task: Option<Task<Result<i16>>>,
     my_rate_score: Option<i16>,
+
+    stabilize_task: Option<Task<Result<()>>>,
 }
 
 impl SongScene {
@@ -377,6 +379,8 @@ impl SongScene {
                 })
             },
             my_rate_score: None,
+
+            stabilize_task: None,
         }
     }
 
@@ -526,6 +530,10 @@ impl SongScene {
             self.menu_options.push("offset");
         }
         let perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default();
+        let is_uploader = get_data()
+            .me
+            .as_ref()
+            .map_or(false, |it| Some(it.id) == self.info.uploader.as_ref().map(|it| it.id));
         if self.info.id.is_some() && perms.contains(Permissions::REVIEW) {
             if self.entity.as_ref().map_or(false, |it| !it.reviewed && !it.stable_request) {
                 self.menu_options.push("review-approve");
@@ -533,19 +541,18 @@ impl SongScene {
             }
             self.menu_options.push("review-edit-tags");
         }
+        if self.info.id.is_some() && is_uploader && self.entity.as_ref().map_or(false, |it| !it.stable && !it.stable_request) {
+            self.menu_options.push("stabilize");
+        }
+        if self.info.id.is_some() && self.entity.as_ref().map_or(false, |it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
+            self.menu_options.push("stabilize-approve");
+            self.menu_options.push("stabilize-deny");
+        }
         if self.info.id.is_some()
-            && (perms.contains(Permissions::DELETE_UNSTABLE)
-                || get_data()
-                    .me
-                    .as_ref()
-                    .map_or(false, |it| Some(it.id) == self.info.uploader.as_ref().map(|it| it.id)))
+            && (perms.contains(Permissions::DELETE_UNSTABLE) || is_uploader)
             && self.entity.as_ref().map_or(false, |it| !it.stable)
         {
             self.menu_options.push("review-del");
-        }
-        if self.info.id.is_some() && self.entity.as_ref().map_or(false, |it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
-            self.menu_options.push("stable-approve");
-            self.menu_options.push("stable-deny");
         }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
     }
@@ -1375,7 +1382,14 @@ impl Scene for SongScene {
                     self.tags.tags.set(entity.tags.clone());
                     self.tags.enter(tm.real_time() as _);
                 }
-                "stable-approve" => {
+                "stabilize" => {
+                    let id = self.info.id.unwrap();
+                    self.stabilize_task = Some(Task::new(async move {
+                        recv_raw(Client::post(format!("/chart/{id}/req-stabilize"), &())).await?;
+                        Ok(())
+                    }));
+                }
+                "stabilize-approve" => {
                     let id = self.info.id.unwrap();
                     self.review_task = Some(Task::new(async move {
                         let resp: StableR = recv_raw(Client::post(
@@ -1395,8 +1409,8 @@ impl Scene for SongScene {
                         .into())
                     }));
                 }
-                "stable-deny" => {
-                    request_input("stable-deny-reason", "");
+                "stabilize-deny" => {
+                    request_input("stabilize-deny-reason", "");
                 }
                 _ => {}
             }
@@ -1580,7 +1594,7 @@ impl Scene for SongScene {
                         Ok(tl!("review-denied").into_owned())
                     }));
                 }
-                "stable-deny-reason" => {
+                "stabilize-deny-reason" => {
                     let id = self.info.id.unwrap();
                     self.review_task = Some(Task::new(async move {
                         let resp: StableR = recv_raw(Client::post(
@@ -1612,6 +1626,19 @@ impl Scene for SongScene {
                     }
                     Ok(msg) => {
                         show_message(msg).ok();
+                    }
+                }
+                self.review_task = None;
+            }
+        }
+        if let Some(task) = &mut self.stabilize_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("stabilize-failed")));
+                    }
+                    Ok(_) => {
+                        show_message(tl!("stabilize-requested")).ok();
                     }
                 }
                 self.review_task = None;

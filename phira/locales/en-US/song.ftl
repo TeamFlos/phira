@@ -104,6 +104,9 @@ need-update-content = This beatmap has updated. You must sync your local version
 
 request-failed = Request failed
 
+stabilize = Stabilize
+stabilize-requested = Stablizing request sent
+stabilize-failed = Stabilize failed
 stabilize-approve = Approve stable
 stabilize-deny = Deny stable
 stabilize-approved = Approved
