@@ -110,6 +110,7 @@ stabilize-warn = Normal user can only request to stabilize beatmap once per 3 da
 stabilize-requested = Stablizing request sent
 stabilize-failed = Stabilize failed
 stabilize-approve = Approve stable
+stabilize-approve-ranked = Approve ranked
 stabilize-deny = Deny stable
 stabilize-approved = Approved
 stabilize-approved-passed = Approved, the beatmap is stablized
