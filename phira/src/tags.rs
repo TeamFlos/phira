@@ -40,7 +40,7 @@ impl Tags {
         self.btns.push(DRectButton::new());
     }
 
-    pub fn set(&mut self, mut tags: Vec<String>) {
+    pub fn set(&mut self, tags: Vec<String>) {
         let tags: Vec<_> = tags
             .into_iter()
             .map(|it| it.trim().to_owned())
@@ -243,15 +243,19 @@ impl TagsDialog {
                         ui.dy(r.bottom() + 0.02);
                         self.scroll.size((mw, wr.bottom() - r.bottom() - 0.06 - bh));
                         self.scroll.render(ui, |ui| {
-                            let pad = 0.015;
-                            let bw = wr.w / DIVISION_TAGS.len() as f32 - pad;
-                            let mut r = Rect::new(0., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
-                            for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
-                                btn.render_text(ui, r, t, c.a, *div, 0.5, self.division == *div);
-                                r.x += bw;
-                            }
-                            ui.dy(bh);
-                            let mut h = bh;
+                            let mut h = if self.unwanted.is_some() {
+                                let pad = 0.015;
+                                let bw = wr.w / DIVISION_TAGS.len() as f32 - pad;
+                                let mut r = Rect::new(0., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
+                                for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
+                                    btn.render_text(ui, r, t, c.a, *div, 0.5, self.division == *div);
+                                    r.x += bw;
+                                }
+                                bh + 0.01
+                            } else {
+                                0.
+                            };
+                            ui.dy(h);
                             if self.unwanted.is_some() {
                                 let th = ui.text(tl!("wanted")).size(0.5).color(c).draw().h + 0.01;
                                 ui.dy(th);
