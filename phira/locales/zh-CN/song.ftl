@@ -109,6 +109,7 @@ stabilize-warn = 普通用户每 3 天可以申请一次 stable 谱面。至少�
 stabilize-requested = 申请 stable 成功
 stabilize-failed = 申请 stable 失败
 stabilize-approve = 通过 stable
+stabilize-approve-ranked = 通过 ranked
 stabilize-deny = 拒绝 stable
 stabilize-approved = 已通过
 stabilize-approved-passed = 已通过，谱面已 stable

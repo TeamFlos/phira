@@ -548,6 +548,7 @@ impl SongScene {
         }
         if self.info.id.is_some() && self.entity.as_ref().map_or(false, |it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
             self.menu_options.push("stabilize-approve");
+            self.menu_options.push("stabilize-approve-ranked");
             self.menu_options.push("stabilize-deny");
         }
         if self.info.id.is_some()
@@ -1360,7 +1361,8 @@ impl Scene for SongScene {
             }
         }
         if self.menu.changed() {
-            match self.menu_options[self.menu.selected()] {
+            let option = self.menu_options[self.menu.selected()];
+            match option {
                 "delete" => {
                     confirm_delete(self.should_delete.clone());
                 }
@@ -1409,13 +1411,14 @@ impl Scene for SongScene {
                 "stabilize" => {
                     confirm_dialog(tl!("stabilize"), tl!("stabilize-warn"), Arc::clone(&self.should_stabilize));
                 }
-                "stabilize-approve" => {
+                "stabilize-approve" | "stabilize-approve-ranked" => {
+                    let kind = if option == "stabilize-approve-ranked" { 1 } else { 0 };
                     let id = self.info.id.unwrap();
                     self.review_task = Some(Task::new(async move {
                         let resp: StableR = recv_raw(Client::post(
                             format!("/chart/{id}/stabilize"),
                             &json!({
-                                "approve": true
+                                "kind": kind,
                             }),
                         ))
                         .await?
@@ -1627,7 +1630,7 @@ impl Scene for SongScene {
                         let resp: StableR = recv_raw(Client::post(
                             format!("/chart/{id}/stabilize"),
                             &json!({
-                                "approve": false,
+                                "kind": -1,
                                 "reason": text,
                             }),
                         ))
