@@ -185,7 +185,7 @@ impl LibraryPage {
             current_order: 0,
 
             filter_btn: DRectButton::new(),
-            tags: TagsDialog::new(true).tap_mut(|it| it.unwanted.as_mut().unwrap().add("plain".to_owned())),
+            tags: TagsDialog::new(true),
             tags_last_show: false,
             rating: RateDialog::new(icon_star, true).tap_mut(|it| {
                 it.rate.score = 3;
@@ -363,11 +363,12 @@ impl LibraryPage {
         let tags = self
             .tags
             .tags
-            .tags
+            .tags()
             .iter()
             .cloned()
-            .chain(self.tags.unwanted.as_ref().unwrap().tags.iter().map(|it| format!("-{it}")))
+            .chain(self.tags.unwanted.as_ref().unwrap().tags().iter().map(|it| format!("-{it}")))
             .join(",");
+        let division = self.tags.division;
         let rating_range = format!("{},{}", self.rating.rate.score as f32 / 10., self.rating.rate_upper.as_ref().unwrap().score as f32 / 10.);
         let popular = matches!(self.chosen, ChartListType::Popular);
         self.online_task = Some(Task::new(async move {
@@ -377,7 +378,7 @@ impl LibraryPage {
             } else {
                 q = q.search(search).order(order).tags(tags).query("rating", rating_range);
             }
-            let (remote_charts, count) = q.page(page).page_num(PAGE_NUM).send().await?;
+            let (remote_charts, count) = q.query("division", division).page(page).page_num(PAGE_NUM).send().await?;
             let total_page = if count == 0 { 0 } else { (count - 1) / PAGE_NUM + 1 };
             let charts: Vec<_> = remote_charts
                 .iter()

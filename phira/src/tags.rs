@@ -8,9 +8,11 @@ use prpr::{
     ui::{DRectButton, Scroll, Ui},
 };
 
+const DIVISION_TAGS: &[&str] = &["regular", "troll", "plain", "visual"];
+
 pub struct Tags {
     input_id: &'static str,
-    pub tags: Vec<String>,
+    tags: Vec<String>,
     btns: Vec<DRectButton>,
     add: DRectButton,
 }
@@ -25,12 +27,25 @@ impl Tags {
         }
     }
 
+    pub fn tags(&self) -> &[String] {
+        &&self.tags
+    }
+
     pub fn add(&mut self, s: String) {
+        let s = s.trim().to_owned();
+        if DIVISION_TAGS.contains(&s.as_str()) {
+            return;
+        }
         self.tags.push(s);
         self.btns.push(DRectButton::new());
     }
 
-    pub fn set(&mut self, tags: Vec<String>) {
+    pub fn set(&mut self, mut tags: Vec<String>) {
+        let tags: Vec<_> = tags
+            .into_iter()
+            .map(|it| it.trim().to_owned())
+            .filter(|it| !DIVISION_TAGS.contains(&it.as_str()))
+            .collect();
         self.btns = vec![DRectButton::new(); tags.len()];
         self.tags = tags;
     }
@@ -94,6 +109,9 @@ pub struct TagsDialog {
     pub tags: Tags,
     pub unwanted: Option<Tags>,
 
+    pub division: &'static str,
+    div_btns: Vec<DRectButton>,
+
     btn_cancel: DRectButton,
     btn_confirm: DRectButton,
     btn_rating: DRectButton,
@@ -110,6 +128,9 @@ impl TagsDialog {
             scroll: Scroll::new(),
             tags: Tags::new("add_tag"),
             unwanted: if search_mode { Some(Tags::new("add_tag_unwanted")) } else { None },
+
+            division: DIVISION_TAGS[0],
+            div_btns: DIVISION_TAGS.iter().map(|_| DRectButton::new()).collect(),
 
             btn_cancel: DRectButton::new(),
             btn_confirm: DRectButton::new(),
@@ -152,6 +173,12 @@ impl TagsDialog {
                 if unwanted.touch(touch, t) {
                     self.scroll.y_scroller.halt();
                     return true;
+                }
+            }
+            for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
+                if btn.touch(touch, t) {
+                    self.scroll.y_scroller.halt();
+                    self.division = div;
                 }
             }
             if self.btn_cancel.touch(touch, t) {
@@ -216,7 +243,15 @@ impl TagsDialog {
                         ui.dy(r.bottom() + 0.02);
                         self.scroll.size((mw, wr.bottom() - r.bottom() - 0.06 - bh));
                         self.scroll.render(ui, |ui| {
-                            let mut h = 0.;
+                            let pad = 0.015;
+                            let bw = wr.w / DIVISION_TAGS.len() as f32 - pad;
+                            let mut r = Rect::new(0., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
+                            for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
+                                btn.render_text(ui, r, t, c.a, *div, 0.5, self.division == *div);
+                                r.x += bw;
+                            }
+                            ui.dy(bh);
+                            let mut h = bh;
                             if self.unwanted.is_some() {
                                 let th = ui.text(tl!("wanted")).size(0.5).color(c).draw().h + 0.01;
                                 ui.dy(th);
@@ -236,7 +271,7 @@ impl TagsDialog {
                             (mw, h)
                         });
                     });
-                        let pad = 0.02;
+                    let pad = 0.02;
                     if self.unwanted.is_none() {
                         let bw = (wr.w - pad * 3.) / 2.;
                         let mut r = Rect::new(wr.x + pad, wr.bottom() - 0.02 - bh, bw, bh);
