@@ -48,8 +48,8 @@ upload-downloaded = Downloaded beatmaps cannot be uploaded
 upload-rules = Upload rules
 upload-rules-content =
   Before uploading, you need to confirm that:
-  1. The beatmap was created by me, or the act of uploading it has been approved by the scorer. If it is the second case, it needs to be indicated in the beatmap introduction that it is uploaded on behalf of a person;
-  2. If the beatmap is created by yourself, it is recommended to use a highly recognizable avatar and ID; If the avatar ID you use in prpr is quite different from the self-made score video publishing platform (specifically, BiliBili), additional annotations are required;
+  1. ! The beatmap is created by me.
+  2. It is recommended to use a highly recognizable avatar and ID; If the avatar ID you use in Phira is quite different from the self-made score video publishing platform (specifically, BiliBili), additional annotations are required;
   3. ! It is forbidden to violate the rules and upload the beatmap without the consent of the scorer, otherwise you may face the penalty of permanent ban on uploading;
   4. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information.
 upload-cancel = Cancel
