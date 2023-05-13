@@ -16,3 +16,7 @@ regular = 常规
 troll = 整活
 plain = 纯配置
 visual = 观赏
+
+filter-me = 我上传的
+filter-unreviewed = 待审核
+filter-stabilize = 待 stable 审核

@@ -50,7 +50,7 @@ enum ChartListType {
     Popular,
 }
 
-type OnlineTaskResult = (Vec<(ChartItem, bool)>, Vec<Chart>, u64);
+type OnlineTaskResult = (Vec<(ChartItem, Option<char>)>, Vec<Chart>, u64);
 type OnlineTask = Task<Result<OnlineTaskResult>>;
 
 struct TransitState {
@@ -85,7 +85,7 @@ pub struct LibraryPage {
 
     online_task: Option<OnlineTask>,
     online_charts: Option<Vec<ChartItem>>,
-    online_charts_reviewed: Option<Vec<bool>>,
+    online_charts_symbols: Option<Vec<Option<char>>>,
 
     icon_back: SafeTexture,
     icon_play: SafeTexture,
@@ -161,7 +161,7 @@ impl LibraryPage {
 
             online_task: None,
             online_charts: None,
-            online_charts_reviewed: None,
+            online_charts_symbols: None,
 
             icon_back,
             icon_play,
@@ -191,7 +191,7 @@ impl LibraryPage {
             current_order: 0,
 
             filter_btn: DRectButton::new(),
-            tags: TagsDialog::new(true),
+            tags: TagsDialog::new(true).tap_mut(|it| it.perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default()),
             tags_last_show: false,
             rating: RateDialog::new(icon_star, true).tap_mut(|it| {
                 it.rate.score = 3;
@@ -328,10 +328,10 @@ impl LibraryPage {
                                 .size(0.6 * r.w / cw)
                                 .color(c)
                                 .draw();
-                            if !matches!(self.chosen, ChartListType::Local)
-                                && self.online_charts_reviewed.as_ref().map_or(false, |it| !it[id as usize])
-                            {
-                                ui.text("*").pos(r.x + 0.01, r.y + 0.01).size(0.8 * r.w / cw).color(c).draw();
+                            if !matches!(self.chosen, ChartListType::Local) {
+                                if let Some(ch) = self.online_charts_symbols.as_ref().unwrap()[id as usize] {
+                                    ui.text(ch.to_string()).pos(r.x + 0.01, r.y + 0.01).size(0.8 * r.w / cw).color(c).draw();
+                                }
                             }
                         });
                     })
@@ -347,7 +347,7 @@ impl LibraryPage {
         }
         self.scroll.y_scroller.offset = 0.;
         self.online_charts = None;
-        self.online_charts_reviewed = None;
+        self.online_charts_symbols = None;
         let page = self.current_page;
         let search = self.search_str.clone();
         let order = {
@@ -383,12 +383,27 @@ impl LibraryPage {
             ChartListType::Unstable => 2,
             _ => -1,
         };
+        let by_me = if self.tags.show_me {
+            get_data().me.as_ref().map(|it| it.id)
+        } else {
+            None
+        };
+        let show_unreviewed = self.tags.show_unreviewed;
+        let show_stabilize = self.tags.show_stabilize;
         self.online_task = Some(Task::new(async move {
             let mut q = Client::query::<Chart>();
             if popular {
                 q = q.suffix("/popular");
             } else {
                 q = q.search(search).order(order).tags(tags).query("rating", rating_range);
+            }
+            if let Some(me) = by_me {
+                q = q.query("uploader", me.to_string());
+            }
+            if show_stabilize {
+                q = q.query("stableRequest", "true");
+            } else if show_unreviewed {
+                q = q.query("reviewed", "false").query("stableRequest", "false");
             }
             let (remote_charts, count) = q
                 .query("type", typ.to_string())
@@ -415,7 +430,13 @@ impl LibraryPage {
                             },
                             local_path: None,
                         },
-                        it.reviewed,
+                        if it.stable_request {
+                            Some('+')
+                        } else if !it.reviewed {
+                            Some('*')
+                        } else {
+                            None
+                        },
                     )
                 })
                 .collect();
@@ -643,9 +664,9 @@ impl Page for LibraryPage {
                     Err(err) => show_error(err.context(tl!("failed-to-load-online"))),
                     Ok(res) => {
                         self.online_total_page = res.2;
-                        let (online_charts, online_charts_reviewed) = res.0.into_iter().unzip();
+                        let (online_charts, online_charts_symbols) = res.0.into_iter().unzip();
                         self.online_charts = Some(online_charts);
-                        self.online_charts_reviewed = Some(online_charts_reviewed);
+                        self.online_charts_symbols = Some(online_charts_symbols);
                         self.charts_fader.sub(t);
                     }
                 }
