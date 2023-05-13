@@ -16,3 +16,7 @@ regular = Regular
 troll = Troll
 plain = Plain
 visual = Visual
+
+filter-me = Uploaded by me
+filter-unreviewed = Unreviewed
+filter-stabilize = Stabilize request

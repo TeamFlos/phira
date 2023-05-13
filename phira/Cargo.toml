@@ -36,6 +36,7 @@ serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_yaml = "0.9.17"
 sha2 = "*"
+smallvec = "1.10.0"
 tap = "1.0.1"
 tokio = { version = "*", features = ["rt-multi-thread", "sync"] }
 uuid7 = "0.3.4"
