@@ -152,6 +152,7 @@ macro_rules! reset {
         $res.judge_line_color = Color::from_hex($res.res_pack.info.color_perfect);
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
+        $tm.speed = $res.config.speed as _;
         $tm.reset();
         $self.last_update_time = $tm.now();
         $self.state = State::Starting;
