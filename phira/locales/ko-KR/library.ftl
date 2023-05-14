@@ -1,7 +1,7 @@
 
 local = 로컬
 popular = 인기
-list-empty = 이곳에는 아무것도 존재하지않음
+list-empty = 아무것도 없음
 
 page = 페이지 { $current } / { $total }
 prev-page = 앞 페이지
