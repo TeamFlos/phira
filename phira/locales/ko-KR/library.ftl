@@ -1,6 +1,5 @@
 
 local = 로컬
-online = 온라인
 popular = 인기
 list-empty = 이곳에는 아무것도 존재하지않음
 
