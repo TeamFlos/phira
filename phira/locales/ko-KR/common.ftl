@@ -8,3 +8,7 @@ release-to-refresh = 새로고침
 
 switch-on = 켜짐
 switch-off = 꺼짐
+
+chart-ranked = 랭크됨
+chart-special = 스페셜
+chart-unstable = 불안정함
