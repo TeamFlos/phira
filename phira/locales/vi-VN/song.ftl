@@ -21,8 +21,8 @@ guest = Neki
 warn-unrated = Không Xếp Hạng Lượt Này
 failed-to-play = Không Bắt Đầu Được Ở Chế Độ Online
 play-cancel = Hủy
-play-switch-to-offline = Gạt Sang Chế Độ Offline 
-switched-to-offline Gạt Sang Chế Độ Offline
+play-switch-to-offline = Gạt Sang Chế Độ Offline
+switched-to-offline = Gạt Sang Chế Độ Offline
 
 delete = Xoá
 rate = Đánh Giá
@@ -82,7 +82,7 @@ review-action-failed = Không Xem Xét
 review-doing = Thực Hiện Hành Độngt
 review-not-loaded = Thông Tin Chưa Tải Được, Hãy Chờ
 review-edit-tags = Sửa Thẻ
-review-edit-tags-failed = Sửa Thẻ Thất Bại 
+review-edit-tags-failed = Sửa Thẻ Thất Bại
 review-edit-tags-done = Đã Cập Nhật Thẻ
 
 mods = Mods
