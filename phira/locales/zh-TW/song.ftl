@@ -47,9 +47,9 @@ upload-builtin = 不能上傳內置譜面
 upload-rules = 上傳須知
 upload-rules-content =
   上傳譜面前，您需要確認：
-  1. 譜面為本人創作，或上傳行為已經通過譜師本人同意。如果是第二種情況，需要在譜面簡介中注明是代人上傳；
+  1. ！譜面為本人創作；
   2. 如果是譜面是本人創作，建議使用辨識度高的頭像和 ID；如果你在 Phira 使用的頭像 ID 與自制譜視頻發佈平台（具體而言，BiliBili）有較大出入，需要額外標注；
-  3. 禁止違反規則未經譜師同意隨意上傳譜面，否則可能面臨永久禁止上傳的懲罰；
+  3. ！禁止違反規則未經譜師同意隨意上傳譜面，否則可能面臨永久禁止上傳的懲罰；
   4. 譜面內不得含有違法或含有不良信息。
 upload-cancel = 再想想
 upload-confirm = 確認上傳
@@ -70,6 +70,7 @@ info-charter = 譜師
 info-difficulty = 難度
 info-desc = 簡介
 info-rating = 評分
+info-type = 種類
 info-tags = 標籤
 
 review-approve = 通過
@@ -102,3 +103,15 @@ need-update-info-only-content = 譜面信息已更新，是否同步這些信息
 need-update-content = 譜面已更新，若本地不更新您將無法上傳成績。是否現在更新？
 
 request-failed = 請求失敗
+
+stabilize = 申請 stable
+stabilize-warn = 普通用戶每 3 天可以申請一次 stable 譜面。至少擁有一張 stable 譜面的用戶每 1 天可以申請一次。
+stabilize-requested = 申請 stable 成功
+stabilize-failed = 申請 stable 失敗
+stabilize-approve = stable 已通過
+stabilize-approve-ranked = ranked 已通過
+stabilize-deny = stable 已拒絕
+stabilize-approved = 已通過
+stabilize-approved-passed = 已通過，譜面已 stable
+stabilize-denied = 已拒絕
+stabilize-denied-passed = 已拒絕，譜面已打回
