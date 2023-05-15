@@ -58,7 +58,6 @@ ldb = Wyniki
 ldb-load-failed = Nie załadowano wyników
 ldb-no-rank = Brak
 ldb-score = Wynik
-ldb-std = 
 
 info-name = Nazwa
 info-composer = Kompozytor
