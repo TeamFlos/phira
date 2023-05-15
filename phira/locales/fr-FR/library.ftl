@@ -1,6 +1,5 @@
 
 local = Local
-online = En ligne
 popular = Populaire
 list-empty = Rien ici
 
