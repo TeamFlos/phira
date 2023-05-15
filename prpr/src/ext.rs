@@ -444,7 +444,7 @@ pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &crate::dir:
     let mut zip = zip::ZipArchive::new(reader)?;
     let root = if strip_root {
         if let Some(root) = zip.file_names().min_by_key(|it| it.len()) {
-            if root.ends_with('/') && zip.file_names().all(|it| it.starts_with(&root)) {
+            if root.ends_with('/') && zip.file_names().all(|it| it.starts_with(root)) {
                 root.to_owned()
             } else {
                 String::new()

@@ -1,3 +1,3 @@
 
 info-fail = Nie załadowano informacji
-invalid-chart = Nieważna beatmapa
+invalid-chart = Nieprawidłowa beatmapa

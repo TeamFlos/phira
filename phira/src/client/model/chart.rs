@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Chart {
     pub id: i32,
     pub name: String,
@@ -15,6 +16,8 @@ pub struct Chart {
     pub description: Option<String>,
     pub ranked: bool,
     pub reviewed: bool,
+    pub stable: bool,
+    pub stable_request: bool,
 
     pub illustration: File,
     pub preview: File,
@@ -24,8 +27,11 @@ pub struct Chart {
 
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
+    pub chart_updated: DateTime<Utc>,
     #[serde(default)]
     pub tags: Vec<String>,
+
+    pub rating: Option<f32>,
 }
 impl Object for Chart {
     const QUERY_PATH: &'static str = "chart";
@@ -48,6 +54,8 @@ impl Chart {
             composer: self.composer.clone(),
             illustrator: self.illustrator.clone(),
             created: Some(self.created),
+            updated: Some(self.updated),
+            chart_updated: Some(self.chart_updated),
         }
     }
 }

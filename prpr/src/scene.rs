@@ -143,6 +143,13 @@ pub fn request_input(id: impl Into<String>, #[allow(unused_variables)] text: &st
 
                 let action: ObjcId = msg_send![
                     class!(UIAlertAction),
+                    actionWithTitle: str_to_ns("Cancel")
+                    style: 1
+                    handler: 0
+                ];
+                let _: () = msg_send![alert, addAction: action];
+                let action: ObjcId = msg_send![
+                    class!(UIAlertAction),
                     actionWithTitle: str_to_ns("OK")
                     style: 0
                     handler: ConcreteBlock::new({
@@ -207,14 +214,12 @@ pub fn request_file(id: impl Into<String>) {
                     extern "C" fn document_picker(_: &Object, _: Sel, _: ObjcId, documents: ObjcId) {
                         unsafe {
                             let url: ObjcId = msg_send![documents, firstObject];
-                            let successful: bool = msg_send![url, startAccessingSecurityScopedResource];
-                            if !successful {
-                                show_message(ttl!("read-file-failed")).error();
-                                return;
-                            }
+                            let need_close: bool = msg_send![url, startAccessingSecurityScopedResource];
                             let mut error: ObjcId = std::ptr::null_mut();
                             let data: ObjcId = msg_send![class!(NSData), dataWithContentsOfURL: url options: 2 error: &mut error as *mut ObjcId];
-                            let _: () = msg_send![url, stopAccessingSecurityScopedResource];
+                            if need_close {
+                                let _: () = msg_send![url, stopAccessingSecurityScopedResource];
+                            }
                             if data.is_null() {
                                 show_message(ttl!("read-file-failed")).error();
                                 if !error.is_null() {

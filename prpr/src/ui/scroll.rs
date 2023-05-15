@@ -1,9 +1,8 @@
-use std::collections::VecDeque;
-
 use super::Ui;
 use crate::core::{Matrix, Point, Vector};
 use macroquad::prelude::{Rect, Touch, TouchPhase, Vec2};
 use nalgebra::Translation2;
+use std::collections::VecDeque;
 
 const THRESHOLD: f32 = 0.03;
 const EXTEND: f32 = 0.33;
@@ -176,11 +175,11 @@ impl Scroller {
     }
 
     pub fn update(&mut self, t: f32) {
-        if !self.frame_touched {
-            if let Some((id, ..)) = self.touch {
-                // self.touch(id, TouchPhase::Cancelled, 0., 0.);
-            }
-        }
+        // if !self.frame_touched {
+        // if let Some((id, ..)) = self.touch {
+        // self.touch(id, TouchPhase::Cancelled, 0., 0.);
+        // }
+        // }
         let dt = t - self.last_time;
         self.offset += self.speed * dt;
         const K: f32 = 3.;

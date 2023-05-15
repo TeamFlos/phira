@@ -1,16 +1,19 @@
 prpr::tl_file!("tags");
 
-use crate::page::Fader;
+use crate::{client::Permissions, page::Fader};
 use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, RectExt},
     scene::{request_input, return_input, show_message, take_input},
     ui::{DRectButton, Scroll, Ui},
 };
+use smallvec::{smallvec, SmallVec};
+
+const DIVISION_TAGS: &[&str] = &["regular", "troll", "plain", "visual"];
 
 pub struct Tags {
     input_id: &'static str,
-    pub tags: Vec<String>,
+    tags: Vec<String>,
     btns: Vec<DRectButton>,
     add: DRectButton,
 }
@@ -25,14 +28,36 @@ impl Tags {
         }
     }
 
+    pub fn tags(&self) -> &[String] {
+        &&self.tags
+    }
+
     pub fn add(&mut self, s: String) {
+        let s = s.trim().to_owned();
+        if DIVISION_TAGS.contains(&s.as_str()) {
+            return;
+        }
         self.tags.push(s);
         self.btns.push(DRectButton::new());
     }
 
-    pub fn set(&mut self, tags: Vec<String>) {
+    pub fn set(&mut self, tags: Vec<String>) -> &'static str {
+        let mut div = DIVISION_TAGS[0];
+        let tags: Vec<_> = tags
+            .into_iter()
+            .map(|it| it.trim().to_owned())
+            .filter(|it| {
+                if let Some(division) = DIVISION_TAGS.iter().find(|div| *div == it) {
+                    div = division;
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect();
         self.btns = vec![DRectButton::new(); tags.len()];
         self.tags = tags;
+        div
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
@@ -94,9 +119,22 @@ pub struct TagsDialog {
     pub tags: Tags,
     pub unwanted: Option<Tags>,
 
+    pub division: &'static str,
+    div_btns: Vec<DRectButton>,
+
+    pub btn_me: DRectButton,
+    pub show_me: bool,
+    pub btn_unreviewed: DRectButton,
+    pub show_unreviewed: bool,
+    pub btn_stabilize: DRectButton,
+    pub show_stabilize: bool,
+    pub perms: Permissions,
+
     btn_cancel: DRectButton,
     btn_confirm: DRectButton,
+    btn_rating: DRectButton,
     pub confirmed: Option<bool>,
+    pub show_rating: bool,
 }
 
 impl TagsDialog {
@@ -109,10 +147,27 @@ impl TagsDialog {
             tags: Tags::new("add_tag"),
             unwanted: if search_mode { Some(Tags::new("add_tag_unwanted")) } else { None },
 
+            division: DIVISION_TAGS[0],
+            div_btns: DIVISION_TAGS.iter().map(|_| DRectButton::new()).collect(),
+
+            btn_me: DRectButton::new(),
+            show_me: false,
+            btn_unreviewed: DRectButton::new(),
+            show_unreviewed: false,
+            btn_stabilize: DRectButton::new(),
+            show_stabilize: false,
+            perms: Permissions::empty(),
+
             btn_cancel: DRectButton::new(),
             btn_confirm: DRectButton::new(),
+            btn_rating: DRectButton::new(),
             confirmed: None,
+            show_rating: false,
         }
+    }
+
+    pub fn set(&mut self, tags: Vec<String>) {
+        self.division = self.tags.set(tags);
     }
 
     pub fn showing(&self) -> bool {
@@ -128,12 +183,20 @@ impl TagsDialog {
         self.fader.back(t);
     }
 
+    fn dialog_rect(&self) -> Rect {
+        if self.unwanted.is_some() {
+            Ui::dialog_rect().nonuniform_feather(0.04, 0.05)
+        } else {
+            Ui::dialog_rect()
+        }
+    }
+
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
         if self.fader.transiting() {
             return true;
         }
         if self.show {
-            if !Ui::dialog_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
+            if !self.dialog_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
                 self.dismiss(t);
                 return true;
             }
@@ -150,6 +213,24 @@ impl TagsDialog {
                     return true;
                 }
             }
+            for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
+                if btn.touch(touch, t) {
+                    self.scroll.y_scroller.halt();
+                    self.division = div;
+                }
+            }
+            if self.btn_me.touch(touch, t) {
+                self.show_me ^= true;
+                return true;
+            }
+            if self.btn_unreviewed.touch(touch, t) {
+                self.show_unreviewed ^= true;
+                return true;
+            }
+            if self.btn_stabilize.touch(touch, t) {
+                self.show_stabilize ^= true;
+                return true;
+            }
             if self.btn_cancel.touch(touch, t) {
                 self.confirmed = Some(false);
                 self.dismiss(t);
@@ -157,6 +238,11 @@ impl TagsDialog {
             }
             if self.btn_confirm.touch(touch, t) {
                 self.confirmed = Some(true);
+                self.dismiss(t);
+                return true;
+            }
+            if self.btn_rating.touch(touch, t) {
+                self.show_rating = true;
                 self.dismiss(t);
                 return true;
             }
@@ -190,9 +276,9 @@ impl TagsDialog {
         if self.show || self.fader.transiting() {
             let p = if self.show { 1. } else { -self.fader.progress(t) };
             ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
+            let wr = self.dialog_rect();
             self.fader.for_sub(|f| {
                 f.render(ui, t, |ui, c| {
-                    let wr = Ui::dialog_rect();
                     ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
                     let r = ui
                         .text(if self.unwanted.is_some() { tl!("filter") } else { tl!("edit") })
@@ -200,14 +286,40 @@ impl TagsDialog {
                         .size(0.9)
                         .color(c)
                         .draw();
-                    let mw = wr.w - 0.02;
+                    let mw = wr.w - 0.08;
                     let bh = 0.09;
                     ui.scope(|ui| {
                         ui.dx(r.x);
                         ui.dy(r.bottom() + 0.02);
-                        self.scroll.size((mw, wr.h - r.y - 0.04 - if self.unwanted.is_some() { 0. } else { bh }));
+                        self.scroll.size((mw, wr.bottom() - r.bottom() - 0.06 - bh));
                         self.scroll.render(ui, |ui| {
-                            let mut h = 0.;
+                            let pad = 0.015;
+                            let bw = mw / DIVISION_TAGS.len() as f32;
+                            let mut r = Rect::new(pad / 2., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
+                            for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
+                                btn.render_text(ui, r, t, c.a, tl!(*div), 0.5, self.division == *div);
+                                r.x += bw;
+                            }
+                            let mut h = bh + 0.01;
+                            ui.dy(h);
+                            if self.unwanted.is_some() {
+                                let mut row: SmallVec<[_; 3]> = smallvec![(&mut self.btn_me, "filter-me", self.show_me)];
+                                if self.perms.contains(Permissions::SEE_UNREVIEWED) {
+                                    row.push((&mut self.btn_unreviewed, "filter-unreviewed", self.show_unreviewed));
+                                }
+                                if self.perms.contains(Permissions::SEE_STABLE_REQ) {
+                                    row.push((&mut self.btn_stabilize, "filter-stabilize", self.show_stabilize));
+                                }
+                                let bw = mw / row.len() as f32;
+                                let mut r = Rect::new(pad / 2., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
+                                for (btn, text, on) in row.into_iter() {
+                                    btn.render_text(ui, r, t, c.a, tl!(text), 0.5, on);
+                                    r.x += bw;
+                                }
+                                let dh = bh + 0.01;
+                                h += dh;
+                                ui.dy(dh);
+                            }
                             if self.unwanted.is_some() {
                                 let th = ui.text(tl!("wanted")).size(0.5).color(c).draw().h + 0.01;
                                 ui.dy(th);
@@ -227,13 +339,16 @@ impl TagsDialog {
                             (mw, h)
                         });
                     });
+                    let pad = 0.02;
                     if self.unwanted.is_none() {
-                        let pad = 0.02;
                         let bw = (wr.w - pad * 3.) / 2.;
                         let mut r = Rect::new(wr.x + pad, wr.bottom() - 0.02 - bh, bw, bh);
                         self.btn_cancel.render_text(ui, r, t, c.a, tl!("cancel"), 0.5, true);
                         r.x += bw + pad;
                         self.btn_confirm.render_text(ui, r, t, c.a, tl!("confirm"), 0.5, true);
+                    } else {
+                        let r = Rect::new(wr.x, wr.bottom() - 0.02 - bh, wr.w, bh).nonuniform_feather(-pad, 0.);
+                        self.btn_rating.render_text(ui, r, t, c.a, tl!("filter-by-rating"), 0.5, true);
                     }
                 });
             });
