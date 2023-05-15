@@ -9,3 +9,7 @@ release-to-refresh = ปล่อยเพื่อรีเฟรช
 
 switch-on = เปิด
 switch-off = ปิด
+
+chart-ranked = Ranked
+chart-special = Special
+chart-unstable = Unstable
