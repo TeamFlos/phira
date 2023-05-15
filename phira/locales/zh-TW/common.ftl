@@ -9,3 +9,7 @@ release-to-refresh = 釋放以刷新
 
 switch-on = 開
 switch-off = 關
+
+chart-ranked = 上架
+chart-special = 特殊
+chart-unstable = 未上架
