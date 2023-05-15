@@ -69,7 +69,7 @@ impl SimpleRecord {
             self.accuracy = other.accuracy;
             changed = true;
         }
-        if other.full_combo > self.full_combo {
+        if other.full_combo & !self.full_combo {
             self.full_combo = other.full_combo;
             changed = true;
         }
@@ -152,6 +152,7 @@ macro_rules! reset {
         $res.judge_line_color = Color::from_hex($res.res_pack.info.color_perfect);
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
+        $tm.speed = $res.config.speed as _;
         $tm.reset();
         $self.last_update_time = $tm.now();
         $self.state = State::Starting;
@@ -513,6 +514,18 @@ impl GameScene {
                         }
                     }
                 }
+                let mut pos = self.music.position();
+                if clicked.map_or(false, |it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
+                    debug!("recreating music");
+                    self.music = res.audio.create_music(
+                        res.music.clone(),
+                        MusicParams {
+                            amplifier: res.config.volume_music as _,
+                            playback_rate: res.config.speed as _,
+                            ..Default::default()
+                        },
+                    )?;
+                }
                 match clicked {
                     Some(-1) => {
                         self.should_exit = true;
@@ -521,18 +534,6 @@ impl GameScene {
                         reset!(self, res, tm);
                     }
                     Some(1) => {
-                        let mut pos = self.music.position();
-                        if (tm.speed - res.config.speed as f64).abs() > 0.01 {
-                            debug!("recreating music");
-                            self.music = res.audio.create_music(
-                                res.music.clone(),
-                                MusicParams {
-                                    amplifier: res.config.volume_music as _,
-                                    playback_rate: res.config.speed as _,
-                                    ..Default::default()
-                                },
-                            )?;
-                        }
                         if self.mode == GameMode::Exercise && tm.now() > self.exercise_range.end as f64 {
                             tm.seek_to(self.exercise_range.start as f64);
                             self.music.seek_to(self.exercise_range.start)?;
@@ -1068,6 +1069,7 @@ impl Scene for GameScene {
         }
         if msaa || !self.res.no_effect {
             // render the texture onto screen
+            self.compatible_mode = true;
             if let Some(target) = &self.res.chart_target {
                 self.gl.flush();
                 if !self.compatible_mode

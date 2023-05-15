@@ -36,7 +36,6 @@ pub static mut DATA: Option<Data> = None;
 #[cfg(feature = "closed")]
 pub async fn load_res(name: &str) -> Vec<u8> {
     let bytes = load_file(name).await.unwrap();
-    let start = std::time::Instant::now();
     inner::resolve_data(bytes)
 }
 

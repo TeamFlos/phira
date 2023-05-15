@@ -1,6 +1,7 @@
 use super::{File, Object};
 use crate::{client::Client, dir, images::Images};
 use anyhow::Result;
+use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use image::DynamicImage;
 use macroquad::prelude::warn;
@@ -10,33 +11,57 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-#[repr(i16)]
-#[serde(rename_all = "lowercase")]
-pub enum UserRole {
-    Nobody = -1,
-    #[default]
-    Normal = 0,
-    Reviewer = 5,
-    Admin = 10,
-}
-
-impl TryFrom<i16> for UserRole {
-    type Error = &'static str;
-
-    fn try_from(value: i16) -> Result<Self, Self::Error> {
-        Ok(match value {
-            -1 => Self::Nobody,
-            0 => Self::Normal,
-            5 => Self::Reviewer,
-            10 => Self::Admin,
-            _ => panic!("unknown role {value}"),
-        })
+bitflags! {
+    #[derive(Default, Debug, Clone, Copy)]
+    pub struct Permissions: i64 {
+        const UPLOAD_CHART      = 0x00000001;
+        const SEE_UNREVIEWED    = 0x00000002;
+        const DELETE_UNSTABLE   = 0x00000004;
+        const REVIEW            = 0x00000008;
+        const SEE_STABLE_REQ    = 0x00000010;
+        const STABILIZE_CHART   = 0x00000020;
+        const EDIT_TAGS         = 0x00000040;
+        const STABILIZE_JUDGE   = 0x00000080;
+        const DELETE_STABLE     = 0x00000080;
     }
 }
-impl From<UserRole> for i16 {
-    fn from(value: UserRole) -> Self {
-        value as _
+
+bitflags! {
+    #[derive(Default, Debug, Clone, Copy)]
+    pub struct Roles: i32 {
+        const ADMIN             = 0x0001;
+        const REVIEWER          = 0x0002;
+        const SUPERVISOR        = 0x0004;
+        const HEAD_SUPERVISOR   = 0x0008;
+    }
+}
+
+impl Roles {
+    pub fn perms(&self, banned: bool) -> Permissions {
+        let mut perm = Permissions::empty();
+        if !banned {
+            perm |= Permissions::UPLOAD_CHART;
+        }
+        if self.contains(Self::ADMIN) {
+            perm = Permissions::all();
+        }
+        if self.contains(Self::REVIEWER) {
+            perm |= Permissions::SEE_UNREVIEWED;
+            perm |= Permissions::DELETE_UNSTABLE;
+            perm |= Permissions::REVIEW;
+            perm |= Permissions::EDIT_TAGS;
+        }
+        if self.contains(Self::SUPERVISOR) {
+            perm |= Permissions::SEE_UNREVIEWED;
+            perm |= Permissions::SEE_STABLE_REQ;
+            perm |= Permissions::STABILIZE_CHART;
+            perm |= Permissions::EDIT_TAGS;
+        }
+        if self.contains(Self::HEAD_SUPERVISOR) {
+            perm |= Permissions::STABILIZE_JUDGE;
+            perm |= Permissions::DELETE_STABLE;
+        }
+        perm
     }
 }
 
@@ -51,7 +76,7 @@ pub struct User {
     pub exp: i64,
     pub rks: f32,
     #[serde(default)]
-    pub role: UserRole,
+    pub roles: i32,
 
     pub joined: DateTime<Utc>,
     pub last_login: DateTime<Utc>,
@@ -61,6 +86,15 @@ impl Object for User {
 
     fn id(&self) -> i32 {
         self.id
+    }
+}
+impl User {
+    pub fn perms(&self) -> Permissions {
+        Roles::from_bits(self.roles).map(|it| it.perms(false)).unwrap_or_default()
+    }
+
+    pub fn has_perm(&self, perm: Permissions) -> bool {
+        Roles::from_bits(self.roles).map_or(false, |it| it.perms(false).contains(perm))
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "phira"
-version = "0.0.11"
+version = "0.2.0"
 edition = "2021"
 
 [lib]
@@ -13,6 +13,7 @@ closed = ["prpr/closed"]
 anyhow = "1.0"
 arc-swap = "1.6.0"
 base64 = "0.20"
+bitflags = "2.2.1"
 bytes = "1.4.0"
 chrono = { version = "0.4.23", features = ["serde"] }
 futures-util = "0.3.25"
@@ -35,6 +36,7 @@ serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_yaml = "0.9.17"
 sha2 = "*"
+smallvec = "1.10.0"
 tap = "1.0.1"
 tokio = { version = "*", features = ["rt-multi-thread", "sync"] }
 uuid7 = "0.3.4"

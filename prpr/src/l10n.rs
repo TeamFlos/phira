@@ -16,18 +16,23 @@ use std::{
 };
 use sys_locale::get_locale;
 
-static LANGS: [&str; 8] = ["en-US", "id-ID", "ja-JP", "ko-KR", "pl-PL", "ru-RU", "th-TH", "zh-CN"]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_NAMES: [&str; 8] = [
+static LANGS: [&str; 11] = [
+    "en-US", "fr-FR", "id-ID", "ja-JP", "ko-KR", "pl-PL", "ru-RU", "th-TH", "vi-VN", "zh-CN", "zh-TW",
+]; // this should be consistent with the macro below (create_bundles)
+pub static LANG_NAMES: [&str; 11] = [
     "English",
+    "Français",
     "Bahasa Indonesia",
     "日本語",
     "한국어",
     "Polski",
     "Русский",
     "แบบไทย",
+    "Tiếng Việt",
     "简体中文",
+    "繁體中文",
 ]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 8]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
+pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 11]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
 
 #[macro_export]
 macro_rules! create_bundle {
@@ -51,13 +56,16 @@ macro_rules! create_bundles {
     ($file:literal) => {{
         let mut bundles = Vec::new();
         bundles.push($crate::create_bundle!("en-US", $file));
+        bundles.push($crate::create_bundle!("fr-FR", $file));
         bundles.push($crate::create_bundle!("id-ID", $file));
         bundles.push($crate::create_bundle!("ja-JP", $file));
         bundles.push($crate::create_bundle!("ko-KR", $file));
         bundles.push($crate::create_bundle!("pl-PL", $file));
         bundles.push($crate::create_bundle!("ru-RU", $file));
         bundles.push($crate::create_bundle!("th-TH", $file));
+        bundles.push($crate::create_bundle!("vi-VN", $file));
         bundles.push($crate::create_bundle!("zh-CN", $file));
+        bundles.push($crate::create_bundle!("zh-TW", $file));
         bundles
     }};
 }
@@ -85,7 +93,7 @@ impl L10nGlobal {
                 order.push(id);
             }
         }
-        order.push(1); // en-US
+        order.push(0); // en-US
         Self {
             lang_map,
             order: order.into(),

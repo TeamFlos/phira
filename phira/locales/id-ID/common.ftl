@@ -1,8 +1,9 @@
 
 del-confirm = Yakin untuk dihapus?
 del-confirm-content = Setelah dihapus, tidak akan bisa lagi di kembalikan.
-del-confirm-cancel = Batal
-del-confirm-ok = Hapus
+
+cancel = Batal
+confirm = Hapus
 
 release-to-refresh = Lepas untuk refresh
 

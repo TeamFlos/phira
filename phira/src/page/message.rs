@@ -110,7 +110,7 @@ impl Page for MessagePage {
                             None => self.msgs.insert(Vec::new()),
                             Some(x) => x,
                         };
-                        mt.extend(val.into_iter().map(|it| (it, DRectButton::new().with_delta(-0.003))));
+                        mt.extend(val.into_iter().map(|it| (it, DRectButton::new().with_delta(-0.001))));
                     }
                 }
                 self.load_task = None;
@@ -129,7 +129,7 @@ impl Page for MessagePage {
         s.render_fader(ui, |ui, c| {
             ui.fill_path(&r.rounded(0.02), semi_black(c.a * 0.4));
             let ct = r.center();
-            let pad = 0.02;
+            let pad = 0.014;
             self.btns_scroll.size((r.w, r.h - pad));
             if let Some(msgs) = &mut self.msgs {
                 if msgs.is_empty() {
@@ -147,9 +147,9 @@ impl Page for MessagePage {
                         self.btns_scroll.render(ui, |ui| {
                             let w = r.w - pad * 2.;
                             let mut h = 0.;
-                            let r = Rect::new(pad, 0., r.w - pad * 2., 0.1);
+                            let r = Rect::new(pad, 0., r.w - pad * 2., 0.09);
                             for (index, item) in msgs.iter_mut().enumerate() {
-                                item.1.render_text_left(ui, r, t, c.a, &item.0.title, 0.7, Some(index) == self.index);
+                                item.1.render_text_left(ui, r, t, c.a, &item.0.title, 0.5, Some(index) == self.index);
                                 ui.dy(r.h + pad);
                                 h += r.h + pad;
                             }
@@ -179,7 +179,7 @@ impl Page for MessagePage {
                         h += e;
                     }};
                 }
-                dy!(ui.text(&msg.title).size(1.2).color(c).multiline().max_width(mw).draw().h + 0.017);
+                dy!(ui.text(&msg.title).size(0.9).color(c).multiline().max_width(mw).draw().h + 0.017);
                 let th = ui.text(
                     tl!("subtitle", "author" => msg.author.as_str(), "time" => msg.time.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()),
                 )
@@ -192,7 +192,7 @@ impl Page for MessagePage {
                 dy!(0.015);
                 self.scroll.size((mw, cr.h - h - pad));
                 self.scroll.render(ui, |ui| {
-                    let r = ui.text(&msg.content).size(0.6).multiline().max_width(mw).color(c).draw();
+                    let r = ui.text(&msg.content).size(0.46).multiline().max_width(mw).color(c).draw();
                     (mw, r.h + 0.04)
                 });
             }
