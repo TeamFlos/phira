@@ -40,6 +40,8 @@ edit-tags = Modifier les étiquettes
 edit-downloaded = Vous ne pouvez pas modifier la partition téléchargée
 
 edit-upload = Télécharger
+edit-update = Mettre à jour
+
 upload-login-first = Connectez-vous d'abord, s'il vous plaît
 upload-builtin = Les partitions intégrées ne peuvent pas être téléchargées
 upload-downloaded = Les partitions téléchargées ne peuvent pas être téléchargées
@@ -68,6 +70,9 @@ info-composer = Compositeur
 info-charter = Auteur
 info-difficulty = Difficulté
 info-desc = Description
+info-rating = Note
+info-type = Type
+info-tags = Étiquettes
 
 review-approve = Approuver
 review-deny = Refuser
@@ -93,3 +98,23 @@ mods-fade-out-sub = Les notes disparaissent à l'approche de la ligne de jugemen
 
 rate-failed = Échec de la notation
 rate-done = Noté avec succès
+
+need-update = Mise à jour nécessaire
+need-update-info-only-content = Les informations de partition ont été mises à jour. Voulez-vous synchroniser la mise à jour ?
+need-update-content = Cette partition a été mise à jour. Vous devez synchroniser votre version locale avant de télécharger votre record. Voulez-vous le faire maintenant ?
+
+request-failed = Demande échoué
+
+stabilize = Stabiliser
+stabilize-warn = L'utilisateur normal ne peut demander de stabiliser la partition qu'une fois tous les 3 jours. Si vous avez des partitions stabilisées, l'intervalle est réduit à 1 jour.
+stabilize-requested = Demande de stabilisation envoyée
+stabilize-failed = Échec de la stabilisation
+stabilize-approve = Approuver stable
+stabilize-approve-ranked = Approuver classé
+stabilize-comment = Commenter stable
+stabilize-commented = Commenté
+stabilize-deny = Refuser stable
+stabilize-approved = Approuvé
+stabilize-approved-passed = Approvée, la partition est stabilisée
+stabilize-denied = Refusé
+stabilize-denied-passed = Refusée, la partition est rejetée
