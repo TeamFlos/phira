@@ -1,26 +1,26 @@
 
-login = Đăng Nhập
-login-sub = Đăng nhập để tham gia với cộng đồng trực tuyến tích cực
-back-login = Trở Lại Đ.Nhập
-register = Đăng Kí
+login = Đăng nhập
+login-sub = Đăng nhập để đến với cộng đồng trực tuyến một cách tích cực
+back-login = Quay lại đăng nhập
+register = Đăng ký
 
-email = Địa Chỉ Email
-username = Tên Người Dùng
-password = Mật Khẩu
+email = Địa chỉ Email
+username = Tên tài khoản 
+password = Mật khẩu
 
-name-length-req = Tên Phải Từ 4-20 Từ
-name-has-illegal-char = Tên Chứa Từ Không Hợp Lệ
-pwd-length-req = Mật Khẩu Phải Từ 6-26 Từ
-illegal-email = Email Bất Hợp Pháp
+name-length-req = Độ dài của tên người dùng phải nằm trong khoảng từ 4 đến 20 kí tự
+name-has-illegal-char = Tên người dùng có chứa các ký tự không hợp lệ
+pwd-length-req = Độ dài của mật khẩu phải nằm trong khoảng từ 6 đến 26 kí tự
+illegal-email = Email không hợp lệ
 
 action-success = { $action ->
-  [login] Đã Đăng Nhập Thành Công
-  [register] Đã Đăng Ký Thành Công
+  [login] Đăng nhập thành công
+  [register] Đăng ký thành công
   *[other] _
 }
 action-failed = { $action ->
-  [login] Đăng Nhập Thất Bại
-  [register] Đăng Kí Thất Bại
+  [login] Không thể đăng nhập
+  [register] Không thể đăng ký
   *[other] _
 }
 

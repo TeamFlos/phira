@@ -1,7 +1,7 @@
 
-label = Nội Bộ
+label = Chung
 
-import-failed = Nạp Thất Bại
-import-success = Nạp Thành Công
+import-failed = Không thể nhập được biểu bồ
+import-success = Biểu đồ đã nhập thành công
 
-not-loaded = Chưa Tải Xong
+not-loaded = Chưa tải xong biểu đồ

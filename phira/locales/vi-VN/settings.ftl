@@ -1,36 +1,36 @@
 
-label = Cài Đặt
+label = Cài đặt
 
-general = Chung
-audio = Âm Thanh
-chart = Beatmap
-debug = Gỡ Lỗi
+general = Tổng quát
+audio = Âm thanh
+chart = Biểu đồ
+debug = Sửa lỗi
 
-item-lang = Ngôn Ngữ
-item-offline = Chế Độ Offline
-item-offline-sub = Không Thể Tải Lên Kết Quả Chơi
-item-lowq = Độ Hoạ Thấp
-item-lowq-sub = Bật Nếu UI Laggyyyyy
+item-lang = Ngôn ngữ
+item-offline = Chế độ ngoại tuyến
+item-offline-sub = Bạn sẽ không thể tải được điểm số của mình lên nếu chơi ở chế độ ngoại tuyến
+item-lowq = Chế độ chất lượng thấp
+item-lowq-sub = Bạn nên bật nó nếu gặp vấn đề về UI
 
-item-adjust = Chỉnh Thời Gian Tự Động
-item-adjust-sub = Chỉnh Thời Gian Linh Hoạt Để Beatmal Và Nhạc Đồng Bộ
-item-music = Âm Nhạc
-item-sfx = Âm Hiệu Ứng
-item-bgm = Âm
-item-cali = Chỉnh Độ Lệch
+item-adjust = Tự động căn chỉnh thời gian
+item-adjust-sub = Tự động căn chỉnh độ trễ sẽ đồng bộ nhạc và biểu đồ
+item-music = Âm lượng nhạc
+item-sfx = Âm lượng hiệu ứng
+item-bgm = Âm lượng nền
+item-cali = Điều chỉnh độ trễ
 
-item-show-acc = Hiện Độ Chính Xác Theo Thời Gian
-item-dc-pause = Nhấn Đôi Để Tạm Dừng
-item-dhint = Note Nổi Bật
-item-dhint-sub = Note Đồng Thợi Sẽ Được Làm Sáng
-item-opt = Tối Ưu Hoá
-item-opt-sub = Cải Thiện Hiệu Xuất, Có Thể Xảy Ra Lỗi
-item-speed = Tốc Độ
-item-note-size = Kích Cỡ Note
+item-show-acc = Hiển thị độ chính xác theo thời gian thực
+item-dc-pause = Nhấn đúp để tạm dừng
+item-dhint = Gợi ý đôi
+item-dhint-sub = Các note cùng dòng sẽ được tô sáng thêm
+item-opt = Tối ưu hóa tích cực
+item-opt-sub = Áp dụng những cách tối ưu hóa tốt nhất nhằm cải thiện biểu đồ nhưng vẫn có thể xảy ra lỗi với một số biểu đồ
+item-speed = Tốc độ của biểu đồ
+item-note-size = Kích cỡ của note
 
-item-chart-debug = Chế Độ Gỡ Lỗi Beatmap
-item-chart-debug-sub = Xem Số Dòng Và Hướng
-item-touch-debug = Gỡ Lỗi Chạm
-item-touch-debug-sub = Hiện Điểm Chạm
+item-chart-debug = Sửa lỗi biểu đồ
+item-chart-debug-sub = Hiển thị số dòng quyết đoán và hướng đi của note
+item-touch-debug = Sửa lỗi chạm
+item-touch-debug-sub = Hiển thị các lượt chạm khi chơi
 
-load-cali-failed = Tải Âm Thanh Thất Bại
+load-cali-failed = Không thể tải âm thanh
