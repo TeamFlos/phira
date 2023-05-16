@@ -9,3 +9,14 @@ unwanted = Non voulu
 
 cancel = Annuler
 confirm = Confirmer
+
+filter-by-rating = Filtrer par note
+
+regular = Régulier
+troll = Troll
+plain = Fade
+visual = Ornemental
+
+filter-me = Téléchargé par moi
+filter-unreviewed = Non revu
+filter-stabilize = En attente d'examen de stable
