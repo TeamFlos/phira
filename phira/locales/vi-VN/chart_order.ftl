@@ -1,5 +1,6 @@
-time = T.Gian
-rev-time = T.Gian (Đảo)
+
+time = Thời gian
+rev-time = Thời gian (Đảo)
 name = Tên
 rev-name = Tên (Đảo)
 rating = Đánh giá

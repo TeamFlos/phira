@@ -2,10 +2,10 @@
 rate = Đánh giá
 filter = Lọc theo đánh giá
 
-cancel = Hủy
+cancel = Hủy bỏ
 confirm = Xác nhận
 
-lower-bound =  Trên mức đánh giá
-upper-bound = Dưới mức đánh giá
+lower-bound = Giới hạn dưới
+upper-bound = Giới hạn trên
 
-filter-by-tags = Lọc theo nhãn
+filter-by-tags = Lọc theo thẻ
