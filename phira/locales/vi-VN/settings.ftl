@@ -1,36 +1,36 @@
 
 label = Cài đặt
 
-general = Tổng quát
+general = Chung
 audio = Âm thanh
-chart = Biểu đồ
-debug = Sửa lỗi
+chart = Beatmap
+debug = Gỡ lỗi
 
 item-lang = Ngôn ngữ
 item-offline = Chế độ ngoại tuyến
-item-offline-sub = Bạn sẽ không thể tải được điểm số của mình lên nếu chơi ở chế độ ngoại tuyến
+item-offline-sub = Bạn không thể tải lên bản ghi chơi trong chế độ ngoại tuyến
 item-lowq = Chế độ chất lượng thấp
-item-lowq-sub = Bạn nên bật nó nếu gặp vấn đề về UI
+item-lowq-sub = Bật tính năng này nếu giao diện lag
 
-item-adjust = Tự động căn chỉnh thời gian
-item-adjust-sub = Tự động căn chỉnh độ trễ sẽ đồng bộ nhạc và biểu đồ
+item-adjust = Chỉnh thời gian tự động
+item-adjust-sub = Điều chỉnh thời gian động để đồng bộ âm nhạc và biểu đồ
 item-music = Âm lượng nhạc
-item-sfx = Âm lượng hiệu ứng
-item-bgm = Âm lượng nền
-item-cali = Điều chỉnh độ trễ
+item-sfx = Âm lượng hiệu ứng âm thanh
+item-bgm = Âm lượng nhạc nền
+item-cali = Điều chỉnh thời gian
 
-item-show-acc = Hiển thị độ chính xác theo thời gian thực
-item-dc-pause = Nhấn đúp để tạm dừng
-item-dhint = Gợi ý đôi
-item-dhint-sub = Các note cùng dòng sẽ được tô sáng thêm
-item-opt = Tối ưu hóa tích cực
-item-opt-sub = Áp dụng những cách tối ưu hóa tốt nhất nhằm cải thiện biểu đồ nhưng vẫn có thể xảy ra lỗi với một số biểu đồ
-item-speed = Tốc độ của biểu đồ
-item-note-size = Kích cỡ của note
+item-show-acc = Hiển thị độ chính xác thời gian thực
+item-dc-pause = Nhấp đúp để tạm dừng
+item-dhint = Nốt nhấp đôi
+item-dhint-sub = Các nốt chạm đường thẳng cùng một lúc sẽ được đánh dấu
+item-opt = Tối ưu hóa hiệu năng
+item-opt-sub = Cải thiện hiệu suất nhưng có thể gây ra các hành vi không chính xác
+item-speed = Tốc độ
+item-note-size = Kích thước nốt
 
-item-chart-debug = Sửa lỗi biểu đồ
-item-chart-debug-sub = Hiển thị số dòng quyết đoán và hướng đi của note
-item-touch-debug = Sửa lỗi chạm
-item-touch-debug-sub = Hiển thị các lượt chạm khi chơi
+item-chart-debug = Chế độ gỡ lỗi beatmap
+item-chart-debug-sub = Hiển thị số dòng và hướng
+item-touch-debug = Chế độ gỡ lỗi chạm
+item-touch-debug-sub = Hiển thị các điểm chạm
 
-load-cali-failed = Không thể tải âm thanh
+load-cali-failed = Tải âm thanh thất bại
