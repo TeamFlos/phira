@@ -1,7 +1,5 @@
-
 input = Nhập
-input-msg = Hãy Nhập Chữ
-input-hint = text
-
-read-file-failed = Đọc File Thất Bại
-pasted = Đã Dán Từ Bảng Tạm
+input-msg = Vui lòng nhập văn bản
+input-hint = Văn bản
+read-file-failed = Không đọc được tệp tin
+pasted = Đã dán từ bảng tạm

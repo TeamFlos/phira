@@ -1,3 +1,2 @@
-
-info-fail = Không Tải Được Thông Tin
-invalid-chart = Chart Không Hợp Lệ
+info-fail = Tải thông tin thất bại
+invalid-chart = Biểu đồ không hợp lệ
