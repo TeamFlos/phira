@@ -17,6 +17,6 @@ troll = Troll
 plain = Fade
 visual = Ornemental
 
-filter-me = Téléchargé par moi
+filter-me = Envoyé par moi
 filter-unreviewed = Non revu
 filter-stabilize = En attente d'examen de stable
