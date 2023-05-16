@@ -1,19 +1,18 @@
 
-local = Nội Bộ
-online = Trực Tuyến
-popular = T.Hành
-list-empty = Đéo Có Gì Cả
+local = Chung
+popular = Phổ biến
+list-empty = Không có gì ở đây
 
-page = Trang { $current } / { $total }
-prev-page = Trang Trước
-next-page = Nextttttt
+page = Trang - { $current } • { $total } -
+prev-page = Trang trước
+next-page = Trang tiếp
 
-not-opened = Không Khả Dụng
-failed-to-load-online = Tải Beatmap Trực Tuyến Thất Bại
+not-opened = Chưa hiển thị
+failed-to-load-online = Không thể tải biểu đồ trực tuyến
 
-import = Nạp
-importing = Đang Nạp...
-import-success = Nạp Thành Công
-import-failed = Nạp Thất Bại
+import = Nhập
+importing = Đang nhập
+import-success = Đã nhập thành công
+import-failed = Không thể nhập
 
-offline-mode = Không Thể Tải Chart Online Khi Đang Trong Chế Độ Offline
+offline-mode = Không thể tải biểu đồ trực tuyến ở chế độ ngoại tuyến

@@ -1,11 +1,15 @@
 
-del-confirm = Có Chắc Muốn Xoá?
-del-confirm-content = Không Thể Hoàn Tác Thao Tác Này.
+del-confirm = Bạn có chắc chắn về việc xoá ?
+del-confirm-content = Điều này không thể được hoàn tác
 
 cancel = Hủy
-confirm = Chấp Nhận
+confirm = Xác nhận
 
-release-to-refresh = Thả Để Làm Mới.
+release-to-refresh = Thả để làm mới
 
-switch-on = Bật
+switch-on = Mở
 switch-off = Tắt
+
+chart-ranked =  Xếp hạng
+chart-special = Đặc biệt
+chart-unstable = Chưa ổn
