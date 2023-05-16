@@ -24,6 +24,7 @@ play-switch-to-offline = 오프라인 모드로 전환
 switched-to-offline = 오프라인 모드로 전환되었습니다.
 
 delete = 삭제
+rate = 평점
 exercise = 연습
 offset = 오프셋 조정
 
@@ -38,16 +39,18 @@ edit-tags = 태그 편집
 edit-downloaded = 다운로드된 비트맵은 편집할 수 없습니다.
 
 edit-upload = 업로드
+edit-update = 업데이트
+
 upload-login-first = 로그인이 필요합니다.
 upload-builtin = 기본 비트맵은 업로드할 수 없습니다.
 upload-downloaded = 다운로드된 비트맵은 업로드할 수 없습니다.
 upload-rules = 업로드 규칙
 upload-rules-content =
-  업로드하기 전에 다음을 확인해야합니다:
-  1. 비트맵이 제작자에 의해 만들어졌거나 업로드하는 행위가 스코어러에 의해 승인되었는지 확인해야합니다. 두 번째 경우, 인트로에서 다른 사람 대신 업로드된 것임을 나타내야합니다.
-  2. 비트맵이 자체 제작 된 경우, 인식하기 쉬운 아바타와 ID를 사용하는 것이 좋습니다. prpr에서 사용하는 아바타 ID가 자체 제작 된 점수 비디오 게시 플랫폼 (구체적으로 BiliBili)과 매우 다른 경우, 추가 주석이 필요합니다.
-  3. ! 스코어러의 동의없이 규칙을 위반하고 비트맵을 업로드하는 것은 금지되어 있습니다. 그렇지 않으면 업로드 영구 금지의 처벌을 받을 수 있습니다.
-  4. 비트맵의 내용 (음악, 일러스트, 텍스트 등)은 중국인민공화국의 다른 법규와 규정을 준수해야하며 법률을 위반하거나 나쁜 정보를 포함해서는 안됩니다.
+  업로드 전 확인해야 할 사항은 다음과 같습니다:
+  1. ! 비트맵이 내가 만든 것이어야합니다.
+  2. 인식하기 쉬운 아바타와 ID를 사용하는 것이 좋으며, 만약 Phira에서 사용하는 아바타 ID가 자체 제작한 점수 영상 게시 플랫폼(구체적으로 BiliBili)과 매우 다르다면 추가적인 주석이 필요합니다.
+  3. ! 규칙을 위반하여 맵 영상 게시자의 동의 없이 비트맵을 업로드하는 것은 금지되며, 그렇게 하면 영구적인 업로드 금지 처분을 받을 수 있습니다.
+  4. 비트맵의 내용(음악, 일러스트, 텍스트 등)은 중국 법률과 규정을 준수해야 하며, 법률을 위반하거나 나쁜 정보를 포함해서는 안 됩니다.
 upload-cancel = 취소
 upload-confirm = 확인
 uploading = 업로드 중
@@ -63,9 +66,12 @@ ldb-std = 순도
 
 info-name = 이름
 info-composer = 작곡가
-info-charter = 차터
+info-charter = 채보 제작자
 info-difficulty = 난이도
 info-desc = 설명
+info-rating = 평점
+info-type = 타입
+info-tags = 태그
 
 review-approve = 승인
 review-deny = 거부
@@ -82,9 +88,30 @@ review-edit-tags-failed = 태그 편집 실패
 review-edit-tags-done = 태그 업데이트 완료
 
 mods = 모드
-mods-autoplay = 자동 재생
+mods-autoplay = 오토플레이
 mods-autoplay-sub = 이를 활성화하면 녹화 업로드가 비활성화됩니다.
 mods-flip-x = X축 뒤집기
 mods-flip-x-sub = X 축에 대해 뒤집기
 mods-fade-out = 페이드 아웃
 mods-fade-out-sub = 라인에 가까워질 때 노트가 사라집니다.
+
+rate-failed = 평가 업로드 실패
+rate-done = 평가가 성공적으로 완료됨
+
+need-update = 업데이트 필요
+need-update-info-only-content = 비트맵 정보가 업데이트되었습니다. 업데이트를 동기화하시겠습니까?
+need-update-content = 이 비트맵은 업데이트되었습니다. 기록을 업로드하기 전에 로컬 버전을 동기화해야합니다. 지금 하시겠습니까?
+
+request-failed = 요청 실패
+
+stabilize = 안정화
+stabilize-warn = 일반 사용자는 비트맵 안정화 요청을 3일에 한 번만 할 수 있습니다. 안정화된 비트맵이 있다면, 간격이 1일로 줄어듭니다.
+stabilize-requested = 안정화 요청이 전송되었습니다.
+stabilize-failed = 안정화 실패
+stabilize-approve = 안정화 승인
+stabilize-approve-ranked = 랭크 승인
+stabilize-deny = 안정화 거부
+stabilize-approved = 승인됨
+stabilize-approved-passed = 승인됨, 비트맵이 안정화되었습니다.
+stabilize-denied = 거부됨
+stabilize-denied-passed = 거부됨, 비트맵이 거부되었습니다.

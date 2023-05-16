@@ -199,12 +199,19 @@ impl File {
 
     pub async fn load_thumbnail(&self) -> Result<DynamicImage> {
         if self.url.starts_with("https://phira.mivik.cn/") {
-            return File {
+            File {
                 url: format!("{}?imageView/0/w/{THUMBNAIL_WIDTH}/h/{THUMBNAIL_HEIGHT}", self.url),
             }
             .load_image()
-            .await;
+            .await
+        } else if self.url.starts_with("https://files.phira.cn/") {
+            File {
+                url: format!("{}.thumbnail", self.url),
+            }
+            .load_image()
+            .await
+        } else {
+            self.load_image().await
         }
-        self.load_image().await
     }
 }

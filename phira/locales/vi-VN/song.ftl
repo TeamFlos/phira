@@ -17,11 +17,19 @@ dl-success = Đã tải xuống
 
 guest = Neki
 
+
 warn-unrated = Cuộc chơi này chưa được xếp hạng
 failed-to-play = Không thể bắt đầu ở chế độ trực tuyến
 play-cancel = Hủy bỏ
 play-switch-to-offline = Chuyển sang chế độ ngoại tuyến
 switched-to-offline = Đã chuyển sang chế độ ngoại tuyến
+
+warn-unrated = Không Xếp Hạng Lượt Này
+failed-to-play = Không Bắt Đầu Được Ở Chế Độ Online
+play-cancel = Hủy
+play-switch-to-offline = Gạt Sang Chế Độ Offline
+switched-to-offline = Gạt Sang Chế Độ Offline
+
 
 delete = Xóa
 rate = Đánh giá
@@ -65,6 +73,7 @@ ldb-score = Điểm số
 ldb-std = Tinh khiết
 
 info-name = Tên
+
 info-composer = Nhà soạn nhạc
 info-charter = Tác giả đồng thời
 info-difficulty = Độ khó
@@ -109,3 +118,40 @@ stabilize-approved = Đã phê duyệt
 stabilize-approved-passed = Đã phê duyệt, beatmap đã được ổn định
 stabilize-denied = Từ chối
 stabilize-denied-passed = Từ chối, beatmap đã bị từ chối
+=======
+info-composer = Nhà Soạn
+info-charter = Charter
+info-difficulty = Độ Khó
+info-desc = Mô Tả
+info-rating = Xếp Hạng
+info-tags = Tags
+
+review-approve = Chấp thuận
+review-deny = Từ Chối
+review-del = Xoá Online
+review-approved = Đã Chấp Thuận
+review-passed = Đã V.Qua
+review-denied = Đã Từ Chối
+review-deleted = Đã Xoá
+review-action-failed = Không Xem Xét
+review-doing = Thực Hiện Hành Độngt
+review-not-loaded = Thông Tin Chưa Tải Được, Hãy Chờ
+review-edit-tags = Sửa Thẻ
+review-edit-tags-failed = Sửa Thẻ Thất Bại
+review-edit-tags-done = Đã Cập Nhật Thẻ
+
+mods = Mods
+mods-autoplay = Autoplay
+mods-autoplay-sub = Kích Hoạt Sẽ Vô Hiệu Tính Năng T.Lên Thành Tích
+mods-flip-x = Mirror
+mods-flip-x-sub = Nó Trông Như Gương Vậy Phải Không
+mods-fade-out = Mờ Dần
+mods-fade-out-sub = Note Biến Mất Khi Gần Đến Đường Phán Đoán
+
+rate-failed = Đánh Giá Thất Bại
+rate-done = Đánh Giá Thành Công
+
+need-update = Cần Cập Nhật
+need-update-info-only-content = Thông tin về beatmap đã được cập nhật. Bạn có muốn đồng bộ hóa bản cập nhật không?
+need-update-content = Beatmap này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản cục bộ của mình trước khi tải lên bản ghi. Bạn có muốn làm điều đó ngay bây giờ?
+
