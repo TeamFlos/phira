@@ -549,6 +549,7 @@ impl SongScene {
         if self.info.id.is_some() && self.entity.as_ref().map_or(false, |it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
             self.menu_options.push("stabilize-approve");
             self.menu_options.push("stabilize-approve-ranked");
+            self.menu_options.push("stabilize-comment");
             self.menu_options.push("stabilize-deny");
         }
         if self.info.id.is_some()
@@ -1432,6 +1433,9 @@ impl Scene for SongScene {
                         .into())
                     }));
                 }
+                "stabilize-comment" => {
+                    request_input("stabilize-comment", "");
+                }
                 "stabilize-deny" => {
                     request_input("stabilize-deny-reason", "");
                 }
@@ -1622,6 +1626,19 @@ impl Scene for SongScene {
                         ))
                         .await?;
                         Ok(tl!("review-denied").into_owned())
+                    }));
+                }
+                "stabilize-comment" => {
+                    let id = self.info.id.unwrap();
+                    self.review_task = Some(Task::new(async move {
+                        recv_raw(Client::post(
+                            format!("/chart/{id}/stabilize-comment"),
+                            &json!({
+                                "comment": text,
+                            }),
+                        ))
+                        .await?;
+                        Ok(tl!("stabilize-commented").into())
                     }));
                 }
                 "stabilize-deny-reason" => {
