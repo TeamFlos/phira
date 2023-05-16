@@ -1,5 +1,5 @@
 
-del-confirm = Êtes-vous sûr de le supprimer ?
+del-confirm = Êtes-vous sûr de vouloir supprimer ?
 del-confirm-content = Cette opération ne peut pas être annulée.
 
 cancel = Annuler
