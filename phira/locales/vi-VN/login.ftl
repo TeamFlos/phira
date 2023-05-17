@@ -1,7 +1,3 @@
-login = Đăng nhập
-login-sub = Đăng nhập để tương tác với cộng đồng trực tuyến đang hoạt động
-back-login = Quay lại Đăng nhập
-register = Đăng ký
 
 login = Đăng nhập
 login-sub = Đăng nhập để tương tác với cộng đồng trực tuyến đang hoạt động

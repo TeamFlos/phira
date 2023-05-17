@@ -1,6 +1,3 @@
-default = Mặc định
-load-failed = Tải gói t.nguyên thất bại
-import-failed = Nhập gói nguồn thất bại
 
 default = Mặc định
 load-failed = Tải gói t.nguyên thất bại
