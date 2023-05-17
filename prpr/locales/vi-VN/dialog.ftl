@@ -1,7 +1,5 @@
-
-notice = Lưu Ý
+notice = Thông báo
 ok = OK
-
 error = Lỗi
-error-copy = Chép Lỗi
-error-copied = Đã Chép
+error-copy = sao chép lỗi
+error-copied = Đã sao chép

@@ -1,11 +1,9 @@
-
-to = to
-adjust-offset = Chỉnh Độ Lệch
+to = đến
+adjust-offset = Điều chỉnh độ trễ
 offset-cancel = Hủy
-offset-reset = Đặt Lại
+offset-reset = Đặt lại
 offset-save = Lưu
-speed = Tốc Độ
-
-ex-time-out-of-range = Thời Gian Ngoài Phạm Vi
-ex-invalid-format = Format Không Hợp Lệ
-ex-time-set = Thời gian Đã Đổi
+speed = Tốc độ
+ex-time-out-of-range = Thời gian nằm ngoài phạm vi
+ex-invalid-format = Định dạng không hợp lệ
+ex-time-set = Thời gian đã thay đổi
