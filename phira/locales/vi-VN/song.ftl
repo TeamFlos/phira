@@ -2,6 +2,10 @@ load-preview-failed = Không thể tải xem trước bài hát
 load-charts-failed = Không thể tải biểu đồ
 no-chart-for-download = Biểu đồ này không thể tải xuống
 
+load-preview-failed = Không thể tải xem trước bài hát
+load-charts-failed = Không thể tải biểu đồ
+no-chart-for-download = Biểu đồ này không thể tải xuống
+
 load-chart-failed = Không thể tải beatmap
 
 dl-cancel = Hủy bỏ
@@ -15,21 +19,13 @@ dl-status-saving = Đang lưu
 dl-failed = Tải xuống thất bại
 dl-success = Đã tải xuống
 
-guest = Neki
-
+guest = Khách
 
 warn-unrated = Cuộc chơi này chưa được xếp hạng
 failed-to-play = Không thể bắt đầu ở chế độ trực tuyến
 play-cancel = Hủy bỏ
 play-switch-to-offline = Chuyển sang chế độ ngoại tuyến
 switched-to-offline = Đã chuyển sang chế độ ngoại tuyến
-
-warn-unrated = Không Xếp Hạng Lượt Này
-failed-to-play = Không Bắt Đầu Được Ở Chế Độ Online
-play-cancel = Hủy
-play-switch-to-offline = Gạt Sang Chế Độ Offline
-switched-to-offline = Gạt Sang Chế Độ Offline
-
 
 delete = Xóa
 rate = Đánh giá
@@ -54,12 +50,11 @@ upload-builtin = Beatmap mặc định không thể tải lên
 upload-downloaded = Beatmap đã tải xuống không thể tải lên
 upload-rules = Quy tắc tải lên
 upload-rules-content =
-Trước khi tải lên, bạn cần xác nhận rằng:
-
-Beatmap này được tạo bởi tôi hoặc được phê duyệt tải lên. Nếu là trường hợp thứ hai, cần được chỉ ra trong giới thiệu beatmap rằng nó đã được tải lên thay mặt cho một người;
-Nếu beatmap được tạo bởi bạn, nên sử dụng hình đại diện và ID có tính nhận diện cao; Nếu ID hình đại diện bạn sử dụng trong Prpr khác rất nhiều so với nền tảng phát hành video điểm số tự làm (cụ thể là BiliBili), cần thêm chú thích;
-! Cấm vi phạm quy tắc và tải lên beatmap mà không được sự đồng ý của người chấm điểm, nếu không bạn có thể đối mặt với hình phạt cấm tải lên vĩnh viễn;
-Nội dung của beatmap (bao gồm âm nhạc, minh hoạ, văn bản, vv.) Phải tuân thủ các luật và quy định khác của nước Cộng hòa Nhân dân Trung Hoa, và không được vi phạm pháp luật hoặc chứa thông tin xấu.
+  Trước khi tải lên, bạn cần xác nhận rằng:
+  1. Beatmap này được tạo bởi tôi hoặc được phê duyệt tải lên. Nếu là trường hợp thứ hai, cần được chỉ ra trong giới thiệu beatmap rằng nó đã được tải lên thay mặt cho một người;
+  2. Nếu beatmap được tạo bởi bạn, nên sử dụng hình đại diện và ID có tính nhận diện cao; Nếu ID hình đại diện bạn sử dụng trong Prpr khác rất nhiều so với nền tảng phát hành video điểm số tự làm (cụ thể là BiliBili), cần thêm chú thích;
+  2. ! Cấm vi phạm quy tắc và tải lên beatmap mà không được sự đồng ý của người chấm điểm, nếu không bạn có thể đối mặt với hình phạt cấm tải lên vĩnh viễn;
+  3. Nội dung của beatmap (bao gồm âm nhạc, minh hoạ, văn bản, vv.) Phải tuân thủ các luật và quy định khác của nước Cộng hòa Nhân dân Trung Hoa, và không được vi phạm pháp luật hoặc chứa thông tin xấu.
 upload-cancel = Hủy bỏ
 upload-confirm = Xác nhận
 uploading = Đang tải lên
@@ -73,7 +68,6 @@ ldb-score = Điểm số
 ldb-std = Tinh khiết
 
 info-name = Tên
-
 info-composer = Nhà soạn nhạc
 info-charter = Tác giả đồng thời
 info-difficulty = Độ khó
@@ -118,40 +112,3 @@ stabilize-approved = Đã phê duyệt
 stabilize-approved-passed = Đã phê duyệt, beatmap đã được ổn định
 stabilize-denied = Từ chối
 stabilize-denied-passed = Từ chối, beatmap đã bị từ chối
-=======
-info-composer = Nhà Soạn
-info-charter = Charter
-info-difficulty = Độ Khó
-info-desc = Mô Tả
-info-rating = Xếp Hạng
-info-tags = Tags
-
-review-approve = Chấp thuận
-review-deny = Từ Chối
-review-del = Xoá Online
-review-approved = Đã Chấp Thuận
-review-passed = Đã V.Qua
-review-denied = Đã Từ Chối
-review-deleted = Đã Xoá
-review-action-failed = Không Xem Xét
-review-doing = Thực Hiện Hành Độngt
-review-not-loaded = Thông Tin Chưa Tải Được, Hãy Chờ
-review-edit-tags = Sửa Thẻ
-review-edit-tags-failed = Sửa Thẻ Thất Bại
-review-edit-tags-done = Đã Cập Nhật Thẻ
-
-mods = Mods
-mods-autoplay = Autoplay
-mods-autoplay-sub = Kích Hoạt Sẽ Vô Hiệu Tính Năng T.Lên Thành Tích
-mods-flip-x = Mirror
-mods-flip-x-sub = Nó Trông Như Gương Vậy Phải Không
-mods-fade-out = Mờ Dần
-mods-fade-out-sub = Note Biến Mất Khi Gần Đến Đường Phán Đoán
-
-rate-failed = Đánh Giá Thất Bại
-rate-done = Đánh Giá Thành Công
-
-need-update = Cần Cập Nhật
-need-update-info-only-content = Thông tin về beatmap đã được cập nhật. Bạn có muốn đồng bộ hóa bản cập nhật không?
-need-update-content = Beatmap này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản cục bộ của mình trước khi tải lên bản ghi. Bạn có muốn làm điều đó ngay bây giờ?
-

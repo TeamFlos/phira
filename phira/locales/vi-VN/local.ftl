@@ -1,5 +1,7 @@
 label = Cục bộ
 
+label = Cục bộ
+
 import-failed = Nhập thất bại
 import-success = Nhập thành công
 

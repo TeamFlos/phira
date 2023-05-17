@@ -1,3 +1,4 @@
+
 edit-chart = Sửa biểu đồ
 level-displayed = Cấp độ
 chart-name = Tên
