@@ -1,6 +1,3 @@
-load-preview-failed = Không thể tải xem trước bài hát
-load-charts-failed = Không thể tải biểu đồ
-no-chart-for-download = Biểu đồ này không thể tải xuống
 
 load-preview-failed = Không thể tải xem trước bài hát
 load-charts-failed = Không thể tải biểu đồ
