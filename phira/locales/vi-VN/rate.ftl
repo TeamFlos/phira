@@ -1,6 +1,9 @@
 rate = Đánh giá
 filter = Lọc theo đánh giá
 
+rate = Đánh giá
+filter = Lọc theo đánh giá
+
 cancel = Hủy bỏ
 confirm = Xác nhận
 

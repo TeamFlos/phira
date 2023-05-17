@@ -1,3 +1,4 @@
+
 notice = Thông báo
 ok = OK
 error = Lỗi

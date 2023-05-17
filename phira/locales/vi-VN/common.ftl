@@ -1,6 +1,9 @@
 del-confirm = Bạn có chắc chắn muốn xóa không?
 del-confirm-content = Thao tác này không thể được hoàn tác.
 
+del-confirm = Bạn có chắc chắn muốn xóa không?
+del-confirm-content = Thao tác này không thể được hoàn tác.
+
 cancel = Hủy bỏ
 confirm = Xác nhận
 

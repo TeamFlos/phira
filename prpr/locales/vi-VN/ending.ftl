@@ -1,3 +1,4 @@
+
 uploading = Đang tải lên kết quả...
 uploaded = Kết quả đã được tải lên
 upload-failed = Không tải lên được

@@ -1,3 +1,4 @@
+
 label = Cài đặt
 
 general = Chung
@@ -33,4 +34,3 @@ item-touch-debug = Chế độ gỡ lỗi chạm
 item-touch-debug-sub = Hiển thị các điểm chạm
 
 load-cali-failed = Tải âm thanh thất bại
-
