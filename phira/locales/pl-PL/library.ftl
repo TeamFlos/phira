@@ -12,6 +12,3 @@ not-opened = Niedostępny
 failed-to-load-online = Nie załadowano beatmap online
 
 import = Importuj
-importing = Importowanie
-import-success = Importowano pomyślnie
-import-failed = Nie importowano

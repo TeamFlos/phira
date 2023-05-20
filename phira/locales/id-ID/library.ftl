@@ -12,6 +12,3 @@ not-opened = Belum tersedia
 failed-to-load-online = Gagal memuat chart online
 
 import = Import
-importing = Mengimport
-import-success = Import Sukses
-import-failed = Import Gagal
