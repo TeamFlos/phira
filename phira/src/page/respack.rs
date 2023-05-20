@@ -1,32 +1,33 @@
 prpr::tl_file!("respack");
 
 use super::{Page, SharedState};
-use crate::{dir, get_data, get_data_mut, save_data, scene::confirm_delete};
-use anyhow::{Context, Result};
+use crate::{
+    dir, get_data, get_data_mut, save_data,
+    scene::{confirm_delete, MainScene},
+};
+use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::{NoteStyle, ParticleEmitter, ResPackInfo, ResourcePack},
-    ext::{create_audio_manger, poll_future, semi_black, unzip_into, LocalTask, RectExt, SafeTexture, ScaleType},
-    scene::{request_file, return_file, show_error, show_message, take_file},
+    ext::{create_audio_manger, poll_future, semi_black, LocalTask, RectExt, SafeTexture, ScaleType},
+    scene::{request_file, show_error, show_message},
     ui::{DRectButton, Dialog, Scroll, Ui},
 };
 use sasa::{AudioManager, PlaySfxParams, Sfx};
 use std::{
     fs::File,
-    io::BufReader,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
-use uuid7::uuid7;
 
 fn build_emitter(pack: &ResourcePack) -> Result<ParticleEmitter> {
     ParticleEmitter::new(&pack, get_data().config.note_scale * 0.6, pack.info.hide_particles)
 }
 
-struct ResPackItem {
+pub struct ResPackItem {
     path: Option<PathBuf>,
     name: String,
     btn: DRectButton,
@@ -36,7 +37,7 @@ struct ResPackItem {
 }
 
 impl ResPackItem {
-    fn new(path: Option<PathBuf>, name: String) -> Self {
+    pub fn new(path: Option<PathBuf>, name: String) -> Self {
         Self {
             path,
             name,
@@ -79,6 +80,7 @@ pub struct ResPackPage {
 
 impl ResPackPage {
     pub fn new(icon_info: SafeTexture, icon_delete: SafeTexture) -> Result<Self> {
+        MainScene::take_imported_respack();
         let dir = dir::respacks()?;
         let mut items = vec![ResPackItem::new(None, tl!("default").into_owned())];
         for path in &get_data().respacks {
@@ -113,24 +115,6 @@ impl ResPackPage {
             last_round: u32::MAX,
         })
     }
-
-    fn import_from(&mut self, file: String) -> Result<()> {
-        let root = dir::respacks()?;
-        let dir = prpr::dir::Dir::new(&root)?;
-        let mut id = uuid7();
-        while dir.exists(id.to_string())? {
-            id = uuid7();
-        }
-        let id = id.to_string();
-        dir.create_dir_all(&id)?;
-        let dir = dir.open_dir(&id)?;
-        unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
-        let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;
-        get_data_mut().respacks.push(id.clone());
-        save_data()?;
-        self.items.push(ResPackItem::new(Some(format!("{root}/{id}").into()), config.name));
-        Ok(())
-    }
 }
 
 impl Page for ResPackPage {
@@ -144,7 +128,7 @@ impl Page for ResPackPage {
             return Ok(true);
         }
         if self.import_btn.touch(touch, t) {
-            request_file("respack");
+            request_file("_import_respack");
             return Ok(true);
         }
         if self.items[self.index].load_task.is_none() {
@@ -212,14 +196,8 @@ impl Page for ResPackPage {
             self.items[self.index].load();
             show_message(tl!("deleted")).ok();
         }
-        if let Some((id, file)) = take_file() {
-            if id == "respack" {
-                if let Err(err) = self.import_from(file) {
-                    show_error(err.context(tl!("import-failed")));
-                }
-            } else {
-                return_file(id, file);
-            }
+        if let Some(item) = MainScene::take_imported_respack() {
+            self.items.push(item);
         }
         Ok(())
     }

@@ -16,7 +16,7 @@ use std::{
 };
 use sys_locale::get_locale;
 
-static LANGS: [&str; 11] = [
+pub static LANGS: [&str; 11] = [
     "en-US", "fr-FR", "id-ID", "ja-JP", "ko-KR", "pl-PL", "ru-RU", "th-TH", "vi-VN", "zh-CN", "zh-TW",
 ]; // this should be consistent with the macro below (create_bundles)
 pub static LANG_NAMES: [&str; 11] = [
@@ -93,7 +93,7 @@ impl L10nGlobal {
                 order.push(id);
             }
         }
-        order.push(0); // en-US
+        order.push(*lang_map.get(&langid!("en-US")).unwrap());
         Self {
             lang_map,
             order: order.into(),
@@ -101,17 +101,21 @@ impl L10nGlobal {
     }
 }
 
-static GLOBAL: Lazy<L10nGlobal> = Lazy::new(L10nGlobal::new);
+pub static GLOBAL: Lazy<L10nGlobal> = Lazy::new(L10nGlobal::new);
 
-pub fn set_locale_order(locales: &[LanguageIdentifier]) {
+pub fn set_prefered_locale(locale: Option<LanguageIdentifier>) {
     let mut ids = Vec::new();
     let map = &GLOBAL.lang_map;
-    for locale in locales {
-        if let Some(lang) = map.get(locale) {
-            ids.push(*lang);
-        }
+    if let Some(lang) = locale.and_then(|it| map.get(&it)) {
+        ids.push(*lang);
     }
-    ids.push(1); // en-US
+    if let Some(lang) = get_locale()
+        .and_then(|it| it.parse::<LanguageIdentifier>().ok())
+        .and_then(|it| map.get(&it))
+    {
+        ids.push(*lang);
+    }
+    ids.push(*map.get(&langid!("en-US")).unwrap());
     *GLOBAL.order.lock().unwrap() = ids;
     GENERATION.fetch_add(1, Ordering::Relaxed);
 }

@@ -1,7 +1,6 @@
 
 default = Default
 load-failed = respackのロードに失敗しました
-import-failed = respackのインポートに失敗しました
 
 info = Respack Info
 info-content =
