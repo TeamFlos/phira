@@ -241,6 +241,7 @@ impl SongScene {
         } else if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
+                notify: Arc::default(),
                 task: Some(Task::new({
                     async move {
                         let chart = Ptr::<Chart>::new(id).load().await?;

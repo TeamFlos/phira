@@ -31,6 +31,7 @@ use std::{
     },
 };
 use tap::Tap;
+use tokio::sync::Notify;
 
 const CHART_HEIGHT: f32 = 0.3;
 const CHART_PADDING: f32 = 0.013;
@@ -275,6 +276,7 @@ impl LibraryPage {
                         f.render(ui, t, |ui, nc| {
                             let mut c = Color { a: nc.a * c.a, ..nc };
                             let chart = &charts[id as usize];
+                            chart.illu.notify();
                             let (r, path) = self.chart_btns[id as usize].render_shadow(ui, r, t, c.a, |_| semi_black(c.a));
                             ui.fill_path(
                                 &path,
@@ -419,14 +421,21 @@ impl LibraryPage {
                     (
                         ChartItem {
                             info: it.to_info(),
-                            illu: super::Illustration {
-                                texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
-                                task: Some(Task::new({
-                                    let illu = it.illustration.clone();
-                                    async move { Ok((illu.load_thumbnail().await?, None)) }
-                                })),
-                                loaded: Arc::default(),
-                                load_time: f32::NAN,
+                            illu: {
+                                let notify = Arc::new(Notify::new());
+                                super::Illustration {
+                                    texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
+                                    notify: Arc::clone(&notify),
+                                    task: Some(Task::new({
+                                        let illu = it.illustration.clone();
+                                        async move {
+                                            notify.notified().await;
+                                            Ok((illu.load_thumbnail().await?, None))
+                                        }
+                                    })),
+                                    loaded: Arc::default(),
+                                    load_time: f32::NAN,
+                                }
                             },
                             local_path: None,
                         },
