@@ -12,8 +12,5 @@ not-opened = ยังใช้ไม่ได้ในขณะนี้
 failed-to-load-online = ไม่สามารถโหลดได้
 
 import = เพิ่ม
-importing = กำลังเพิ่ม
-import-success = เพิ่มเสร็จเรียบร้อย
-import-failed = ไม่สามารถเพิ่มได้
 
 offline-mode = ไม่สามารถใช้งานในโหมด offline ได้

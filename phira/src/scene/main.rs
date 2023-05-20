@@ -1,22 +1,25 @@
-use std::{
-    any::Any,
-    sync::atomic::{AtomicBool, Ordering},
-};
-
+use super::{import_chart, itl, L10N_LOCAL};
 use crate::{
-    get_data,
+    data::LocalChart,
+    get_data, get_data_mut,
     page::{HomePage, NextPage, Page, SharedState},
+    save_data,
     scene::{TEX_BACKGROUND, TEX_ICON_BACK},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     ext::{screen_aspect, SafeTexture},
-    scene::{NextScene, Scene},
+    scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
+    task::Task,
     time::TimeManager,
     ui::{button_hit, RectButton, Ui, UI_AUDIO},
 };
 use sasa::{AudioClip, Music};
+use std::{
+    any::Any,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 const LOW_PASS: f32 = 0.95;
 
@@ -32,6 +35,8 @@ pub struct MainScene {
     icon_back: SafeTexture,
 
     pages: Vec<Box<dyn Page>>,
+
+    import_task: Option<Task<Result<LocalChart>>>,
 }
 
 impl MainScene {
@@ -102,6 +107,8 @@ impl MainScene {
             icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
 
             pages: Vec::new(),
+
+            import_task: None,
         })
     }
 
@@ -147,6 +154,9 @@ impl Scene for MainScene {
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         if self.state.fader.transiting() {
             return Ok(false);
+        }
+        if self.import_task.is_some() {
+            return Ok(true);
         }
         let s = &mut self.state;
         s.t = tm.now() as _;
@@ -206,6 +216,29 @@ impl Scene for MainScene {
                 bgm.set_amplifier(get_data().config.volume_bgm)?;
             }
         }
+        if let Some(task) = &mut self.import_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(itl!("import-failed")));
+                    }
+                    Ok(chart) => {
+                        show_message(itl!("import-success")).ok();
+                        get_data_mut().charts.push(chart);
+                        save_data()?;
+                        self.state.reload_local_charts();
+                    }
+                }
+                self.import_task = None;
+            }
+        }
+        if let Some((id, file)) = take_file() {
+            if id == "_import" {
+                self.import_task = Some(Task::new(import_chart(file)));
+            } else {
+                return_file(id, file);
+            }
+        }
         Ok(())
     }
 
@@ -250,6 +283,10 @@ impl Scene for MainScene {
         s.fader.reset();
         self.pages.last_mut().unwrap().render(ui, s)?;
         s.fader.sub = false;
+
+        if self.import_task.is_some() {
+            ui.full_loading(itl!("importing"), s.t);
+        }
 
         Ok(())
     }
