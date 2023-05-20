@@ -19,7 +19,7 @@ use macroquad::prelude::*;
 use prpr::{
     build_conf,
     core::init_assets,
-    l10n::{set_prefered_locale, LanguageIdentifier, GLOBAL, LANGS, LANG_IDENTS},
+    l10n::{set_prefered_locale, GLOBAL, LANGS},
     scene::show_error,
     time::TimeManager,
     ui::{FontArc, TextPainter, Ui},
