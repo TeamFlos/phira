@@ -19,7 +19,7 @@ use macroquad::prelude::*;
 use prpr::{
     build_conf,
     core::init_assets,
-    l10n::{set_locale_order, LanguageIdentifier, LANG_IDENTS},
+    l10n::{set_prefered_locale, LanguageIdentifier, GLOBAL, LANGS, LANG_IDENTS},
     scene::show_error,
     time::TimeManager,
     ui::{FontArc, TextPainter, Ui},
@@ -40,12 +40,10 @@ pub async fn load_res(name: &str) -> Vec<u8> {
 }
 
 pub fn sync_data() {
-    let mut langs: Vec<LanguageIdentifier> = Vec::new();
-    if let Some(lang) = &get_data().language {
-        langs.push(lang.parse().unwrap());
+    set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
+    if get_data().language.is_none() {
+        get_data_mut().language = Some(LANGS[GLOBAL.order.lock().unwrap()[0] as usize].to_owned());
     }
-    langs.push(LANG_IDENTS[0].clone());
-    set_locale_order(&langs);
     let _ = client::set_access_token_sync(get_data().tokens.as_ref().map(|it| &*it.0));
 }
 
@@ -283,6 +281,14 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImport(_: *mut std::ff
     use prpr::scene::CHOSEN_FILE;
 
     CHOSEN_FILE.lock().unwrap().0 = Some("_import".to_owned());
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+    use prpr::scene::CHOSEN_FILE;
+
+    CHOSEN_FILE.lock().unwrap().0 = Some("_import_respack".to_owned());
 }
 
 #[cfg(target_os = "android")]

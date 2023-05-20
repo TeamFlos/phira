@@ -1,7 +1,6 @@
 
 default = Default
 load-failed = ไม่สามารถโหลด Skin ได้
-import-failed = ไม่สามารถเพิ่ม Skin ได้
 
 info = ข้อมูล Skin
 info-content =

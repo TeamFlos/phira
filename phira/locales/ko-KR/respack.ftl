@@ -1,6 +1,5 @@
 default = 기본값
 load-failed = 리소스팩 로드 실패
-import-failed = 리소스팩 가져오기 실패
 
 info = 리소스팩 정보
 info-content =

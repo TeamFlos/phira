@@ -11,7 +11,7 @@ mod offset;
 pub use offset::OffsetPage;
 
 mod respack;
-pub use respack::ResPackPage;
+pub use respack::{ResPackItem, ResPackPage};
 
 mod settings;
 pub use settings::SettingsPage;
