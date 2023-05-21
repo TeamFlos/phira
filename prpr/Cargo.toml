@@ -44,7 +44,7 @@ unic-langid = { version = "0.9.1", features = ["macros"] }
 zip = { version = "0.6.3", default-features = false, features = ["deflate"] }
 
 byteorder = "1.4.3"
-chrono = "0.4.24"
+chrono = { version = "0.4.24", features = ["serde"] }
 hex = "0.4.3"
 hmac = "0.12.1"
 miniz_oxide = "0.7.1"
@@ -53,6 +53,7 @@ sha2 = "0.10.6"
 subtle = "2.4.1"
 libc = "0.2.142"
 bitflags = { version = "2.2.1", features = ["serde"] }
+color-thief = "0.2.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = "0.10"
