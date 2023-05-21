@@ -160,6 +160,11 @@ async fn the_main() -> Result<()> {
         rx
     };
 
+    unsafe { get_internal_gl() }
+        .quad_context
+        .display_mut()
+        .set_pause_resume_listener(on_pause_resume);
+
     let font = FontArc::try_from_vec(load_file("font.ttf").await?)?;
     let mut painter = TextPainter::new(font);
 
@@ -208,6 +213,12 @@ pub extern "C" fn quad_main() {
             error!("Error: {:?}", err);
         }
     });
+}
+
+fn on_pause_resume(pause: bool) {
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(pause);
+    }
 }
 
 #[cfg(target_os = "android")]
