@@ -259,15 +259,11 @@ impl Scene for EndingScene {
         };
         rounded_rect(ui, r, radius, |ui| {
             ui.fill_rect(r, (*self.illustration, r, ScaleType::CropCenter, semi_white(p)));
-            ui.fill_rect(r, semi_black(0.2 * ep));
+            ui.fill_rect(r, semi_black(0.3 * ep));
             ui.fill_rect(ir, Color { a: ep, ..self.theme_color });
         });
 
-        let (main, sub) = if self.use_black {
-            (semi_black(ep), Color { a: ep, ..GRAY })
-        } else {
-            (semi_white(ep), Color::new(0.8, 0.8, 0.8, ep))
-        };
+        let (main, sub) = Ui::main_sub_colors(self.use_black, ep);
 
         ui.text(&self.info.level)
             .pos(r.x + 0.02, r.bottom() - 0.02)

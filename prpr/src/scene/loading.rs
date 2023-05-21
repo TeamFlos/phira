@@ -170,11 +170,7 @@ impl Scene for LoadingScene {
         let bar_height = 0.16;
         let ir = Rect { h: r.h - bar_height, ..r };
 
-        let (main, sub) = if self.use_black {
-            (BLACK, GRAY)
-        } else {
-            (WHITE, Color::new(0.8, 0.8, 0.8, 1.))
-        };
+        let (main, sub) = Ui::main_sub_colors(self.use_black, 1.);
 
         rounded_rect_shadow(ui, r, &config);
         rounded_rect(ui, r, config.radius, |ui| {
