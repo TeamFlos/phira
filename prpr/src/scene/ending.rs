@@ -242,6 +242,7 @@ impl Scene for EndingScene {
         let mut r = Rect::default().nonuniform_feather(0.45 + 0.2 * ep, top * 0.7);
         let p = 1. - (1. - ran(t, 0.1, 0.7)).powi(3);
         r.y += 0.3 * (1. - p);
+        let gr = r;
         rounded_rect_shadow(
             ui,
             r,
@@ -293,14 +294,14 @@ impl Scene for EndingScene {
             .size(0.8)
             .color(sub)
             .draw();
-        rounded_rect(ui, r, radius, |ui| {
-            ui.text(format!("(±{}ms)", res.std as i32))
-                .pos(sr.right() + 0.02, sr.bottom())
-                .anchor(0., 1.)
-                .size(0.4)
-                .color(sub)
-                .draw();
-        });
+        ui.scissor(Some(gr));
+        ui.text(format!("(±{}ms)", res.std as i32))
+            .pos(sr.right() + 0.02, sr.bottom())
+            .anchor(0., 1.)
+            .size(0.4)
+            .color(sub)
+            .draw();
+        ui.scissor(None);
 
         let spd = if (self.speed - 1.).abs() <= 1e-4 {
             String::new()
