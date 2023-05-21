@@ -20,6 +20,7 @@ enum SettingListType {
     Audio,
     Chart,
     Debug,
+    About,
 }
 
 pub struct SettingsPage {
@@ -27,6 +28,7 @@ pub struct SettingsPage {
     btn_audio: DRectButton,
     btn_chart: DRectButton,
     btn_debug: DRectButton,
+    btn_about: DRectButton,
     chosen: SettingListType,
 
     list_general: GeneralList,
@@ -47,6 +49,7 @@ impl SettingsPage {
             btn_audio: DRectButton::new(),
             btn_chart: DRectButton::new(),
             btn_debug: DRectButton::new(),
+            btn_about: DRectButton::new(),
             chosen: SettingListType::General,
 
             list_general: GeneralList::new(icon_lang),
@@ -88,6 +91,7 @@ impl Page for SettingsPage {
             SettingListType::Audio => self.list_audio.top_touch(touch, t),
             SettingListType::Chart => self.list_chart.top_touch(touch, t),
             SettingListType::Debug => self.list_debug.top_touch(touch, t),
+            SettingListType::About => false,
         } {
             return Ok(true);
         }
@@ -108,6 +112,10 @@ impl Page for SettingsPage {
             self.switch_to_type(SettingListType::Debug);
             return Ok(true);
         }
+        if self.btn_about.touch(touch, t) {
+            self.switch_to_type(SettingListType::About);
+            return Ok(true);
+        }
         if self.scroll.touch(touch, t) {
             return Ok(true);
         }
@@ -116,6 +124,7 @@ impl Page for SettingsPage {
             SettingListType::Audio => self.list_audio.touch(touch, t)?,
             SettingListType::Chart => self.list_chart.touch(touch, t)?,
             SettingListType::Debug => self.list_debug.touch(touch, t)?,
+            SettingListType::About => None,
         } {
             if p {
                 self.save_time = t;
@@ -134,6 +143,7 @@ impl Page for SettingsPage {
             SettingListType::Audio => self.list_audio.update(t)?,
             SettingListType::Chart => self.list_chart.update(t)?,
             SettingListType::Debug => self.list_debug.update(t)?,
+            SettingListType::About => false,
         } {
             self.save_time = t;
         }
@@ -155,6 +165,7 @@ impl Page for SettingsPage {
                     (&mut self.btn_audio, tl!("audio"), SettingListType::Audio),
                     (&mut self.btn_chart, tl!("chart"), SettingListType::Chart),
                     (&mut self.btn_debug, tl!("debug"), SettingListType::Debug),
+                    (&mut self.btn_about, tl!("about"), SettingListType::About),
                 ]
                 .into_iter()
                 .map(|(btn, text, ty)| (btn, text, ty == self.chosen)),
@@ -174,6 +185,19 @@ impl Page for SettingsPage {
                     SettingListType::Audio => self.list_audio.render(ui, r, t, c),
                     SettingListType::Chart => self.list_chart.render(ui, r, t, c),
                     SettingListType::Debug => self.list_debug.render(ui, r, t, c),
+                    SettingListType::About => {
+                        let pad = 0.04;
+                        (
+                            r.w,
+                            ui.text(tl!("about-content", "version" => env!("CARGO_PKG_VERSION")))
+                                .pos(pad, pad)
+                                .size(0.55)
+                                .multiline()
+                                .max_width(r.w - pad * 2.)
+                                .draw()
+                                .bottom(),
+                        )
+                    }
                 });
             });
         });

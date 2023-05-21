@@ -379,7 +379,7 @@ impl Scene for EndingScene {
         .draw();
 
         let s = 0.14;
-        let c = semi_white(ep);
+        let c = Color { a: ep, ..main };
         let mut r = Rect::new(ir.right() - s - 0.04, ir.bottom() - s - 0.04, s, s);
 
         let (cr, _) = self.btn_proceed.render_shadow(ui, r, t, ep, |_| semi_white(0.3 * ep));
