@@ -195,6 +195,7 @@ impl JudgeInner {
             counts: self.counts,
             early,
             late: self.diffs.len() as u32 - early,
+            std: 0.,
         }
     }
 
@@ -922,6 +923,7 @@ pub struct PlayResult {
     pub counts: [u32; 4],
     pub early: u32,
     pub late: u32,
+    pub std: f32,
 }
 
 pub fn icon_index(score: u32, full_combo: bool) -> usize {
