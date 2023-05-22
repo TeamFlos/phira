@@ -1,6 +1,7 @@
-time = Thời Gian
-rev-time = Thời Gian (Đảo)
+
+time = Thời gian
+rev-time = Thời gian (Đảo)
 name = Tên
 rev-name = Tên (Đảo)
-rating = Xếp Hạng
-rev-rating = Xếp Hạng (Đảo)
+rating = Đánh giá
+rev-rating = Đánh giá (Đảo)

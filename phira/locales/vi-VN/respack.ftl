@@ -1,13 +1,12 @@
 
-default = Mặc Định
-load-failed = Tải Gói Thất Bại
-import-failed = Nạp Gói Thất Bại
+default = Mặc định
+load-failed = Tải gói t.nguyên thất bại
 
-info = Thông Tin Gói T.Nguyên
+info = Thông tin gói tài nguyên
 info-content =
   Tên: { $name }
-  Người Làm: { $author }
+  Tác giả: { $author }
   Mô Tả: { $desc }
 
-cant-delete-builtin = Không Xoá Được Respack Dựng Sẵn
-deleted = Đã Xoá
+cant-delete-builtin = Không thể xóa gói nguồn tích hợp sẵn
+deleted = Đã xóa

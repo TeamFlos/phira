@@ -5,6 +5,7 @@ general = General
 audio = Audio
 chart = Beatmap
 debug = Debug
+about = Info
 
 item-lang = Language
 item-offline = Offline mode
@@ -34,3 +35,13 @@ item-touch-debug = Touch debug mode
 item-touch-debug-sub = Display touch points
 
 load-cali-failed = Failed to load audio
+
+about-content =
+  Phira v{ $version }
+
+  Phira is a non-commercial community-driven rhythm game, inspired by Phigros, developed with Rust.
+
+  If you enjoy the game, please consider supporting us on Patreon (@PhiraGame) or afdian.com (@Mivik). Your support is the greatest impetus for us!
+
+  BiliBili Account: @Phira官方
+  QQ Guild: r48eajexth

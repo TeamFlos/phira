@@ -1,36 +1,36 @@
 
-label = Cài Đặt
+label = Cài đặt
 
 general = Chung
-audio = Âm Thanh
+audio = Âm thanh
 chart = Beatmap
-debug = Gỡ Lỗi
+debug = Gỡ lỗi
 
-item-lang = Ngôn Ngữ
-item-offline = Chế Độ Offline
-item-offline-sub = Không Thể Tải Lên Kết Quả Chơi
-item-lowq = Độ Hoạ Thấp
-item-lowq-sub = Bật Nếu UI Laggyyyyy
+item-lang = Ngôn ngữ
+item-offline = Chế độ ngoại tuyến
+item-offline-sub = Bạn không thể tải lên bản ghi chơi trong chế độ ngoại tuyến
+item-lowq = Chế độ chất lượng thấp
+item-lowq-sub = Bật tính năng này nếu giao diện lag
 
-item-adjust = Chỉnh Thời Gian Tự Động
-item-adjust-sub = Chỉnh Thời Gian Linh Hoạt Để Beatmal Và Nhạc Đồng Bộ
-item-music = Âm Nhạc
-item-sfx = Âm Hiệu Ứng
-item-bgm = Âm
-item-cali = Chỉnh Độ Lệch
+item-adjust = Chỉnh thời gian tự động
+item-adjust-sub = Điều chỉnh thời gian động để đồng bộ âm nhạc và biểu đồ
+item-music = Âm lượng nhạc
+item-sfx = Âm lượng hiệu ứng âm thanh
+item-bgm = Âm lượng nhạc nền
+item-cali = Điều chỉnh thời gian
 
-item-show-acc = Hiện Độ Chính Xác Theo Thời Gian
-item-dc-pause = Nhấn Đôi Để Tạm Dừng
-item-dhint = Note Nổi Bật
-item-dhint-sub = Note Đồng Thợi Sẽ Được Làm Sáng
-item-opt = Tối Ưu Hoá
-item-opt-sub = Cải Thiện Hiệu Xuất, Có Thể Xảy Ra Lỗi
-item-speed = Tốc Độ
-item-note-size = Kích Cỡ Note
+item-show-acc = Hiển thị độ chính xác thời gian thực
+item-dc-pause = Nhấp đúp để tạm dừng
+item-dhint = Nốt nhấp đôi
+item-dhint-sub = Các nốt chạm đường thẳng cùng một lúc sẽ được đánh dấu
+item-opt = Tối ưu hóa hiệu năng
+item-opt-sub = Cải thiện hiệu suất nhưng có thể gây ra các hành vi không chính xác
+item-speed = Tốc độ
+item-note-size = Kích thước nốt
 
-item-chart-debug = Chế Độ Gỡ Lỗi Beatmap
-item-chart-debug-sub = Xem Số Dòng Và Hướng
-item-touch-debug = Gỡ Lỗi Chạm
-item-touch-debug-sub = Hiện Điểm Chạm
+item-chart-debug = Chế độ gỡ lỗi beatmap
+item-chart-debug-sub = Hiển thị số dòng và hướng
+item-touch-debug = Chế độ gỡ lỗi chạm
+item-touch-debug-sub = Hiển thị các điểm chạm
 
-load-cali-failed = Tải Âm Thanh Thất Bại
+load-cali-failed = Tải âm thanh thất bại

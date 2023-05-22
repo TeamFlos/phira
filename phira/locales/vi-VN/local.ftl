@@ -1,7 +1,8 @@
+label = Cục bộ
 
-label = Nội Bộ
+label = Cục bộ
 
-import-failed = Nạp Thất Bại
-import-success = Nạp Thành Công
+import-failed = Nhập thất bại
+import-success = Nhập thành công
 
-not-loaded = Chưa Tải Xong
+not-loaded = Chưa tải xong
