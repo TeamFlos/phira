@@ -5,6 +5,7 @@ general = 通用
 audio = 音頻
 chart = 譜面
 debug = 調試
+about = 關於
 
 item-lang = 語言
 item-offline = 離線模式
@@ -34,3 +35,13 @@ item-touch-debug = 觸摸調試
 item-touch-debug-sub = 遊玩過程中顯示觸摸點
 
 load-cali-failed = 加載音頻失敗
+
+about-content =
+  Phira v{ $version }
+
+  Phira 是一款玩法基於 Phigros 的非商業社區音樂遊戲，使用 Rust 開發。
+
+  如果你喜歡我們，歡迎在愛發電（愛發電搜索：Mivik）上支持我們！你的支持是我們最大的動力！
+
+  BiliBili 賬號：@Phira官方
+  QQ 頻道：r48eajexth
