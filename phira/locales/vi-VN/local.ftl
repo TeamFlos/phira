@@ -1,3 +1,4 @@
+
 label = Cục bộ
 
 import-failed = Nhập thất bại
