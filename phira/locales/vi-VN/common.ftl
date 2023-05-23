@@ -12,4 +12,4 @@ switch-off = Tắt
 
 chart-ranked = Xếp hạng
 chart-special = Đặc biệt
-chart-unstable = K.ổn
+chart-unstable = K.ổn định

@@ -1,7 +1,7 @@
 
 play = Chơi
 event = Sự kiện
-respack = Tài nguyên
+respack = T.nguyên
 
 not-opened = Chưa khả dụng
 not-logged-in = Chưa đăng nhập

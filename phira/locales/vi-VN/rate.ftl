@@ -3,7 +3,7 @@ rate = Đánh giá
 filter = Lọc bởi đánh giá
 
 cancel = Hủy bỏ
-confirm = Chấp nhậ
+confirm = Chấp nhận
 
 lower-bound = Giới hạn dưới
 upper-bound = Giới hạn trên

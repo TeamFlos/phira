@@ -13,7 +13,7 @@ item-lowq = Chế độ chất lượng thấp
 item-lowq-sub = Kích hoạt nếu giao diện người dùng bị lag
 
 item-adjust = Tự chỉnh thời gian
-item-adjust-sub = Chỉnh thời gian động để đồng bộ âm nhạc và beatmap
+item-adjust-sub = Chỉnh thời gian động để đồng bộ âm nhạc và biểu đồ
 item-music = Âm nhạc
 item-sfx = Âm hiệu ứng
 item-bgm = Âm nền
@@ -24,7 +24,7 @@ item-dc-pause = Nhấp đúp để tạm dừng
 item-dhint = Nốt kép
 item-dhint-sub = Nốt đồng thời sẽ được làm nổi bật
 item-opt = Tối ưu hóa
-item-opt-sub = Cải thiện hiệu suất, gây ra hành vi không đúng
+item-opt-sub = Cải thiện hiệu suất,có thể gây ra hành vi không đúng
 item-speed = Tốc độ
 item-note-size = Kích thước Nốt
 

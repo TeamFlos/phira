@@ -11,7 +11,7 @@ password = Mật khẩu
 name-length-req = Tên người dùng từ 4-20 từ
 name-has-illegal-char = Tên người dùng không hợp lệ
 pwd-length-req = Mật khẩu từ 6-26 từ
-illegal-email = Email bất hợp pháp
+illegal-email = Email không hợp lệ
 
 action-success = { $action ->
   [login] Đăng nhập thành công
