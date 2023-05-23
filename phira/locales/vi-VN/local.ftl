@@ -1,4 +1,3 @@
-label = Cục bộ
 
 label = Cục bộ
 
