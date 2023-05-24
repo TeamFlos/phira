@@ -1,5 +1,5 @@
 
-load-preview-failed = Échec du chargement de l'aperçu du morceau
+load-preview-failed = Échec du chargement de l'aperçu
 load-charts-failed = Impossible de charger les partitions
 no-chart-for-download = Cette partition n'est pas téléchargeable
 
@@ -39,19 +39,19 @@ edit-preview-invalid = Temps d'aperçu hors limites
 edit-tags = Modifier les étiquettes
 edit-downloaded = Vous ne pouvez pas modifier la partition téléchargée
 
-edit-upload = Télécharger
+edit-upload = Envoyer
 edit-update = Mettre à jour
 
 upload-login-first = Connectez-vous d'abord, s'il vous plaît
-upload-builtin = Les partitions intégrées ne peuvent pas être téléchargées
+upload-builtin = Les partitions intégrées ne peuvent pas être envoyées
 upload-downloaded = Les partitions téléchargées ne peuvent pas être envoyées
 upload-rules = À lire avant d'envoyer votre contenu
 upload-rules-content =
-  Avant d'evoyer, vous devez confirmer que :
+  Avant d'envoyer, vous devez confirmer que :
   1. Vous avez créé la partition, ou l'envoi a été approuvé par l'auteur original. Dans le deuxième cas, il faut indiquer dans l'introduction de la partition qu'elle est envoyée au nom d'une autre personne ;
   2. Si vous avez créé la partition, il est recommandé d'utiliser un avatar et un identifiant hautement reconnaissables ; Si l'avatar et l'identifiant que vous utilisez sur prpr sont assez différents de la plate-forme de publication de vidéos de partition (en particulier, Bilibili), des annotations supplémentaires sont nécessaires ;
   3. /!\ Il est interdit d'envoyer la partition sans le consentement de l'auteur, sinon vous risquez la peine d'une interdiction permanente d'envoi ;
-  4. Le contenu de la partition (y compris la musique, les illustrations, le texte, etc.) doit être conforme aux autres lois et réglementations de la République Populaire de Chine, et ne doit pas violer la loi ou contenir de mauvaises informations.
+  4. Le contenu de la partition (y compris la musique, les illustrations, le texte, etc.) doit être conforme aux autres lois et réglementations de la République populaire de Chine, et ne doit pas violer la loi ou contenir de mauvaises informations.
 upload-cancel = Annuler
 upload-confirm = Confirmer
 uploading = Envoi
@@ -90,7 +90,7 @@ review-edit-tags-done = Étiquettes mises à jour
 
 mods = Mods
 mods-autoplay = Autoplay
-mods-autoplay-sub = Après activation, il ne sera pas possible d'evoyer les notes
+mods-autoplay-sub = Après activation, il ne sera pas possible d'envoyer les notes
 mods-flip-x = Flip X
 mods-flip-x-sub = Inversion de la partition sur l'axe X
 mods-fade-out = Fade out
