@@ -1,0 +1,26 @@
+
+edit-chart = Sửa biểu đồ
+level-displayed = Cấp độ
+chart-name = Tên
+author = Nhà làm biểu đồ
+composer = Nhà soạn nhạc
+illustrator = Họa sỹ minh họa
+diff = Độ khó
+preview-time = Thời gian xem trước
+preview-hint = Nên là "BẮT ĐẦU-KẾT THÚC"; có thể thêm khoảng trắng
+invalid-time = Thời gian không hợp lệ
+preview-too-short = Xem trước quá ngắn
+preview-too-long = Xem trước quá dài
+offset = Khoảng cách
+aspect-ratio = Tỷ lệ khung hình
+ps = S.K.V
+aspect-hint = Tỷ lệ khung hình có thể là số thực hoặc là văn bản như "w:h"
+dim = Độ mờ nền
+chart-file = Biểu đồ
+music-file = Nhạc
+illu-file = Minh họa
+tip = Mẹo
+intro = Giới thiệu
+tags = Thẻ
+tag-exists = Thẻ đã tồn tại
+illegal-input = Đầu vào bất hợp pháp

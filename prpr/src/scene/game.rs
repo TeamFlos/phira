@@ -142,6 +142,9 @@ pub struct GameScene {
     bad_notes: Vec<BadNote>,
 
     upload_fn: Option<UploadFn>,
+
+    theme_color: Color,
+    use_black: bool,
 }
 
 macro_rules! reset {
@@ -152,6 +155,7 @@ macro_rules! reset {
         $res.judge_line_color = Color::from_hex($res.res_pack.info.color_perfect);
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
+        $tm.speed = $res.config.speed as _;
         $tm.reset();
         $self.last_update_time = $tm.now();
         $self.state = State::Starting;
@@ -231,6 +235,9 @@ impl GameScene {
         illustration: SafeTexture,
         get_size_fn: Rc<dyn Fn() -> (u32, u32)>,
         upload_fn: Option<UploadFn>,
+
+        theme_color: Color,
+        use_black: bool,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -300,6 +307,9 @@ impl GameScene {
             bad_notes: Vec::new(),
 
             upload_fn,
+
+            theme_color,
+            use_black,
         })
     }
 
@@ -880,6 +890,8 @@ impl Scene for GameScene {
                             self.player.as_ref().map(|it| it.rks),
                             record_data,
                             record,
+                            self.theme_color,
+                            self.use_black,
                         )?))),
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,

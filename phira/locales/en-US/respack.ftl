@@ -1,7 +1,6 @@
 
 default = Default
 load-failed = Failed to load respack
-import-failed = Failed to import respack
 
 info = Respack Info
 info-content =

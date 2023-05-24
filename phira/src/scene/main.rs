@@ -1,26 +1,39 @@
-use std::{
-    any::Any,
-    sync::atomic::{AtomicBool, Ordering},
-};
-
+use super::{import_chart, itl, L10N_LOCAL};
 use crate::{
-    get_data,
-    page::{HomePage, NextPage, Page, SharedState},
+    data::LocalChart,
+    dir, get_data, get_data_mut,
+    page::{HomePage, NextPage, Page, ResPackItem, SharedState},
+    save_data,
     scene::{TEX_BACKGROUND, TEX_ICON_BACK},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use prpr::{
-    ext::{screen_aspect, SafeTexture},
-    scene::{NextScene, Scene},
+    core::ResPackInfo,
+    ext::{screen_aspect, unzip_into, SafeTexture},
+    scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
+    task::Task,
     time::TimeManager,
     ui::{button_hit, RectButton, Ui, UI_AUDIO},
 };
 use sasa::{AudioClip, Music};
+use std::{
+    any::Any,
+    cell::RefCell,
+    fs::File,
+    io::BufReader,
+    sync::atomic::{AtomicBool, Ordering},
+    thread_local,
+};
+use uuid7::uuid7;
 
 const LOW_PASS: f32 = 0.95;
 
 pub static BGM_VOLUME_UPDATED: AtomicBool = AtomicBool::new(false);
+
+thread_local! {
+    static RESPACK_ITEM: RefCell<Option<ResPackItem>> = RefCell::default();
+}
 
 pub struct MainScene {
     state: SharedState,
@@ -32,6 +45,8 @@ pub struct MainScene {
     icon_back: SafeTexture,
 
     pages: Vec<Box<dyn Page>>,
+
+    import_task: Option<Task<Result<LocalChart>>>,
 }
 
 impl MainScene {
@@ -102,6 +117,8 @@ impl MainScene {
             icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
 
             pages: Vec::new(),
+
+            import_task: None,
         })
     }
 
@@ -112,6 +129,10 @@ impl MainScene {
             }
         }
         self.state.fader.back(self.state.t);
+    }
+
+    pub fn take_imported_respack() -> Option<ResPackItem> {
+        RESPACK_ITEM.with(|it| it.borrow_mut().take())
     }
 }
 
@@ -147,6 +168,9 @@ impl Scene for MainScene {
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         if self.state.fader.transiting() {
             return Ok(false);
+        }
+        if self.import_task.is_some() {
+            return Ok(true);
         }
         let s = &mut self.state;
         s.t = tm.now() as _;
@@ -206,6 +230,57 @@ impl Scene for MainScene {
                 bgm.set_amplifier(get_data().config.volume_bgm)?;
             }
         }
+        if let Some(task) = &mut self.import_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(itl!("import-failed")));
+                    }
+                    Ok(chart) => {
+                        show_message(itl!("import-success")).ok();
+                        get_data_mut().charts.push(chart);
+                        save_data()?;
+                        self.state.reload_local_charts();
+                    }
+                }
+                self.import_task = None;
+            }
+        }
+        if let Some((id, file)) = take_file() {
+            match id.as_str() {
+                "_import" => {
+                    self.import_task = Some(Task::new(import_chart(file)));
+                }
+                "_import_respack" => {
+                    let item: Result<ResPackItem> = (|| {
+                        let root = dir::respacks()?;
+                        let dir = prpr::dir::Dir::new(&root)?;
+                        let mut id = uuid7();
+                        while dir.exists(id.to_string())? {
+                            id = uuid7();
+                        }
+                        let id = id.to_string();
+                        dir.create_dir_all(&id)?;
+                        let dir = dir.open_dir(&id)?;
+                        unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
+                        let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;
+                        get_data_mut().respacks.push(id.clone());
+                        save_data()?;
+                        Ok(ResPackItem::new(Some(format!("{root}/{id}").into()), config.name))
+                    })();
+                    match item {
+                        Err(err) => {
+                            show_error(err.context(itl!("import-respack-failed")));
+                        }
+                        Ok(item) => {
+                            RESPACK_ITEM.with(|it| *it.borrow_mut() = Some(item));
+                            show_message(itl!("import-respack-success"));
+                        }
+                    }
+                }
+                _ => return_file(id, file),
+            }
+        }
         Ok(())
     }
 
@@ -250,6 +325,10 @@ impl Scene for MainScene {
         s.fader.reset();
         self.pages.last_mut().unwrap().render(ui, s)?;
         s.fader.sub = false;
+
+        if self.import_task.is_some() {
+            ui.full_loading(itl!("importing"), s.t);
+        }
 
         Ok(())
     }

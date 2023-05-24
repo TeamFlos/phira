@@ -1,13 +1,12 @@
 
 default = Défaut
-load-failed = Échec du chargement des ressources
-import-failed = Échec de l'importation des ressources
+load-failed = Échec du chargement des textures
 
-info = Informations sur les ressources
+info = Informations sur les textures
 info-content =
   Nom: { $name }
   Auteur: { $author }
   Description: { $desc }
 
-cant-delete-builtin = Impossible de supprimer les ressources intégrées
+cant-delete-builtin = Impossible de supprimer les textures intégrées
 deleted = Supprimé
