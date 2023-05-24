@@ -241,6 +241,7 @@ impl SongScene {
         } else if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
+                notify: Arc::default(),
                 task: Some(Task::new({
                     async move {
                         let chart = Ptr::<Chart>::new(id).load().await?;
@@ -549,6 +550,7 @@ impl SongScene {
         if self.info.id.is_some() && self.entity.as_ref().map_or(false, |it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
             self.menu_options.push("stabilize-approve");
             self.menu_options.push("stabilize-approve-ranked");
+            self.menu_options.push("stabilize-comment");
             self.menu_options.push("stabilize-deny");
         }
         if self.info.id.is_some()
@@ -1432,6 +1434,9 @@ impl Scene for SongScene {
                         .into())
                     }));
                 }
+                "stabilize-comment" => {
+                    request_input("stabilize-comment", "");
+                }
                 "stabilize-deny" => {
                     request_input("stabilize-deny-reason", "");
                 }
@@ -1622,6 +1627,19 @@ impl Scene for SongScene {
                         ))
                         .await?;
                         Ok(tl!("review-denied").into_owned())
+                    }));
+                }
+                "stabilize-comment" => {
+                    let id = self.info.id.unwrap();
+                    self.review_task = Some(Task::new(async move {
+                        recv_raw(Client::post(
+                            format!("/chart/{id}/stabilize-comment"),
+                            &json!({
+                                "comment": text,
+                            }),
+                        ))
+                        .await?;
+                        Ok(tl!("stabilize-commented").into())
                     }));
                 }
                 "stabilize-deny-reason" => {
@@ -1836,7 +1854,7 @@ impl Scene for SongScene {
                 self.menu.set_bottom(true);
                 self.menu.set_selected(usize::MAX);
                 let d = 0.28;
-                self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.4));
+                self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
             }
             ui.dx(-r.w - 0.03);
             ui.fill_rect(r, (*self.icon_info, r, ScaleType::Fit, c));

@@ -1081,6 +1081,14 @@ impl<'a> Ui<'a> {
         self.loading(0., -0.03, t, WHITE, ());
         self.text(text.into()).pos(0., 0.05).anchor(0.5, 0.).size(0.6).draw();
     }
+
+    pub fn main_sub_colors(use_black: bool, alpha: f32) -> (Color, Color) {
+        if use_black {
+            (semi_black(alpha), Color::new(0.3, 0.3, 0.3, alpha))
+        } else {
+            (semi_white(alpha), Color::new(0.8, 0.8, 0.8, alpha))
+        }
+    }
 }
 
 pub struct LoadingParams<'a> {

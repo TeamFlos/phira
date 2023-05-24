@@ -11,10 +11,11 @@ mod offset;
 pub use offset::OffsetPage;
 
 mod respack;
-pub use respack::ResPackPage;
+pub use respack::{ResPackItem, ResPackPage};
 
 mod settings;
 pub use settings::SettingsPage;
+use tokio::sync::Notify;
 
 use crate::{
     data::BriefChartInfo,
@@ -45,8 +46,9 @@ pub fn thumbnail_path(path: &str) -> Result<PathBuf> {
     Ok(format!("{}/{}", dir::cache_image_local()?, path.replace('/', "_")).into())
 }
 
-pub fn illustration_task(path: String) -> Task<Result<(DynamicImage, Option<DynamicImage>)>> {
+pub fn illustration_task(notify: Arc<Notify>, path: String) -> Task<Result<(DynamicImage, Option<DynamicImage>)>> {
     Task::new(async move {
+        notify.notified().await;
         let mut fs = fs_from_path(&path)?;
         let info = fs::load_info(fs.deref_mut()).await?;
         let image = image::load_from_memory(&fs.load_file(&info.illustration).await?)?;
@@ -55,18 +57,23 @@ pub fn illustration_task(path: String) -> Task<Result<(DynamicImage, Option<Dyna
     })
 }
 
-pub fn load_local(tex: &SafeTexture, order: &(ChartOrder, bool)) -> Vec<ChartItem> {
+pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
+    let tex = BLACK_TEXTURE.clone();
     let mut res: Vec<_> = get_data()
         .charts
         .iter()
         .map(|it| ChartItem {
             info: it.info.clone(),
             local_path: Some(it.local_path.clone()),
-            illu: Illustration {
-                texture: (tex.clone(), tex.clone()),
-                task: Some(illustration_task(it.local_path.clone())),
-                loaded: Arc::default(),
-                load_time: f32::NAN,
+            illu: {
+                let notify = Arc::new(Notify::new());
+                Illustration {
+                    texture: (tex.clone(), tex.clone()),
+                    notify: Arc::clone(&notify),
+                    task: Some(illustration_task(notify, it.local_path.clone())),
+                    loaded: Arc::default(),
+                    load_time: f32::NAN,
+                }
             },
         })
         .collect();
@@ -80,6 +87,7 @@ pub fn load_local(tex: &SafeTexture, order: &(ChartOrder, bool)) -> Vec<ChartIte
 #[derive(Clone)]
 pub struct Illustration {
     pub texture: (SafeTexture, SafeTexture),
+    pub notify: Arc<Notify>,
     pub task: Option<Task<Result<(DynamicImage, Option<DynamicImage>)>>>,
     pub loaded: Arc<Mutex<Option<(SafeTexture, SafeTexture)>>>,
     pub load_time: f32,
@@ -87,6 +95,10 @@ pub struct Illustration {
 
 impl Illustration {
     const TIME: f32 = 0.4;
+
+    pub fn notify(&self) {
+        self.notify.notify_one();
+    }
 
     pub fn settle(&mut self, t: f32) {
         if let Some(task) = &mut self.task {
@@ -333,7 +345,7 @@ impl SharedState {
     }
 
     pub fn reload_local_charts(&mut self) {
-        self.charts_local = load_local(&BLACK_TEXTURE, &(ChartOrder::Default, false));
+        self.charts_local = load_local(&(ChartOrder::Default, false));
     }
 }
 

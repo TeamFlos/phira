@@ -185,7 +185,7 @@ impl TagsDialog {
 
     fn dialog_rect(&self) -> Rect {
         if self.unwanted.is_some() {
-            Ui::dialog_rect().nonuniform_feather(0., 0.1)
+            Ui::dialog_rect().nonuniform_feather(0.04, 0.05)
         } else {
             Ui::dialog_rect()
         }

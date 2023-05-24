@@ -15,6 +15,7 @@ item-adjust = 자동 시간 조정
 item-adjust-sub = 음악과 비트맵을 동기화하기 위해 시간을 동적으로 조정합니다.
 item-music = 음악 볼륨
 item-sfx = 효과음 볼륨
+item-bgm = BGM 볼륨
 item-cali = 오프셋 조정
 
 item-show-acc = 실시간 정확도 표시

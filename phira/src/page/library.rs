@@ -3,12 +3,11 @@ prpr::tl_file!("library");
 use super::{ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Chart, Client},
-    data::LocalChart,
     dir, get_data, get_data_mut,
     popup::Popup,
     rate::RateDialog,
     save_data,
-    scene::{import_chart, ChartOrder, SongScene, ORDERS},
+    scene::{ChartOrder, SongScene, ORDERS},
     tags::TagsDialog,
 };
 use anyhow::Result;
@@ -16,7 +15,7 @@ use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
     ext::{semi_black, JoinToString, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
-    scene::{request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, NextScene},
+    scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
     task::Task,
     ui::{button_hit, button_hit_large, DRectButton, RectButton, Scroll, Ui},
 };
@@ -31,6 +30,7 @@ use std::{
     },
 };
 use tap::Tap;
+use tokio::sync::Notify;
 
 const CHART_HEIGHT: f32 = 0.3;
 const CHART_PADDING: f32 = 0.013;
@@ -103,7 +103,6 @@ pub struct LibraryPage {
     icon_star: SafeTexture,
 
     import_btn: DRectButton,
-    import_task: Option<Task<Result<LocalChart>>>,
 
     search_btn: DRectButton,
     search_str: String,
@@ -179,7 +178,6 @@ impl LibraryPage {
             icon_star: icon_star.clone(),
 
             import_btn: DRectButton::new(),
-            import_task: None,
 
             search_btn: DRectButton::new(),
             search_str: String::new(),
@@ -275,6 +273,7 @@ impl LibraryPage {
                         f.render(ui, t, |ui, nc| {
                             let mut c = Color { a: nc.a * c.a, ..nc };
                             let chart = &charts[id as usize];
+                            chart.illu.notify();
                             let (r, path) = self.chart_btns[id as usize].render_shadow(ui, r, t, c.a, |_| semi_black(c.a));
                             ui.fill_path(
                                 &path,
@@ -419,14 +418,21 @@ impl LibraryPage {
                     (
                         ChartItem {
                             info: it.to_info(),
-                            illu: super::Illustration {
-                                texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
-                                task: Some(Task::new({
-                                    let illu = it.illustration.clone();
-                                    async move { Ok((illu.load_thumbnail().await?, None)) }
-                                })),
-                                loaded: Arc::default(),
-                                load_time: f32::NAN,
+                            illu: {
+                                let notify = Arc::new(Notify::new());
+                                super::Illustration {
+                                    texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
+                                    notify: Arc::clone(&notify),
+                                    task: Some(Task::new({
+                                        let illu = it.illustration.clone();
+                                        async move {
+                                            notify.notified().await;
+                                            Ok((illu.load_thumbnail().await?, None))
+                                        }
+                                    })),
+                                    loaded: Arc::default(),
+                                    load_time: f32::NAN,
+                                }
                             },
                             local_path: None,
                         },
@@ -493,7 +499,7 @@ impl Page for LibraryPage {
         if self.rating.touch(touch, t) {
             return Ok(true);
         }
-        if self.transit.is_some() || self.import_task.is_some() {
+        if self.transit.is_some() {
             return Ok(true);
         }
         if self.btn_local.touch(touch, t) {
@@ -604,7 +610,7 @@ impl Page for LibraryPage {
         match self.chosen {
             ChartListType::Local => {
                 if self.import_btn.touch(touch, t) {
-                    request_file("import");
+                    request_file("_import");
                     return Ok(true);
                 }
             }
@@ -713,13 +719,6 @@ impl Page for LibraryPage {
                 }
             }
         }
-        if let Some((id, file)) = take_file() {
-            if id == "import" {
-                self.import_task = Some(Task::new(import_chart(file)));
-            } else {
-                return_file(id, file);
-            }
-        }
         if let Some((id, text)) = take_input() {
             if id == "search" {
                 self.search_str = text;
@@ -727,22 +726,6 @@ impl Page for LibraryPage {
                 self.load_online();
             } else {
                 return_input(id, text);
-            }
-        }
-        if let Some(task) = &mut self.import_task {
-            if let Some(res) = task.take() {
-                match res {
-                    Err(err) => {
-                        show_error(err.context(tl!("import-failed")));
-                    }
-                    Ok(chart) => {
-                        show_message(tl!("import-success")).ok();
-                        get_data_mut().charts.push(chart);
-                        save_data()?;
-                        s.reload_local_charts();
-                    }
-                }
-                self.import_task = None;
             }
         }
         if self.order_menu.changed() {
@@ -872,9 +855,6 @@ impl Page for LibraryPage {
                 ui.fill_path(&path, (*transit.chart.illu.texture.1, r.feather(0.01 * (1. - p))));
                 ui.fill_path(&path, semi_black(0.55));
             }
-        }
-        if self.import_task.is_some() {
-            ui.full_loading(tl!("importing"), t);
         }
         self.order_menu.render(ui, t, 1.);
         self.tags.render(ui, t);

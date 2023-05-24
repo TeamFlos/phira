@@ -1,7 +1,6 @@
 
 default = Стандартный
 load-failed = Ошибка загрузки ресурспака
-import-failed = Ошибка импорта ресурспака
 
 info = Информация о ресурс паке
 info-content =
