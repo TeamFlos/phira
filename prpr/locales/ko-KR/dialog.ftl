@@ -1,6 +1,6 @@
 
 notice = 알겠습니다
-ok = 확인
+ok = OK
 
 error = 오류
 error-copy = 오류 복사

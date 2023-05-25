@@ -4,7 +4,7 @@ popular = 인기
 list-empty = 아무것도 없음
 
 page = 페이지 { $current } / { $total }
-prev-page = 앞 페이지
+prev-page = 이전 페이지
 next-page = 다음 페이지
 
 not-opened = 아직 추가되지 않음

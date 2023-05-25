@@ -1,5 +1,5 @@
 
-to = to
+to = TO
 adjust-offset = 오프셋 조정
 offset-cancel = 취소
 offset-reset = 초기화
