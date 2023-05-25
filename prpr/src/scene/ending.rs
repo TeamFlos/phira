@@ -338,10 +338,10 @@ impl Scene for EndingScene {
                 .size(0.5)
                 .color(main)
                 .draw();
-            y += 0.042;
+            y += 0.044;
         }
 
-        let mut y = r.y + 0.21;
+        let mut y = r.y + 0.16;
         let lf = r.x + 0.38;
         for (num, text) in [(res.max_combo, "Max Combo"), (res.early, "Early"), (res.late, "Late")] {
             ui.text(text).pos(lf, y).no_baseline().size(0.33).color(sub).draw();
@@ -353,7 +353,7 @@ impl Scene for EndingScene {
                 .size(0.5)
                 .color(main)
                 .draw();
-            y += 0.042;
+            y += 0.044;
         }
 
         let ct = (0.91, -ui.top + 0.09);
