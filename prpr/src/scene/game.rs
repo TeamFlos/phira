@@ -817,6 +817,7 @@ impl Scene for GameScene {
                     } else {
                         offset.min(0.) as f64
                     });
+                    tm.seek_to((self.res.track_length - 0.2) as f64);
                     self.last_update_time = tm.real_time();
                     if self.first_in && self.mode == GameMode::Exercise {
                         tm.pause();

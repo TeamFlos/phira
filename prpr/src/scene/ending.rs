@@ -326,34 +326,34 @@ impl Scene for EndingScene {
         };
         ui.text(text).pos(r.x, r.bottom() + 0.03).size(0.4).color(main).draw();
 
-        let mut y = r.y + 0.21;
+        let mut y = r.y + 0.16;
         let lf = r.x + 0.036;
         for (num, text) in res.counts.iter().zip(["Perfect", "Good", "Bad", "Miss"]) {
-            ui.text(text).pos(lf, y).no_baseline().size(0.4).color(sub).draw();
-            y += 0.035;
+            ui.text(text).pos(lf, y).no_baseline().size(0.33).color(sub).draw();
+            y += 0.025;
             ui.text(num.to_string())
-                .pos(lf + 0.02, y)
+                .pos(lf + 0.01, y)
                 .anchor(0., 0.)
                 .no_baseline()
-                .size(0.64)
+                .size(0.5)
                 .color(main)
                 .draw();
-            y += 0.06;
+            y += 0.042;
         }
 
         let mut y = r.y + 0.21;
         let lf = r.x + 0.38;
         for (num, text) in [(res.max_combo, "Max Combo"), (res.early, "Early"), (res.late, "Late")] {
-            ui.text(text).pos(lf, y).no_baseline().size(0.4).color(sub).draw();
-            y += 0.035;
+            ui.text(text).pos(lf, y).no_baseline().size(0.33).color(sub).draw();
+            y += 0.025;
             ui.text(num.to_string())
-                .pos(lf + 0.02, y)
+                .pos(lf + 0.01, y)
                 .anchor(0., 0.)
                 .no_baseline()
-                .size(0.64)
+                .size(0.5)
                 .color(main)
                 .draw();
-            y += 0.06;
+            y += 0.042;
         }
 
         let ct = (0.91, -ui.top + 0.09);
