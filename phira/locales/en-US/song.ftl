@@ -104,17 +104,3 @@ need-update-info-only-content = The info of beatmap has updated. Do you want to 
 need-update-content = This beatmap has updated. You must sync your local version before uploading record. Do you want to do it now?
 
 request-failed = Request failed
-
-stabilize = Stabilize
-stabilize-warn = Normal user can only request to stabilize beatmap once per 3 days. If you have beatmaps that are stabilized, the interval is reduced to 1 day.
-stabilize-requested = Stablizing request sent
-stabilize-failed = Stabilize failed
-stabilize-approve = Approve special
-stabilize-approve-ranked = Approve stable
-stabilize-comment = Stable comment
-stabilize-commented = Commented
-stabilize-deny = Deny stable
-stabilize-approved = Approved
-stabilize-approved-passed = Approved, the beatmap is stablized
-stabilize-denied = Denied
-stabilize-denied-passed = Denied, the beatmap is rejected
