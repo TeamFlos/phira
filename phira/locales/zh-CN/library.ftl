@@ -1,6 +1,5 @@
 
 local = 本地
-
 popular = 热门
 list-empty = 空空如也
 
@@ -14,3 +13,5 @@ failed-to-load-online = 加载在线谱面失败
 import = 导入
 
 offline-mode = 离线模式下无法加载在线谱面
+
+must-login = You must login to view online charts

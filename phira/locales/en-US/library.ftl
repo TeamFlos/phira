@@ -13,3 +13,5 @@ failed-to-load-online = Failed to load online beatmaps
 import = Import
 
 offline-mode = Can't load online beatmaps in offline mode
+
+must-login = You must login to view online charts
