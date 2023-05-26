@@ -10,19 +10,16 @@ pub use record::*;
 mod user;
 pub use user::*;
 
-use super::Client;
+use super::{Client, CLIENT_TOKEN};
 use crate::{
     dir,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
 };
 use anyhow::Result;
 use bytes::Bytes;
-use futures_util::Stream;
-use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache};
 use image::DynamicImage;
 use lru::LruCache;
 use once_cell::sync::Lazy;
-use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::{
     any::Any,
@@ -167,17 +164,7 @@ impl<'de, T: Object + 'static> Deserialize<'de> for Ptr<T> {
     }
 }
 
-pub static CACHE_CLIENT: Lazy<ClientWithMiddleware> = Lazy::new(|| {
-    ClientBuilder::new(reqwest::Client::new())
-        .with(Cache(HttpCache {
-            mode: CacheMode::Default,
-            manager: CACacheManager {
-                path: format!("{}/http-cache", dir::cache().unwrap_or_else(|_| ".".to_owned())),
-            },
-            options: None,
-        }))
-        .build()
-});
+pub static CACHE_DIR: Lazy<String> = Lazy::new(|| format!("{}/http-cache", dir::cache().unwrap_or_else(|_| ".".to_owned())));
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -185,12 +172,25 @@ pub struct File {
     pub url: String,
 }
 impl File {
-    pub async fn fetch(&self) -> Result<Bytes> {
-        Ok(CACHE_CLIENT.get(&self.url).send().await?.bytes().await?)
+    fn request(&self) -> reqwest::RequestBuilder {
+        let req = reqwest::Client::new().get(&self.url);
+        if let Some(token) = CLIENT_TOKEN.load().as_ref() {
+            req.header("Authorization", format!("Bearer {}", token))
+        } else {
+            req
+        }
     }
 
-    pub async fn fetch_stream(&self) -> Result<impl Stream<Item = reqwest::Result<Bytes>>> {
-        Ok(CACHE_CLIENT.get(&self.url).send().await?.bytes_stream())
+    pub async fn fetch(&self) -> Result<Bytes> {
+        match cacache::read(&*CACHE_DIR, &self.url).await {
+            Ok(data) => Ok(data.into()),
+            Err(cacache::Error::EntryNotFound(..)) => {
+                let bytes = self.request().send().await?.error_for_status()?.bytes().await?;
+                cacache::write(&*CACHE_DIR, &self.url, &bytes).await?;
+                Ok(bytes)
+            }
+            Err(err) => Err(err.into()),
+        }
     }
 
     pub async fn load_image(&self) -> Result<DynamicImage> {

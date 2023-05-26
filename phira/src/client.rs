@@ -11,13 +11,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, sync::Arc};
 
-// static CERT: Lazy<Certificate> = Lazy::new(|| Certificate::from_pem(include_bytes!("server.crt")).unwrap());
+pub static CLIENT_TOKEN: Lazy<ArcSwap<Option<String>>> = Lazy::new(|| ArcSwap::from_pointee(None));
 
-// static CLIENT: Lazy<ArcSwap<reqwest::Client>> =
-// Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().add_root_certificate(CERT.clone()).build().unwrap()));
-
-static CLIENT: Lazy<ArcSwap<reqwest::Client>> =
-    Lazy::new(|| ArcSwap::from_pointee(reqwest::ClientBuilder::new().danger_accept_invalid_certs(true).build().unwrap()));
+static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_pointee(reqwest::Client::new()));
 
 pub struct Client;
 
@@ -25,6 +21,7 @@ pub struct Client;
 const API_URL: &str = "https://api.phira.cn";
 
 fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
+    CLIENT_TOKEN.store(access_token.map(str::to_owned).into());
     let mut headers = header::HeaderMap::new();
     headers.append(header::ACCEPT_LANGUAGE, header::HeaderValue::from_str(&get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string()))?);
     if let Some(token) = access_token {
@@ -32,11 +29,7 @@ fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
         auth_value.set_sensitive(true);
         headers.insert(header::AUTHORIZATION, auth_value);
     }
-    Ok(reqwest::ClientBuilder::new()
-        .danger_accept_invalid_certs(true)
-        .default_headers(headers)
-        .build()?
-        .into())
+    Ok(reqwest::ClientBuilder::new().default_headers(headers).build()?.into())
 }
 
 pub fn set_access_token_sync(access_token: Option<&str>) -> Result<()> {
