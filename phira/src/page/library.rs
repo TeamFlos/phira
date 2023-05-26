@@ -10,7 +10,7 @@ use crate::{
     scene::{ChartOrder, SongScene, ORDERS},
     tags::TagsDialog,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
@@ -342,6 +342,10 @@ impl LibraryPage {
     pub fn load_online(&mut self) {
         if get_data().config.offline_mode {
             show_message(tl!("offline-mode")).error();
+            return;
+        }
+        if get_data().me.is_none() {
+            show_error(anyhow!(tl!("must-login")));
             return;
         }
         self.scroll.y_scroller.offset = 0.;
