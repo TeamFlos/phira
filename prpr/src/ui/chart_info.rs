@@ -150,7 +150,9 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 Ok(value) => {
                     if value.is_finite() && value > 0.0 {
                         info.aspect_ratio = value;
-                    } else {show_message(tl!("illegal-input")).error();}
+                    } else {
+                        show_message(tl!("illegal-input")).error();
+                    }
                 }
             }
         }
