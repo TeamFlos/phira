@@ -24,7 +24,7 @@ item-dhint = 더블 힌트
 item-dhint-sub = 선을 따라 동시에 터치하는 노트가 강조됩니다.
 item-opt = 고성능 최적화
 item-opt-sub = 성능을 향상시킬 수 있지만, 부정확한 동작을 유발할 수 있습니다.
-item-speed = 속도
+item-speed = 노트 속도
 item-note-size = 노트 크기
 
 item-chart-debug = 비트맵 디버그 모드

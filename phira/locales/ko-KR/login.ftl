@@ -1,6 +1,6 @@
 login = 로그인
 login-sub = 온라인 커뮤니티에 참여하려면 로그인하세요.
-back-login = 로그인 화면으로 돌아가기
+back-login = 로그인
 register = 회원 가입
 
 email = 이메일 주소
