@@ -5,17 +5,17 @@ no-chart-for-download = 이 비트맵은 다운로드할 수 없습니다.
 load-chart-failed = 비트맵을 불러오는데 실패했습니다.
 
 dl-cancel = 취소
-dl-status-fetch = 정보 불러오는 중
-dl-status-song = 곡 다운로드 중
-dl-status-chart = 비트맵 다운로드 중
-dl-status-extract = 압축 해제 중
-dl-status-illustration = 일러스트 다운로드 중
-dl-status-assets = 에셋 다운로드 중
-dl-status-saving = 저장 중
+dl-status-fetch = 정보 불러오는 중...
+dl-status-song = 곡 다운로드 중...
+dl-status-chart = 비트맵 다운로드 중...
+dl-status-extract = 압축 해제 중...
+dl-status-illustration = 일러스트 다운로드 중...
+dl-status-assets = 에셋 다운로드 중...
+dl-status-saving = 저장 중...
 dl-failed = 다운로드 실패
 dl-success = 다운로드 완료
 
-guest = 게스트
+guest = GUEST
 
 warn-unrated = 이번 플레이는 평가되지 않았습니다.
 failed-to-play = 온라인 모드로 시작할 수 없습니다.
