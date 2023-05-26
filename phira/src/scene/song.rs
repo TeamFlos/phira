@@ -2,7 +2,7 @@ prpr::tl_file!("song");
 
 use super::{confirm_delete, confirm_dialog, fs_from_path};
 use crate::{
-    client::{recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager},
+    client::{recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     page::{thumbnail_path, ChartItem, Fader, Illustration, NEED_UPDATE},
@@ -412,7 +412,13 @@ impl SongScene {
                     async fn download(mut file: impl Write, url: &str, prog_wk: &Weak<Mutex<Option<f32>>>) -> Result<()> {
                         let Some(prog) = prog_wk.upgrade() else { return Ok(()) };
                         *prog.lock().unwrap() = None;
-                        let res = reqwest::get(url).await.with_context(|| tl!("request-failed"))?;
+                        let req = reqwest::Client::new().get(url);
+                        let req = if let Some(token) = CLIENT_TOKEN.load().as_ref() {
+                            req.header("Authorization", format!("Bearer {token}"))
+                        } else {
+                            req
+                        };
+                        let res = req.send().await.with_context(|| tl!("request-failed"))?.error_for_status()?;
                         let size = res.content_length();
                         let mut stream = res.bytes_stream();
                         let mut count = 0;
