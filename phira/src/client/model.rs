@@ -15,7 +15,7 @@ use crate::{
     dir,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
 };
-use anyhow::Result;
+use anyhow::{bail, Result};
 use bytes::Bytes;
 use image::DynamicImage;
 use lru::LruCache;
@@ -185,7 +185,11 @@ impl File {
         match cacache::read(&*CACHE_DIR, &self.url).await {
             Ok(data) => Ok(data.into()),
             Err(cacache::Error::EntryNotFound(..)) => {
-                let bytes = self.request().send().await?.error_for_status()?.bytes().await?;
+                let resp = self.request().send().await?;
+                if !resp.status().is_success() {
+                    bail!("{}", resp.text().await?);
+                }
+                let bytes = resp.error_for_status()?.bytes().await?;
                 cacache::write(&*CACHE_DIR, &self.url, &bytes).await?;
                 Ok(bytes)
             }
