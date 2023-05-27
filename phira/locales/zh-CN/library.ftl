@@ -14,4 +14,4 @@ import = 导入
 
 offline-mode = 离线模式下无法加载在线谱面
 
-must-login = You must login to view online charts
+must-login = 登录才可查看在线谱面
