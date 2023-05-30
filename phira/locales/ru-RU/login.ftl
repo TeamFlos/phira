@@ -1,7 +1,7 @@
 
 login = Войти
 login-sub = Войдите что-бы взаимодействовать с сообществом. 
-back-login = Вернуться
+back-login = Назад
 register = Регистрация
 
 email = Почта
