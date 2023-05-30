@@ -2,7 +2,7 @@
 local = Локальные
 online = Онлайн
 popular = Популярные
-list-empty = Здесь ничего...
+list-empty = Пусто
 
 page = Страница { $current } из { $total }
 prev-page = Пред.
