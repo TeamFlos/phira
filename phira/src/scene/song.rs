@@ -16,13 +16,14 @@ use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use macroquad::prelude::*;
+use phira_mp_common::{ClientCommand, TouchFrame};
 use prpr::{
     config::Mods,
     core::Tweenable,
     ext::{screen_aspect, semi_black, semi_white, unzip_into, JoinToString, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
-    judge::icon_index,
+    judge::{icon_index, Judge},
     scene::{
         load_scene, loading_scene, request_input, return_input, show_error, show_message, take_input, take_loaded_scene, BasicPlayer, GameMode,
         LoadingScene, NextScene, RecordUpdateState, Scene, SimpleRecord,
@@ -46,6 +47,7 @@ use std::{
         Arc, Mutex, Weak,
     },
 };
+use tokio::net::TcpStream;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 
@@ -606,6 +608,7 @@ impl SongScene {
             };
             let chart_updated = info.chart_updated;
             config.mods = mods;
+            let stream = phira_mp_client::Client::new(TcpStream::connect("0.0.0.0:1234").await?).await?;
             LoadingScene::new(
                 mode,
                 info,
@@ -652,6 +655,22 @@ impl SongScene {
                             new_rks: resp.new_rks,
                         })
                     })
+                })),
+                Some(Box::new({
+                    let mut touches: Vec<TouchFrame> = Vec::new();
+                    move |game| {
+                        let t = game.res.time;
+                        if touches.last().map_or(true, |it| it.time + 1. / 15. < t) {
+                            touches.push(TouchFrame {
+                                time: t,
+                                points: Judge::get_touches().into_iter().map(|it| (it.position.x, it.position.y)).collect(),
+                            });
+                        }
+                        if touches.len() > 10 || touches.first().map_or(false, |it| it.time + 1. < t) {
+                            let frames = std::mem::take(&mut touches);
+                            stream.blocking_send(ClientCommand::Touches { frames }).unwrap();
+                        }
+                    }
                 })),
             )
             .await

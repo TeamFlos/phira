@@ -51,6 +51,7 @@ impl LoadingScene {
         player: Option<BasicPlayer>,
         get_size_fn: Option<Rc<dyn Fn() -> (u32, u32)>>,
         upload_fn: Option<UploadFn>,
+        update_fn: Option<Box<dyn FnMut(&GameScene)>>,
     ) -> Result<Self> {
         async fn load(fs: &mut Box<dyn FileSystem>, path: &str) -> Result<(Texture2D, Texture2D, Color)> {
             let image = image::load_from_memory(&fs.load_file(path).await?).context("Failed to decode image")?;
@@ -93,8 +94,20 @@ impl LoadingScene {
         if info.tip.is_none() {
             info.tip = Some(crate::config::TIPS.choose(&mut thread_rng()).unwrap().to_owned());
         }
-        let future =
-            Box::pin(GameScene::new(mode, info.clone(), config, fs, player, background.clone(), illustration.clone(), get_size_fn, upload_fn, theme_color, use_black));
+        let future = Box::pin(GameScene::new(
+            mode,
+            info.clone(),
+            config,
+            fs,
+            player,
+            background.clone(),
+            illustration.clone(),
+            get_size_fn,
+            upload_fn,
+            update_fn,
+            theme_color,
+            use_black,
+        ));
         let charter = Regex::new(r"\[!:[0-9]+:([^:]*)\]").unwrap().replace_all(&info.charter, "$1").to_string();
 
         Ok(Self {
