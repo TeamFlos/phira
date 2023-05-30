@@ -43,6 +43,9 @@ walkdir = "2.3.3"
 zip = "0.6.4"
 zstd = "0.12"
 
+phira-mp-client = { path = "../../phira-mp/phira-mp-client" }
+phira-mp-common = { path = "../../phira-mp/phira-mp-common" }
+
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
 ndk-context = "0.1"
