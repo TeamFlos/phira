@@ -2,7 +2,7 @@ rate = Оценка
 
 filter = Фильтр по оценке
 
-cancel = Отменить
+cancel = Отмена
 
 confirm = Подтвердить
 
