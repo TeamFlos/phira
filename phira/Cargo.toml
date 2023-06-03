@@ -2,6 +2,7 @@
 name = "phira"
 version = "0.3.3"
 edition = "2021"
+license = "GPL-3.0-only"
 
 [lib]
 crate-type = ["lib", "cdylib"]
@@ -42,6 +43,9 @@ uuid7 = "0.3.4"
 walkdir = "2.3.3"
 zip = "0.6.4"
 zstd = "0.12"
+
+phira-mp-client = { path = "../../phira-mp/phira-mp-client" }
+phira-mp-common = { path = "../../phira-mp/phira-mp-common" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"

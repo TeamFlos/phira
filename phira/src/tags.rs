@@ -69,7 +69,7 @@ impl Tags {
             }
         }
         if self.add.touch(touch, t) {
-            request_input(self.input_id, "");
+            request_input(self.input_id, "", false);
             return true;
         }
         false

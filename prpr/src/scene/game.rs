@@ -29,6 +29,7 @@ use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
+    cell::RefCell,
     fs::File,
     io::{Cursor, ErrorKind},
     ops::{DerefMut, Range},
@@ -142,6 +143,7 @@ pub struct GameScene {
     bad_notes: Vec<BadNote>,
 
     upload_fn: Option<UploadFn>,
+    update_fn: Option<RefCell<Box<dyn FnMut(&GameScene)>>>,
 
     theme_color: Color,
     use_black: bool,
@@ -235,6 +237,7 @@ impl GameScene {
         illustration: SafeTexture,
         get_size_fn: Rc<dyn Fn() -> (u32, u32)>,
         upload_fn: Option<UploadFn>,
+        update_fn: Option<Box<dyn FnMut(&GameScene)>>,
 
         theme_color: Color,
         use_black: bool,
@@ -307,6 +310,7 @@ impl GameScene {
             bad_notes: Vec::new(),
 
             upload_fn,
+            update_fn: update_fn.map(RefCell::new),
 
             theme_color,
             use_black,
@@ -918,6 +922,9 @@ impl Scene for GameScene {
         } else {
             WHITE
         };
+        if let Some(update) = &self.update_fn {
+            (update.borrow_mut())(self);
+        }
         self.res.judge_line_color.a *= self.res.alpha;
         self.chart.update(&mut self.res);
         let res = &mut self.res;
@@ -994,11 +1001,11 @@ impl Scene for GameScene {
                 ..touch.clone()
             };
             if self.exercise_btns.0.touch(&touch) {
-                request_input("exercise_start", &fmt_time(self.exercise_range.start));
+                request_input("exercise_start", &fmt_time(self.exercise_range.start), false);
                 return Ok(true);
             }
             if self.exercise_btns.1.touch(&touch) {
-                request_input("exercise_end", &fmt_time(self.exercise_range.end));
+                request_input("exercise_end", &fmt_time(self.exercise_range.end), false);
                 return Ok(true);
             }
         }

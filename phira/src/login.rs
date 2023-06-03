@@ -138,23 +138,23 @@ impl Login {
                 return true;
             }
             if self.input_email.touch(touch, t) {
-                request_input("email", &self.t_email);
+                request_input("email", &self.t_email, false);
                 return true;
             }
             if self.input_pwd.touch(touch, t) {
-                request_input("pwd", &self.t_pwd);
+                request_input("pwd", &self.t_pwd. true);
                 return true;
             }
             if self.input_reg_email.touch(touch, t) {
-                request_input("reg_email", &self.t_reg_email);
+                request_input("reg_email", &self.t_reg_email, false);
                 return true;
             }
             if self.input_reg_name.touch(touch, t) {
-                request_input("reg_name", &self.t_reg_name);
+                request_input("reg_name", &self.t_reg_name, false);
                 return true;
             }
             if self.input_reg_pwd.touch(touch, t) {
-                request_input("reg_pwd", &self.t_reg_pwd);
+                request_input("reg_pwd", &self.t_reg_pwd, true);
                 return true;
             }
             if self.btn_to_reg.touch(touch, t) || self.btn_to_login.touch(touch, t) {
