@@ -1,5 +1,5 @@
 
-filter = 按標籤過濾
+filter = 按標籤篩選
 edit = 編輯標籤
 
 invalid-tag = 標籤無效
@@ -10,7 +10,7 @@ unwanted = 不想包含的標籤
 cancel = 取消
 confirm = 確認
 
-filter-by-rating = 按評分過濾
+filter-by-rating = 按評分篩選
 
 regular = 常規
 troll = 整活

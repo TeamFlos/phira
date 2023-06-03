@@ -4,6 +4,6 @@ event = 活動
 respack = 材質包
 
 not-opened = 敬請期待
-not-logged-in = 未登錄
+not-logged-in = 未登入
 
-failed-to-update = 加載用戶信息失敗
+failed-to-update = 用戶資訊載入失敗

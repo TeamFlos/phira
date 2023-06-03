@@ -1,7 +1,7 @@
 
-login = 登錄
-login-sub = 登錄以加入活躍的在線社區
-back-login = 返回登錄
+login = 登入
+login-sub = 登入以加入活躍的在線社區
+back-login = 返回登入
 register = 註冊
 
 email = 電郵地址
@@ -14,14 +14,14 @@ pwd-length-req = 密碼長度應介於 6-26 之間
 illegal-email = 電郵地址不合法
 
 action-success = { $action ->
-  [login] 登錄成功
+  [login] 登入成功
   [register] 註冊成功
   *[other] _
 }
 action-failed = { $action ->
-  [login] 登錄失敗
+  [login] 登入失敗
   [register] 註冊失敗
   *[other] _
 }
 
-email-sent = 驗證電郵已發送至您的電郵地址，請前往驗證後登錄。
+email-sent = 驗證電郵已發送至您的電郵地址，請前往驗證後登入。

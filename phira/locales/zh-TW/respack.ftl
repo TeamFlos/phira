@@ -1,8 +1,8 @@
 
 default = 默認材質包
-load-failed = 加載材質包失敗
+load-failed = 載入材質包失敗
 
-info = 材質包信息
+info = 材質包資訊
 info-content =
   名字：{ $name }
   作者：{ $author }

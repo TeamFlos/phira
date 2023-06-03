@@ -1,5 +1,5 @@
 
-uploading = 正在上傳成績。。。
+uploading = 上傳成績中...
 uploaded = 成績上傳成功
 upload-failed = 成績上傳失敗
 upload-cancel = 取消上傳
