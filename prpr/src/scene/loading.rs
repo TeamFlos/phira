@@ -1,9 +1,11 @@
 use super::{draw_background, ending::RecordUpdateState, game::GameMode, GameScene, NextScene, Scene};
 use crate::{
     config::Config,
+    core::{Chart, Resource, BadNote},
     ext::{poll_future, screen_aspect, semi_black, semi_white, LocalTask, RectExt, SafeTexture, BLACK_TEXTURE},
     fs::FileSystem,
     info::ChartInfo,
+    judge::Judge,
     task::Task,
     time::TimeManager,
     ui::{rounded_rect, rounded_rect_shadow, LoadingParams, ShadowConfig, Ui},
@@ -19,6 +21,7 @@ const TRANSITION_TIME: f32 = 1.4;
 const WAIT_TIME: f32 = 0.4;
 
 pub type UploadFn = Arc<dyn Fn(Vec<u8>) -> Task<Result<RecordUpdateState>>>;
+pub type UpdateFn = Box<dyn FnMut(f32, bool, &mut Resource, &mut Chart, &mut Judge, &mut Vec<(f32, f32)>, &mut Vec<BadNote>)>;
 
 pub struct BasicPlayer {
     pub avatar: Option<SafeTexture>,
@@ -51,7 +54,7 @@ impl LoadingScene {
         player: Option<BasicPlayer>,
         get_size_fn: Option<Rc<dyn Fn() -> (u32, u32)>>,
         upload_fn: Option<UploadFn>,
-        update_fn: Option<Box<dyn FnMut(&GameScene)>>,
+        update_fn: Option<UpdateFn>,
     ) -> Result<Self> {
         async fn load(fs: &mut Box<dyn FileSystem>, path: &str) -> Result<(Texture2D, Texture2D, Color)> {
             let image = image::load_from_memory(&fs.load_file(path).await?).context("Failed to decode image")?;

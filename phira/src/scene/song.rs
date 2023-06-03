@@ -16,14 +16,14 @@ use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use macroquad::prelude::*;
-use phira_mp_common::{ClientCommand, TouchFrame};
+use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::Tweenable,
+    core::{BadNote, Tweenable, Vector},
     ext::{screen_aspect, semi_black, semi_white, unzip_into, JoinToString, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
-    judge::{icon_index, Judge},
+    judge::{icon_index, Judge, JudgeStatus},
     scene::{
         load_scene, loading_scene, request_input, return_input, show_error, show_message, take_input, take_loaded_scene, BasicPlayer, GameMode,
         LoadingScene, NextScene, RecordUpdateState, Scene, SimpleRecord,
@@ -608,7 +608,14 @@ impl SongScene {
             };
             let chart_updated = info.chart_updated;
             config.mods = mods;
-            let stream = phira_mp_client::Client::new(TcpStream::connect("0.0.0.0:1234").await?).await?;
+            let client = phira_mp_client::Client::new(TcpStream::connect("0.0.0.0:1234").await?).await?;
+            client.authorize(get_data().tokens.as_ref().map(|it| it.0.clone()).unwrap()).await?;
+            if config.autoplay() {
+                client.join_room(0).await?;
+            } else {
+                let id = client.create_room().await?;
+                info!("created room {}", id);
+            }
             LoadingScene::new(
                 mode,
                 info,
@@ -658,17 +665,125 @@ impl SongScene {
                 })),
                 Some(Box::new({
                     let mut touches: Vec<TouchFrame> = Vec::new();
-                    move |game| {
-                        let t = game.res.time;
-                        if touches.last().map_or(true, |it| it.time + 1. / 15. < t) {
-                            touches.push(TouchFrame {
-                                time: t,
-                                points: Judge::get_touches().into_iter().map(|it| (it.position.x, it.position.y)).collect(),
-                            });
-                        }
-                        if touches.len() > 10 || touches.first().map_or(false, |it| it.time + 1. < t) {
-                            let frames = std::mem::take(&mut touches);
-                            stream.blocking_send(ClientCommand::Touches { frames }).unwrap();
+                    let mut judges: Vec<JudgeEvent> = Vec::new();
+                    move |t, watch, res, chart, judge, touch_points, bad_notes| {
+                        if !watch {
+                            if touches.last().map_or(true, |it| it.time + 1. / 20. < t) {
+                                touches.push(TouchFrame {
+                                    time: t,
+                                    points: Judge::get_touches()
+                                        .into_iter()
+                                        .map(|it| CompactPos::new(it.position.x, it.position.y))
+                                        .collect(),
+                                });
+                            }
+                            if touches.len() > 20 || touches.first().map_or(false, |it| it.time + 1. < t) {
+                                let frames = Arc::new(std::mem::take(&mut touches));
+                                client.blocking_send(ClientCommand::Touches { frames }).unwrap();
+                            }
+                            judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
+                                time: it.0,
+                                line_id: it.1,
+                                note_id: it.2,
+                                judgement: {
+                                    use phira_mp_common::Judgement::*;
+                                    use prpr::judge::Judgement as OJ;
+                                    match it.3 {
+                                        Ok(OJ::Perfect) => Perfect,
+                                        Ok(OJ::Good) => Good,
+                                        Ok(OJ::Bad) => Bad,
+                                        Ok(OJ::Miss) => Miss,
+                                        Err(true) => HoldPerfect,
+                                        Err(false) => HoldGood,
+                                    }
+                                },
+                            }));
+                            if judges.len() > 10 || judges.first().map_or(false, |it| it.time + 0.6 < t) {
+                                let judges = Arc::new(std::mem::take(&mut judges));
+                                client.blocking_send(ClientCommand::Judges { judges }).unwrap();
+                            }
+                        } else {
+                            {
+                                let mut frames = client.touch_frames();
+                                let mut updated = false;
+                                while frames.front().map_or(false, |it| it.time < t) {
+                                    frames.pop_front();
+                                    updated = true;
+                                }
+                                if updated {
+                                    if let Some(frame) = frames.front() {
+                                        *touch_points = frame.points.iter().map(|it| (it.x(), it.y())).collect();
+                                    } else {
+                                        touch_points.clear();
+                                    }
+                                }
+                            }
+                            {
+                                let mut judges = client.judge_events();
+                                while let Some(event) = judges.front() {
+                                    if event.time > t {
+                                        break;
+                                    }
+                                    let Some(event) = judges.pop_front() else { unreachable!() };
+                                    use phira_mp_common::Judgement::*;
+                                    use prpr::judge::Judgement as TJ;
+                                    let kind = match event.judgement {
+                                        Perfect => Ok(TJ::Perfect),
+                                        Good => Ok(TJ::Good),
+                                        Bad => Ok(TJ::Bad),
+                                        Miss => Ok(TJ::Miss),
+                                        HoldPerfect => Err(true),
+                                        HoldGood => Err(false),
+                                    };
+                                    let note = &mut chart.lines[event.line_id as usize].notes[event.note_id as usize];
+                                    match kind {
+                                        Ok(tj) => {
+                                            note.judge = JudgeStatus::Judged;
+                                            let line = &chart.lines[event.line_id as usize];
+                                            let line_tr = line.now_transform(res, &chart.lines);
+                                            let note = &line.notes[event.note_id as usize];
+                                            judge.commit(t, tj, event.line_id, event.note_id, 0.);
+                                            match tj {
+                                                TJ::Perfect => {
+                                                    res.with_model(line_tr * note.object.now(res), |res| {
+                                                        res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect())
+                                                    });
+                                                }
+                                                TJ::Good => {
+                                                    res.with_model(line_tr * note.object.now(res), |res| {
+                                                        res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good())
+                                                    });
+                                                }
+                                                TJ::Bad => {
+                                                    bad_notes.push(BadNote {
+                                                        time: t,
+                                                        kind: note.kind.clone(),
+                                                        matrix: {
+                                                            let mut mat = line_tr;
+                                                            if !note.above {
+                                                                mat.append_nonuniform_scaling_mut(&Vector::new(1., -1.));
+                                                            }
+                                                            let incline_sin =
+                                                                line.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default();
+                                                            mat *= note.now_transform(
+                                                                res,
+                                                                &line.ctrl_obj.borrow_mut(),
+                                                                (note.height - line.height.now()) / res.aspect_ratio * note.speed,
+                                                                incline_sin,
+                                                            );
+                                                            mat
+                                                        },
+                                                    });
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                        Err(perfect) => {
+                                            note.judge = JudgeStatus::Hold(perfect, t, 0., false, f32::INFINITY);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 })),

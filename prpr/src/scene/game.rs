@@ -5,7 +5,7 @@ crate::tl_file!("game");
 use super::{
     draw_background,
     ending::RecordUpdateState,
-    loading::{BasicPlayer, UploadFn},
+    loading::{BasicPlayer, UpdateFn, UploadFn},
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
@@ -143,10 +143,12 @@ pub struct GameScene {
     bad_notes: Vec<BadNote>,
 
     upload_fn: Option<UploadFn>,
-    update_fn: Option<RefCell<Box<dyn FnMut(&GameScene)>>>,
+    update_fn: Option<UpdateFn>,
 
     theme_color: Color,
     use_black: bool,
+
+    pub touch_points: Vec<(f32, f32)>,
 }
 
 macro_rules! reset {
@@ -237,7 +239,7 @@ impl GameScene {
         illustration: SafeTexture,
         get_size_fn: Rc<dyn Fn() -> (u32, u32)>,
         upload_fn: Option<UploadFn>,
-        update_fn: Option<Box<dyn FnMut(&GameScene)>>,
+        update_fn: Option<UpdateFn>,
 
         theme_color: Color,
         use_black: bool,
@@ -310,10 +312,12 @@ impl GameScene {
             bad_notes: Vec::new(),
 
             upload_fn,
-            update_fn: update_fn.map(RefCell::new),
+            update_fn,
 
             theme_color,
             use_black,
+
+            touch_points: Vec::new(),
         })
     }
 
@@ -697,6 +701,9 @@ impl GameScene {
                 ui.fill_circle(touch.position.x, touch.position.y, 0.04, Color { a: 0.4, ..RED });
             }
         }
+        for pos in &self.touch_points {
+            ui.fill_circle(pos.0, pos.1, 0.04, Color { a: 0.4, ..BLUE });
+        }
         Ok(())
     }
 
@@ -909,8 +916,21 @@ impl Scene for GameScene {
         self.res.time = time;
         if !tm.paused() && self.pause_rewind.is_none() {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
-            self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
+            if !self.res.config.autoplay() {
+                self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
+            }
             self.gl.quad_gl.viewport(None);
+        }
+        if let Some(update) = &mut self.update_fn {
+            update(
+                self.res.time,
+                self.res.config.autoplay(),
+                &mut self.res,
+                &mut self.chart,
+                &mut self.judge,
+                &mut self.touch_points,
+                &mut self.bad_notes,
+            );
         }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 {
@@ -922,9 +942,6 @@ impl Scene for GameScene {
         } else {
             WHITE
         };
-        if let Some(update) = &self.update_fn {
-            (update.borrow_mut())(self);
-        }
         self.res.judge_line_color.a *= self.res.alpha;
         self.chart.update(&mut self.res);
         let res = &mut self.res;
