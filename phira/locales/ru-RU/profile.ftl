@@ -1,6 +1,6 @@
 
 logout = Выйти
-logged-out = Успешный Выход
+logged-out = Успешный выход
 
 load-user-failed = Ошибка загрузки информации о пользователе
 edit-avatar-success = Фото профиля обновлено

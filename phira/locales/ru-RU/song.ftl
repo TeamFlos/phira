@@ -75,7 +75,7 @@ info-type = Тип
 info-tags = Теги
 
 review-approve = Подтвердить
-review-deny = Отвергнуть
+review-deny = Отклонить
 review-del = Удалить из онлайн-списка
 review-approved = Подтверждëн
 review-passed = Модерация пройдена
@@ -85,7 +85,7 @@ review-action-failed = Ошибка выполнения модерации
 review-doing = На модерации
 review-not-loaded = Подождите...
 review-edit-tags = Изменить теги
-review-edit-tags-failed = Ошибка при изменении тегоа
+review-edit-tags-failed = Ошибка при изменении тегов
 review-edit-tags-done = Теги изменены
 
 mods = Моды
@@ -100,8 +100,8 @@ rate-failed = Ошибка при оценке
 rate-done = Чарт оценëн
 
 need-update = Обновление чарта
-need-update-info-only-content = Инфопмация о чарте была обновлена. Хотите-ли вы обновить его?
-need-update-content = Этот чарт был обновлëн. Для загрузки результатов версия чарта должна совпадать с локальной. Обновить чарт?
+need-update-info-only-content = Этот чарт был обновлëн. Обновить его?
+need-update-content = Этот чарт был обновлëн. Для загрузки результатов версия чарта должна совпадать с локальной. Обновить его?
 
 request-failed = Ошибка при выполнении запроса
 
