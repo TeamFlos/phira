@@ -1,3 +1,3 @@
 load-msg-fail = Ошибка загрузки сообщений
-no-msg = Здесь ничего нет
+no-msg = Пусто
 subtitle =от { $author } , Дата : { $time }
