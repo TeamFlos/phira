@@ -8,4 +8,4 @@ speed = 速度
 
 ex-time-out-of-range = 時間不在範圍內
 ex-invalid-format = 格式有誤
-ex-time-set = 設置成功
+ex-time-set = 設定成功
