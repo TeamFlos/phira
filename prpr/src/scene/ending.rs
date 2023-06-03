@@ -295,7 +295,7 @@ impl Scene for EndingScene {
             .color(sub)
             .draw();
         ui.scissor(Some(gr));
-        ui.text(format!("(±{}ms)", res.std as i32))
+        ui.text(format!("(±{}ms)", (res.std * 1000.).round() as i32))
             .pos(sr.right() + 0.02, sr.bottom())
             .anchor(0., 1.)
             .size(0.4)
