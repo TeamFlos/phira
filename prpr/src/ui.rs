@@ -872,7 +872,7 @@ impl<'a> Ui<'a> {
         } else {
             self.button(&id, r, value.as_str())
         } {
-            request_input(&id, value);
+            request_input(&id, value, params.password);
         }
         if let Some((its_id, text)) = take_input() {
             if its_id == id {
