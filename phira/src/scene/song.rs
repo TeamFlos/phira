@@ -1422,7 +1422,7 @@ impl Scene for SongScene {
                     }));
                 }
                 "review-deny" => {
-                    request_input("deny-reason", "");
+                    request_input("deny-reason", "", false);
                 }
                 "review-del" => {
                     confirm_delete(self.chart_should_delete.clone());
@@ -1460,10 +1460,10 @@ impl Scene for SongScene {
                     }));
                 }
                 "stabilize-comment" => {
-                    request_input("stabilize-comment", "");
+                    request_input("stabilize-comment", "", false);
                 }
                 "stabilize-deny" => {
-                    request_input("stabilize-deny-reason", "");
+                    request_input("stabilize-deny-reason", "", false);
                 }
                 _ => {}
             }

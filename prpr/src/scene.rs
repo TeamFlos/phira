@@ -117,7 +117,7 @@ pub static INPUT_TEXT: Mutex<(Option<String>, Option<String>)> = Mutex::new((Non
 #[cfg(not(target_arch = "wasm32"))]
 pub static CHOSEN_FILE: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
 
-pub fn request_input(id: impl Into<String>, #[allow(unused_variables)] text: &str) {
+pub fn request_input(id: impl Into<String>, #[allow(unused_variables)] text: &str, is_password: bool) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     cfg_if! {
         if #[cfg(target_os = "android")] {
@@ -168,6 +168,9 @@ pub fn request_input(id: impl Into<String>, #[allow(unused_variables)] text: &st
                 let _: () = msg_send![alert, addTextFieldWithConfigurationHandler: ConcreteBlock::new(move |field: ObjcId| {
                     let _: () = msg_send![field, setPlaceholder: str_to_ns(ttl!("input-hint"))];
                     let _: () = msg_send![field, setText: str_to_ns(&text)];
+                    if is_password {
+                        let _: () = msg_send![field, setSecureTextEntry: runtime::YES];
+                    }
                 }).copy()];
 
                 let _: () = msg_send![
