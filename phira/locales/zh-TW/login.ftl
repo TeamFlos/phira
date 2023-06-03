@@ -1,6 +1,6 @@
 
-login = 登陸
-login-sub = 登陸以加入活躍的在線社區
+login = 登錄
+login-sub = 登錄以加入活躍的在線社區
 back-login = 返回登錄
 register = 註冊
 
