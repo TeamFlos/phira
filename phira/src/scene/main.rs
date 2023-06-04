@@ -187,39 +187,43 @@ impl Scene for MainScene {
         if self.import_task.is_some() {
             return Ok(true);
         }
-        if MP_PANEL.with(|it| it.borrow_mut().as_mut().map_or(false, |it| it.touch(tm, touch))) {
-            return Ok(true);
-        }
-        if self.mp_btn.touch(touch) && !self.mp_moved {
-            MP_PANEL.with(|it| {
-                if let Some(panel) = it.borrow_mut().as_mut() {
-                    panel.show(tm.real_time() as _);
-                }
-            });
-            self.mp_move = None;
-            self.mp_moved = false;
-            return Ok(true);
-        }
-        if let Some((id, pos, btn_pos)) = self.mp_move {
-            if touch.id == id {
-                if matches!(touch.phase, TouchPhase::Cancelled | TouchPhase::Ended) {
-                    self.mp_move = None;
-                    self.mp_moved = false;
-                    return Ok(true);
-                }
-                let new_pos = touch.position;
-                if !self.mp_moved && (new_pos - pos).length() > 0.03 {
-                    self.mp_moved = true;
-                }
-                if self.mp_moved {
-                    self.mp_btn_pos = new_pos - pos + btn_pos;
-                }
+
+        if get_data().config.multiplayer_enabled {
+            if MP_PANEL.with(|it| it.borrow_mut().as_mut().map_or(false, |it| it.touch(tm, touch))) {
+                return Ok(true);
             }
-            return Ok(true);
-        } else if self.mp_btn.touching() {
-            self.mp_move = Some((touch.id, touch.position, self.mp_btn_pos));
-            return Ok(true);
+            if self.mp_btn.touch(touch) && !self.mp_moved {
+                MP_PANEL.with(|it| {
+                    if let Some(panel) = it.borrow_mut().as_mut() {
+                        panel.show(tm.real_time() as _);
+                    }
+                });
+                self.mp_move = None;
+                self.mp_moved = false;
+                return Ok(true);
+            }
+            if let Some((id, pos, btn_pos)) = self.mp_move {
+                if touch.id == id {
+                    if matches!(touch.phase, TouchPhase::Cancelled | TouchPhase::Ended) {
+                        self.mp_move = None;
+                        self.mp_moved = false;
+                        return Ok(true);
+                    }
+                    let new_pos = touch.position;
+                    if !self.mp_moved && (new_pos - pos).length() > 0.03 {
+                        self.mp_moved = true;
+                    }
+                    if self.mp_moved {
+                        self.mp_btn_pos = new_pos - pos + btn_pos;
+                    }
+                }
+                return Ok(true);
+            } else if self.mp_btn.touching() {
+                self.mp_move = Some((touch.id, touch.position, self.mp_btn_pos));
+                return Ok(true);
+            }
         }
+
         let s = &mut self.state;
         s.t = tm.now() as _;
         s.rt = tm.real_time() as _;
@@ -241,13 +245,15 @@ impl Scene for MainScene {
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         UI_AUDIO.with(|it| it.borrow_mut().recover_if_needed())?;
-        MP_PANEL.with(|it| {
-            if let Some(panel) = it.borrow_mut().as_mut() {
-                panel.update(tm)
-            } else {
-                Ok(())
-            }
-        })?;
+        if get_data().config.multiplayer_enabled {
+            MP_PANEL.with(|it| {
+                if let Some(panel) = it.borrow_mut().as_mut() {
+                    panel.update(tm)
+                } else {
+                    Ok(())
+                }
+            })?;
+        }
         let s = &mut self.state;
         s.t = tm.now() as _;
         s.rt = tm.real_time() as _;
@@ -384,18 +390,20 @@ impl Scene for MainScene {
         self.pages.last_mut().unwrap().render(ui, s)?;
         s.fader.sub = false;
 
-        let r = 0.06;
-        ui.fill_circle(self.mp_btn_pos.x, self.mp_btn_pos.y, r, ui.background());
-        let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);
-        self.mp_btn.set(ui, r);
-        let r = r.feather(-0.02);
-        ui.fill_rect(r, (*self.mp_icon, r));
+        if get_data().config.multiplayer_enabled {
+            let r = 0.06;
+            ui.fill_circle(self.mp_btn_pos.x, self.mp_btn_pos.y, r, ui.background());
+            let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);
+            self.mp_btn.set(ui, r);
+            let r = r.feather(-0.02);
+            ui.fill_rect(r, (*self.mp_icon, r));
 
-        MP_PANEL.with(|it| {
-            if let Some(panel) = it.borrow_mut().as_mut() {
-                panel.render(tm, ui);
-            }
-        });
+            MP_PANEL.with(|it| {
+                if let Some(panel) = it.borrow_mut().as_mut() {
+                    panel.render(tm, ui);
+                }
+            });
+        }
 
         if self.import_task.is_some() {
             ui.full_loading(itl!("importing"), s.t);

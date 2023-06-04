@@ -72,7 +72,8 @@ pub struct MPPanel {
     join_room_btn: DRectButton,
     join_room_task: Option<Task<Result<()>>>,
     leave_room_btn: DRectButton,
-    leave_room_task: Option<Task<Result<()>>>,
+
+    disconnect_btn: DRectButton,
 
     request_start_btn: DRectButton,
 
@@ -118,7 +119,8 @@ impl MPPanel {
             join_room_btn: DRectButton::new(),
             join_room_task: None,
             leave_room_btn: DRectButton::new(),
-            leave_room_task: None,
+
+            disconnect_btn: DRectButton::new(),
 
             request_start_btn: DRectButton::new(),
 
@@ -308,6 +310,10 @@ impl MPPanel {
                 }
                 if self.join_room_btn.touch(touch, t) {
                     request_input("join_room", "");
+                    return true;
+                }
+                if self.disconnect_btn.touch(touch, t) {
+                    self.client = None;
                     return true;
                 }
             }
@@ -637,6 +643,7 @@ impl MPPanel {
         } else {
             btns.push((&mut self.create_room_btn, "create-room"));
             btns.push((&mut self.join_room_btn, "join-room"));
+            btns.push((&mut self.disconnect_btn, "disconnect"));
         }
         for (btn, text) in btns {
             btn.render_text(ui, br, t, 1., mtl!(text), 0.5, true);

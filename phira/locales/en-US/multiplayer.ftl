@@ -15,6 +15,9 @@ join-room = Join Room
 join-room-invalid-id = Invalid room ID
 
 leave-room = Leave Room
+leave-room-failed = Failed to leave room
+
+disconnect = Disconnect
 
 request-start = Start Game
 request-start-no-chart = You haven't selected a chart

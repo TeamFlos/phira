@@ -274,6 +274,7 @@ struct GeneralList {
 
     lang_btn: ChooseButton,
     offline_btn: DRectButton,
+    mp_btn: DRectButton,
     lowq_btn: DRectButton,
 }
 
@@ -293,6 +294,7 @@ impl GeneralList {
                         .unwrap_or_default(),
                 ),
             offline_btn: DRectButton::new(),
+            mp_btn: DRectButton::new(),
             lowq_btn: DRectButton::new(),
         }
     }
@@ -312,6 +314,10 @@ impl GeneralList {
         }
         if self.offline_btn.touch(touch, t) {
             config.offline_mode ^= true;
+            return Ok(Some(true));
+        }
+        if self.mp_btn.touch(touch, t) {
+            config.multiplayer_enabled ^= true;
             return Ok(Some(true));
         }
         if self.lowq_btn.touch(touch, t) {
@@ -356,6 +362,10 @@ impl GeneralList {
         item! {
             render_title(ui, c, tl!("item-offline"), Some(tl!("item-offline-sub")));
             render_switch(ui, rr, t, c, &mut self.offline_btn, config.offline_mode);
+        }
+        item! {
+            render_title(ui, c, tl!("item-mp"), Some(tl!("item-mp-sub")));
+            render_switch(ui, rr, t, c, &mut self.mp_btn, config.multiplayer_enabled);
         }
         item! {
             render_title(ui, c, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
