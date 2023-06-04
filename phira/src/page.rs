@@ -319,6 +319,7 @@ impl SFader {
 
 pub struct SharedState {
     pub t: f32,
+    pub rt: f32,
     pub fader: Fader,
     pub painter: TextPainter,
     pub charts_local: Vec<ChartItem>,
@@ -332,6 +333,7 @@ impl SharedState {
         let painter = TextPainter::new(font);
         Ok(Self {
             t: 0.,
+            rt: 0.,
             fader: Fader::new(),
             painter,
             charts_local: Vec::new(),

@@ -4,10 +4,11 @@ use super::{ChartItem, Fader, Page, SharedState};
 use crate::{
     client::{Chart, Client},
     dir, get_data, get_data_mut,
+    mp::mtl,
     popup::Popup,
     rate::RateDialog,
     save_data,
-    scene::{ChartOrder, SongScene, ORDERS},
+    scene::{ChartOrder, SongScene, MP_PANEL, ORDERS},
     tags::TagsDialog,
 };
 use anyhow::{anyhow, Result};
@@ -558,6 +559,23 @@ impl Page for LibraryPage {
             for (id, (btn, chart)) in self.chart_btns.iter_mut().zip(charts.into_iter().flatten()).enumerate() {
                 if btn.touch(touch, t) {
                     button_hit_large();
+                    if MP_PANEL.with(|it| {
+                        if let Some(panel) = it.borrow_mut().as_mut() {
+                            if panel.active() {
+                                if let Some(id) = chart.info.id {
+                                    panel.select_chart(id);
+                                    panel.show(s.rt);
+                                } else {
+                                    use crate::mp::L10N_LOCAL;
+                                    show_message(mtl!("select-chart-local")).error();
+                                }
+                                return true;
+                            }
+                        }
+                        false
+                    }) {
+                        continue;
+                    }
                     let download_path = chart.info.id.map(|it| format!("download/{it}"));
                     let scene = SongScene::new(
                         chart.clone(),
@@ -627,7 +645,7 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
                 if !self.search_clr_btn.rect.contains(touch.position) && self.search_btn.touch(touch, t) {
-                    request_input("search", &self.search_str, false);
+                    request_input("search", &self.search_str);
                     return Ok(true);
                 }
                 if self.order_btn.touch(touch, t) {

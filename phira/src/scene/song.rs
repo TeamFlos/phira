@@ -39,15 +39,18 @@ use serde_json::json;
 use std::{
     any::Any,
     borrow::Cow,
+    cell::RefCell,
     fs::File,
     io::{Cursor, Write},
     path::Path,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, Ordering, AtomicI32},
         Arc, Mutex, Weak,
     },
+    thread_local,
 };
 use tokio::net::TcpStream;
+use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 
@@ -55,6 +58,7 @@ const FADE_IN_TIME: f32 = 0.3;
 const EDIT_TRANSIT: f32 = 0.32;
 
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
+pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 
 fn create_music(clip: AudioClip) -> Result<Music> {
     let mut music = UI_AUDIO.with(|it| {
@@ -92,10 +96,65 @@ fn with_effects((mut frames, sample_rate): (Vec<Frame>, u32), range: Option<(f32
     Ok(AudioClip::from_raw(frames, sample_rate))
 }
 
-struct Downloading {
+pub struct Downloading {
+    info: BriefChartInfo,
+    local_path: Option<String>,
+    loading_last: f32,
+    cancel_download_btn: DRectButton,
     status: Arc<Mutex<Cow<'static, str>>>,
     prog: Arc<Mutex<Option<f32>>>,
     task: Task<Result<LocalChart>>,
+}
+
+impl Downloading {
+    pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
+        self.cancel_download_btn.touch(touch, t)
+    }
+
+    pub fn render(&mut self, ui: &mut Ui, t: f32) {
+        ui.fill_rect(ui.screen_rect(), semi_black(0.6));
+        ui.loading(0., -0.06, t, WHITE, (*self.prog.lock().unwrap(), &mut self.loading_last));
+        ui.text(self.status.lock().unwrap().clone())
+            .pos(0., 0.02)
+            .anchor(0.5, 0.)
+            .size(0.6)
+            .draw();
+        let size = 0.7;
+        let r = ui.text(tl!("dl-cancel")).pos(0., 0.12).anchor(0.5, 0.).size(size).measure().feather(0.02);
+        self.cancel_download_btn.render_text(ui, r, t, 1., tl!("dl-cancel"), 0.6, true);
+    }
+
+    pub fn check(&mut self) -> Result<Option<bool>> {
+        if let Some(res) = self.task.take() {
+            match res {
+                Err(err) => {
+                    let path = format!("{}/{}", dir::downloaded_charts()?, self.info.id.unwrap());
+                    let path = Path::new(&path);
+                    if path.exists() {
+                        std::fs::remove_dir_all(path)?;
+                    }
+                    show_error(err.context(tl!("dl-failed")));
+                    Ok(Some(false))
+                }
+                Ok(chart) => {
+                    self.info = chart.info.clone();
+                    if let Some(local_path) = &self.local_path {
+                        // update
+                        SongScene::global_update_chart_info(&local_path, self.info.clone())?;
+                    } else {
+                        NEED_UPDATE.store(true, Ordering::SeqCst);
+                        self.local_path = Some(chart.local_path.clone());
+                        get_data_mut().charts.push(chart);
+                    }
+                    save_data()?;
+                    show_message(tl!("dl-success")).ok();
+                    Ok(Some(true))
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 enum SideContent {
@@ -157,7 +216,6 @@ pub struct SongScene {
     local_path: Option<String>,
 
     downloading: Option<Downloading>,
-    cancel_download_btn: DRectButton,
     loading_last: f32,
 
     icons: [SafeTexture; 8],
@@ -317,7 +375,6 @@ impl SongScene {
             local_path,
 
             downloading: None,
-            cancel_download_btn: DRectButton::new(),
             loading_last: 0.,
 
             icons,
@@ -395,16 +452,25 @@ impl SongScene {
             show_error(anyhow!(tl!("no-chart-for-download")));
             return Ok(());
         };
+        self.loading_last = 0.;
+        self.downloading = Some(Self::global_start_download(chart, entity, self.local_path.clone())?);
+        Ok(())
+    }
+
+    pub fn global_start_download(chart: BriefChartInfo, entity: Chart, local_path: Option<String>) -> Result<Downloading> {
         let progress = Arc::new(Mutex::new(None));
         let prog_wk = Arc::downgrade(&progress);
         let status = Arc::new(Mutex::new(tl!("dl-status-fetch")));
         let status_shared = Arc::clone(&status);
-        self.loading_last = 0.;
-        self.downloading = Some(Downloading {
+        Ok(Downloading {
+            info: chart.clone(),
+            local_path,
+            loading_last: 0.,
+            cancel_download_btn: DRectButton::new(),
             prog: progress,
             status: status_shared,
             task: Task::new({
-                let path = format!("{}/{}", dir::downloaded_charts()?, uuid7::uuid7());
+                let path = format!("{}/{}", dir::downloaded_charts()?, Uuid::new_v4());
                 async move {
                     let path = std::path::Path::new(&path);
                     tokio::fs::create_dir(path).await?;
@@ -484,8 +550,7 @@ impl SongScene {
                     })
                 }
             }),
-        });
-        Ok(())
+        })
     }
 
     fn load_ldb(&mut self) {
@@ -576,19 +641,21 @@ impl SongScene {
     }
 
     fn launch(&mut self, mode: GameMode) -> Result<()> {
-        let mut fs = fs_from_path(self.local_path.as_ref().unwrap())?;
+        Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode)
+    }
+
+    pub fn global_launch(id: Option<i32>, local_path: &str, mods: Mods, mode: GameMode) -> Result<()> {
+        let mut fs = fs_from_path(local_path)?;
         #[cfg(feature = "closed")]
         let rated = {
             let config = &get_data().config;
-            !config.offline_mode && self.info.id.is_some() && !self.mods.contains(Mods::AUTOPLAY) && config.speed >= 1.0 - 1e-3
+            !config.offline_mode && id.is_some() && !mods.contains(Mods::AUTOPLAY) && config.speed >= 1.0 - 1e-3
         };
         #[cfg(not(feature = "closed"))]
         let rated = false;
-        if !rated && self.info.id.is_some() && mode == GameMode::Normal {
+        if !rated && id.is_some() && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
-        let id = self.info.id;
-        let mods = self.mods;
         load_scene(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -608,14 +675,14 @@ impl SongScene {
             };
             let chart_updated = info.chart_updated;
             config.mods = mods;
-            let client = phira_mp_client::Client::new(TcpStream::connect("0.0.0.0:1234").await?).await?;
+            /*let client = phira_mp_client::Client::new(TcpStream::connect("0.0.0.0:1234").await?).await?;
             client.authorize(get_data().tokens.as_ref().map(|it| it.0.clone()).unwrap()).await?;
             if config.autoplay() {
                 client.join_room(0).await?;
             } else {
                 let id = client.create_room().await?;
                 info!("created room {}", id);
-            }
+            }*/
             LoadingScene::new(
                 mode,
                 info,
@@ -639,6 +706,7 @@ impl SongScene {
                         #[derive(Deserialize)]
                         #[serde(rename_all = "camelCase")]
                         struct Resp {
+                            id: i32,
                             exp_delta: f64,
                             new_best: bool,
                             improvement: u32,
@@ -655,6 +723,7 @@ impl SongScene {
                         .await?
                         .json()
                         .await?;
+                        RECORD_ID.store(resp.id, Ordering::Relaxed);
                         Ok(RecordUpdateState {
                             best: resp.new_best,
                             improvement: resp.improvement,
@@ -663,11 +732,12 @@ impl SongScene {
                         })
                     })
                 })),
+                #[allow(unused)]
                 Some(Box::new({
                     let mut touches: Vec<TouchFrame> = Vec::new();
                     let mut judges: Vec<JudgeEvent> = Vec::new();
                     move |t, watch, res, chart, judge, touch_points, bad_notes| {
-                        if !watch {
+                        /*if !watch {
                             if touches.last().map_or(true, |it| it.time + 1. / 20. < t) {
                                 touches.push(TouchFrame {
                                     time: t,
@@ -784,7 +854,7 @@ impl SongScene {
                                     }
                                 }
                             }
-                        }
+                        }*/
                     }
                 })),
             )
@@ -1129,8 +1199,12 @@ impl SongScene {
         }));
     }
 
-    fn update_chart_info(&mut self) -> Result<()> {
-        get_data_mut().charts[get_data().find_chart_by_path(self.local_path.as_deref().unwrap()).unwrap()].info = self.info.clone();
+    fn update_chart_info(&self) -> Result<()> {
+        Self::global_update_chart_info(self.local_path.as_ref().unwrap(), self.info.clone())
+    }
+
+    fn global_update_chart_info(local_path: &str, info: BriefChartInfo) -> Result<()> {
+        get_data_mut().charts[get_data().find_chart_by_path(local_path).unwrap()].info = info;
         NEED_UPDATE.store(true, Ordering::SeqCst);
         save_data()?;
         Ok(())
@@ -1278,12 +1352,11 @@ impl Scene for SongScene {
             }
             return Ok(false);
         }
-        if self.downloading.is_some() {
-            if self.cancel_download_btn.touch(touch, t) {
+        if let Some(dl) = &mut self.downloading {
+            if dl.touch(touch, t) {
                 self.downloading = None;
                 return Ok(true);
             }
-            return Ok(false);
         }
         if self.back_btn.touch(touch) {
             button_hit();
@@ -1443,31 +1516,8 @@ impl Scene for SongScene {
             }
         }
         if let Some(dl) = &mut self.downloading {
-            if let Some(res) = dl.task.take() {
-                match res {
-                    Err(err) => {
-                        let path = format!("{}/{}", dir::downloaded_charts()?, self.info.id.unwrap());
-                        let path = Path::new(&path);
-                        if path.exists() {
-                            std::fs::remove_dir_all(path)?;
-                        }
-                        show_error(err.context(tl!("dl-failed")));
-                    }
-                    Ok(chart) => {
-                        self.info = chart.info.clone();
-                        if self.local_path.is_none() {
-                            NEED_UPDATE.store(true, Ordering::SeqCst);
-                            self.local_path = Some(chart.local_path.clone());
-                            get_data_mut().charts.push(chart);
-                        } else {
-                            // update
-                            self.update_chart_info()?;
-                        }
-                        save_data()?;
-                        self.update_menu();
-                        show_message(tl!("dl-success")).ok();
-                    }
-                }
+            if dl.check()?.is_some() {
+                self.update_menu();
                 self.downloading = None;
             }
         }
@@ -1537,7 +1587,7 @@ impl Scene for SongScene {
                     }));
                 }
                 "review-deny" => {
-                    request_input("deny-reason", "", false);
+                    request_input("deny-reason", "");
                 }
                 "review-del" => {
                     confirm_delete(self.chart_should_delete.clone());
@@ -1575,10 +1625,10 @@ impl Scene for SongScene {
                     }));
                 }
                 "stabilize-comment" => {
-                    request_input("stabilize-comment", "", false);
+                    request_input("stabilize-comment", "");
                 }
                 "stabilize-deny" => {
-                    request_input("stabilize-deny-reason", "", false);
+                    request_input("stabilize-deny-reason", "");
                 }
                 _ => {}
             }
@@ -2007,13 +2057,8 @@ impl Scene for SongScene {
             self.mod_btn.set(ui, r);
         });
 
-        if let Some(dl) = &self.downloading {
-            ui.fill_rect(ui.screen_rect(), semi_black(0.6));
-            ui.loading(0., -0.06, t, WHITE, (*dl.prog.lock().unwrap(), &mut self.loading_last));
-            ui.text(dl.status.lock().unwrap().clone()).pos(0., 0.02).anchor(0.5, 0.).size(0.6).draw();
-            let size = 0.7;
-            let r = ui.text(tl!("dl-cancel")).pos(0., 0.12).anchor(0.5, 0.).size(size).measure().feather(0.02);
-            self.cancel_download_btn.render_text(ui, r, t, 1., tl!("dl-cancel"), 0.6, true);
+        if let Some(dl) = &mut self.downloading {
+            dl.render(ui, t);
         }
 
         let rt = tm.real_time() as f32;
@@ -2021,7 +2066,7 @@ impl Scene for SongScene {
             let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
             let p = 1. - (1. - p).powi(3);
             let p = if self.side_enter_time < 0. { 1. - p } else { p };
-            ui.fill_rect(ui.screen_rect(), Color::new(0., 0., 0., p * 0.6));
+            ui.fill_rect(ui.screen_rect(), semi_black(p * 0.6));
             let w = self.side_content.width();
             let lf = f32::tween(&1.04, &(1. - w), p);
             ui.scope(|ui| {

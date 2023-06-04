@@ -7,6 +7,7 @@ mod client;
 mod data;
 mod images;
 mod login;
+mod mp;
 mod page;
 mod popup;
 mod rate;

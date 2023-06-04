@@ -25,7 +25,7 @@ use crate::{
     core::{Matrix, Point, Vector},
     ext::{get_viewport, nalgebra_to_glm, screen_aspect, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
-    scene::{request_input, return_input, take_input},
+    scene::{request_input_full, return_input, take_input},
 };
 use lyon::{
     lyon_tessellation::{
@@ -872,7 +872,7 @@ impl<'a> Ui<'a> {
         } else {
             self.button(&id, r, value.as_str())
         } {
-            request_input(&id, value, params.password);
+            request_input_full(&id, value, params.password);
         }
         if let Some((its_id, text)) = take_input() {
             if its_id == id {
@@ -1080,6 +1080,11 @@ impl<'a> Ui<'a> {
         self.fill_rect(self.screen_rect(), semi_black(0.6));
         self.loading(0., -0.03, t, WHITE, ());
         self.text(text.into()).pos(0., 0.05).anchor(0.5, 0.).size(0.6).draw();
+    }
+
+    pub fn full_loading_simple(&mut self, t: f32) {
+        self.fill_rect(self.screen_rect(), semi_black(0.6));
+        self.loading(0., 0., t, WHITE, ());
     }
 
     pub fn main_sub_colors(use_black: bool, alpha: f32) -> (Color, Color) {

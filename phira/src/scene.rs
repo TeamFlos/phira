@@ -4,10 +4,10 @@ mod chart_order;
 pub use chart_order::{ChartOrder, ORDERS};
 
 mod main;
-pub use main::{MainScene, BGM_VOLUME_UPDATED};
+pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 
 mod song;
-pub use song::SongScene;
+pub use song::{Downloading, SongScene, RECORD_ID};
 
 mod profile;
 pub use profile::ProfileScene;
@@ -30,7 +30,7 @@ use std::{
         Arc,
     },
 };
-use uuid7::{uuid7, Uuid};
+use uuid::Uuid;
 
 thread_local! {
     pub static TEX_BACKGROUND: RefCell<Option<SafeTexture>> = RefCell::new(None);
@@ -83,9 +83,9 @@ pub async fn import_chart(path: String) -> Result<LocalChart> {
     }
     let dir = dir::custom_charts()?;
     let dir = Path::new(&dir);
-    let mut id = uuid7();
+    let mut id = Uuid::new_v4();
     while dir.join(&id.to_string()).exists() {
-        id = uuid7();
+        id = Uuid::new_v4();
     }
     let dir = dir.join(id.to_string());
     std::fs::create_dir(&dir)?;
