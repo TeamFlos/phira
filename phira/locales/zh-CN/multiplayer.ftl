@@ -15,6 +15,9 @@ join-room = 加入房间
 join-room-invalid-id = 无效的房间 ID
 
 leave-room = 离开房间
+leave-room-failed = 离开房间失败
+
+disconnect = 断开连接
 
 request-start = 开始游戏
 request-start-no-chart = 你还没有选择谱面

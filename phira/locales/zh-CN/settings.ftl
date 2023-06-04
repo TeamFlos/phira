@@ -10,6 +10,8 @@ about = 关于
 item-lang = 语言
 item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
+item-mp = 多人游戏
+item-mp-sub = 启用多人游戏
 item-lowq = 低画质模式
 item-lowq-sub = 建议在画面卡顿时启用
 
