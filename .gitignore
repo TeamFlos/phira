@@ -9,7 +9,6 @@ inner.rs
 /assets/texture
 /wbindgen
 /dist
-Cargo.lock
 /conf.yml
 /cache
 /data
