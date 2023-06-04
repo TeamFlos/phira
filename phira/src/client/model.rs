@@ -208,7 +208,7 @@ impl File {
             }
             .load_image()
             .await
-        } else if self.url.starts_with("https://files.phira.cn/") {
+        } else if self.url.starts_with("https://files.phira.cn/") || self.url.starts_with("https://api.phira.cn/files/") {
             File {
                 url: format!("{}.thumbnail", self.url),
             }
