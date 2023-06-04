@@ -117,7 +117,15 @@ pub static INPUT_TEXT: Mutex<(Option<String>, Option<String>)> = Mutex::new((Non
 #[cfg(not(target_arch = "wasm32"))]
 pub static CHOSEN_FILE: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
 
-pub fn request_input(id: impl Into<String>, #[allow(unused_variables)] text: &str, is_password: bool) {
+#[inline]
+pub fn request_input(id: impl Into<String>, text: &str) {
+    request_input_full(id, text, false);
+}
+#[inline]
+pub fn request_password(id: impl Into<String>, text: &str) {
+    request_input_full(id, text, true);
+}
+pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text: &str, #[allow(unused_variables)] is_password: bool) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     cfg_if! {
         if #[cfg(target_os = "android")] {

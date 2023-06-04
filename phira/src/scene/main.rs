@@ -2,6 +2,7 @@ use super::{import_chart, itl, L10N_LOCAL};
 use crate::{
     data::LocalChart,
     dir, get_data, get_data_mut,
+    mp::MPPanel,
     page::{HomePage, NextPage, Page, ResPackItem, SharedState},
     save_data,
     scene::{TEX_BACKGROUND, TEX_ICON_BACK},
@@ -10,7 +11,7 @@ use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use prpr::{
     core::ResPackInfo,
-    ext::{screen_aspect, unzip_into, SafeTexture},
+    ext::{screen_aspect, unzip_into, RectExt, SafeTexture},
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -25,7 +26,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread_local,
 };
-use uuid7::uuid7;
+use uuid::Uuid;
 
 const LOW_PASS: f32 = 0.95;
 
@@ -33,6 +34,7 @@ pub static BGM_VOLUME_UPDATED: AtomicBool = AtomicBool::new(false);
 
 thread_local! {
     static RESPACK_ITEM: RefCell<Option<ResPackItem>> = RefCell::default();
+    pub static MP_PANEL: RefCell<Option<MPPanel>> = RefCell::default();
 }
 
 pub struct MainScene {
@@ -47,6 +49,12 @@ pub struct MainScene {
     pages: Vec<Box<dyn Page>>,
 
     import_task: Option<Task<Result<LocalChart>>>,
+
+    mp_btn: RectButton,
+    mp_icon: SafeTexture,
+    mp_btn_pos: Vec2,
+    mp_move: Option<(u64, Vec2, Vec2)>,
+    mp_moved: bool,
 }
 
 impl MainScene {
@@ -107,6 +115,7 @@ impl MainScene {
 
     async fn new_inner(bgm: Option<Music>) -> Result<Self> {
         let state = SharedState::new().await?;
+        MP_PANEL.with(|it| *it.borrow_mut() = Some(MPPanel::new()));
         Ok(Self {
             state,
 
@@ -119,6 +128,12 @@ impl MainScene {
             pages: Vec::new(),
 
             import_task: None,
+
+            mp_btn: RectButton::new(),
+            mp_icon: SafeTexture::from(load_texture("multiplayer.png").await?).with_mipmap(),
+            mp_btn_pos: Vec2::default(),
+            mp_move: None,
+            mp_moved: false,
         })
     }
 
@@ -172,8 +187,42 @@ impl Scene for MainScene {
         if self.import_task.is_some() {
             return Ok(true);
         }
+        if MP_PANEL.with(|it| it.borrow_mut().as_mut().map_or(false, |it| it.touch(tm, touch))) {
+            return Ok(true);
+        }
+        if self.mp_btn.touch(touch) && !self.mp_moved {
+            MP_PANEL.with(|it| {
+                if let Some(panel) = it.borrow_mut().as_mut() {
+                    panel.show(tm.real_time() as _);
+                }
+            });
+            self.mp_move = None;
+            self.mp_moved = false;
+            return Ok(true);
+        }
+        if let Some((id, pos, btn_pos)) = self.mp_move {
+            if touch.id == id {
+                if matches!(touch.phase, TouchPhase::Cancelled | TouchPhase::Ended) {
+                    self.mp_move = None;
+                    self.mp_moved = false;
+                    return Ok(true);
+                }
+                let new_pos = touch.position;
+                if !self.mp_moved && (new_pos - pos).length() > 0.03 {
+                    self.mp_moved = true;
+                }
+                if self.mp_moved {
+                    self.mp_btn_pos = new_pos - pos + btn_pos;
+                }
+            }
+            return Ok(true);
+        } else if self.mp_btn.touching() {
+            self.mp_move = Some((touch.id, touch.position, self.mp_btn_pos));
+            return Ok(true);
+        }
         let s = &mut self.state;
         s.t = tm.now() as _;
+        s.rt = tm.real_time() as _;
         if self.btn_back.touch(touch) && self.pages.len() > 1 {
             button_hit();
             if self.pages.len() == 2 {
@@ -192,8 +241,16 @@ impl Scene for MainScene {
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         UI_AUDIO.with(|it| it.borrow_mut().recover_if_needed())?;
+        MP_PANEL.with(|it| {
+            if let Some(panel) = it.borrow_mut().as_mut() {
+                panel.update(tm)
+            } else {
+                Ok(())
+            }
+        })?;
         let s = &mut self.state;
         s.t = tm.now() as _;
+        s.rt = tm.real_time() as _;
         if s.fader.transiting() {
             let pos = self.pages.len() - 2;
             self.pages[pos].update(s)?;
@@ -255,9 +312,9 @@ impl Scene for MainScene {
                     let item: Result<ResPackItem> = (|| {
                         let root = dir::respacks()?;
                         let dir = prpr::dir::Dir::new(&root)?;
-                        let mut id = uuid7();
+                        let mut id = Uuid::new_v4();
                         while dir.exists(id.to_string())? {
-                            id = uuid7();
+                            id = Uuid::new_v4();
                         }
                         let id = id.to_string();
                         dir.create_dir_all(&id)?;
@@ -292,6 +349,7 @@ impl Scene for MainScene {
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
         let s = &mut self.state;
         s.t = tm.now() as _;
+        s.rt = tm.real_time() as _;
 
         // 1. title
         if s.fader.transiting() {
@@ -326,6 +384,19 @@ impl Scene for MainScene {
         self.pages.last_mut().unwrap().render(ui, s)?;
         s.fader.sub = false;
 
+        let r = 0.06;
+        ui.fill_circle(self.mp_btn_pos.x, self.mp_btn_pos.y, r, ui.background());
+        let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);
+        self.mp_btn.set(ui, r);
+        let r = r.feather(-0.02);
+        ui.fill_rect(r, (*self.mp_icon, r));
+
+        MP_PANEL.with(|it| {
+            if let Some(panel) = it.borrow_mut().as_mut() {
+                panel.render(tm, ui);
+            }
+        });
+
         if self.import_task.is_some() {
             ui.full_loading(itl!("importing"), s.t);
         }
@@ -334,7 +405,9 @@ impl Scene for MainScene {
     }
 
     fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
-        let res = self.pages.last_mut().unwrap().next_scene(&mut self.state);
+        let res = MP_PANEL
+            .with(|it| it.borrow_mut().as_mut().and_then(|it| it.next_scene()))
+            .unwrap_or(self.pages.last_mut().unwrap().next_scene(&mut self.state));
         if !matches!(res, NextScene::None) {
             if let Some(bgm) = &mut self.bgm {
                 let _ = bgm.fade_out(0.5);

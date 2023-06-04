@@ -100,6 +100,7 @@ pub enum GameMode {
     Normal,
     TweakOffset,
     Exercise,
+    NoCancel,
 }
 
 #[derive(Clone)]
@@ -476,7 +477,7 @@ impl GameScene {
     }
 
     fn overlay_ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
-        let c = Color::new(1., 1., 1., self.res.alpha);
+        let c = semi_white(self.res.alpha);
         let res = &mut self.res;
         if tm.paused() {
             let h = 1. / res.aspect_ratio;
@@ -484,11 +485,12 @@ impl GameScene {
             let o = if self.mode == GameMode::Exercise { -0.3 } else { 0. };
             let s = 0.06;
             let w = 0.05;
+            let no_cancel = self.mode == GameMode::NoCancel;
             draw_texture_ex(
                 *res.icon_back,
                 -s * 3. - w,
                 -s + o,
-                c,
+                if no_cancel { semi_white(res.alpha * 0.6) } else { c },
                 DrawTextureParams {
                     dest_size: Some(vec2(s * 2., s * 2.)),
                     ..Default::default()
@@ -498,7 +500,7 @@ impl GameScene {
                 *res.icon_retry,
                 -s,
                 -s + o,
-                c,
+                if no_cancel { semi_white(res.alpha * 0.6) } else { c },
                 DrawTextureParams {
                     dest_size: Some(vec2(s * 2., s * 2.)),
                     ..Default::default()
@@ -530,6 +532,9 @@ impl GameScene {
                             break;
                         }
                     }
+                }
+                if no_cancel && (clicked == Some(-1) || clicked == Some(0)) {
+                    clicked = None;
                 }
                 let mut pos = self.music.position();
                 if clicked.map_or(false, |it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
@@ -828,6 +833,7 @@ impl Scene for GameScene {
                     } else {
                         offset.min(0.) as f64
                     });
+                    tm.seek_to(self.res.track_length as f64 - 0.5);
                     self.last_update_time = tm.real_time();
                     if self.first_in && self.mode == GameMode::Exercise {
                         tm.pause();
@@ -885,7 +891,7 @@ impl Scene for GameScene {
                         })
                     };
                     self.next_scene = match self.mode {
-                        GameMode::Normal => Some(NextScene::Overlay(Box::new(EndingScene::new(
+                        GameMode::Normal | GameMode::NoCancel => Some(NextScene::Overlay(Box::new(EndingScene::new(
                             self.res.background.clone(),
                             self.res.illustration.clone(),
                             self.res.player.clone(),
@@ -1018,11 +1024,11 @@ impl Scene for GameScene {
                 ..touch.clone()
             };
             if self.exercise_btns.0.touch(&touch) {
-                request_input("exercise_start", &fmt_time(self.exercise_range.start), false);
+                request_input("exercise_start", &fmt_time(self.exercise_range.start));
                 return Ok(true);
             }
             if self.exercise_btns.1.touch(&touch) {
-                request_input("exercise_end", &fmt_time(self.exercise_range.end), false);
+                request_input("exercise_end", &fmt_time(self.exercise_range.end));
                 return Ok(true);
             }
         }
@@ -1152,7 +1158,7 @@ impl Scene for GameScene {
             tm.speed = 1.0;
             tm.adjust_time = false;
             match self.mode {
-                GameMode::Normal | GameMode::Exercise => NextScene::Pop,
+                GameMode::Normal | GameMode::Exercise | GameMode::NoCancel => NextScene::Pop,
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),
             }
         } else if let Some(next_scene) = self.next_scene.take() {

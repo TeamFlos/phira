@@ -193,7 +193,7 @@ macro_rules! tl_file {
         static L10N_BUNDLES: $crate::l10n::Lazy<$crate::l10n::L10nBundles> = $crate::l10n::Lazy::new(|| $crate::create_bundles!($file).into());
 
         thread_local! {
-            static L10N_LOCAL: std::cell::RefCell<$crate::l10n::L10nLocal> = $crate::l10n::L10nLocal::new(&*L10N_BUNDLES).into();
+            pub static L10N_LOCAL: std::cell::RefCell<$crate::l10n::L10nLocal> = $crate::l10n::L10nLocal::new(&*L10N_BUNDLES).into();
         }
 
         macro_rules! __tl_builder {

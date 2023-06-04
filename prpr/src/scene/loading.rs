@@ -1,7 +1,7 @@
 use super::{draw_background, ending::RecordUpdateState, game::GameMode, GameScene, NextScene, Scene};
 use crate::{
     config::Config,
-    core::{Chart, Resource, BadNote},
+    core::{BadNote, Chart, Resource},
     ext::{poll_future, screen_aspect, semi_black, semi_white, LocalTask, RectExt, SafeTexture, BLACK_TEXTURE},
     fs::FileSystem,
     info::ChartInfo,

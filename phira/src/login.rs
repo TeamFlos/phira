@@ -11,7 +11,7 @@ use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     ext::{semi_black, RectExt},
-    scene::{request_input, return_input, show_error, show_message, take_input},
+    scene::{request_input, return_input, show_error, show_message, take_input, request_password},
     task::Task,
     ui::{DRectButton, Ui},
 };
@@ -138,23 +138,23 @@ impl Login {
                 return true;
             }
             if self.input_email.touch(touch, t) {
-                request_input("email", &self.t_email, false);
+                request_input("email", &self.t_email);
                 return true;
             }
             if self.input_pwd.touch(touch, t) {
-                request_input("pwd", &self.t_pwd. true);
+                request_password("pwd", &self.t_pwd);
                 return true;
             }
             if self.input_reg_email.touch(touch, t) {
-                request_input("reg_email", &self.t_reg_email, false);
+                request_input("reg_email", &self.t_reg_email);
                 return true;
             }
             if self.input_reg_name.touch(touch, t) {
-                request_input("reg_name", &self.t_reg_name, false);
+                request_input("reg_name", &self.t_reg_name);
                 return true;
             }
             if self.input_reg_pwd.touch(touch, t) {
-                request_input("reg_pwd", &self.t_reg_pwd, true);
+                request_password("reg_pwd", &self.t_reg_pwd);
                 return true;
             }
             if self.btn_to_reg.touch(touch, t) || self.btn_to_login.touch(touch, t) {
@@ -306,8 +306,7 @@ impl Login {
             });
         }
         if self.task.is_some() {
-            ui.fill_rect(ui.screen_rect(), semi_black(0.5));
-            ui.loading(0., 0., t, WHITE, ());
+            ui.full_loading_simple(t);
         }
     }
 }
