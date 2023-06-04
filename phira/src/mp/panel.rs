@@ -635,7 +635,6 @@ impl MPPanel {
                         btns.push((&mut self.cancel_ready_btn, "cancel-ready"));
                     } else {
                         btns.push((&mut self.ready_btn, "ready"));
-                        btns.push((&mut self.leave_room_btn, "leave-room"));
                     }
                 }
                 _ => {}

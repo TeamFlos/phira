@@ -43,8 +43,8 @@ walkdir = "2.3.3"
 zip = "0.6.4"
 zstd = "0.12"
 
-phira-mp-client = { path = "../../phira-mp/phira-mp-client" }
-phira-mp-common = { path = "../../phira-mp/phira-mp-common" }
+phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp" }
+phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp" }
 uuid = { version = "1.3.3", features = ["v4"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
