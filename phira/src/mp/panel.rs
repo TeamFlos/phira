@@ -164,8 +164,9 @@ impl MPPanel {
             show_message(mtl!("connect-must-login")).error();
             return;
         };
+        let addr = get_data().config.mp_address.clone();
         self.connect_task = Some(Task::new(async move {
-            let client = Client::new(TcpStream::connect("0.0.0.0:1234").await?).await?;
+            let client = Client::new(TcpStream::connect(addr).await?).await?;
             client.authorize(token).await.with_context(|| anyhow!(mtl!("connect-authorize-failed")))?;
             Ok(client)
         }));

@@ -188,7 +188,7 @@ impl Scene for MainScene {
             return Ok(true);
         }
 
-        if get_data().config.multiplayer_enabled {
+        if get_data().config.mp_enabled {
             if MP_PANEL.with(|it| it.borrow_mut().as_mut().map_or(false, |it| it.touch(tm, touch))) {
                 return Ok(true);
             }
@@ -245,7 +245,7 @@ impl Scene for MainScene {
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         UI_AUDIO.with(|it| it.borrow_mut().recover_if_needed())?;
-        if get_data().config.multiplayer_enabled {
+        if get_data().config.mp_enabled {
             MP_PANEL.with(|it| {
                 if let Some(panel) = it.borrow_mut().as_mut() {
                     panel.update(tm)
@@ -390,7 +390,7 @@ impl Scene for MainScene {
         self.pages.last_mut().unwrap().render(ui, s)?;
         s.fader.sub = false;
 
-        if get_data().config.multiplayer_enabled {
+        if get_data().config.mp_enabled {
             let r = 0.06;
             ui.fill_circle(self.mp_btn_pos.x, self.mp_btn_pos.y, r, ui.background());
             let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);

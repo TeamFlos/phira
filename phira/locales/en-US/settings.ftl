@@ -12,6 +12,9 @@ item-offline = Offline mode
 item-offline-sub = You can't upload playing record in offline mode
 item-mp = Multiplayer
 item-mp-sub = Enable multiplayer mode
+item-mp-addr = Multiplayer server
+item-mp-addr-sub = Server address, 'host:port'
+item-mp-addr-invalid = Invalid server address
 item-lowq = Low quality mode
 item-lowq-sub = Enable this if the UI is laggy
 

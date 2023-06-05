@@ -7,10 +7,10 @@ use macroquad::prelude::*;
 use prpr::{
     ext::{poll_future, semi_black, LocalTask, RectExt, SafeTexture, ScaleType},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
-    scene::show_error,
+    scene::{request_input, return_input, show_error, take_input},
     ui::{DRectButton, Scroll, Slider, Ui},
 };
-use std::{borrow::Cow, sync::atomic::Ordering};
+use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 
@@ -275,6 +275,7 @@ struct GeneralList {
     lang_btn: ChooseButton,
     offline_btn: DRectButton,
     mp_btn: DRectButton,
+    mp_addr_btn: DRectButton,
     lowq_btn: DRectButton,
 }
 
@@ -295,6 +296,7 @@ impl GeneralList {
                 ),
             offline_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
+            mp_addr_btn: DRectButton::new(),
             lowq_btn: DRectButton::new(),
         }
     }
@@ -317,7 +319,11 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.mp_btn.touch(touch, t) {
-            config.multiplayer_enabled ^= true;
+            config.mp_enabled ^= true;
+            return Ok(Some(true));
+        }
+        if self.mp_addr_btn.touch(touch, t) {
+            request_input("mp_addr", &config.mp_address);
             return Ok(Some(true));
         }
         if self.lowq_btn.touch(touch, t) {
@@ -334,6 +340,19 @@ impl GeneralList {
             data.language = Some(LANG_IDENTS[self.lang_btn.selected()].to_string());
             sync_data();
             return Ok(true);
+        }
+        if let Some((id, text)) = take_input() {
+            if id == "mp_addr" {
+                if let Err(err) = text.to_socket_addrs() {
+                    show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
+                    return Ok(false);
+                } else {
+                    data.config.mp_address = text;
+                    return Ok(true);
+                }
+            } else {
+                return_input(id, text);
+            }
         }
         Ok(false)
     }
@@ -365,7 +384,11 @@ impl GeneralList {
         }
         item! {
             render_title(ui, c, tl!("item-mp"), Some(tl!("item-mp-sub")));
-            render_switch(ui, rr, t, c, &mut self.mp_btn, config.multiplayer_enabled);
+            render_switch(ui, rr, t, c, &mut self.mp_btn, config.mp_enabled);
+        }
+        item! {
+            render_title(ui, c, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
+            self.mp_addr_btn.render_text(ui, rr, t, c.a, &config.mp_address, 0.4, false);
         }
         item! {
             render_title(ui, c, tl!("item-lowq"), Some(tl!("item-lowq-sub")));

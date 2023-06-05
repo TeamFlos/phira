@@ -12,6 +12,9 @@ item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
 item-mp = 多人游戏
 item-mp-sub = 启用多人游戏
+item-mp-addr = 多人游戏服务器
+item-mp-addr-sub = 服务器地址，'主机:端口'
+item-mp-addr-invalid = 无效的服务器地址
 item-lowq = 低画质模式
 item-lowq-sub = 建议在画面卡顿时启用
 
