@@ -315,6 +315,8 @@ impl MPPanel {
                 }
                 if self.disconnect_btn.touch(touch, t) {
                     self.client = None;
+                    self.msgs.clear();
+                    self.msgs_dirty_from = 0;
                     return true;
                 }
             }
@@ -610,7 +612,7 @@ impl MPPanel {
                     }
                     msg.text(ui, mr.w).draw();
                 }
-                (mr.w, self.msgs.last().map(|it| it.bottom).unwrap_or_default())
+                (mr.w, self.msgs.last().map(|it| it.bottom).unwrap_or_default() + 0.03)
             });
         });
 
