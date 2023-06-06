@@ -55,7 +55,7 @@ impl Message {
 }
 
 pub struct MPPanel {
-    client: Option<Arc<Client>>,
+    pub client: Option<Arc<Client>>,
 
     side_enter_time: f32,
 
@@ -397,7 +397,17 @@ impl MPPanel {
                     let id = self.chart_id.unwrap();
                     RECORD_ID.store(-1, Ordering::Relaxed);
                     self.need_upload = true;
-                    SongScene::global_launch(Some(id), &format!("download/{id}"), Mods::default(), GameMode::Normal)?;
+                    SongScene::global_launch(
+                        Some(id),
+                        &format!("download/{id}"),
+                        if get_data().me.as_ref().map_or(false, |it| it.name == "Mivik233") {
+                            Mods::AUTOPLAY
+                        } else {
+                            Mods::default()
+                        },
+                        GameMode::Normal,
+                        self.client.as_ref().map(Arc::clone),
+                    )?;
                 }
             } else {
                 self.game_start_consumed = false;
