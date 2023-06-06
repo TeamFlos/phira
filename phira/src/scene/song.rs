@@ -1,6 +1,6 @@
 prpr::tl_file!("song");
 
-use super::{confirm_delete, confirm_dialog, fs_from_path, MP_PANEL};
+use super::{confirm_delete, confirm_dialog, fs_from_path};
 use crate::{
     client::{recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
     data::{BriefChartInfo, LocalChart},
@@ -39,17 +39,15 @@ use serde_json::json;
 use std::{
     any::Any,
     borrow::Cow,
-    cell::RefCell,
     fs::File,
     io::{Cursor, Write},
     path::Path,
     sync::{
-        atomic::{AtomicBool, Ordering, AtomicI32},
+        atomic::{AtomicBool, AtomicI32, Ordering},
         Arc, Mutex, Weak,
     },
     thread_local,
 };
-use tokio::net::TcpStream;
 use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
