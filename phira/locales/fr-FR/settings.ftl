@@ -10,6 +10,11 @@ about = Informations
 item-lang = Langue
 item-offline = Mode hors-ligne
 item-offline-sub = Vous ne pourrez pas envoyer vos notes en mode hors-ligne
+item-mp = Multijoueur
+item-mp-sub = Activer le mode multijoueur
+item-mp-addr = Serveur multijoueur
+item-mp-addr-sub = Adresse de serveur, «hôte:port»
+item-mp-addr-invalid = Adresse de serveur invalide
 item-lowq = Mode basse qualité
 item-lowq-sub = Activez cette option si l'IU est lente
 
