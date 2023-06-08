@@ -1,9 +1,9 @@
 
 logout = Đăng xuất
-logged-out = Đã đăng xuất
+logged-out = Đăng đã xuất
 
-load-user-failed = Tải thông tin người dùng thất bại
-edit-avatar-success = Đã cập nhật ảnh đại diện
-edit-avatar-failed = Cập nhật ảnh đại diện thất bại
+load-user-failed = Không tìm nạp được thông tin người dùng
+edit-avatar-success = Đã cập nhật ảnh
+edit-avatar-failed = Không thể cập nhật ảnh
 
-uploading-avatar = Đang tải ảnh đại diện lên
+uploading-avatar = Đang tải ảnh lên

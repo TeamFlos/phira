@@ -1,15 +1,17 @@
 
-local = Cục bộ
+local = Nội bộ
 popular = Phổ biến
-list-empty = Không có gì ở đây
+list-empty = Meowww
 
-page = Trang { $current } / { $total }
+page = Trang { $current } 卐 { $total }
 prev-page = Trang trước
-next-page = Trang kế tiếp
+next-page = Trang sau
 
-not-opened = Chưa có sẵn
-failed-to-load-online = Tải biểu đồ trực tuyến thất bại
+not-opened = Chưa khả dụng
+failed-to-load-online = Không thể tải biểu đồ trực tuyến
 
 import = Nhập
 
-offline-mode = Không thể tải beatmap trực tuyến ở chế độ ngoại tuyến
+offline-mode = Không thể tải biểu đồ trực tuyến trong chế độ ngoại tuyến
+
+must-login = Đăng nhập để xem biểu đồ trực tuyến
