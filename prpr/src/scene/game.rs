@@ -921,9 +921,9 @@ impl Scene for GameScene {
         self.res.time = time;
         if !tm.paused() && self.pause_rewind.is_none() {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
-            if !self.res.config.autoplay() {
+            // if !self.res.config.autoplay() {
                 self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
-            }
+            // }
             self.gl.quad_gl.viewport(None);
         }
         if let Some(update) = &mut self.update_fn {
