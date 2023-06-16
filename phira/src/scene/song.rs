@@ -1517,6 +1517,7 @@ impl Scene for SongScene {
         }
         if let Some(dl) = &mut self.downloading {
             if dl.check()?.is_some() {
+                self.local_path = dl.local_path.take();
                 self.update_menu();
                 self.downloading = None;
             }
