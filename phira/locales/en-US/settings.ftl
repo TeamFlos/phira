@@ -26,7 +26,7 @@ item-bgm = BGM volume
 item-cali = Adjust offset
 
 item-show-acc = Show real-time accuracy
-item-dc-pause = Double click to pause
+item-dc-pause = Double tap to pause
 item-dhint = Highlight simul. notes
 item-dhint-sub = Notes that touch line simultaneously will be highlighted
 item-opt = Aggressive optimization
