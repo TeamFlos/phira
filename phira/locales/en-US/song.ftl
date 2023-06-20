@@ -48,10 +48,11 @@ upload-downloaded = Downloaded beatmaps cannot be uploaded
 upload-rules = Upload rules
 upload-rules-content =
   Before uploading, you need to confirm that:
-  1. ! The beatmap is created by me.
-  2. It is recommended to use a highly recognizable avatar and ID; If the avatar ID you use in Phira is quite different from the self-made score video publishing platform (specifically, BiliBili), additional annotations are required;
-  3. ! It is forbidden to violate the rules and upload the beatmap without the consent of the scorer, otherwise you may face the penalty of permanent ban on uploading;
-  4. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information.
+  1. ! The beatmap is created by me, collaborative chart needs upload permission ALL chart designers, otherwise you may face the penalty of permanent ban on uploading
+  2. It is recommended to use a highly recognizable avatar and ID; If the avatar ID you use in Phira is quite different from the self-made score video publishing platform (specifically, BiliBili), additional annotations are required, also please add your favored language in the chart description (if not zh-CN)
+  3. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information
+  4. I authorize the use of the content I provide for public promotion by Phira. Any other use requires my additional permission
+  5. The final interpretation rights of this rule belong to TeamFlos
 upload-cancel = Cancel
 upload-confirm = Confirm
 uploading = Uploading
