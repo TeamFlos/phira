@@ -1,9 +1,9 @@
 
 play = Chơi
-event = Sự kiện
-respack = Gói T.Nguyên
+event = Sự Kiện
+respack = T.Nguyên
 
-not-opened = Chưa có sẵn
-not-logged-in = Chưa đăng nhập
+not-opened = Không Khả Dụng
+not-logged-in = Chưa Đăng nhập
 
-failed-to-update = Cập nhật thông tin người dùng thất bại
+failed-to-update = Không thể cập nhật thông tin người dùng
