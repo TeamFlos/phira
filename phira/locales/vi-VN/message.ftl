@@ -1,4 +1,4 @@
 
-load-msg-fail = Tải tin nhắn thất bại
-no-msg = Chưa có gì cả
-subtitle = {author} lúc {time}
+load-msg-fail = Không thể tải tin nhắn
+no-msg = ☭
+subtitle = { $author } vào { $time }

@@ -1,6 +1,7 @@
-input = Nhập
-input-msg = Vui lòng nhập văn bản
-input-hint = Văn bản
 
-read-file-failed = Không đọc được tệp tin
-pasted = Đã dán từ bảng tạm
+input = Đầu vào
+input-msg = Vui lòng nhập đầu vào
+input-hint = skillissue
+
+read-file-failed = Không thể đọc tệp
+pasted = Dán từ bảng tạm
