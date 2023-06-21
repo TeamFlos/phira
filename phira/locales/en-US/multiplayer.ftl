@@ -13,6 +13,7 @@ create-room-failed = Failed to create room
 
 join-room = Join Room
 join-room-invalid-id = Invalid room ID
+join-room-failed = Failed to join room
 
 leave-room = Leave Room
 leave-room-failed = Failed to leave room

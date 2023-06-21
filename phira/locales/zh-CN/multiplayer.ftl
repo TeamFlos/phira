@@ -13,6 +13,7 @@ create-room-failed = 创建房间失败
 
 join-room = 加入房间
 join-room-invalid-id = 无效的房间 ID
+join-room-failed = 加入房间失败
 
 leave-room = 离开房间
 leave-room-failed = 离开房间失败
