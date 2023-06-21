@@ -3,6 +3,9 @@ prpr::tl_file!("import" itl);
 mod chart_order;
 pub use chart_order::{ChartOrder, ORDERS};
 
+pub(crate) mod event;
+pub use event::EventScene;
+
 mod main;
 pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 
@@ -12,13 +15,13 @@ pub use song::{Downloading, SongScene, RECORD_ID};
 mod profile;
 pub use profile::ProfileScene;
 
-use crate::{data::LocalChart, dir};
+use crate::{client::UserManager, data::LocalChart, dir, get_data, page::Fader};
 use anyhow::{bail, Context, Result};
 use prpr::{
     config::Mods,
-    ext::{unzip_into, SafeTexture},
+    ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
-    ui::Dialog,
+    ui::{Dialog, Scroll, Ui},
 };
 use std::{
     cell::RefCell,
@@ -96,4 +99,103 @@ pub async fn import_chart(path: String) -> Result<LocalChart> {
         }
         Ok(val) => Ok(val),
     }
+}
+
+pub struct LdbDisplayItem {
+    pub player_id: i32,
+    pub rank: u32,
+    pub score: String,
+    pub alt: Option<String>,
+}
+
+pub fn render_ldb(
+    ui: &mut Ui,
+    title: &str,
+    w: f32,
+    rt: f32,
+    scroll: &mut Scroll,
+    fader: &mut Fader,
+    icon_user: &SafeTexture,
+    iter: Option<impl Iterator<Item = LdbDisplayItem>>,
+) {
+    use macroquad::prelude::*;
+
+    let pad = 0.03;
+    let width = w - pad;
+    ui.dy(0.03);
+    let r = ui.text(title).size(0.8).draw();
+    ui.dy(r.h + 0.03);
+    let sh = ui.top * 2. - r.h - 0.08;
+    let Some(iter) = iter else {
+        ui.loading(width / 2., sh / 2., rt, WHITE, ());
+        return;
+    };
+    scroll.size((width, sh));
+    scroll.render(ui, |ui| {
+        ui.text(ttl!("release-to-refresh"))
+            .pos(width / 2., -0.13)
+            .anchor(0.5, 0.)
+            .size(0.8)
+            .draw();
+        let s = 0.14;
+        let mut h = 0.;
+        ui.dx(0.02);
+        fader.reset();
+        let me = get_data().me.as_ref().map(|it| it.id);
+        fader.for_sub(|f| {
+            for item in iter {
+                f.render(ui, rt, |ui, c| {
+                    if me == Some(item.player_id) {
+                        ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), Color { a: c.a, ..ui.background() });
+                    }
+                    let r = s / 2. - 0.02;
+                    ui.text(format!("#{}", item.rank))
+                        .pos((0.18 - r) / 2., s / 2.)
+                        .anchor(0.5, 0.5)
+                        .no_baseline()
+                        .size(0.52)
+                        .color(c)
+                        .draw();
+                    ui.avatar(0.18, s / 2., r, c, rt, UserManager::opt_avatar(item.player_id, icon_user));
+                    let mut rt = width - 0.04;
+                    if let Some(alt) = item.alt {
+                        let r = ui
+                            .text(alt)
+                            .pos(rt, s / 2.)
+                            .anchor(1., 0.5)
+                            .no_baseline()
+                            .size(0.4)
+                            .color(semi_white(c.a * 0.6))
+                            .draw();
+                        rt -= r.w + 0.01;
+                    } else {
+                        rt -= 0.01;
+                    }
+                    let r = ui
+                        .text(item.score)
+                        .pos(rt, s / 2.)
+                        .anchor(1., 0.5)
+                        .no_baseline()
+                        .size(0.6)
+                        .color(c)
+                        .draw();
+                    rt -= r.w + 0.03;
+                    let lt = 0.24;
+                    if let Some(name) = UserManager::get_name(item.player_id) {
+                        ui.text(name)
+                            .pos(lt, s / 2.)
+                            .anchor(0., 0.5)
+                            .no_baseline()
+                            .max_width(rt - lt - 0.01)
+                            .size(0.5)
+                            .color(c)
+                            .draw();
+                    }
+                });
+                ui.dy(s);
+                h += s;
+            }
+        });
+        (width, h)
+    });
 }

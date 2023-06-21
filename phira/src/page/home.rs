@@ -1,6 +1,6 @@
 prpr::tl_file!("home");
 
-use super::{LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
+use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
     client::{recv_raw, Client, LoginParams, User, UserManager},
     dir, get_data, get_data_mut,
@@ -16,7 +16,7 @@ use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
-    scene::{show_error, show_message, NextScene},
+    scene::{show_error, NextScene},
     task::Task,
     ui::{button_hit_large, rounded_rect, DRectButton, Ui},
 };
@@ -203,7 +203,12 @@ impl Page for HomePage {
         }
         if self.btn_event.touch(touch, t) {
             button_hit_large();
-            show_message(tl!("not-opened")).warn();
+            if get_data().me.is_none() {
+                self.login.enter(t);
+            } else {
+                self.next_page =
+                    Some(NextPage::Overlay(Box::new(EventPage::new(self.icon_back.clone(), self.icon_ldb.clone(), self.icon_user.clone()))));
+            }
             return Ok(true);
         }
         if self.btn_respack.touch(touch, t) {

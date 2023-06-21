@@ -1,6 +1,6 @@
 prpr::tl_file!("song");
 
-use super::{confirm_delete, confirm_dialog, fs_from_path};
+use super::{confirm_delete, confirm_dialog, fs_from_path, render_ldb, LdbDisplayItem};
 use crate::{
     client::{recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
     data::{BriefChartInfo, LocalChart},
@@ -44,7 +44,7 @@ use std::{
     io::{Cursor, Write},
     path::Path,
     sync::{
-        atomic::{AtomicBool, Ordering, AtomicI32},
+        atomic::{AtomicBool, AtomicI32, Ordering},
         Arc, Mutex, Weak,
     },
     thread_local,
@@ -181,7 +181,7 @@ struct StableR {
 }
 
 #[derive(Deserialize)]
-struct LeaderboardItem {
+struct LdbItem {
     #[serde(flatten)]
     pub inner: Record,
     pub rank: u32,
@@ -244,8 +244,8 @@ pub struct SongScene {
     save_task: Option<Task<Result<(ChartInfo, AudioClip)>>>,
     upload_task: Option<Task<Result<BriefChartInfo>>>,
 
-    ldb: Option<(Option<u32>, Vec<LeaderboardItem>)>,
-    ldb_task: Option<Task<Result<Vec<LeaderboardItem>>>>,
+    ldb: Option<(Option<u32>, Vec<LdbItem>)>,
+    ldb_task: Option<Task<Result<Vec<LdbItem>>>>,
     ldb_btn: RectButton,
     ldb_scroll: Scroll,
     ldb_fader: Fader,
@@ -944,85 +944,31 @@ impl SongScene {
             0.6,
             true,
         );
-        let r = ui.text(tl!("ldb")).size(0.8).draw();
-        ui.dy(r.h + 0.03);
-        let sh = ui.top * 2. - r.h - 0.08;
-        let Some((_, items)) = &self.ldb else {
-            ui.loading(width / 2., sh / 2., rt, WHITE, ());
-            return;
-        };
-        self.ldb_scroll.size((width, sh));
-        self.ldb_scroll.render(ui, |ui| {
-            ui.text(ttl!("release-to-refresh"))
-                .pos(width / 2., -0.13)
-                .anchor(0.5, 0.)
-                .size(0.8)
-                .draw();
-            let s = 0.14;
-            let mut h = 0.;
-            ui.dx(0.02);
-            self.ldb_fader.reset();
-            let me = get_data().me.as_ref().map(|it| it.id);
-            self.ldb_fader.for_sub(|f| {
-                for item in items {
-                    f.render(ui, rt, |ui, c| {
-                        if me == Some(item.inner.player.id) {
-                            ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), Color { a: c.a, ..ui.background() });
-                        }
-                        let r = s / 2. - 0.02;
-                        ui.text(format!("#{}", item.rank))
-                            .pos((0.18 - r) / 2., s / 2.)
-                            .anchor(0.5, 0.5)
-                            .no_baseline()
-                            .size(0.52)
-                            .color(c)
-                            .draw();
-                        ui.avatar(0.18, s / 2., r, c, rt, UserManager::opt_avatar(item.inner.player.id, &self.icon_user));
-                        let mut rt = width - 0.04;
-                        let r = ui
-                            .text(if self.ldb_std {
-                                format!("{}ms", (item.inner.std.unwrap_or(0.) * 1000.) as i32)
-                            } else {
-                                format!("{:.2}%", item.inner.accuracy * 100.)
-                            })
-                            .pos(rt, s / 2.)
-                            .anchor(1., 0.5)
-                            .no_baseline()
-                            .size(0.4)
-                            .color(semi_white(c.a * 0.6))
-                            .draw();
-                        rt -= r.w + 0.01;
-                        let r = ui
-                            .text(if self.ldb_std {
-                                format!("{:07}", item.inner.std_score.unwrap_or(0.) as i64)
-                            } else {
-                                format!("{:07}", item.inner.score)
-                            })
-                            .pos(rt, s / 2.)
-                            .anchor(1., 0.5)
-                            .no_baseline()
-                            .size(0.6)
-                            .color(c)
-                            .draw();
-                        rt -= r.w + 0.03;
-                        let lt = 0.24;
-                        if let Some(name) = UserManager::get_name(item.inner.player.id) {
-                            ui.text(name)
-                                .pos(lt, s / 2.)
-                                .anchor(0., 0.5)
-                                .no_baseline()
-                                .max_width(rt - lt - 0.01)
-                                .size(0.5)
-                                .color(c)
-                                .draw();
-                        }
-                    });
-                    ui.dy(s);
-                    h += s;
-                }
-            });
-            (width, h)
-        });
+        render_ldb(
+            ui,
+            &tl!("ldb"),
+            self.side_content.width(),
+            rt,
+            &mut self.ldb_scroll,
+            &mut self.ldb_fader,
+            &self.icon_user,
+            self.ldb.as_ref().map(|it| {
+                it.1.iter().map(|it| LdbDisplayItem {
+                    player_id: it.inner.player.id,
+                    rank: it.rank,
+                    score: if self.ldb_std {
+                        format!("{:07}", it.inner.std_score.unwrap_or(0.) as i64)
+                    } else {
+                        format!("{:07}", it.inner.score)
+                    },
+                    alt: Some(if self.ldb_std {
+                        format!("{}ms", (it.inner.std.unwrap_or(0.) * 1000.) as i32)
+                    } else {
+                        format!("{:.2}%", it.inner.accuracy * 100.)
+                    }),
+                })
+            }),
+        );
     }
 
     fn side_info(&mut self, ui: &mut Ui, rt: f32) {

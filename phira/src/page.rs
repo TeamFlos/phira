@@ -1,3 +1,6 @@
+mod event;
+pub use event::EventPage;
+
 mod home;
 pub use home::HomePage;
 
@@ -18,6 +21,7 @@ pub use settings::SettingsPage;
 use tokio::sync::Notify;
 
 use crate::{
+    client::File,
     data::BriefChartInfo,
     dir, get_data,
     images::Images,
@@ -28,11 +32,12 @@ use image::DynamicImage;
 use macroquad::prelude::*;
 use prpr::{
     core::Resource,
-    ext::{semi_black, SafeTexture, BLACK_TEXTURE},
+    ext::{semi_black, semi_white, SafeTexture, ScaleType, BLACK_TEXTURE},
     fs,
     scene::{NextScene, Scene},
     task::Task,
-    ui::{FontArc, TextPainter, Ui},
+    time::TimeManager,
+    ui::{FontArc, IntoShading, Shading, TextPainter, Ui},
 };
 use std::{
     any::Any,
@@ -96,6 +101,20 @@ pub struct Illustration {
 impl Illustration {
     const TIME: f32 = 0.4;
 
+    pub fn from_file(file: File) -> Self {
+        let notify = Arc::default();
+        Self {
+            texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
+            notify: Arc::clone(&notify),
+            task: Some(Task::new(async move {
+                notify.notified().await;
+                Ok((file.load_image().await?, None))
+            })),
+            loaded: Arc::default(),
+            load_time: f32::NAN,
+        }
+    }
+
     pub fn notify(&self) {
         self.notify.notify_one();
     }
@@ -121,16 +140,16 @@ impl Illustration {
         }
     }
 
-    pub fn ready(&self) -> bool {
-        self.load_time.is_nan()
-    }
-
     pub fn alpha(&self, t: f32) -> f32 {
         if self.load_time.is_nan() {
             0.
         } else {
             ((t - self.load_time) / Self::TIME).min(1.)
         }
+    }
+
+    pub fn shading(&self, r: Rect, t: f32, alpha: f32) -> impl Shading {
+        (*self.texture.0, r, ScaleType::CropCenter, semi_white(alpha * self.alpha(t))).into_shading()
     }
 }
 
@@ -342,6 +361,11 @@ impl SharedState {
         })
     }
 
+    pub fn update(&mut self, tm: &mut TimeManager) {
+        self.t = tm.now() as _;
+        self.rt = tm.real_time() as _;
+    }
+
     pub fn render_fader<R>(&mut self, ui: &mut Ui, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
         self.fader.render(ui, self.t, f)
     }
@@ -388,5 +412,8 @@ pub trait Page {
     }
     fn exit(&mut self) -> Result<()> {
         Ok(())
+    }
+    fn on_back_pressed(&mut self, _s: &mut SharedState) -> bool {
+        false
     }
 }

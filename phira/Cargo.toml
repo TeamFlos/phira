@@ -25,6 +25,7 @@ lru = "0.9.0"
 lyon = "*"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
 md5 = "0.7"
+nalgebra = "*"
 once_cell = "*"
 openssl = { version = "*", features = ["vendored"] }
 pollster = "0.2.5"
@@ -46,6 +47,7 @@ zstd = "0.12"
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp" }
 uuid = { version = "1.3.3", features = ["v4"] }
+logos = "0.13.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
