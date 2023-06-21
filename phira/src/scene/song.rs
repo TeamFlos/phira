@@ -140,7 +140,7 @@ impl Downloading {
                     self.info = chart.info.clone();
                     if let Some(local_path) = &self.local_path {
                         // update
-                        SongScene::global_update_chart_info(&local_path, self.info.clone())?;
+                        SongScene::global_update_chart_info(local_path, self.info.clone())?;
                     } else {
                         NEED_UPDATE.store(true, Ordering::SeqCst);
                         self.local_path = Some(chart.local_path.clone());
@@ -325,7 +325,7 @@ impl SongScene {
         } else {
             None
         };
-        let id = chart.info.id.clone();
+        let id = chart.info.id;
         let offline_mode = get_data().config.offline_mode;
         Self {
             illu,
@@ -1413,22 +1413,21 @@ impl Scene for SongScene {
                                 .info
                                 .updated
                                 .map_or(chart.updated != chart.created, |local_updated| local_updated != chart.updated)
+                                && self.local_path.is_some()
                             {
-                                if self.local_path.is_some() {
-                                    let chart_updated = self
-                                        .info
-                                        .chart_updated
-                                        .map_or(chart.chart_updated != chart.created, |local_updated| local_updated != chart.chart_updated);
-                                    confirm_dialog(
-                                        tl!("need-update"),
-                                        if chart_updated {
-                                            tl!("need-update-content")
-                                        } else {
-                                            tl!("need-update-info-only-content")
-                                        },
-                                        Arc::clone(&self.should_update),
-                                    );
-                                }
+                                let chart_updated = self
+                                    .info
+                                    .chart_updated
+                                    .map_or(chart.chart_updated != chart.created, |local_updated| local_updated != chart.chart_updated);
+                                confirm_dialog(
+                                    tl!("need-update"),
+                                    if chart_updated {
+                                        tl!("need-update-content")
+                                    } else {
+                                        tl!("need-update-info-only-content")
+                                    },
+                                    Arc::clone(&self.should_update),
+                                );
                             }
                         } else if let Some(local) = &self.local_path {
                             let conf = format!("{}/{}/info.yml", dir::charts()?, local);

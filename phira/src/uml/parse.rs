@@ -368,7 +368,7 @@ impl<'de> Deserialize<'de> for Expr {
                 parse_expr(&value).map_err(E::custom)
             }
 
-            fn visit_borrowed_str<E: de::Error>(self, v: &'de str) -> Result<Self::Value, E> {
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
                 parse_expr(v).map_err(E::custom)
             }
         }

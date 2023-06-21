@@ -85,12 +85,6 @@ impl MainScene {
         Ok(sf)
     }
 
-    pub async fn new_with(page: impl Page + 'static) -> Result<Self> {
-        let mut sf = Self::new_inner(None).await?;
-        sf.pages.push(Box::new(page));
-        Ok(sf)
-    }
-
     async fn init() -> Result<()> {
         // init button hitsound
         macro_rules! load_sfx {

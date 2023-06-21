@@ -181,7 +181,7 @@ impl File {
     fn request(&self) -> reqwest::RequestBuilder {
         let req = reqwest::Client::new().get(&self.url);
         if let Some(token) = CLIENT_TOKEN.load().as_ref() {
-            req.header("Authorization", format!("Bearer {}", token))
+            req.header("Authorization", format!("Bearer {token}"))
         } else {
             req
         }

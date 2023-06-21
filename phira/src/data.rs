@@ -134,6 +134,6 @@ impl Data {
     }
 
     pub fn find_chart_by_path(&self, local_path: &str) -> Option<usize> {
-        self.charts.iter().position(|local| &local.local_path == local_path)
+        self.charts.iter().position(|local| local.local_path == local_path)
     }
 }

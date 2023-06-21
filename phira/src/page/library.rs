@@ -548,7 +548,7 @@ impl Page for LibraryPage {
             for (id, (btn, chart)) in self.chart_btns.iter_mut().zip(charts.into_iter().flatten()).enumerate() {
                 if btn.touch(touch, t) {
                     button_hit_large();
-                    if MP_PANEL.with(|it| {
+                    let handled_by_mp = MP_PANEL.with(|it| {
                         if let Some(panel) = it.borrow_mut().as_mut() {
                             if panel.active() {
                                 if let Some(id) = chart.info.id {
@@ -562,7 +562,8 @@ impl Page for LibraryPage {
                             }
                         }
                         false
-                    }) {
+                    });
+                    if handled_by_mp {
                         continue;
                     }
                     let download_path = chart.info.id.map(|it| format!("download/{it}"));
