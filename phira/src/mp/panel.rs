@@ -8,7 +8,7 @@ use crate::{
 use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
 use phira_mp_client::Client;
-use phira_mp_common::RoomState;
+use phira_mp_common::{RoomId, RoomState};
 use prpr::{
     config::Mods,
     core::Tweenable,
@@ -172,10 +172,10 @@ impl MPPanel {
         }));
     }
 
-    fn create_room(&mut self) {
+    fn create_room(&mut self, id: RoomId) {
         let client = self.clone_client();
         self.create_room_task = Some(Task::new(async move {
-            client.create_room().await?;
+            client.create_room(id).await?;
             Ok(())
         }));
     }
@@ -306,7 +306,7 @@ impl MPPanel {
                 }
             } else {
                 if self.create_room_btn.touch(touch, t) {
-                    self.create_room();
+                    request_input("room_id", "");
                     return true;
                 }
                 if self.join_room_btn.touch(touch, t) {
@@ -497,16 +497,27 @@ impl MPPanel {
                 self.task = None;
             }
         }
+        if let Some(task) = &mut self.join_room_task {
+            if let Some(res) = task.take() {
+                if let Err(err) = res {
+                    show_error(err.context(mtl!("join-room-failed")));
+                }
+                self.task = None;
+            }
+        }
         if let Some((id, text)) = take_input() {
             match id.as_str() {
                 "chat" => {
                     self.chat_text = text;
                 }
+                "room_id" => {
+                    self.create_room(text.try_into()?);
+                }
                 "join_room" => {
                     let client = self.clone_client();
-                    if let Ok(uuid) = Uuid::parse_str(&text) {
+                    if let Ok(id) = text.try_into() {
                         self.join_room_task = Some(Task::new(async move {
-                            client.join_room(uuid).await?;
+                            client.join_room(id).await?;
                             Ok(())
                         }));
                     } else {
