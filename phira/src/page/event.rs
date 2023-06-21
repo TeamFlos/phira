@@ -111,7 +111,7 @@ impl Page for EventPage {
         }
         if let Some(events) = &mut self.events {
             for item in events.iter_mut() {
-                if item.btn.touch(touch, t) {
+                if self.tr_start.is_nan() && item.btn.touch(touch, t) {
                     button_hit_large();
                     self.scroll.y_scroller.halt();
                     self.tr_start = s.rt;
