@@ -156,26 +156,29 @@ impl Scene for MainScene {
         self.pages.last_mut().unwrap().on_result(result, &mut self.state)
     }
 
-    fn enter(&mut self, _tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
+    fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
         if let Some(bgm) = &mut self.bgm {
             let _ = bgm.fade_in(1.3);
         }
+        self.state.update(tm);
         self.pages.last_mut().unwrap().enter(&mut self.state)?;
         Ok(())
     }
 
-    fn resume(&mut self, _tm: &mut TimeManager) -> Result<()> {
+    fn resume(&mut self, tm: &mut TimeManager) -> Result<()> {
         if let Some(bgm) = &mut self.bgm {
             bgm.play()?;
         }
+        self.state.update(tm);
         self.pages.last_mut().unwrap().resume()?;
         Ok(())
     }
 
-    fn pause(&mut self, _tm: &mut TimeManager) -> Result<()> {
+    fn pause(&mut self, tm: &mut TimeManager) -> Result<()> {
         if let Some(bgm) = &mut self.bgm {
             bgm.pause()?;
         }
+        self.state.update(tm);
         self.pages.last_mut().unwrap().pause()?;
         Ok(())
     }
@@ -225,16 +228,17 @@ impl Scene for MainScene {
         }
 
         let s = &mut self.state;
-        s.t = tm.now() as _;
-        s.rt = tm.real_time() as _;
+        s.update(tm);
         if self.btn_back.touch(touch) && self.pages.len() > 1 {
             button_hit();
-            if self.pages.len() == 2 {
-                if let Some(bgm) = &mut self.bgm {
-                    bgm.set_low_pass(0.)?;
+            if !self.pages.last_mut().unwrap().on_back_pressed(&mut self.state) {
+                if self.pages.len() == 2 {
+                    if let Some(bgm) = &mut self.bgm {
+                        bgm.set_low_pass(0.)?;
+                    }
                 }
+                self.pop();
             }
-            self.pop();
             return Ok(true);
         }
         if self.pages.last_mut().unwrap().touch(touch, s)? {
@@ -255,8 +259,7 @@ impl Scene for MainScene {
             })?;
         }
         let s = &mut self.state;
-        s.t = tm.now() as _;
-        s.rt = tm.real_time() as _;
+        s.update(tm);
         if s.fader.transiting() {
             let pos = self.pages.len() - 2;
             self.pages[pos].update(s)?;
@@ -354,8 +357,7 @@ impl Scene for MainScene {
         });
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
         let s = &mut self.state;
-        s.t = tm.now() as _;
-        s.rt = tm.real_time() as _;
+        s.update(tm);
 
         // 1. title
         if s.fader.transiting() {
@@ -366,7 +368,17 @@ impl Scene for MainScene {
         s.fader
             .for_sub(|f| f.render_title(ui, &mut s.painter, s.t, &self.pages.last().unwrap().label()));
 
-        // 2. back
+        // 2. page
+        if s.fader.transiting() {
+            let pos = self.pages.len() - 2;
+            self.pages[pos].render(ui, s)?;
+        }
+        s.fader.sub = true;
+        s.fader.reset();
+        self.pages.last_mut().unwrap().render(ui, s)?;
+        s.fader.sub = false;
+
+        // 3. back
         if self.pages.len() >= 2 {
             let mut r = ui.back_rect();
             self.btn_back.set(ui, r);
@@ -379,16 +391,6 @@ impl Scene for MainScene {
             ui.fill_rect(r, (*self.icon_back, r));
             ui.scissor(None);
         }
-
-        // 3. page
-        if s.fader.transiting() {
-            let pos = self.pages.len() - 2;
-            self.pages[pos].render(ui, s)?;
-        }
-        s.fader.sub = true;
-        s.fader.reset();
-        self.pages.last_mut().unwrap().render(ui, s)?;
-        s.fader.sub = false;
 
         if get_data().config.mp_enabled {
             let r = 0.06;

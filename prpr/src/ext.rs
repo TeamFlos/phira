@@ -173,7 +173,7 @@ pub fn draw_text_aligned(ui: &mut Ui, text: &str, x: f32, y: f32, anchor: (f32, 
     ui.text(text).pos(x, y).anchor(anchor.0, anchor.1).size(scale).color(color).draw()
 }
 
-#[derive(Default, Clone, Copy, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ScaleType {
     #[default]

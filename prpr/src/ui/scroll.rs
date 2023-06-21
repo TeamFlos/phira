@@ -94,7 +94,7 @@ pub struct Scroller {
     pub pulled_down: bool,
     frame_touched: bool,
     pub step: f32,
-    pub last_step: usize,
+    pub goto: Option<f32>,
 }
 
 impl Default for Scroller {
@@ -117,7 +117,7 @@ impl Scroller {
             pulled_down: false,
             frame_touched: true,
             step: f32::NAN,
-            last_step: 0,
+            goto: None,
         }
     }
 
@@ -125,10 +125,15 @@ impl Scroller {
         self.touch = None;
     }
 
+    pub fn goto_step(&mut self, index: usize) {
+        self.goto = Some(self.step * index as f32);
+    }
+
     pub fn touch(&mut self, id: u64, phase: TouchPhase, val: f32, t: f32) -> bool {
         match phase {
             TouchPhase::Started => {
                 if 0. <= val && val < self.bound {
+                    self.goto = None;
                     self.tracker.reset();
                     self.tracker.push(t, Point::new(val, 0.));
                     self.speed = 0.;
@@ -197,7 +202,7 @@ impl Scroller {
             if !self.step.is_nan() {
                 let lower = (self.offset / self.step).floor() * self.step;
                 let upper = lower + self.step;
-                let range = 0.0..self.size;
+                let range = -1e-3..(self.size + 1e-3);
                 if range.contains(&lower) && to.map_or(true, |it| (it - self.offset).abs() >= (lower - self.offset).abs()) {
                     to = Some(lower);
                 }
@@ -205,14 +210,21 @@ impl Scroller {
                     to = Some(upper);
                 }
             }
-            if let Some(to) = to {
+            if let Some(to) = self.goto {
+                self.speed = (to - self.offset) * K * 2.;
+                if (to - self.offset).abs() < 0.01 {
+                    self.goto = None;
+                }
+            } else if let Some(to) = to {
                 self.speed = (to - self.offset) * K;
             }
         }
-        if !unlock && self.offset < 0. {
+        if !unlock && self.offset < -1e-3 {
             self.speed = -self.offset * K;
-        } else if !unlock && self.offset > self.size {
+            self.goto = None;
+        } else if !unlock && self.offset > self.size + 1e-3 {
             self.speed = (self.size - self.offset) * K;
+            self.goto = None;
         } else {
             self.speed *= (0.5_f32).powf((t - self.last_time) / 0.4);
         }
@@ -236,6 +248,7 @@ pub struct Scroll {
     pub y_scroller: Scroller,
     size: (f32, f32),
     matrix: Option<Matrix>,
+    horizontal: bool,
 }
 
 impl Default for Scroll {
@@ -251,7 +264,13 @@ impl Scroll {
             y_scroller: Scroller::new(),
             size: (2., 2.),
             matrix: None,
+            horizontal: false,
         }
+    }
+
+    pub fn horizontal(mut self) -> Self {
+        self.horizontal = true;
+        self
     }
 
     pub fn set_offset(&mut self, x: f32, y: f32) {
@@ -266,13 +285,15 @@ impl Scroll {
         if touch.phase == TouchPhase::Started && (pt.x < 0. || pt.y < 0. || pt.x > self.size.0 || pt.y > self.size.1) {
             return false;
         }
-        // self.x_scroller.touch(touch.id, touch.phase, pt.x, t) |
-        self.y_scroller.touch(touch.id, touch.phase, pt.y, t)
+        if self.horizontal {
+            self.x_scroller.touch(touch.id, touch.phase, pt.x, t)
+        } else {
+            self.y_scroller.touch(touch.id, touch.phase, pt.y, t)
+        }
     }
 
     pub fn update(&mut self, t: f32) {
-        self.x_scroller.update(t);
-        self.y_scroller.update(t);
+        (if self.horizontal { &mut self.x_scroller } else { &mut self.y_scroller }).update(t)
     }
 
     pub fn contains(&self, touch: &Touch) -> bool {

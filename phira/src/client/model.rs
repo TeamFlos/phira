@@ -1,6 +1,12 @@
 mod chart;
 pub use chart::*;
 
+mod collection;
+pub use collection::*;
+
+mod event;
+pub use event::*;
+
 mod message;
 pub use message::*;
 

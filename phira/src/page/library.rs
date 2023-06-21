@@ -276,18 +276,7 @@ impl LibraryPage {
                             let chart = &charts[id as usize];
                             chart.illu.notify();
                             let (r, path) = self.chart_btns[id as usize].render_shadow(ui, r, t, c.a, |_| semi_black(c.a));
-                            ui.fill_path(
-                                &path,
-                                (
-                                    *chart.illu.texture.0,
-                                    r.feather(0.01),
-                                    ScaleType::CropCenter,
-                                    Color {
-                                        a: c.a * chart.illu.alpha(t),
-                                        ..c
-                                    },
-                                ),
-                            );
+                            ui.fill_path(&path, chart.illu.shading(r.feather(0.01), t, c.a));
                             if let Some((that_id, start_time)) = &self.back_fade_in {
                                 if id == *that_id {
                                     let p = ((t - start_time) / BACK_FADE_IN_TIME).max(0.);
@@ -867,12 +856,7 @@ impl Page for LibraryPage {
                 let p = ((t - transit.start_time) / TRANSIT_TIME).clamp(0., 1.);
                 let p = (1. - p).powi(4);
                 let p = if transit.back { p } else { 1. - p };
-                let r = Rect::new(
-                    f32::tween(&fr.x, &-1., p),
-                    f32::tween(&fr.y, &-ui.top, p),
-                    f32::tween(&fr.w, &2., p),
-                    f32::tween(&fr.h, &(ui.top * 2.), p),
-                );
+                let r = Rect::tween(&fr, &ui.screen_rect(), p);
                 let path = r.rounded(0.02 * (1. - p));
                 ui.fill_path(&path, (*transit.chart.illu.texture.1, r.feather(0.01 * (1. - p))));
                 ui.fill_path(&path, semi_black(0.55));

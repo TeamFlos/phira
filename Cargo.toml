@@ -2,7 +2,7 @@
 members = [
 	"prpr",
 	"phira",
-	"phira-main"
+	"phira-main",
 ]
 resolver = "2"
 

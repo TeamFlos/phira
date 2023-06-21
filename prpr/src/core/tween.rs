@@ -1,4 +1,4 @@
-use macroquad::prelude::{vec2, Color, Vec2};
+use macroquad::prelude::{vec2, Color, Rect, Vec2};
 use once_cell::sync::Lazy;
 use std::{any::Any, ops::Range, rc::Rc};
 
@@ -328,5 +328,11 @@ impl Tweenable for String {
         } else {
             x.clone()
         }
+    }
+}
+
+impl Tweenable for Rect {
+    fn tween(x: &Self, y: &Self, t: f32) -> Self {
+        Self::new(f32::tween(&x.x, &y.x, t), f32::tween(&x.y, &y.y, t), f32::tween(&x.w, &y.w, t), f32::tween(&x.h, &y.h, t))
     }
 }

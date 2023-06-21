@@ -13,6 +13,7 @@ mod popup;
 mod rate;
 mod scene;
 mod tags;
+mod uml;
 
 use anyhow::Result;
 use data::Data;
