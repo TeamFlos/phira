@@ -278,7 +278,7 @@ impl Page for HomePage {
                 self.board_last = Some(path);
                 self.board_task = Some(Task::new(async move {
                     let info: ChartInfo = serde_yaml::from_reader(dir.open("info.yml")?)?;
-                    let bytes = dir.read(&info.illustration)?;
+                    let bytes = dir.read(info.illustration)?;
                     Ok(Some(image::load_from_memory(&bytes)?))
                 }));
             }

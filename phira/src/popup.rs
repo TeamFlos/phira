@@ -41,30 +41,6 @@ impl Popup {
     }
 
     #[inline]
-    pub fn with_selected(mut self, selected: usize) -> Self {
-        self.selected = selected;
-        self
-    }
-
-    #[inline]
-    pub fn with_left(mut self, left: f32) -> Self {
-        self.left = left;
-        self
-    }
-
-    #[inline]
-    pub fn with_size(mut self, size: f32) -> Self {
-        self.size = size;
-        self
-    }
-
-    #[inline]
-    pub fn with_height(mut self, height: f32) -> Self {
-        self.height = height;
-        self
-    }
-
-    #[inline]
     pub fn selected(&self) -> usize {
         self.selected
     }
@@ -212,18 +188,6 @@ impl ChooseButton {
             height: 0.34,
             need_to_show: false,
         }
-    }
-
-    #[inline]
-    pub fn with_width(mut self, width: f32) -> Self {
-        self.width = Some(width);
-        self
-    }
-
-    #[inline]
-    pub fn with_height(mut self, height: f32) -> Self {
-        self.height = height;
-        self
     }
 
     #[inline]

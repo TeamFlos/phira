@@ -137,7 +137,6 @@ impl Client {
             let status = resp.status().as_str().to_owned();
             let text = resp.text().await.context("failed to receive text")?;
             if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-                println!("{:?}", what);
                 if let Some(detail) = what["detail"].as_str() {
                     bail!("request failed ({status}): {detail}");
                 }
@@ -169,7 +168,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn login<'a>(params: LoginParams<'a>) -> Result<()> {
+    pub async fn login(params: LoginParams<'_>) -> Result<()> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct Resp {

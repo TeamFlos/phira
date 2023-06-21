@@ -41,16 +41,16 @@ impl<'de> Deserialize<'de> for WrappedColor {
             "green" => GREEN,
             "gray" => GRAY,
             _ => {
-                if let Some(d) = s.strip_prefix("#") {
+                if let Some(d) = s.strip_prefix('#') {
                     let int = u32::from_str_radix(d, 16).map_err(D::Error::custom)?;
                     let mut v = int.to_be_bytes();
                     if d.len() == 6 {
                         v[0] = 0xff;
                     }
                     Color::from_rgba(v[1], v[2], v[3], v[0])
-                } else if let Some(d) = s.strip_prefix("w") {
+                } else if let Some(d) = s.strip_prefix('w') {
                     semi_white(d.parse().map_err(D::Error::custom)?)
-                } else if let Some(d) = s.strip_prefix("b") {
+                } else if let Some(d) = s.strip_prefix('b') {
                     semi_black(d.parse().map_err(D::Error::custom)?)
                 } else {
                     return Err(D::Error::custom(format!("invalid color: {s}")));

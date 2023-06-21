@@ -151,11 +151,13 @@ impl Scene for EventScene {
         }
 
         if !self.side_enter_time.is_nan() {
-            if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + TRANSIT_TIME {
-                if touch.position.x < 1. - LDB_WIDTH && touch.phase == TouchPhase::Started {
-                    self.side_enter_time = -rt;
-                    return Ok(true);
-                }
+            if self.side_enter_time > 0.
+                && tm.real_time() as f32 > self.side_enter_time + TRANSIT_TIME
+                && touch.position.x < 1. - LDB_WIDTH
+                && touch.phase == TouchPhase::Started
+            {
+                self.side_enter_time = -rt;
+                return Ok(true);
             }
             if self.ldb_scroll.touch(touch, t) {
                 return Ok(true);
@@ -219,19 +221,17 @@ impl Scene for EventScene {
                     });
                 }
             }
-        } else {
-            if let Some(task) = &mut self.uml_task {
-                if let Some(res) = task.take() {
-                    match res {
-                        Err(err) => {
-                            show_error(err.context(tl!("load-failed")));
-                        }
-                        Ok(res) => {
-                            self.uml = res.parse().map_err(anyhow::Error::msg)?;
-                        }
+        } else if let Some(task) = &mut self.uml_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("load-failed")));
                     }
-                    self.uml_task = None;
+                    Ok(res) => {
+                        self.uml = res.parse().map_err(anyhow::Error::msg)?;
+                    }
                 }
+                self.uml_task = None;
             }
         }
 

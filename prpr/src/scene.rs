@@ -526,26 +526,6 @@ fn draw_background(tex: Texture2D) {
     draw_rectangle(-1., -top, 2., top * 2., Color::new(0., 0., 0., 0.3));
 }
 
-fn draw_illustration(tex: Texture2D, x: f32, y: f32, w: f32, h: f32, color: Color) -> Rect {
-    let scale = 0.076;
-    let w = scale * 13. * w;
-    let h = scale * 7. * h;
-    let r = Rect::new(x - w / 2., y - h / 2., w, h);
-    let tr = {
-        let exp = w / h;
-        let act = tex.width() / tex.height();
-        if exp > act {
-            let h = act / exp;
-            Rect::new(0., 0.5 - h / 2., 1., h)
-        } else {
-            let w = exp / act;
-            Rect::new(0.5 - w / 2., 0., w, 1.)
-        }
-    };
-    crate::ext::draw_parallelogram(r, Some((tex, tr)), color, true);
-    r
-}
-
 thread_local! {
     static LOAD_SCENE_TASK: RefCell<LocalTask<Result<NextScene>>> = RefCell::new(None);
 }

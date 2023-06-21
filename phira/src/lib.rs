@@ -44,7 +44,7 @@ pub async fn load_res(name: &str) -> Vec<u8> {
 pub fn sync_data() {
     set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     if get_data().language.is_none() {
-        get_data_mut().language = Some(LANGS[GLOBAL.order.lock().unwrap()[0] as usize].to_owned());
+        get_data_mut().language = Some(LANGS[GLOBAL.order.lock().unwrap()[0]].to_owned());
     }
     let _ = client::set_access_token_sync(get_data().tokens.as_ref().map(|it| &*it.0));
 }

@@ -29,7 +29,7 @@ impl Tags {
     }
 
     pub fn tags(&self) -> &[String] {
-        &&self.tags
+        &self.tags
     }
 
     pub fn add(&mut self, s: String) {

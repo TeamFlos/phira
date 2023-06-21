@@ -376,6 +376,7 @@ impl SharedState {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub enum NextPage {
     #[default]
     None,
