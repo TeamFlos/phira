@@ -7,7 +7,7 @@ use crate::{
     save_data,
     scene::{TEX_BACKGROUND, TEX_ICON_BACK},
 };
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
 use prpr::{
     core::ResPackInfo,
@@ -25,6 +25,7 @@ use std::{
     io::BufReader,
     sync::atomic::{AtomicBool, Ordering},
     thread_local,
+    time::{Duration, Instant},
 };
 use uuid::Uuid;
 
@@ -35,6 +36,11 @@ pub static BGM_VOLUME_UPDATED: AtomicBool = AtomicBool::new(false);
 thread_local! {
     static RESPACK_ITEM: RefCell<Option<ResPackItem>> = RefCell::default();
     pub static MP_PANEL: RefCell<Option<MPPanel>> = RefCell::default();
+}
+
+#[inline]
+fn position_file() -> Result<String> {
+    Ok(format!("{}/mp-pos", dir::root()?))
 }
 
 pub struct MainScene {
@@ -55,6 +61,7 @@ pub struct MainScene {
     mp_btn_pos: Vec2,
     mp_move: Option<(u64, Vec2, Vec2)>,
     mp_moved: bool,
+    mp_save_pos_at: Option<Instant>,
 }
 
 impl MainScene {
@@ -125,9 +132,15 @@ impl MainScene {
 
             mp_btn: RectButton::new(),
             mp_icon: SafeTexture::from(load_texture("multiplayer.png").await?).with_mipmap(),
-            mp_btn_pos: Vec2::default(),
+            mp_btn_pos: (|| -> Result<Vec2> {
+                let s = std::fs::read_to_string(position_file()?)?;
+                let (x, y) = s.split_once(',').ok_or_else(|| anyhow!("invalid"))?;
+                Ok(vec2(x.parse()?, y.parse()?))
+            })()
+            .unwrap_or_default(),
             mp_move: None,
             mp_moved: false,
+            mp_save_pos_at: None,
         })
     }
 
@@ -217,6 +230,7 @@ impl Scene for MainScene {
                     }
                     if self.mp_moved {
                         self.mp_btn_pos = new_pos - pos + btn_pos;
+                        self.mp_save_pos_at = Some(Instant::now() + Duration::from_secs(1));
                     }
                 }
                 return Ok(true);
@@ -346,6 +360,12 @@ impl Scene for MainScene {
                 _ => return_file(id, file),
             }
         }
+
+        if self.mp_save_pos_at.map_or(false, |it| it < Instant::now()) {
+            std::fs::write(position_file()?, format!("{},{}", self.mp_btn_pos.x, self.mp_btn_pos.y))?;
+            self.mp_save_pos_at = None;
+        }
+
         Ok(())
     }
 
@@ -393,6 +413,7 @@ impl Scene for MainScene {
 
         if get_data().config.mp_enabled {
             let r = 0.06;
+            self.mp_btn_pos.y = self.mp_btn_pos.y.clamp(-ui.top, ui.top);
             ui.fill_circle(self.mp_btn_pos.x, self.mp_btn_pos.y, r, ui.background());
             let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);
             self.mp_btn.set(ui, r);
