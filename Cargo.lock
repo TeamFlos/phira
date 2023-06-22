@@ -2277,7 +2277,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-client"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#043aad1833495c674e7fd994efa5a80072010a27"
+source = "git+https://github.com/TeamFlos/phira-mp#e5454820c8c89e3a39f72df6482756067aace4ca"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2290,7 +2290,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-common"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#043aad1833495c674e7fd994efa5a80072010a27"
+source = "git+https://github.com/TeamFlos/phira-mp#e5454820c8c89e3a39f72df6482756067aace4ca"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2306,7 +2306,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-macros"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#043aad1833495c674e7fd994efa5a80072010a27"
+source = "git+https://github.com/TeamFlos/phira-mp#e5454820c8c89e3a39f72df6482756067aace4ca"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3476,9 +3476,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.25"
+version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8803eee176538f94ae9a14b55b2804eb7e1441f8210b1c31290b3bccdccff73b"
+checksum = "5f4f31f56159e98206da9efd823404b79b6ef3143b4a7ab76e67b1751b25a4ab"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -27,7 +27,6 @@ use std::{
     sync::{atomic::Ordering, Arc},
 };
 use tokio::net::TcpStream;
-use uuid::Uuid;
 
 const ENTER_TRANSIT: f32 = 0.5;
 const WIDTH: f32 = 1.6;
@@ -47,7 +46,7 @@ impl Message {
     pub fn text<'a, 's, 'ui>(&'s self, ui: &'ui mut Ui<'a>, mw: f32) -> DrawText<'a, 's, 'ui> {
         ui.text(&self.content)
             .pos(0., self.y)
-            .size(0.5)
+            .size(0.4)
             .color(self.color)
             .max_width(mw)
             .multiline()
@@ -70,7 +69,7 @@ pub struct MPPanel {
     create_room_btn: DRectButton,
     create_room_task: Option<Task<Result<()>>>,
     join_room_btn: DRectButton,
-    join_room_task: Option<Task<Result<()>>>,
+    join_room_task: Option<Task<Result<RoomState>>>,
     leave_room_btn: DRectButton,
 
     disconnect_btn: DRectButton,
@@ -93,6 +92,7 @@ pub struct MPPanel {
     chart_id: Option<i32>,
     game_start_consumed: bool,
     need_upload: bool,
+    entered: bool,
 
     next_scene: Option<NextScene>,
 
@@ -139,6 +139,7 @@ impl MPPanel {
             chart_id: None,
             game_start_consumed: false,
             need_upload: false,
+            entered: false,
 
             next_scene: None,
 
@@ -224,13 +225,17 @@ impl MPPanel {
 
 impl MPPanel {
     #[inline]
-    pub fn active(&self) -> bool {
-        self.client.is_some()
+    pub fn in_room(&self) -> bool {
+        self.client.as_ref().map_or(false, |it| it.blocking_room_id().is_some())
     }
 
     #[inline]
     pub fn show(&mut self, rt: f32) {
         self.side_enter_time = rt;
+    }
+
+    pub fn enter(&mut self) {
+        self.entered = true;
     }
 
     pub fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> bool {
@@ -380,6 +385,7 @@ impl MPPanel {
                                 mtl!("msg-played", "user" => user, "score" => format!("{score:07}"), "accuracy" => format!("{:.2}%", accuracy * 100.), "full-combo" => full_combo.to_string())
                             }
                             M::GameEnd => mtl!("msg-game-end").into_owned(),
+                            M::Abort { user } => mtl!("msg-abort", "user" => user),
                         };
                         Message {
                             content,
@@ -397,7 +403,8 @@ impl MPPanel {
                     let id = self.chart_id.unwrap();
                     RECORD_ID.store(-1, Ordering::Relaxed);
                     self.need_upload = true;
-                    SongScene::global_launch(Some(id), &format!("download/{id}"), Mods::default(), GameMode::Normal)?;
+                    self.entered = false;
+                    SongScene::global_launch(Some(id), &format!("download/{id}"), Mods::default(), GameMode::NoRetry)?;
                 }
             } else {
                 self.game_start_consumed = false;
@@ -499,8 +506,16 @@ impl MPPanel {
         }
         if let Some(task) = &mut self.join_room_task {
             if let Some(res) = task.take() {
-                if let Err(err) = res {
-                    show_error(err.context(mtl!("join-room-failed")));
+                match res {
+                    Err(err) => {
+                        show_error(err.context(mtl!("join-room-failed")));
+                    }
+                    Ok(state) => {
+                        self.chart_id = match state {
+                            RoomState::SelectChart(id) => id,
+                            _ => None,
+                        };
+                    }
                 }
                 self.task = None;
             }
@@ -518,7 +533,7 @@ impl MPPanel {
                     if let Ok(id) = text.try_into() {
                         self.join_room_task = Some(Task::new(async move {
                             client.join_room(id).await?;
-                            Ok(())
+                            client.room_state().await.ok_or_else(|| anyhow!("expected room state"))
                         }));
                     } else {
                         show_message(mtl!("join-room-invalid-id")).error();
@@ -535,13 +550,16 @@ impl MPPanel {
                 Ok(scene) => self.next_scene = Some(scene),
             }
         }
-        if self.need_upload {
+        if self.need_upload && self.entered {
             let id = RECORD_ID.load(Ordering::Relaxed);
             if id != -1 {
                 let client = self.clone_client();
                 self.task = Some(Task::new(async move { client.played(id).await }));
-                self.need_upload = false;
+            } else {
+                let client = self.clone_client();
+                self.task = Some(Task::new(async move { client.abort().await }));
             }
+            self.need_upload = false;
         }
         Ok(())
     }

@@ -100,7 +100,7 @@ pub enum GameMode {
     Normal,
     TweakOffset,
     Exercise,
-    NoCancel,
+    NoRetry,
 }
 
 #[derive(Clone)]
@@ -485,12 +485,12 @@ impl GameScene {
             let o = if self.mode == GameMode::Exercise { -0.3 } else { 0. };
             let s = 0.06;
             let w = 0.05;
-            let no_cancel = self.mode == GameMode::NoCancel;
+            let no_retry = self.mode == GameMode::NoRetry;
             draw_texture_ex(
                 *res.icon_back,
                 -s * 3. - w,
                 -s + o,
-                if no_cancel { semi_white(res.alpha * 0.6) } else { c },
+                c,
                 DrawTextureParams {
                     dest_size: Some(vec2(s * 2., s * 2.)),
                     ..Default::default()
@@ -500,7 +500,7 @@ impl GameScene {
                 *res.icon_retry,
                 -s,
                 -s + o,
-                if no_cancel { semi_white(res.alpha * 0.6) } else { c },
+                if no_retry { semi_white(res.alpha * 0.6) } else { c },
                 DrawTextureParams {
                     dest_size: Some(vec2(s * 2., s * 2.)),
                     ..Default::default()
@@ -533,7 +533,7 @@ impl GameScene {
                         }
                     }
                 }
-                if no_cancel && (clicked == Some(-1) || clicked == Some(0)) {
+                if no_retry && clicked == Some(0) {
                     clicked = None;
                 }
                 let mut pos = self.music.position();
@@ -890,7 +890,7 @@ impl Scene for GameScene {
                         })
                     };
                     self.next_scene = match self.mode {
-                        GameMode::Normal | GameMode::NoCancel => Some(NextScene::Overlay(Box::new(EndingScene::new(
+                        GameMode::Normal | GameMode::NoRetry => Some(NextScene::Overlay(Box::new(EndingScene::new(
                             self.res.background.clone(),
                             self.res.illustration.clone(),
                             self.res.player.clone(),
@@ -922,7 +922,7 @@ impl Scene for GameScene {
         if !tm.paused() && self.pause_rewind.is_none() {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
             // if !self.res.config.autoplay() {
-                self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
+            self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
             // }
             self.gl.quad_gl.viewport(None);
         }
@@ -1157,7 +1157,7 @@ impl Scene for GameScene {
             tm.speed = 1.0;
             tm.adjust_time = false;
             match self.mode {
-                GameMode::Normal | GameMode::Exercise | GameMode::NoCancel => NextScene::Pop,
+                GameMode::Normal | GameMode::Exercise | GameMode::NoRetry => NextScene::Pop,
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),
             }
         } else if let Some(next_scene) = self.next_scene.take() {
