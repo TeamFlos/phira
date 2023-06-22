@@ -54,7 +54,7 @@ impl Message {
 }
 
 pub struct MPPanel {
-    client: Option<Arc<Client>>,
+    pub client: Option<Arc<Client>>,
 
     side_enter_time: f32,
 
@@ -424,7 +424,13 @@ impl MPPanel {
                     RECORD_ID.store(-1, Ordering::Relaxed);
                     self.need_upload = true;
                     self.entered = false;
-                    SongScene::global_launch(Some(id), &format!("download/{id}"), Mods::default(), GameMode::NoRetry)?;
+                    SongScene::global_launch(
+                        Some(id),
+                        &format!("download/{id}"),
+                        Mods::default(),
+                        GameMode::NoRetry,
+                        self.client.as_ref().map(Arc::clone),
+                    )?;
                 }
             } else {
                 self.game_start_consumed = false;

@@ -927,15 +927,7 @@ impl Scene for GameScene {
             self.gl.quad_gl.viewport(None);
         }
         if let Some(update) = &mut self.update_fn {
-            update(
-                self.res.time,
-                self.res.config.autoplay(),
-                &mut self.res,
-                &mut self.chart,
-                &mut self.judge,
-                &mut self.touch_points,
-                &mut self.bad_notes,
-            );
+            update(self.res.time, false, &mut self.res, &mut self.chart, &mut self.judge, &mut self.touch_points, &mut self.bad_notes);
         }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 {
