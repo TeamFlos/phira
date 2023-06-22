@@ -39,7 +39,6 @@ use serde_json::json;
 use std::{
     any::Any,
     borrow::Cow,
-    cell::RefCell,
     fs::File,
     io::{Cursor, Write},
     path::Path,
@@ -49,7 +48,6 @@ use std::{
     },
     thread_local,
 };
-use tokio::net::TcpStream;
 use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
@@ -641,10 +639,10 @@ impl SongScene {
     }
 
     fn launch(&mut self, mode: GameMode) -> Result<()> {
-        Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode)
+        Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None)
     }
 
-    pub fn global_launch(id: Option<i32>, local_path: &str, mods: Mods, mode: GameMode) -> Result<()> {
+    pub fn global_launch(id: Option<i32>, local_path: &str, mods: Mods, mode: GameMode, client: Option<Arc<phira_mp_client::Client>>) -> Result<()> {
         let mut fs = fs_from_path(local_path)?;
         #[cfg(feature = "closed")]
         let rated = {
@@ -656,6 +654,7 @@ impl SongScene {
         if !rated && id.is_some() && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
+        let client = client.unwrap();
         load_scene(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -675,14 +674,6 @@ impl SongScene {
             };
             let chart_updated = info.chart_updated;
             config.mods = mods;
-            /*let client = phira_mp_client::Client::new(TcpStream::connect("0.0.0.0:1234").await?).await?;
-            client.authorize(get_data().tokens.as_ref().map(|it| it.0.clone()).unwrap()).await?;
-            if config.autoplay() {
-                client.join_room(0).await?;
-            } else {
-                let id = client.create_room().await?;
-                info!("created room {}", id);
-            }*/
             LoadingScene::new(
                 mode,
                 info,
@@ -737,7 +728,7 @@ impl SongScene {
                     let mut touches: Vec<TouchFrame> = Vec::new();
                     let mut judges: Vec<JudgeEvent> = Vec::new();
                     move |t, watch, res, chart, judge, touch_points, bad_notes| {
-                        /*if !watch {
+                        if !watch {
                             if touches.last().map_or(true, |it| it.time + 1. / 20. < t) {
                                 touches.push(TouchFrame {
                                     time: t,
@@ -854,7 +845,7 @@ impl SongScene {
                                     }
                                 }
                             }
-                        }*/
+                        }
                     }
                 })),
             )
