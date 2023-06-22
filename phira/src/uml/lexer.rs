@@ -22,6 +22,10 @@ pub enum Token {
     LBrace,
     #[token(")")]
     RBrace,
+    #[token("[")]
+    LBracket,
+    #[token("]")]
+    RBracket,
     #[token(",")]
     Comma,
     #[token(":")]
