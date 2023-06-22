@@ -25,6 +25,15 @@ request-start = Start Game
 request-start-no-chart = You haven't selected a chart
 request-start-failed = Failed to start game
 
+lock-room = { $current ->
+  [true] Unlock room
+  *[other] Lock room
+}
+cycle-room = { $current ->
+  [true] Cycling mode
+  *[other] Normal mode
+}
+
 ready = Ready
 ready-failed = Failed to get ready
 
@@ -33,6 +42,9 @@ cancel-ready = Cancel
 room-id = Room ID: { $id }
 
 download-failed = Failed to download chart
+
+lock-room-failed = Failed to lock room
+cycle-room-failed = Failed to change room mode
 
 chat-placeholder = Say something…
 chat-send = Send
@@ -49,7 +61,7 @@ msg-join-room = `{ $user }` joined the room
 msg-leave-room = `{ $user }` left the room
 msg-new-host = `{ $user }` became the new host
 msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id })
-msg-game-start = The host `{ $user }` started the game
+msg-game-start = The host `{ $user }` started the game. Other players should get ready.
 msg-ready = `{ $user }` is ready
 msg-cancel-ready = `{ $user }` cancelled ready
 msg-cancel-game = `{ $user }` cancelled the game
@@ -60,3 +72,11 @@ msg-played = `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-com
 }
 msg-game-end = Game ended
 msg-abort = `{ $user }` aborted the game
+msg-room-lock = { $lock ->
+  [true] Room locked
+  *[other] Room unlocked
+}
+msg-room-cycle = { $cycle ->
+  [true] Room changed to cycling mode
+  *[other] Room changed to normal mode
+}

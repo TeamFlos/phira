@@ -75,6 +75,8 @@ pub struct MPPanel {
     disconnect_btn: DRectButton,
 
     request_start_btn: DRectButton,
+    lock_room_btn: DRectButton,
+    cycle_room_btn: DRectButton,
 
     ready_btn: DRectButton,
     cancel_ready_btn: DRectButton,
@@ -123,6 +125,8 @@ impl MPPanel {
             disconnect_btn: DRectButton::new(),
 
             request_start_btn: DRectButton::new(),
+            lock_room_btn: DRectButton::new(),
+            cycle_room_btn: DRectButton::new(),
 
             ready_btn: DRectButton::new(),
             cancel_ready_btn: DRectButton::new(),
@@ -267,7 +271,7 @@ impl MPPanel {
             if self.msg_scroll.touch(touch, t) {
                 return true;
             }
-            if let Some(room_state) = client.blocking_room_state() {
+            if let Some(state) = client.blocking_state() {
                 if self.chat_btn.touch(touch, t) {
                     request_input("chat", &self.chat_text);
                     return true;
@@ -282,12 +286,26 @@ impl MPPanel {
                     }
                     return true;
                 }
-                let is_host = client.blocking_is_host().unwrap();
-                match room_state {
+                let is_host = state.is_host;
+                match state.state {
                     RoomState::SelectChart(_) => {
-                        if is_host && self.request_start_btn.touch(touch, t) {
-                            self.request_start();
-                            return true;
+                        if is_host {
+                            if self.request_start_btn.touch(touch, t) {
+                                self.request_start();
+                                return true;
+                            }
+                            if self.lock_room_btn.touch(touch, t) {
+                                let to = !state.locked;
+                                let client = self.clone_client();
+                                self.task = Some(Task::new(async move { client.lock_room(to).await.with_context(|| mtl!("lock-room-failed")) }));
+                                return true;
+                            }
+                            if self.cycle_room_btn.touch(touch, t) {
+                                let to = !state.cycle;
+                                let client = self.clone_client();
+                                self.task = Some(Task::new(async move { client.cycle_room(to).await.with_context(|| mtl!("cycle-room-failed")) }));
+                                return true;
+                            }
                         }
                         if self.leave_room_btn.touch(touch, t) {
                             let client = self.clone_client();
@@ -386,6 +404,8 @@ impl MPPanel {
                             }
                             M::GameEnd => mtl!("msg-game-end").into_owned(),
                             M::Abort { user } => mtl!("msg-abort", "user" => user),
+                            M::LockRoom { lock } => mtl!("msg-room-lock", "lock" => lock.to_string()),
+                            M::CycleRoom { cycle } => mtl!("msg-room-cycle", "cycle" => cycle.to_string()),
                         };
                         Message {
                             content,
@@ -653,31 +673,33 @@ impl MPPanel {
         self.chat_send_btn.render_text(ui, br, t, 1., mtl!("chat-send"), 0.5, true);
 
         let mut br = Rect::new(mr.right() + 0.02, mr.y, r.right() - mr.right() - 0.02, 0.1);
-        let mut btns = SmallVec::<[(&mut DRectButton, &'static str); 4]>::new();
-        if let Some(room_state) = client.blocking_room_state() {
-            match room_state {
+        let mut btns = SmallVec::<[(&mut DRectButton, String); 4]>::new();
+        if let Some(state) = client.blocking_state() {
+            match state.state {
                 RoomState::SelectChart(_) => {
                     if client.blocking_is_host().unwrap() {
-                        btns.push((&mut self.request_start_btn, "request-start"));
+                        btns.push((&mut self.request_start_btn, mtl!("request-start").into_owned()));
+                        btns.push((&mut self.lock_room_btn, mtl!("lock-room", "current" => state.locked.to_string())));
+                        btns.push((&mut self.cycle_room_btn, mtl!("cycle-room", "current" => state.cycle.to_string())));
                     }
-                    btns.push((&mut self.leave_room_btn, "leave-room"));
+                    btns.push((&mut self.leave_room_btn, mtl!("leave-room").into_owned()));
                 }
                 RoomState::WaitingForReady => {
                     if client.blocking_is_ready().unwrap() {
-                        btns.push((&mut self.cancel_ready_btn, "cancel-ready"));
+                        btns.push((&mut self.cancel_ready_btn, mtl!("cancel-ready").into_owned()));
                     } else {
-                        btns.push((&mut self.ready_btn, "ready"));
+                        btns.push((&mut self.ready_btn, mtl!("ready").into_owned()));
                     }
                 }
                 _ => {}
             }
         } else {
-            btns.push((&mut self.create_room_btn, "create-room"));
-            btns.push((&mut self.join_room_btn, "join-room"));
-            btns.push((&mut self.disconnect_btn, "disconnect"));
+            btns.push((&mut self.create_room_btn, mtl!("create-room").into_owned()));
+            btns.push((&mut self.join_room_btn, mtl!("join-room").into_owned()));
+            btns.push((&mut self.disconnect_btn, mtl!("disconnect").into_owned()));
         }
         for (btn, text) in btns {
-            btn.render_text(ui, br, t, 1., mtl!(text), 0.5, true);
+            btn.render_text(ui, br, t, 1., text, 0.5, true);
             br.y += br.h + 0.02;
         }
     }
