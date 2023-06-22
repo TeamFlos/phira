@@ -2277,7 +2277,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-client"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#e38e1dd1a39f5fb712df3df0b45e81dac5e5db9d"
+source = "git+https://github.com/TeamFlos/phira-mp#0e1fc8d2d6f2e9d84850f9d9cd65e1969e12bad2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2290,7 +2290,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-common"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#e38e1dd1a39f5fb712df3df0b45e81dac5e5db9d"
+source = "git+https://github.com/TeamFlos/phira-mp#0e1fc8d2d6f2e9d84850f9d9cd65e1969e12bad2"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2306,7 +2306,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-macros"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#e38e1dd1a39f5fb712df3df0b45e81dac5e5db9d"
+source = "git+https://github.com/TeamFlos/phira-mp#0e1fc8d2d6f2e9d84850f9d9cd65e1969e12bad2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3240,9 +3240,9 @@ dependencies = [
 
 [[package]]
 name = "system-deps"
-version = "6.1.0"
+version = "6.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5fa6fb9ee296c0dc2df41a656ca7948546d061958115ddb0bcaae43ad0d17d2"
+checksum = "30c2de8a4d8f4b823d634affc9cd2a74ec98c53a756f317e529a48046cbf71f3"
 dependencies = [
  "cfg-expr",
  "heck",

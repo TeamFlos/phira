@@ -25,6 +25,15 @@ request-start = 开始游戏
 request-start-no-chart = 你还没有选择谱面
 request-start-failed = 开始游戏失败
 
+lock-room = { $current ->
+  [true] 解锁房间
+  *[other] 锁定房间
+}
+cycle-room = { $current ->
+  [true] 循环模式
+  *[other] 普通模式
+}
+
 ready = 准备
 ready-failed = 准备失败
 
@@ -33,6 +42,9 @@ cancel-ready = 取消
 room-id = 房间 ID：{ $id }
 
 download-failed = 下载谱面失败
+
+lock-room-failed = 锁定房间失败
+cycle-room-failed = 切换房间模式失败
 
 chat-placeholder = 说些什么…
 chat-send = 发送
@@ -49,7 +61,7 @@ msg-join-room = `{ $user }` 加入了房间
 msg-leave-room = `{ $user }` 离开了房间
 msg-new-host = `{ $user }` 成为了新的房主
 msg-select-chart = 房主 `{ $user }` 选择了谱面 `{ $chart }` (#{ $id })
-msg-game-start = 房主 `{ $user }` 开始了游戏
+msg-game-start = 房主 `{ $user }` 开始了游戏，请其他玩家准备
 msg-ready = `{ $user }` 已就绪
 msg-cancel-ready = `{ $user }` 取消了准备
 msg-cancel-game = `{ $user }` 取消了游戏
@@ -60,3 +72,11 @@ msg-played = `{ $user }` 结束了游玩：{ $score } ({ $accuracy }){ $full-com
 }
 msg-game-end = 游戏结束
 msg-abort = `{ $user }` 放弃了游戏
+msg-room-lock = { $lock ->
+  [true] 房间已锁定
+  *[other] 房间已解锁
+}
+msg-room-cycle = { $cycle ->
+  [true] 房间已切换为循环模式
+  *[other] 房间已切换为普通模式
+}
