@@ -10,6 +10,7 @@ connect-authorize-failed = 鉴权失败
 create-room = 创建房间
 create-room-success = 房间已创建
 create-room-failed = 创建房间失败
+create-invalid-id = 房间 ID 由不多于 20 个大小写英文字母、数字以及 -_ 组成
 
 join-room = 加入房间
 join-room-invalid-id = 无效的房间 ID
