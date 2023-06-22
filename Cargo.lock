@@ -2277,7 +2277,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-client"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#e5454820c8c89e3a39f72df6482756067aace4ca"
+source = "git+https://github.com/TeamFlos/phira-mp#e38e1dd1a39f5fb712df3df0b45e81dac5e5db9d"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2290,7 +2290,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-common"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#e5454820c8c89e3a39f72df6482756067aace4ca"
+source = "git+https://github.com/TeamFlos/phira-mp#e38e1dd1a39f5fb712df3df0b45e81dac5e5db9d"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2306,7 +2306,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-macros"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp#e5454820c8c89e3a39f72df6482756067aace4ca"
+source = "git+https://github.com/TeamFlos/phira-mp#e38e1dd1a39f5fb712df3df0b45e81dac5e5db9d"
 dependencies = [
  "proc-macro2",
  "quote",
