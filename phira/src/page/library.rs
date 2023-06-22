@@ -550,7 +550,7 @@ impl Page for LibraryPage {
                     button_hit_large();
                     let handled_by_mp = MP_PANEL.with(|it| {
                         if let Some(panel) = it.borrow_mut().as_mut() {
-                            if panel.active() {
+                            if panel.in_room() {
                                 if let Some(id) = chart.info.id {
                                     panel.select_chart(id);
                                     panel.show(s.rt);

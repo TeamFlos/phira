@@ -156,6 +156,11 @@ impl Scene for MainScene {
         }
         self.state.update(tm);
         self.pages.last_mut().unwrap().enter(&mut self.state)?;
+        MP_PANEL.with(|it| {
+            if let Some(panel) = it.borrow_mut().as_mut() {
+                panel.enter();
+            }
+        });
         Ok(())
     }
 

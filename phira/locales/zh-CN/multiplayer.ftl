@@ -58,3 +58,4 @@ msg-played = `{ $user }` 结束了游玩：{ $score } ({ $accuracy }){ $full-com
   *[other] {""}
 }
 msg-game-end = 游戏结束
+msg-abort = `{ $user }` 放弃了游戏

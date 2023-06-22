@@ -58,3 +58,4 @@ msg-played = `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-com
   *[other] {""}
 }
 msg-game-end = Game ended
+msg-abort = `{ $user }` aborted the game
