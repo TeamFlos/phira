@@ -1,7 +1,8 @@
 use super::{lexer::Token, Assign, Element, Image, Text, Uml, Var};
 use anyhow::Result;
 use logos::Logos;
-use prpr::ext::{JoinToString, NotNanExt};
+use macroquad::prelude::Rect;
+use prpr::ext::{JoinToString, RectExt};
 use serde::{
     de::{value::MapDeserializer, DeserializeOwned, Visitor},
     Deserialize,
@@ -121,10 +122,11 @@ impl BinOp {
     }
 }
 
-type Function = Box<dyn Fn(&[f32]) -> Result<f32>>;
+type Function = Box<dyn Fn(&[Var]) -> Result<Var>>;
 
 pub enum RawExpr {
     Literal(f32),
+    Rect([Expr; 4]),
     Var(VarRef),
     VarSub(VarRef, String),
     Func(&'static str, Function, Vec<Expr>),
@@ -135,6 +137,7 @@ impl Display for RawExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Literal(val) => val.fmt(f),
+            Self::Rect([x, y, w, h]) => write!(f, "[{x}, {y}, {w}, {h}]"),
             Self::Var(rf) => rf.fmt(f),
             Self::VarSub(rf, field) => {
                 write!(f, "{rf}.{field}")
@@ -164,20 +167,16 @@ impl std::fmt::Debug for RawExpr {
 }
 
 impl RawExpr {
-    pub fn eval(&self, uml: &Uml) -> Result<f32> {
+    pub fn eval(&self, uml: &Uml) -> Result<Var> {
         Ok(match self {
-            Self::Literal(val) => *val,
-            Self::Var(rf) => {
-                let Var::Float(val) = uml.get_var(rf)? else {
-                    anyhow::bail!("{rf} is not a float")
-                };
-                *val
+            Self::Literal(val) => Var::Float(*val),
+            Self::Rect([x, y, w, h]) => {
+                Var::Rect(Rect::new(x.eval(uml)?.float()?, y.eval(uml)?.float()?, w.eval(uml)?.float()?, h.eval(uml)?.float()?))
             }
+            Self::Var(rf) => uml.get_var(rf)?.clone(),
             Self::VarSub(rf, field) => {
-                let Var::Rect(r) = uml.get_var(rf)? else {
-                    anyhow::bail!("{rf} is not a rect")
-                };
-                match field.as_str() {
+                let r = uml.get_var(rf)?.rect()?;
+                Var::Float(match field.as_str() {
                     "x" | "l" => r.x,
                     "y" | "t" => r.y,
                     "w" => r.w,
@@ -185,16 +184,23 @@ impl RawExpr {
                     "r" => r.right(),
                     "b" => r.bottom(),
                     _ => anyhow::bail!("unknown field: {field}"),
-                }
+                })
             }
             Self::BinOp(x, y, op) => {
                 let x = x.eval(uml)?;
-                let y = y.eval(uml)?;
-                match op {
-                    BinOp::Add => x + y,
-                    BinOp::Sub => x - y,
-                    BinOp::Mul => x * y,
-                    BinOp::Div => x / y,
+                let y = y.eval(uml)?.float()?;
+                match x {
+                    Var::Rect(r) => match op {
+                        BinOp::Add => Var::Rect(r.feather(y)),
+                        BinOp::Sub => Var::Rect(r.feather(-y)),
+                        x => anyhow::bail!("invalid op on rect and float: {x:?}"),
+                    },
+                    Var::Float(x) => Var::Float(match op {
+                        BinOp::Add => x + y,
+                        BinOp::Sub => x - y,
+                        BinOp::Mul => x * y,
+                        BinOp::Div => x / y,
+                    }),
                 }
             }
             Self::Func(_, func, inner) => {
@@ -205,11 +211,11 @@ impl RawExpr {
     }
 }
 
-fn expect<const N: usize>(s: &[f32]) -> Result<[f32; N]> {
+fn expect<const N: usize>(s: &[Var]) -> Result<[Var; N]> {
     s.try_into().map_err(|_| anyhow::anyhow!("expected {N} arguments"))
 }
 
-fn non_empty(s: &[f32]) -> Result<&[f32]> {
+fn non_empty(s: &[Var]) -> Result<&[Var]> {
     if s.is_empty() {
         anyhow::bail!("expected arguments");
     }
@@ -219,14 +225,14 @@ fn non_empty(s: &[f32]) -> Result<&[f32]> {
 fn wrap(f: fn(f32) -> f32) -> Function {
     Box::new(move |args| {
         let [arg] = expect::<1>(args)?;
-        Ok(f(arg))
+        Ok(Var::Float(f(arg.float()?)))
     })
 }
 
 fn wrap2(f: fn(f32, f32) -> f32) -> Function {
     Box::new(move |args| {
         let [x, y] = expect::<2>(args)?;
-        Ok(f(x, y))
+        Ok(Var::Float(f(x.float()?, y.float()?)))
     })
 }
 
@@ -251,17 +257,33 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                     "atan2" => ("atan2", wrap2(f32::atan2)),
                     "ln" => ("ln", wrap(f32::ln)),
                     "sig" => ("sig", wrap(f32::signum)),
-                    "max" => {
-                        ("max", Box::new(|args: &[f32]| Ok(non_empty(args)?.iter().map(|it| it.not_nan()).max().unwrap().into_inner())) as Function)
-                    }
-                    "min" => {
-                        ("min", Box::new(|args: &[f32]| Ok(non_empty(args)?.iter().map(|it| it.not_nan()).min().unwrap().into_inner())) as Function)
-                    }
+                    "max" => (
+                        "max",
+                        Box::new(|args: &[Var]| {
+                            Ok(Var::Float(
+                                non_empty(args)?
+                                    .iter()
+                                    .fold(Result::<f32>::Ok(f32::NEG_INFINITY), |mx, x| Ok(mx?.max(x.float()?)))
+                                    .unwrap(),
+                            ))
+                        }) as Function,
+                    ),
+                    "min" => (
+                        "min",
+                        Box::new(|args: &[Var]| {
+                            Ok(Var::Float(
+                                non_empty(args)?
+                                    .iter()
+                                    .fold(Result::<f32>::Ok(f32::INFINITY), |mx, x| Ok(mx?.min(x.float()?)))
+                                    .unwrap(),
+                            ))
+                        }) as Function,
+                    ),
                     "clamp" => (
                         "clamp",
-                        Box::new(|args: &[f32]| {
+                        Box::new(|args: &[Var]| {
                             let [x, lo, hi] = expect::<3>(args)?;
-                            Ok(x.clamp(lo, hi))
+                            Ok(Var::Float(x.float()?.clamp(lo.float()?, hi.float()?)))
                         }) as Function,
                     ),
                     _ => bail!("unknown function: {s}"),
@@ -286,6 +308,19 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                 bail!("expected right brace")
             };
             res
+        }
+        Token::LBracket => {
+            let mut one = || -> Result<Expr, String> {
+                let res = take_expr(lexer)?;
+                take(lexer, Token::Comma)?;
+                Ok(res)
+            };
+            RawExpr::Rect([one()?, one()?, one()?, {
+                let res = take_expr(lexer)?;
+                take(lexer, Token::RBracket)?;
+                res
+            }])
+            .into()
         }
         x => bail!("expected atom, got {x:?}"),
     })

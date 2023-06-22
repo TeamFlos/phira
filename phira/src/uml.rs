@@ -1,7 +1,7 @@
 mod lexer;
 mod parse;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use image::DynamicImage;
 use macroquad::prelude::*;
 use parse::{parse_uml, Expr, VarRef};
@@ -69,23 +69,11 @@ pub trait Element {
 #[serde(default)]
 struct BaseConfig {
     id: Option<String>,
-    x: Expr,
-    y: Expr,
 }
 
 impl Default for BaseConfig {
     fn default() -> Self {
-        Self {
-            id: None,
-            x: constant(0.),
-            y: constant(0.),
-        }
-    }
-}
-
-impl BaseConfig {
-    pub fn pos(&self, uml: &Uml) -> Result<(f32, f32)> {
-        Ok((self.x.eval(uml)?, self.y.eval(uml)?))
+        Self { id: None }
     }
 }
 
@@ -95,10 +83,12 @@ pub struct TextConfig {
     #[serde(flatten)]
     base: BaseConfig,
     size: Expr,
+    x: Expr,
+    y: Expr,
     ax: f32,
     ay: f32,
     ml: bool,
-    mw: Option<f32>,
+    mw: Option<Expr>,
     bl: bool,
     c: WrappedColor,
 }
@@ -108,6 +98,8 @@ impl Default for TextConfig {
         Self {
             base: BaseConfig::default(),
             size: constant(1.0),
+            x: constant(0.),
+            y: constant(0.),
             ax: 0.,
             ay: 0.,
             ml: false,
@@ -137,18 +129,17 @@ impl Element for Text {
 
     fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
         let c = &self.config;
-        let (x, y) = c.base.pos(uml)?;
         let mut text = ui
             .text(&self.text)
-            .size(c.size.eval(uml)?)
-            .pos(x, y)
+            .pos(c.x.eval(uml)?.float()?, c.y.eval(uml)?.float()?)
             .anchor(c.ax, c.ay)
+            .size(c.size.eval(uml)?.float()?)
             .color(Color { a: c.c.0.a * alpha, ..c.c.0 });
         if c.ml {
             text = text.multiline();
         }
-        if let Some(w) = c.mw {
-            text = text.max_width(w);
+        if let Some(w) = &c.mw {
+            text = text.max_width(w.eval(uml)?.float()?);
         }
         if !c.bl {
             text = text.no_baseline();
@@ -163,8 +154,7 @@ pub struct ImageConfig {
     #[serde(flatten)]
     base: BaseConfig,
     url: File,
-    w: Expr,
-    h: Expr,
+    r: Expr,
     #[serde(default)]
     c: WrappedColor,
     #[serde(default)]
@@ -208,8 +198,7 @@ impl Element for Image {
                 *self.task.borrow_mut() = None;
             }
         }
-        let (x, y) = c.base.pos(uml)?;
-        let r = Rect::new(x, y, c.w.eval(uml)?, c.h.eval(uml)?);
+        let r = c.r.eval(uml)?.rect()?;
         if let Some(tex) = self.tex.borrow().as_ref() {
             ui.fill_rect(r, (**tex, r, c.t, Color { a: c.c.0.a * alpha, ..c.c.0 }));
         }
@@ -234,13 +223,30 @@ impl Element for Assign {
     }
 
     fn render(&self, _ui: &mut Ui, uml: &Uml, _alpha: f32) -> Result<Var> {
-        Ok(Var::Float(self.value.eval(uml)?))
+        Ok(self.value.eval(uml)?)
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum Var {
     Rect(Rect),
     Float(f32),
+}
+
+impl Var {
+    pub fn float(self) -> Result<f32> {
+        match self {
+            Self::Rect(_) => bail!("expected float"),
+            Self::Float(f) => Ok(f),
+        }
+    }
+
+    pub fn rect(self) -> Result<Rect> {
+        match self {
+            Self::Float(_) => bail!("expected rect"),
+            Self::Rect(r) => Ok(r),
+        }
+    }
 }
 
 pub struct Uml {
