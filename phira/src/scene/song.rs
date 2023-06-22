@@ -655,6 +655,7 @@ impl SongScene {
             show_message(tl!("warn-unrated")).warn();
         }
         let client = client.unwrap();
+        let live = client.blocking_state().unwrap().live;
         load_scene(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -728,7 +729,7 @@ impl SongScene {
                     let mut touches: Vec<TouchFrame> = Vec::new();
                     let mut judges: Vec<JudgeEvent> = Vec::new();
                     move |t, watch, res, chart, judge, touch_points, bad_notes| {
-                        if !watch {
+                        if !watch && live {
                             if touches.last().map_or(true, |it| it.time + 1. / 20. < t) {
                                 touches.push(TouchFrame {
                                     time: t,
@@ -763,7 +764,8 @@ impl SongScene {
                                 let judges = Arc::new(std::mem::take(&mut judges));
                                 client.blocking_send(ClientCommand::Judges { judges }).unwrap();
                             }
-                        } else {
+                        }
+                        if watch {
                             {
                                 let mut frames = client.touch_frames();
                                 let mut updated = false;
