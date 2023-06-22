@@ -10,6 +10,7 @@ connect-authorize-failed = Authorization failed
 create-room = Create Room
 create-room-success = Room created
 create-room-failed = Failed to create room
+create-invalid-id = Room ID consists of no more than 20 characters, including letters, numbers, - (dash) and _ (underscore)
 
 join-room = Join Room
 join-room-invalid-id = Invalid room ID

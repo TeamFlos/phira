@@ -526,7 +526,7 @@ impl MPPanel {
                     self.chat_text = text;
                 }
                 "room_id" => {
-                    self.create_room(text.try_into()?);
+                    self.create_room(text.try_into().with_context(|| mtl!("create-invalid-id"))?);
                 }
                 "join_room" => {
                     let client = self.clone_client();
