@@ -19,7 +19,7 @@ use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::{BadNote, Tweenable, Vector},
+    core::{BadNote, Resource, Tweenable, Vector},
     ext::{screen_aspect, semi_black, semi_white, unzip_into, JoinToString, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
@@ -654,76 +654,10 @@ impl SongScene {
         if !rated && id.is_some() && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
-        let client = client.unwrap();
-        let live = client.blocking_state().unwrap().live;
-        load_scene(async move {
-            let mut info = fs::load_info(fs.as_mut()).await?;
-            info.id = id;
-            let mut config = get_data().config.clone();
-            config.player_name = get_data()
-                .me
-                .as_ref()
-                .map(|it| it.name.clone())
-                .unwrap_or_else(|| tl!("guest").to_string());
-            config.res_pack_path = {
-                let id = get_data().respack_id;
-                if id == 0 {
-                    None
-                } else {
-                    Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
-                }
-            };
-            let chart_updated = info.chart_updated;
-            config.mods = mods;
-            LoadingScene::new(
-                mode,
-                info,
-                config,
-                fs,
-                get_data().me.as_ref().map(|it| BasicPlayer {
-                    avatar: UserManager::get_avatar(it.id).flatten(),
-                    id: it.id,
-                    rks: it.rks,
-                }),
-                None,
-                Some(Arc::new(move |data| {
-                    Task::new(async move {
-                        #[derive(Serialize)]
-                        #[serde(rename_all = "camelCase")]
-                        struct Req {
-                            chart: i32,
-                            token: String,
-                            chart_updated: Option<DateTime<Utc>>,
-                        }
-                        #[derive(Deserialize)]
-                        #[serde(rename_all = "camelCase")]
-                        struct Resp {
-                            id: i32,
-                            exp_delta: f64,
-                            new_best: bool,
-                            improvement: u32,
-                            new_rks: f32,
-                        }
-                        let resp: Resp = recv_raw(Client::post(
-                            "/play/upload",
-                            &Req {
-                                chart: id.unwrap(),
-                                token: base64::encode(data),
-                                chart_updated,
-                            },
-                        ))
-                        .await?
-                        .json()
-                        .await?;
-                        RECORD_ID.store(resp.id, Ordering::Relaxed);
-                        Ok(RecordUpdateState {
-                            best: resp.new_best,
-                            improvement: resp.improvement,
-                            gain_exp: resp.exp_delta as f32,
-                            new_rks: resp.new_rks,
-                        })
-                    })
-                })),
+        type UpdateFn = Box<dyn FnMut(f32, bool, &mut Resource, &mut prpr::core::Chart, &mut Judge, &mut Vec<(f32, f32)>, &mut Vec<BadNote>)>;
+        let update_fn: Option<UpdateFn> = match client {
+            Some(client) => {
+                let live = client.blocking_state().unwrap().live;
                 #[allow(unused)]
                 Some(Box::new({
                     let mut touches: Vec<TouchFrame> = Vec::new();
@@ -849,7 +783,80 @@ impl SongScene {
                             }
                         }
                     }
+                }))
+            }
+            None => None,
+        };
+        // let live = client.blocking_state().unwrap().live;
+        load_scene(async move {
+            let mut info = fs::load_info(fs.as_mut()).await?;
+            info.id = id;
+            let mut config = get_data().config.clone();
+            config.player_name = get_data()
+                .me
+                .as_ref()
+                .map(|it| it.name.clone())
+                .unwrap_or_else(|| tl!("guest").to_string());
+            config.res_pack_path = {
+                let id = get_data().respack_id;
+                if id == 0 {
+                    None
+                } else {
+                    Some(format!("{}/{}", dir::respacks()?, get_data().respacks[id - 1]))
+                }
+            };
+            let chart_updated = info.chart_updated;
+            config.mods = mods;
+            LoadingScene::new(
+                mode,
+                info,
+                config,
+                fs,
+                get_data().me.as_ref().map(|it| BasicPlayer {
+                    avatar: UserManager::get_avatar(it.id).flatten(),
+                    id: it.id,
+                    rks: it.rks,
+                }),
+                None,
+                Some(Arc::new(move |data| {
+                    Task::new(async move {
+                        #[derive(Serialize)]
+                        #[serde(rename_all = "camelCase")]
+                        struct Req {
+                            chart: i32,
+                            token: String,
+                            chart_updated: Option<DateTime<Utc>>,
+                        }
+                        #[derive(Deserialize)]
+                        #[serde(rename_all = "camelCase")]
+                        struct Resp {
+                            id: i32,
+                            exp_delta: f64,
+                            new_best: bool,
+                            improvement: u32,
+                            new_rks: f32,
+                        }
+                        let resp: Resp = recv_raw(Client::post(
+                            "/play/upload",
+                            &Req {
+                                chart: id.unwrap(),
+                                token: base64::encode(data),
+                                chart_updated,
+                            },
+                        ))
+                        .await?
+                        .json()
+                        .await?;
+                        RECORD_ID.store(resp.id, Ordering::Relaxed);
+                        Ok(RecordUpdateState {
+                            best: resp.new_best,
+                            improvement: resp.improvement,
+                            gain_exp: resp.exp_delta as f32,
+                            new_rks: resp.new_rks,
+                        })
+                    })
                 })),
+                update_fn,
             )
             .await
         });
