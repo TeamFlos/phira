@@ -13,3 +13,5 @@ switch-off = Выкл.
 chart-ranked = Подтверждëнные
 chart-special = Особые
 chart-unstable = Онлайн
+
+list-empty = Пусто

@@ -11,7 +11,7 @@ pub struct Collection {
     pub description: String,
     pub created: DateTime<Utc>,
     pub updated: DateTime<Utc>,
-    pub charts: Vec<Ptr<Chart>>,
+    pub charts: Vec<Chart>,
 }
 impl Object for Collection {
     const QUERY_PATH: &'static str = "collection";

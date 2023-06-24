@@ -1,6 +1,7 @@
 use super::{Illustration, Page, SharedState};
 use crate::{
     client::{Client, Event},
+    icons::Icons,
     scene::EventScene,
 };
 use anyhow::Result;
@@ -13,7 +14,7 @@ use prpr::{
     task::Task,
     ui::{button_hit_large, DRectButton, RectButton, Scroll, Ui},
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 const TRANSIT_TIME: f32 = 0.5;
 const ILLU_FEATHER: f32 = 0.4;
@@ -51,15 +52,14 @@ pub struct EventPage {
 
     next_scene: Option<NextScene>,
 
-    icon_back: SafeTexture,
-    icon_ldb: SafeTexture,
-    icon_user: SafeTexture,
+    icons: Arc<Icons>,
+    rank_icons: [SafeTexture; 8],
 }
 
 impl EventPage {
     pub const LB_PAD: f32 = 0.05;
 
-    pub fn new(icon_back: SafeTexture, icon_ldb: SafeTexture, icon_user: SafeTexture) -> Self {
+    pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Self {
         Self {
             fetch_task: Some(Task::new(async move { Ok(Client::query().send().await?.0) })),
             scroll: Scroll::new(),
@@ -76,9 +76,8 @@ impl EventPage {
 
             next_scene: None,
 
-            icon_back,
-            icon_ldb,
-            icon_user,
+            icons,
+            rank_icons,
         }
     }
 
@@ -206,12 +205,12 @@ impl Page for EventPage {
                 self.btn_down.set(ui, Rect::new(0., d, 0., 0.).feather(s));
                 self.index = (self.scroll.y_scroller.offset / (ui.top * 2.)).round() as usize;
                 ui.with(Rotation2::new(std::f32::consts::FRAC_PI_2).into(), |ui| {
-                    ui.fill_rect(r, (*self.icon_back, r, ScaleType::CropCenter, if self.index == 0 { semi_white(c.a * 0.3) } else { c }));
+                    ui.fill_rect(r, (*self.icons.back, r, ScaleType::CropCenter, if self.index == 0 { semi_white(c.a * 0.3) } else { c }));
                 });
                 ui.with(Rotation2::new(-std::f32::consts::FRAC_PI_2).into(), |ui| {
                     ui.fill_rect(
                         r,
-                        (*self.icon_back, r, ScaleType::CropCenter, if self.index + 1 >= events.len() { semi_white(c.a * 0.3) } else { c }),
+                        (*self.icons.back, r, ScaleType::CropCenter, if self.index + 1 >= events.len() { semi_white(c.a * 0.3) } else { c }),
                     );
                 });
             });
@@ -229,9 +228,8 @@ impl Page for EventPage {
                         self.next_scene = Some(NextScene::Overlay(Box::new(EventScene::new(
                             item.event.clone(),
                             item.illu.clone(),
-                            self.icon_back.clone(),
-                            self.icon_ldb.clone(),
-                            self.icon_user.clone(),
+                            Arc::clone(&self.icons),
+                            self.rank_icons.clone(),
                         ))));
                     }
                     self.tr_start = f32::NAN;

@@ -13,3 +13,5 @@ switch-off = Désactivé
 chart-ranked = Classé
 chart-special = Spécial
 chart-unstable = Instable
+
+list-empty = Rien ici

@@ -13,3 +13,5 @@ switch-off = ปิด
 chart-ranked = Ranked
 chart-special = Special
 chart-unstable = Unstable
+
+list-empty = ไม่มีข้อมูล

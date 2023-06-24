@@ -1,12 +1,15 @@
 prpr::tl_file!("home");
 
+use std::sync::Arc;
+
 use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
     client::{recv_raw, Client, LoginParams, User, UserManager},
     dir, get_data, get_data_mut,
+    icons::Icons,
     login::Login,
     save_data,
-    scene::{ProfileScene, TEX_ICON_BACK},
+    scene::ProfileScene,
     sync_data,
 };
 use ::rand::{random, thread_rng, Rng};
@@ -27,26 +30,7 @@ const BOARD_TRANSIT_TIME: f32 = 1.2;
 
 pub struct HomePage {
     character: SafeTexture,
-    icon_play: SafeTexture,
-    icon_medal: SafeTexture,
-    icon_respack: SafeTexture,
-    icon_msg: SafeTexture,
-    icon_settings: SafeTexture,
-    icon_back: SafeTexture,
-    icon_lang: SafeTexture,
-    icon_download: SafeTexture,
-    icon_user: SafeTexture,
-    icon_info: SafeTexture,
-    icon_delete: SafeTexture,
-    icon_menu: SafeTexture,
-    icon_edit: SafeTexture,
-    icon_ldb: SafeTexture,
-    icon_close: SafeTexture,
-    icon_search: SafeTexture,
-    icon_order: SafeTexture,
-    icon_filter: SafeTexture,
-    icon_mod: SafeTexture,
-    icon_star: SafeTexture,
+    icons: Arc<Icons>,
 
     btn_play: DRectButton,
     btn_event: DRectButton,
@@ -93,26 +77,7 @@ impl HomePage {
         };
         Ok(Self {
             character,
-            icon_play: load_texture("resume.png").await?.into(),
-            icon_medal: load_texture("medal.png").await?.into(),
-            icon_respack: load_texture("respack.png").await?.into(),
-            icon_msg: load_texture("message.png").await?.into(),
-            icon_settings: load_texture("settings.png").await?.into(),
-            icon_lang: load_texture("language.png").await?.into(),
-            icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
-            icon_download: load_texture("download.png").await?.into(),
-            icon_user: load_texture("user.png").await?.into(),
-            icon_info: load_texture("info.png").await?.into(),
-            icon_delete: load_texture("delete.png").await?.into(),
-            icon_menu: load_texture("menu.png").await?.into(),
-            icon_edit: load_texture("edit.png").await?.into(),
-            icon_ldb: load_texture("leaderboard.png").await?.into(),
-            icon_close: load_texture("close.png").await?.into(),
-            icon_search: SafeTexture::from(load_texture("search.png").await?).with_mipmap(),
-            icon_order: SafeTexture::from(load_texture("order.png").await?).with_mipmap(),
-            icon_filter: SafeTexture::from(load_texture("filter.png").await?).with_mipmap(),
-            icon_mod: SafeTexture::from(load_texture("mod.png").await?).with_mipmap(),
-            icon_star: SafeTexture::from(load_texture("star.png").await?).with_mipmap(),
+            icons: Arc::new(Icons::new().await?),
 
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
@@ -183,22 +148,7 @@ impl Page for HomePage {
         }
         if self.btn_play.touch(touch, t) {
             button_hit_large();
-            self.next_page = Some(NextPage::Overlay(Box::new(LibraryPage::new(
-                self.icon_back.clone(),
-                self.icon_play.clone(),
-                self.icon_download.clone(),
-                self.icon_menu.clone(),
-                self.icon_edit.clone(),
-                self.icon_ldb.clone(),
-                self.icon_user.clone(),
-                self.icon_close.clone(),
-                self.icon_search.clone(),
-                self.icon_order.clone(),
-                self.icon_info.clone(),
-                self.icon_filter.clone(),
-                self.icon_mod.clone(),
-                self.icon_star.clone(),
-            )?)));
+            self.next_page = Some(NextPage::Overlay(Box::new(LibraryPage::new(Arc::clone(&self.icons), s.icons.clone())?)));
             return Ok(true);
         }
         if self.btn_event.touch(touch, t) {
@@ -206,14 +156,13 @@ impl Page for HomePage {
             if get_data().me.is_none() {
                 self.login.enter(t);
             } else {
-                self.next_page =
-                    Some(NextPage::Overlay(Box::new(EventPage::new(self.icon_back.clone(), self.icon_ldb.clone(), self.icon_user.clone()))));
+                self.next_page = Some(NextPage::Overlay(Box::new(EventPage::new(Arc::clone(&self.icons), s.icons.clone()))));
             }
             return Ok(true);
         }
         if self.btn_respack.touch(touch, t) {
             button_hit_large();
-            self.next_page = Some(NextPage::Overlay(Box::new(ResPackPage::new(self.icon_info.clone(), self.icon_delete.clone())?)));
+            self.next_page = Some(NextPage::Overlay(Box::new(ResPackPage::new(Arc::clone(&self.icons))?)));
             return Ok(true);
         }
         if self.btn_msg.touch(touch, t) {
@@ -221,13 +170,13 @@ impl Page for HomePage {
             return Ok(true);
         }
         if self.btn_settings.touch(touch, t) {
-            self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icon_lang.clone()))));
+            self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.lang.clone()))));
             return Ok(true);
         }
         if self.btn_user.touch(touch, t) {
             if let Some(me) = &get_data().me {
                 self.need_back = true;
-                self.sf.goto(t, ProfileScene::new(me.id, self.icon_user.clone()));
+                self.sf.goto(t, ProfileScene::new(me.id, self.icons.user.clone()));
             } else {
                 self.login.enter(t);
             }
@@ -356,7 +305,7 @@ impl Page for HomePage {
             ui.fill_path(&path, (semi_black(0.7 * c.a), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
             ui.text(tl!("play")).pos(r.x + pad, r.y + pad).color(c).draw();
             let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
-            ui.fill_rect(r, (*self.icon_play, r, ScaleType::Fit, semi_white(0.6 * c.a)));
+            ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6 * c.a)));
             top
         });
 
@@ -377,13 +326,13 @@ impl Page for HomePage {
 
         let r = s.render_fader(ui, |ui, c| {
             let r = Rect::new(0., top, 0.38, 0.23);
-            text_and_icon(ui, r, &mut self.btn_event, tl!("event"), *self.icon_medal, c);
+            text_and_icon(ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal, c);
             r
         });
 
         let r = s.render_fader(ui, |ui, c| {
             let r = Rect::new(r.right() + 0.02, top, 0.27, 0.23);
-            text_and_icon(ui, r, &mut self.btn_respack, tl!("respack"), *self.icon_respack, c);
+            text_and_icon(ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack, c);
             r
         });
 
@@ -393,7 +342,7 @@ impl Page for HomePage {
             let r = Rect::new(lf, top, 0.11, 0.11);
             let (r, _) = self.btn_msg.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
             let r = r.feather(-0.01);
-            ui.fill_rect(r, (*self.icon_msg, r, ScaleType::Fit, c));
+            ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit, c));
             if self.has_new {
                 let pad = 0.007;
                 ui.fill_circle(r.right() - pad, r.y + pad, 0.01, Color { a: c.a, ..RED });
@@ -402,7 +351,7 @@ impl Page for HomePage {
             let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
             let (r, _) = self.btn_settings.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
             let r = r.feather(0.004);
-            ui.fill_rect(r, (*self.icon_settings, r, ScaleType::Fit, c));
+            ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit, c));
         });
 
         s.fader.roll_back();
@@ -421,8 +370,8 @@ impl Page for HomePage {
                 get_data()
                     .me
                     .as_ref()
-                    .map(|user| UserManager::opt_avatar(user.id, &self.icon_user))
-                    .unwrap_or(Err(self.icon_user.clone())),
+                    .map(|user| UserManager::opt_avatar(user.id, &self.icons.user))
+                    .unwrap_or(Err(self.icons.user.clone())),
             );
             let rt = ct.0 - rad - 0.02;
             if let Some(me) = &get_data().me {

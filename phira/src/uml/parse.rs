@@ -1,14 +1,15 @@
-use super::{lexer::Token, Assign, Element, Image, Text, Uml, Var};
+use super::{lexer::Token, Assign, Collection, Element, Image, Text, Uml, Var};
+use crate::icons::Icons;
 use anyhow::Result;
 use logos::Logos;
 use macroquad::prelude::Rect;
-use prpr::ext::{JoinToString, RectExt};
+use prpr::ext::{JoinToString, RectExt, SafeTexture};
 use serde::{
     de::{value::MapDeserializer, DeserializeOwned, Visitor},
     Deserialize,
 };
 use serde_json::Number;
-use std::{cell::Cell, collections::HashMap, fmt::Display, iter::Peekable};
+use std::{cell::Cell, collections::HashMap, fmt::Display, iter::Peekable, sync::Arc};
 use tap::Tap;
 
 macro_rules! bail {
@@ -416,32 +417,30 @@ pub fn constant(val: f32) -> Expr {
     Box::new(RawExpr::Literal(val))
 }
 
-pub fn take_element(lexer: &mut Lexer) -> Result<Option<Box<dyn Element>>, String> {
+pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &mut Lexer) -> Result<Option<Box<dyn Element>>, String> {
     let Some(nxt) = lexer.next() else { return Ok(None) };
     let Token::Ident(ty) = nxt? else {
         bail!("expected element");
     };
     Ok(Some(match ty.as_str() {
-        "p" => {
-            // text
-            Box::new(Text::new(take_config(lexer)?, take_text(lexer)?))
-        }
+        "p" => Box::new(Text::new(take_config(lexer)?, take_text(lexer)?)),
         "img" => Box::new(Image::new(take_config(lexer)?)),
+        "col" => Box::new(Collection::new(Arc::clone(&icons), rank_icons.clone(), take_config(lexer)?)),
         "let" => {
-            let Some(Ok(Token::Ident(name))) = lexer.next() else {
+            let Some(Ok(Token::Ident(id))) = lexer.next() else {
                 bail!("expected variable name");
             };
             take(lexer, Token::Assign)?;
-            Box::new(Assign::new(name, take_expr(lexer)?))
+            Box::new(Assign::new(id, take_expr(lexer)?))
         }
         _ => bail!("unknown element type: {}", ty),
     }))
 }
 
-pub fn parse_uml(s: &str) -> Result<Uml, String> {
+pub fn parse_uml(s: &str, icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8]) -> Result<Uml, String> {
     let mut lexer = Token::lexer(s).peekable();
     let mut elements = Vec::new();
-    while let Some(element) = take_element(&mut lexer)? {
+    while let Some(element) = take_element(icons, rank_icons, &mut lexer)? {
         elements.push(element);
     }
     Ok(Uml::new(elements))

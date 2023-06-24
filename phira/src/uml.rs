@@ -1,21 +1,26 @@
 mod lexer;
 mod parse;
 
+pub use parse::parse_uml;
+
+use self::parse::constant;
+use crate::{
+    charts_view::{ChartDisplayItem, ChartsView},
+    client::{recv_raw, Client, File},
+    icons::Icons,
+};
 use anyhow::{bail, Result};
 use image::DynamicImage;
 use macroquad::prelude::*;
-use parse::{parse_uml, Expr, VarRef};
+use parse::{Expr, VarRef};
 use prpr::{
     ext::{semi_black, semi_white, SafeTexture, ScaleType},
+    scene::NextScene,
     task::Task,
     ui::Ui,
 };
 use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, str::FromStr};
-
-use crate::client::File;
-
-use self::parse::constant;
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, sync::Arc};
 
 #[derive(Debug)]
 struct WrappedColor(Color);
@@ -62,26 +67,23 @@ impl<'de> Deserialize<'de> for WrappedColor {
 
 pub trait Element {
     fn id(&self) -> Option<&str>;
+    fn on_result(&self, _t: f32, _delete: bool) {}
+    fn touch(&self, _touch: &Touch, _uml: &Uml) -> Result<bool> {
+        Ok(false)
+    }
     fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var>;
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(default)]
-struct BaseConfig {
-    id: Option<String>,
-}
-
-impl Default for BaseConfig {
-    fn default() -> Self {
-        Self { id: None }
+    fn render_top(&self, _ui: &mut Ui, _uml: &Uml) -> Result<()> {
+        Ok(())
+    }
+    fn next_scene(&self) -> Option<NextScene> {
+        None
     }
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct TextConfig {
-    #[serde(flatten)]
-    base: BaseConfig,
+    id: Option<String>,
     size: Expr,
     x: Expr,
     y: Expr,
@@ -96,7 +98,7 @@ pub struct TextConfig {
 impl Default for TextConfig {
     fn default() -> Self {
         Self {
-            base: BaseConfig::default(),
+            id: None,
             size: constant(1.0),
             x: constant(0.),
             y: constant(0.),
@@ -124,7 +126,7 @@ impl Text {
 
 impl Element for Text {
     fn id(&self) -> Option<&str> {
-        self.config.base.id.as_deref()
+        self.config.id.as_deref()
     }
 
     fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
@@ -151,8 +153,8 @@ impl Element for Text {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageConfig {
-    #[serde(flatten)]
-    base: BaseConfig,
+    #[serde(default)]
+    id: Option<String>,
     url: File,
     r: Expr,
     #[serde(default)]
@@ -180,7 +182,7 @@ impl Image {
 
 impl Element for Image {
     fn id(&self) -> Option<&str> {
-        self.config.base.id.as_deref()
+        self.config.id.as_deref()
     }
 
     fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
@@ -206,6 +208,115 @@ impl Element for Image {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct I32(i32);
+impl<'de> Deserialize<'de> for I32 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self(f32::deserialize(deserializer)?.round() as i32))
+    }
+}
+
+fn default_row_num() -> I32 {
+    I32(4)
+}
+
+fn default_chart_height() -> f32 {
+    0.3
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionConfig {
+    #[serde(default)]
+    id: Option<String>,
+    cid: I32,
+    #[serde(default = "default_row_num")]
+    rn: I32,
+    #[serde(default = "default_chart_height")]
+    rh: f32,
+    r: Expr,
+}
+
+struct CollectionState {
+    task: Option<Task<Result<crate::client::Collection>>>,
+    charts_view: ChartsView,
+}
+
+pub struct Collection {
+    config: CollectionConfig,
+    state: RefCell<CollectionState>,
+}
+
+impl Collection {
+    pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8], config: CollectionConfig) -> Self {
+        let cid = config.cid;
+        let mut charts_view = ChartsView::new(icons, rank_icons);
+        charts_view.row_num = config.rn.0 as _;
+        charts_view.row_height = config.rh;
+        Self {
+            config,
+            state: RefCell::new(CollectionState {
+                task: Some(Task::new(async move { Ok(recv_raw(Client::get(format!("/collection/{}", cid.0))).await?.json().await?) })),
+                charts_view,
+            }),
+        }
+    }
+}
+
+impl Element for Collection {
+    fn id(&self) -> Option<&str> {
+        self.config.id.as_deref()
+    }
+
+    fn on_result(&self, t: f32, delete: bool) {
+        self.state.borrow_mut().charts_view.on_result(t, delete)
+    }
+
+    fn touch(&self, touch: &Touch, uml: &Uml) -> Result<bool> {
+        self.state.borrow_mut().charts_view.touch(touch, uml.t, uml.rt)
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
+        let mut state = self.state.borrow_mut();
+        if let Some(task) = &mut state.task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!("failed to fetch collection: {:?}", err);
+                    }
+                    Ok(col) => {
+                        state
+                            .charts_view
+                            .set(uml.t, col.charts.iter().map(ChartDisplayItem::from_remote).collect());
+                    }
+                }
+                state.task = None;
+            }
+        }
+
+        let c = &self.config;
+        let t = uml.t;
+        let r = c.r.eval(uml)?.rect()?;
+
+        state.charts_view.update(t)?;
+        state.charts_view.render(ui, r, alpha, t);
+
+        Ok(Var::Float(0.))
+    }
+
+    fn render_top(&self, ui: &mut Ui, uml: &Uml) -> Result<()> {
+        self.state.borrow_mut().charts_view.render_top(ui, uml.t);
+        Ok(())
+    }
+
+    fn next_scene(&self) -> Option<NextScene> {
+        self.state.borrow_mut().charts_view.next_scene()
+    }
+}
+
 pub struct Assign {
     id: String,
     value: Expr,
@@ -223,7 +334,7 @@ impl Element for Assign {
     }
 
     fn render(&self, _ui: &mut Ui, uml: &Uml, _alpha: f32) -> Result<Var> {
-        Ok(self.value.eval(uml)?)
+        self.value.eval(uml)
     }
 }
 
@@ -254,6 +365,9 @@ pub struct Uml {
 
     vars: Vec<Var>,
     var_map: HashMap<String, usize>,
+
+    t: f32,
+    rt: f32,
 }
 
 impl Default for Uml {
@@ -269,6 +383,9 @@ impl Uml {
 
             vars: Vec::new(),
             var_map: HashMap::new(),
+
+            t: 0.,
+            rt: 0.,
         }
     }
 
@@ -276,7 +393,18 @@ impl Uml {
         Ok(&self.vars[rf.id(self)?])
     }
 
-    pub fn render(&mut self, ui: &mut Ui, alpha: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
+    pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32) -> Result<bool> {
+        self.t = t;
+        self.rt = rt;
+        for element in &self.elements {
+            if element.touch(touch, self)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, alpha: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
         let first_time = self.var_map.is_empty();
         self.vars.clear();
         for (name, val) in vars {
@@ -287,6 +415,8 @@ impl Uml {
         }
         let mut right = 0f32;
         let mut bottom = 0f32;
+        self.t = t;
+        self.rt = rt;
         for elem in &self.elements {
             let r = elem.render(ui, self, alpha)?;
             if let Var::Rect(r) = &r {
@@ -308,12 +438,28 @@ impl Uml {
         }
         Ok((right, bottom))
     }
-}
 
-impl FromStr for Uml {
-    type Err = String;
+    pub fn render_top(&mut self, ui: &mut Ui, t: f32, rt: f32) -> Result<()> {
+        self.t = t;
+        self.rt = rt;
+        for element in &self.elements {
+            element.render_top(ui, self)?;
+        }
+        Ok(())
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse_uml(s)
+    pub fn on_result(&self, t: f32, delete: bool) {
+        for element in &self.elements {
+            element.on_result(t, delete);
+        }
+    }
+
+    pub fn next_scene(&self) -> Option<NextScene> {
+        for element in &self.elements {
+            if let Some(s) = element.next_scene() {
+                return Some(s);
+            }
+        }
+        None
     }
 }

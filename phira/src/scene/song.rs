@@ -2,10 +2,12 @@ prpr::tl_file!("song");
 
 use super::{confirm_delete, confirm_dialog, fs_from_path, render_ldb, LdbDisplayItem};
 use crate::{
+    charts_view::NEED_UPDATE,
     client::{recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
-    page::{thumbnail_path, ChartItem, Fader, Illustration, NEED_UPDATE},
+    icons::Icons,
+    page::{thumbnail_path, ChartItem, Fader, Illustration},
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -26,7 +28,7 @@ use prpr::{
     judge::{icon_index, Judge, JudgeStatus},
     scene::{
         load_scene, loading_scene, request_input, return_input, show_error, show_message, take_input, take_loaded_scene, BasicPlayer, GameMode,
-        LoadingScene, NextScene, RecordUpdateState, Scene, SimpleRecord,
+        LoadingScene, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn,
     },
     task::Task,
     time::TimeManager,
@@ -140,7 +142,7 @@ impl Downloading {
                         // update
                         SongScene::global_update_chart_info(local_path, self.info.clone())?;
                     } else {
-                        NEED_UPDATE.store(true, Ordering::SeqCst);
+                        NEED_UPDATE.store(true, Ordering::Relaxed);
                         self.local_path = Some(chart.local_path.clone());
                         get_data_mut().charts.push(chart);
                     }
@@ -193,15 +195,7 @@ pub struct SongScene {
     back_btn: RectButton,
     play_btn: DRectButton,
 
-    icon_back: SafeTexture,
-    icon_play: SafeTexture,
-    icon_download: SafeTexture,
-    icon_menu: SafeTexture,
-    icon_edit: SafeTexture,
-    icon_ldb: SafeTexture,
-    icon_user: SafeTexture,
-    icon_info: SafeTexture,
-    icon_mod: SafeTexture,
+    icons: Arc<Icons>,
 
     next_scene: Option<NextScene>,
 
@@ -216,7 +210,7 @@ pub struct SongScene {
     downloading: Option<Downloading>,
     loading_last: f32,
 
-    icons: [SafeTexture; 8],
+    rank_icons: [SafeTexture; 8],
     record: Option<SimpleRecord>,
 
     fetch_best_task: Option<Task<Result<SimpleRecord>>>,
@@ -276,17 +270,8 @@ impl SongScene {
         mut chart: ChartItem,
         local_illu: Option<Illustration>,
         local_path: Option<String>,
-        icon_back: SafeTexture,
-        icon_play: SafeTexture,
-        icon_download: SafeTexture,
-        icon_menu: SafeTexture,
-        icon_edit: SafeTexture,
-        icon_ldb: SafeTexture,
-        icon_user: SafeTexture,
-        icon_info: SafeTexture,
-        icons: [SafeTexture; 8],
-        icon_mod: SafeTexture,
-        icon_star: SafeTexture,
+        icons: Arc<Icons>,
+        rank_icons: [SafeTexture; 8],
         mods: Mods,
     ) -> Self {
         if let Some(path) = &local_path {
@@ -325,6 +310,7 @@ impl SongScene {
         };
         let id = chart.info.id;
         let offline_mode = get_data().config.offline_mode;
+        let icon_star = icons.star.clone();
         Self {
             illu,
 
@@ -333,15 +319,7 @@ impl SongScene {
             back_btn: RectButton::new(),
             play_btn: DRectButton::new(),
 
-            icon_back,
-            icon_play,
-            icon_download,
-            icon_menu,
-            icon_edit,
-            icon_ldb,
-            icon_user,
-            icon_info,
-            icon_mod,
+            icons,
 
             next_scene: None,
 
@@ -375,7 +353,7 @@ impl SongScene {
             downloading: None,
             loading_last: 0.,
 
-            icons,
+            rank_icons,
             record,
 
             fetch_best_task,
@@ -654,8 +632,134 @@ impl SongScene {
         if !rated && id.is_some() && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
-        let client = client.unwrap();
-        let live = client.blocking_state().unwrap().live;
+        let update_fn = client.map(|client| {
+            let live = client.blocking_state().unwrap().live;
+            let update_fn: UpdateFn = Box::new({
+                let mut touches: Vec<TouchFrame> = Vec::new();
+                let mut judges: Vec<JudgeEvent> = Vec::new();
+                move |t, watch, res, chart, judge, touch_points, bad_notes| {
+                    if !watch && live {
+                        if touches.last().map_or(true, |it| it.time + 1. / 20. < t) {
+                            touches.push(TouchFrame {
+                                time: t,
+                                points: Judge::get_touches()
+                                    .into_iter()
+                                    .map(|it| CompactPos::new(it.position.x, it.position.y))
+                                    .collect(),
+                            });
+                        }
+                        if touches.len() > 20 || touches.first().map_or(false, |it| it.time + 1. < t) {
+                            let frames = Arc::new(std::mem::take(&mut touches));
+                            client.blocking_send(ClientCommand::Touches { frames }).unwrap();
+                        }
+                        judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
+                            time: it.0,
+                            line_id: it.1,
+                            note_id: it.2,
+                            judgement: {
+                                use phira_mp_common::Judgement::*;
+                                use prpr::judge::Judgement as OJ;
+                                match it.3 {
+                                    Ok(OJ::Perfect) => Perfect,
+                                    Ok(OJ::Good) => Good,
+                                    Ok(OJ::Bad) => Bad,
+                                    Ok(OJ::Miss) => Miss,
+                                    Err(true) => HoldPerfect,
+                                    Err(false) => HoldGood,
+                                }
+                            },
+                        }));
+                        if judges.len() > 10 || judges.first().map_or(false, |it| it.time + 0.6 < t) {
+                            let judges = Arc::new(std::mem::take(&mut judges));
+                            client.blocking_send(ClientCommand::Judges { judges }).unwrap();
+                        }
+                    }
+                    if watch {
+                        {
+                            let mut frames = client.touch_frames();
+                            let mut updated = false;
+                            while frames.front().map_or(false, |it| it.time < t) {
+                                frames.pop_front();
+                                updated = true;
+                            }
+                            if updated {
+                                if let Some(frame) = frames.front() {
+                                    *touch_points = frame.points.iter().map(|it| (it.x(), it.y())).collect();
+                                } else {
+                                    touch_points.clear();
+                                }
+                            }
+                        }
+                        {
+                            let mut judges = client.judge_events();
+                            while let Some(event) = judges.front() {
+                                if event.time > t {
+                                    break;
+                                }
+                                let Some(event) = judges.pop_front() else { unreachable!() };
+                                use phira_mp_common::Judgement::*;
+                                use prpr::judge::Judgement as TJ;
+                                let kind = match event.judgement {
+                                    Perfect => Ok(TJ::Perfect),
+                                    Good => Ok(TJ::Good),
+                                    Bad => Ok(TJ::Bad),
+                                    Miss => Ok(TJ::Miss),
+                                    HoldPerfect => Err(true),
+                                    HoldGood => Err(false),
+                                };
+                                let note = &mut chart.lines[event.line_id as usize].notes[event.note_id as usize];
+                                match kind {
+                                    Ok(tj) => {
+                                        note.judge = JudgeStatus::Judged;
+                                        let line = &chart.lines[event.line_id as usize];
+                                        let line_tr = line.now_transform(res, &chart.lines);
+                                        let note = &line.notes[event.note_id as usize];
+                                        judge.commit(t, tj, event.line_id, event.note_id, 0.);
+                                        match tj {
+                                            TJ::Perfect => {
+                                                res.with_model(line_tr * note.object.now(res), |res| {
+                                                    res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect())
+                                                });
+                                            }
+                                            TJ::Good => {
+                                                res.with_model(line_tr * note.object.now(res), |res| {
+                                                    res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good())
+                                                });
+                                            }
+                                            TJ::Bad => {
+                                                bad_notes.push(BadNote {
+                                                    time: t,
+                                                    kind: note.kind.clone(),
+                                                    matrix: {
+                                                        let mut mat = line_tr;
+                                                        if !note.above {
+                                                            mat.append_nonuniform_scaling_mut(&Vector::new(1., -1.));
+                                                        }
+                                                        let incline_sin = line.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default();
+                                                        mat *= note.now_transform(
+                                                            res,
+                                                            &line.ctrl_obj.borrow_mut(),
+                                                            (note.height - line.height.now()) / res.aspect_ratio * note.speed,
+                                                            incline_sin,
+                                                        );
+                                                        mat
+                                                    },
+                                                });
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                    Err(perfect) => {
+                                        note.judge = JudgeStatus::Hold(perfect, t, 0., false, f32::INFINITY);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            update_fn
+        });
         load_scene(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -724,132 +828,7 @@ impl SongScene {
                         })
                     })
                 })),
-                #[allow(unused)]
-                Some(Box::new({
-                    let mut touches: Vec<TouchFrame> = Vec::new();
-                    let mut judges: Vec<JudgeEvent> = Vec::new();
-                    move |t, watch, res, chart, judge, touch_points, bad_notes| {
-                        if !watch && live {
-                            if touches.last().map_or(true, |it| it.time + 1. / 20. < t) {
-                                touches.push(TouchFrame {
-                                    time: t,
-                                    points: Judge::get_touches()
-                                        .into_iter()
-                                        .map(|it| CompactPos::new(it.position.x, it.position.y))
-                                        .collect(),
-                                });
-                            }
-                            if touches.len() > 20 || touches.first().map_or(false, |it| it.time + 1. < t) {
-                                let frames = Arc::new(std::mem::take(&mut touches));
-                                client.blocking_send(ClientCommand::Touches { frames }).unwrap();
-                            }
-                            judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
-                                time: it.0,
-                                line_id: it.1,
-                                note_id: it.2,
-                                judgement: {
-                                    use phira_mp_common::Judgement::*;
-                                    use prpr::judge::Judgement as OJ;
-                                    match it.3 {
-                                        Ok(OJ::Perfect) => Perfect,
-                                        Ok(OJ::Good) => Good,
-                                        Ok(OJ::Bad) => Bad,
-                                        Ok(OJ::Miss) => Miss,
-                                        Err(true) => HoldPerfect,
-                                        Err(false) => HoldGood,
-                                    }
-                                },
-                            }));
-                            if judges.len() > 10 || judges.first().map_or(false, |it| it.time + 0.6 < t) {
-                                let judges = Arc::new(std::mem::take(&mut judges));
-                                client.blocking_send(ClientCommand::Judges { judges }).unwrap();
-                            }
-                        }
-                        if watch {
-                            {
-                                let mut frames = client.touch_frames();
-                                let mut updated = false;
-                                while frames.front().map_or(false, |it| it.time < t) {
-                                    frames.pop_front();
-                                    updated = true;
-                                }
-                                if updated {
-                                    if let Some(frame) = frames.front() {
-                                        *touch_points = frame.points.iter().map(|it| (it.x(), it.y())).collect();
-                                    } else {
-                                        touch_points.clear();
-                                    }
-                                }
-                            }
-                            {
-                                let mut judges = client.judge_events();
-                                while let Some(event) = judges.front() {
-                                    if event.time > t {
-                                        break;
-                                    }
-                                    let Some(event) = judges.pop_front() else { unreachable!() };
-                                    use phira_mp_common::Judgement::*;
-                                    use prpr::judge::Judgement as TJ;
-                                    let kind = match event.judgement {
-                                        Perfect => Ok(TJ::Perfect),
-                                        Good => Ok(TJ::Good),
-                                        Bad => Ok(TJ::Bad),
-                                        Miss => Ok(TJ::Miss),
-                                        HoldPerfect => Err(true),
-                                        HoldGood => Err(false),
-                                    };
-                                    let note = &mut chart.lines[event.line_id as usize].notes[event.note_id as usize];
-                                    match kind {
-                                        Ok(tj) => {
-                                            note.judge = JudgeStatus::Judged;
-                                            let line = &chart.lines[event.line_id as usize];
-                                            let line_tr = line.now_transform(res, &chart.lines);
-                                            let note = &line.notes[event.note_id as usize];
-                                            judge.commit(t, tj, event.line_id, event.note_id, 0.);
-                                            match tj {
-                                                TJ::Perfect => {
-                                                    res.with_model(line_tr * note.object.now(res), |res| {
-                                                        res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect())
-                                                    });
-                                                }
-                                                TJ::Good => {
-                                                    res.with_model(line_tr * note.object.now(res), |res| {
-                                                        res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good())
-                                                    });
-                                                }
-                                                TJ::Bad => {
-                                                    bad_notes.push(BadNote {
-                                                        time: t,
-                                                        kind: note.kind.clone(),
-                                                        matrix: {
-                                                            let mut mat = line_tr;
-                                                            if !note.above {
-                                                                mat.append_nonuniform_scaling_mut(&Vector::new(1., -1.));
-                                                            }
-                                                            let incline_sin =
-                                                                line.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default();
-                                                            mat *= note.now_transform(
-                                                                res,
-                                                                &line.ctrl_obj.borrow_mut(),
-                                                                (note.height - line.height.now()) / res.aspect_ratio * note.speed,
-                                                                incline_sin,
-                                                            );
-                                                            mat
-                                                        },
-                                                    });
-                                                }
-                                                _ => {}
-                                            }
-                                        }
-                                        Err(perfect) => {
-                                            note.judge = JudgeStatus::Hold(perfect, t, 0., false, f32::INFINITY);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                })),
+                update_fn,
             )
             .await
         });
@@ -944,7 +923,7 @@ impl SongScene {
             rt,
             &mut self.ldb_scroll,
             &mut self.ldb_fader,
-            &self.icon_user,
+            &self.icons.user,
             self.ldb.as_ref().map(|it| {
                 it.1.iter().map(|it| LdbDisplayItem {
                     player_id: it.inner.player.id,
@@ -980,7 +959,7 @@ impl SongScene {
                 }};
             }
             if let Some(uploader) = &self.info.uploader {
-                let r = ui.avatar(0.06, 0.06, 0.05, WHITE, rt, UserManager::opt_avatar(uploader.id, &self.icon_user));
+                let r = ui.avatar(0.06, 0.06, 0.05, WHITE, rt, UserManager::opt_avatar(uploader.id, &self.icons.user));
                 if let Some(name) = UserManager::get_name(uploader.id) {
                     ui.text(name)
                         .pos(r.right() + 0.02, r.center().y)
@@ -1144,7 +1123,7 @@ impl SongScene {
 
     fn global_update_chart_info(local_path: &str, info: BriefChartInfo) -> Result<()> {
         get_data_mut().charts[get_data().find_chart_by_path(local_path).unwrap()].info = info;
-        NEED_UPDATE.store(true, Ordering::SeqCst);
+        NEED_UPDATE.store(true, Ordering::Relaxed);
         save_data()?;
         Ok(())
     }
@@ -1881,7 +1860,7 @@ impl Scene for SongScene {
 
         let r = ui.back_rect();
         self.back_btn.set(ui, r);
-        ui.fill_rect(r, (*self.icon_back, r, ScaleType::Fit, c));
+        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit, c));
 
         let r = ui
             .text(&self.info.name)
@@ -1900,7 +1879,7 @@ impl Scene for SongScene {
         let s = 0.25;
         let r = Rect::new(-0.94, ui.top - s - 0.06, s, s);
         let icon = self.record.as_ref().map_or(0, |it| icon_index(it.score as _, it.full_combo));
-        ui.fill_rect(r, (*self.icons[icon], r, ScaleType::Fit, c));
+        ui.fill_rect(r, (*self.rank_icons[icon], r, ScaleType::Fit, c));
         let score = self.record.as_ref().map(|it| it.score).unwrap_or_default();
         let accuracy = self.record.as_ref().map(|it| it.accuracy).unwrap_or_default();
         let r = ui
@@ -1920,7 +1899,7 @@ impl Scene for SongScene {
         if self.info.id.is_some() {
             let h = 0.09;
             let mut r = Rect::new(r.x, r.y - h, h, h);
-            ui.fill_rect(r, (*self.icon_ldb, r, ScaleType::Fit, c));
+            ui.fill_rect(r, (*self.icons.ldb, r, ScaleType::Fit, c));
             if let Some((rank, _)) = &self.ldb {
                 ui.text(if let Some(rank) = rank {
                     format!("#{rank}")
@@ -1960,9 +1939,9 @@ impl Scene for SongScene {
             r,
             (
                 if self.local_path.is_some() {
-                    *self.icon_play
+                    *self.icons.play
                 } else {
-                    *self.icon_download
+                    *self.icons.download
                 },
                 r,
                 ScaleType::Fit,
@@ -1976,7 +1955,7 @@ impl Scene for SongScene {
             let s = 0.08;
             let r = Rect::new(-s, 0., s, s);
             let cc = semi_white(c.a * 0.4);
-            ui.fill_rect(r, (*self.icon_menu, r.feather(-0.02), ScaleType::Fit, if self.menu_options.is_empty() { cc } else { c }));
+            ui.fill_rect(r, (*self.icons.menu, r.feather(-0.02), ScaleType::Fit, if self.menu_options.is_empty() { cc } else { c }));
             self.menu_btn.set(ui, r);
             if self.need_show_menu {
                 self.need_show_menu = false;
@@ -1986,13 +1965,13 @@ impl Scene for SongScene {
                 self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
             }
             ui.dx(-r.w - 0.03);
-            ui.fill_rect(r, (*self.icon_info, r, ScaleType::Fit, c));
+            ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit, c));
             self.info_btn.set(ui, r);
             ui.dx(-r.w - 0.03);
-            ui.fill_rect(r, (*self.icon_edit, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
+            ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
             self.edit_btn.set(ui, r);
             ui.dx(-r.w - 0.03);
-            ui.fill_rect(r, (*self.icon_mod, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
+            ui.fill_rect(r, (*self.icons.r#mod, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
             self.mod_btn.set(ui, r);
         });
 

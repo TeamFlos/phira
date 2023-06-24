@@ -5,7 +5,7 @@ mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::{LibraryPage, NEED_UPDATE};
+pub use library::LibraryPage;
 
 mod message;
 pub use message::MessagePage;
@@ -136,6 +136,7 @@ impl Illustration {
             } else if let Some(loaded) = self.loaded.lock().unwrap().clone() {
                 self.texture = loaded;
                 self.load_time = t;
+                self.task = None;
             }
         }
     }

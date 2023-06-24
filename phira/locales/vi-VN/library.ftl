@@ -1,7 +1,6 @@
 
 local = Nội bộ
 popular = Phổ biến
-list-empty = Meowww
 
 page = Trang { $current } 卐 { $total }
 prev-page = Trang trước
