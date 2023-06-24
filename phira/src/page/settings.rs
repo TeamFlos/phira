@@ -194,6 +194,7 @@ impl Page for SettingsPage {
                                 .size(0.55)
                                 .multiline()
                                 .max_width(r.w - pad * 2.)
+                                .color(c)
                                 .draw()
                                 .bottom(),
                         )
