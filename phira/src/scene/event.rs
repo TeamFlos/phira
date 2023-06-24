@@ -1,5 +1,6 @@
 prpr::tl_file!("event");
 
+use super::{render_ldb, LdbDisplayItem};
 use crate::{
     client::{recv_raw, Client, Event},
     icons::Icons,
@@ -19,8 +20,6 @@ use prpr::{
 };
 use serde::Deserialize;
 use std::{any::Any, sync::Arc, time::SystemTime};
-
-use super::{render_ldb, LdbDisplayItem};
 
 const DEBUG_MODE: bool = false;
 const LDB_WIDTH: f32 = 0.94;

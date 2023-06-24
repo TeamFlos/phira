@@ -50,7 +50,7 @@ chat-placeholder = 说些什么…
 chat-send = 发送
 chat-empty = 消息不能为空
 chat-sent = 已发送
-chat-send-failaed = 消息发送失败
+chat-send-failed = 消息发送失败
 
 select-chart-host-only = 只有房主可以选择谱面
 select-chart-local = 不能选择本地谱面
