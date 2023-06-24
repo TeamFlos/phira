@@ -9,3 +9,5 @@ release-to-refresh = Relase to refresh
 
 switch-on = On
 switch-off = Off
+
+list-empty = Nothing here

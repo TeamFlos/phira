@@ -1,7 +1,6 @@
 
 local = 本地
 popular = 热门
-list-empty = 空空如也
 
 page = 第 { $current } / { $total } 页
 prev-page = 上一页

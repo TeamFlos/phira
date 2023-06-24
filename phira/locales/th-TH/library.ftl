@@ -2,7 +2,6 @@
 local = Local
 online = Online
 popular = Popular
-list-empty = ไม่มีข้อมูล
 
 page = หน้า { $current } / { $total }
 prev-page = กลับ

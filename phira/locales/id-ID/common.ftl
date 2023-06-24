@@ -9,3 +9,5 @@ release-to-refresh = Lepas untuk refresh
 
 switch-on = On
 switch-off = Off
+
+list-empty = Tidak ada apa-apa disini...

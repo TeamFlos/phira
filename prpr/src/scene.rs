@@ -7,7 +7,7 @@ mod game;
 pub use game::{GameMode, GameScene, SimpleRecord, FFMPEG_PATH};
 
 mod loading;
-pub use loading::{BasicPlayer, LoadingScene};
+pub use loading::{BasicPlayer, LoadingScene, UpdateFn, UploadFn};
 
 use crate::{
     ext::{draw_image, poll_future, screen_aspect, LocalTask, SafeTexture, ScaleType},

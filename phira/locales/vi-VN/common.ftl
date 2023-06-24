@@ -13,3 +13,5 @@ switch-off = Tắt
 chart-ranked = Xếp Hạng
 chart-special = Đặc Biệt
 chart-unstable = K.Ổn Định
+
+list-empty = Meowww

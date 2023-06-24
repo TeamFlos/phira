@@ -20,12 +20,6 @@ impl VelocityTracker {
         }
     }
 
-    pub fn new(time: f32, point: Point) -> Self {
-        let mut res = Self::empty();
-        res.push(time, point);
-        res
-    }
-
     pub fn reset(&mut self) {
         self.movements.clear();
     }

@@ -2,8 +2,9 @@ prpr::tl_file!("event");
 
 use crate::{
     client::{recv_raw, Client, Event},
+    icons::Icons,
     page::{EventPage, Fader, Illustration},
-    uml::Uml,
+    uml::{parse_uml, Uml},
 };
 use anyhow::Result;
 use chrono::Utc;
@@ -17,7 +18,7 @@ use prpr::{
     ui::{button_hit, DRectButton, LoadingParams, RectButton, Scroll, Ui},
 };
 use serde::Deserialize;
-use std::time::SystemTime;
+use std::{any::Any, sync::Arc, time::SystemTime};
 
 use super::{render_ldb, LdbDisplayItem};
 
@@ -70,13 +71,12 @@ pub struct EventScene {
     ldb_task: Option<Task<Result<Vec<LdbItem>>>>,
     ldb: Option<Vec<LdbItem>>,
 
-    icon_back: SafeTexture,
-    icon_ldb: SafeTexture,
-    icon_user: SafeTexture,
+    icons: Arc<Icons>,
+    rank_icons: [SafeTexture; 8],
 }
 
 impl EventScene {
-    pub fn new(event: Event, illu: Illustration, icon_back: SafeTexture, icon_ldb: SafeTexture, icon_user: SafeTexture) -> Self {
+    pub fn new(event: Event, illu: Illustration, icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Self {
         let id = event.id;
         Self {
             event,
@@ -112,9 +112,8 @@ impl EventScene {
             ldb_task: None,
             ldb: None,
 
-            icon_back,
-            icon_ldb,
-            icon_user,
+            icons,
+            rank_icons,
         }
     }
 
@@ -136,6 +135,17 @@ impl EventScene {
 }
 
 impl Scene for EventScene {
+    fn on_result(&mut self, tm: &mut TimeManager, res: Box<dyn Any>) -> Result<()> {
+        let _res = match res.downcast::<bool>() {
+            Err(res) => res,
+            Ok(delete) => {
+                self.uml.on_result(tm.now() as _, *delete);
+                return Ok(());
+            }
+        };
+        Ok(())
+    }
+
     fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
         self.start_time = tm.now() as _;
         self.load_status();
@@ -196,6 +206,10 @@ impl Scene for EventScene {
             }
         }
 
+        if self.uml.touch(touch, t, rt)? {
+            return Ok(true);
+        }
+
         Ok(false)
     }
 
@@ -215,7 +229,7 @@ impl Scene for EventScene {
                 let new_modified = meta.modified()?;
                 if new_modified != self.last_modified {
                     self.last_modified = new_modified;
-                    self.uml = std::fs::read_to_string(path)?.parse().unwrap_or_else(|e| {
+                    self.uml = parse_uml(&std::fs::read_to_string(path)?, &self.icons, &self.rank_icons).unwrap_or_else(|e| {
                         eprintln!("{e:?}");
                         Uml::default()
                     });
@@ -228,7 +242,7 @@ impl Scene for EventScene {
                         show_error(err.context(tl!("load-failed")));
                     }
                     Ok(res) => {
-                        self.uml = res.parse().map_err(anyhow::Error::msg)?;
+                        self.uml = parse_uml(&res, &self.icons, &self.rank_icons).map_err(anyhow::Error::msg)?;
                     }
                 }
                 self.uml_task = None;
@@ -295,7 +309,7 @@ impl Scene for EventScene {
         let p = 1. - (self.scroll.y_scroller.offset / 0.4).clamp(0., 1.);
 
         let r = ui.back_rect();
-        ui.fill_rect(r, (*self.icon_back, r, ScaleType::Fit, semi_white(p)));
+        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit, semi_white(p)));
         self.btn_back.set(ui, r);
 
         ui.fill_rect(ui.screen_rect(), semi_black((self.scroll.y_scroller.offset / 0.3).min(1.) * 0.7));
@@ -317,7 +331,7 @@ impl Scene for EventScene {
                     ui.loading(1., pad + 0.05, t, WHITE, ());
                     (2., ui.top * 2. + (pad + 0.05) * 2.)
                 } else {
-                    let h = match self.uml.render(ui, 1., &[("t", t), ("o", o), ("top", ui.top)]) {
+                    let h = match self.uml.render(ui, t, rt, 1., &[("t", t), ("o", o), ("top", ui.top)]) {
                         Ok((_, h)) => h,
                         Err(e) => {
                             eprintln!("{e:?}");
@@ -379,7 +393,7 @@ impl Scene for EventScene {
                     let w = w + 0.01 + ir.w;
                     ir.x += (ir.w - w) / 2.;
                     text.pos(ir.right() + 0.01, ct.y).draw();
-                    ui.fill_rect(ir, (*self.icon_ldb, ir, ScaleType::Fit, c));
+                    ui.fill_rect(ir, (*self.icons.ldb, ir, ScaleType::Fit, c));
                 }
             } else {
                 draw(tl!("btn-join"), bc);
@@ -425,7 +439,7 @@ impl Scene for EventScene {
                     rt,
                     &mut self.ldb_scroll,
                     &mut self.ldb_fader,
-                    &self.icon_user,
+                    &self.icons.user,
                     self.ldb.as_ref().map(|it| {
                         it.iter().map(|it| LdbDisplayItem {
                             player_id: it.player,
@@ -438,6 +452,8 @@ impl Scene for EventScene {
             });
         }
 
+        self.uml.render_top(ui, t, rt)?;
+
         if self.loading() {
             ui.full_loading_simple(t);
         }
@@ -446,6 +462,6 @@ impl Scene for EventScene {
     }
 
     fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
-        self.next_scene.take().unwrap_or_default()
+        self.next_scene.take().or_else(|| self.uml.next_scene()).unwrap_or_default()
     }
 }

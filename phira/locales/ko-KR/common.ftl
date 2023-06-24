@@ -12,3 +12,5 @@ switch-off = 꺼짐
 chart-ranked = 랭크됨
 chart-special = 스페셜
 chart-unstable = 불안정함
+
+list-empty = 아무것도 없음

@@ -2,7 +2,6 @@
 local = Локальные
 online = Онлайн
 popular = Популярные
-list-empty = Пусто
 
 page = Страница { $current } из { $total }
 prev-page = Пред.
@@ -15,4 +14,4 @@ import = Импорт
 
 offline-mode = Невозможно загрузить в оффлайн-режиме
 
-must-login = Войдите что бы загрузить чарты. 
+must-login = Войдите что бы загрузить чарты.

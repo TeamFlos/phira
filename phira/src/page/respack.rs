@@ -2,7 +2,9 @@ prpr::tl_file!("respack");
 
 use super::{Page, SharedState};
 use crate::{
-    dir, get_data, get_data_mut, save_data,
+    dir, get_data, get_data_mut,
+    icons::Icons,
+    save_data,
     scene::{confirm_delete, MainScene},
 };
 use anyhow::Result;
@@ -65,8 +67,7 @@ pub struct ResPackPage {
     btns_scroll: Scroll,
     index: usize,
 
-    icon_info: SafeTexture,
-    icon_delete: SafeTexture,
+    icons: Arc<Icons>,
 
     info_btn: DRectButton,
     delete_btn: DRectButton,
@@ -79,7 +80,7 @@ pub struct ResPackPage {
 }
 
 impl ResPackPage {
-    pub fn new(icon_info: SafeTexture, icon_delete: SafeTexture) -> Result<Self> {
+    pub fn new(icons: Arc<Icons>) -> Result<Self> {
         MainScene::take_imported_respack();
         let dir = dir::respacks()?;
         let mut items = vec![ResPackItem::new(None, tl!("default").into_owned())];
@@ -102,8 +103,7 @@ impl ResPackPage {
             btns_scroll: Scroll::new(),
             index,
 
-            icon_info,
-            icon_delete,
+            icons,
 
             info_btn: delete_btn.clone(),
             delete_btn,
@@ -365,12 +365,12 @@ impl Page for ResPackPage {
             let mut tr = Rect::new(cr.right() - 0.04 - s, cr.bottom() - 0.04 - s, s, s);
             let (r, _) = self.delete_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
             let r = r.feather(-0.02);
-            ui.fill_rect(r, (*self.icon_delete, r, ScaleType::Fit, c));
+            ui.fill_rect(r, (*self.icons.delete, r, ScaleType::Fit, c));
             if item.loaded.is_some() {
                 tr.x -= tr.w + 0.02;
                 let (r, _) = self.info_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
                 let r = r.feather(-0.02);
-                ui.fill_rect(r, (*self.icon_info, r, ScaleType::Fit, c));
+                ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit, c));
             }
         });
         Ok(())

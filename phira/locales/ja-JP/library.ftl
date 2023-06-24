@@ -2,7 +2,6 @@
 local = Local
 online = Online
 popular = Popular
-list-empty = Nothing here
 
 page = Page { $current } / { $total }
 prev-page = Prev page

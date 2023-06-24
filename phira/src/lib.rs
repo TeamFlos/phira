@@ -3,8 +3,10 @@ prpr::tl_file!("common" ttl crate::);
 #[cfg(feature = "closed")]
 mod inner;
 
+mod charts_view;
 mod client;
 mod data;
+mod icons;
 mod images;
 mod login;
 mod mp;
