@@ -36,7 +36,7 @@ chat-placeholder = Uoccc....
 chat-send = Gửi
 chat-empty = Tin nhắn rỗng
 chat-sent = Đã gửi
-chat-send-failaed = Không thể gửi
+chat-send-failed = Không thể gửi
 
 select-chart-host-only = Chỉ chủ phòng mới có quyền chọn
 select-chart-local = Không chọn biểu đồ nội bộ

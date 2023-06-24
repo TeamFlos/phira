@@ -50,7 +50,7 @@ chat-placeholder = Say something…
 chat-send = Send
 chat-empty = Message is empty
 chat-sent = Sent
-chat-send-failaed = Failed to send message
+chat-send-failed = Failed to send message
 
 select-chart-host-only = Only the host can select chart
 select-chart-local = Can't select local chart

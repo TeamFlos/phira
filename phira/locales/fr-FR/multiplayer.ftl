@@ -36,7 +36,7 @@ chat-placeholder = Dire quelque chose…
 chat-send = Envoyer
 chat-empty = Le message ne peut pas être vide
 chat-sent = Envoyé
-chat-send-failaed = Échec de l'envoi du message
+chat-send-failed = Échec de l'envoi du message
 
 select-chart-host-only = Seul l'hôte peut sélectionner la partition
 select-chart-local = Vous ne pouvez pas sélectionner la partition locale

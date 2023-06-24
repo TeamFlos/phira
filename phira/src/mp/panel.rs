@@ -519,7 +519,7 @@ impl MPPanel {
                         self.chat_text.clear();
                     }
                     Err(err) => {
-                        show_error(err.context(mtl!("chat-send-failaed")));
+                        show_error(err.context(mtl!("chat-send-failed")));
                     }
                 }
                 self.chat_task = None;

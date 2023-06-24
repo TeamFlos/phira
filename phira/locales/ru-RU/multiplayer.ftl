@@ -35,7 +35,7 @@ chat-placeholder = Скажите что нибудь…
 chat-send = Отправить
 chat-empty = Пустое сообщение
 chat-sent = Отправлено
-chat-send-failaed = Ошибка при отправке
+chat-send-failed = Ошибка при отправке
 
 select-chart-host-only = Толлко хост может выбирать чарт
 select-chart-local = Нельзя выбрать локальный чарт
