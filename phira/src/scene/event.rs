@@ -72,6 +72,8 @@ pub struct EventScene {
 
     icons: Arc<Icons>,
     rank_icons: [SafeTexture; 8],
+
+    last_scroll_handled_touch: bool,
 }
 
 impl EventScene {
@@ -113,6 +115,8 @@ impl EventScene {
 
             icons,
             rank_icons,
+
+            last_scroll_handled_touch: false,
         }
     }
 
@@ -174,10 +178,6 @@ impl Scene for EventScene {
             return Ok(false);
         }
 
-        if self.scroll.touch(touch, t) {
-            self.scrolled = true;
-            return Ok(true);
-        }
         if self.scroll.y_scroller.offset < 0.3 {
             if self.btn_back.touch(touch) {
                 button_hit();
@@ -205,7 +205,20 @@ impl Scene for EventScene {
             }
         }
 
+        if self.last_scroll_handled_touch && self.scroll.touch(touch, t) {
+            self.scrolled = true;
+            return Ok(true);
+        } else {
+            self.last_scroll_handled_touch = false;
+        }
+
         if self.uml.touch(touch, t, rt)? {
+            return Ok(true);
+        }
+
+        if !self.last_scroll_handled_touch && self.scroll.touch(touch, t) {
+            self.scrolled = true;
+            self.last_scroll_handled_touch = true;
             return Ok(true);
         }
 
