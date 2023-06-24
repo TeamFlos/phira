@@ -5,7 +5,7 @@ connect = Se connecter
 connect-must-login = Vous devez vous connecter pour accéder au mode multijoueur
 connect-success = Connecté avec succès
 connect-failed = Échec de connexion
-connect-authorize-failed = Échec d'autorisation
+connect-authenticate-failed = Échec d'autorisation
 
 create-room = Créer une chambre
 create-room-success = Chambre créée

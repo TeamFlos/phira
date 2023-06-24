@@ -5,7 +5,7 @@ connect = Kết nối
 connect-must-login = Cần đăng nhập để vào chế độ đa người chơi
 connect-success = Kết nối thành công
 connect-failed = Kết nối thất bại
-connect-authorize-failed = Ủy quyển thất bại
+connect-authenticate-failed = Ủy quyển thất bại
 
 create-room = Tạo phòng
 create-room-success = Đã tạo phòng

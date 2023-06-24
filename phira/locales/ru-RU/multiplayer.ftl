@@ -4,7 +4,7 @@ connect = Подключиться
 connect-must-login = Войдите в аккаунт что бы использовать мультиплеер
 connect-success = Подключение успешно
 connect-failed = Ошибка подключения
-connect-authorize-failed = Ошибка авторизации
+connect-authenticate-failed = Ошибка авторизации
 
 create-room = Создать комнату
 create-room-success = Комната создана
