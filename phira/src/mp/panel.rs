@@ -172,7 +172,10 @@ impl MPPanel {
         let addr = get_data().config.mp_address.clone();
         self.connect_task = Some(Task::new(async move {
             let client = Client::new(TcpStream::connect(addr).await?).await?;
-            client.authorize(token).await.with_context(|| anyhow!(mtl!("connect-authorize-failed")))?;
+            client
+                .authenticate(token)
+                .await
+                .with_context(|| anyhow!(mtl!("connect-authenticate-failed")))?;
             Ok(client)
         }));
     }
@@ -558,7 +561,7 @@ impl MPPanel {
                     let client = self.clone_client();
                     if let Ok(id) = text.try_into() {
                         self.join_room_task = Some(Task::new(async move {
-                            client.join_room(id).await?;
+                            client.join_room(id, false).await?;
                             client.room_state().await.ok_or_else(|| anyhow!("expected room state"))
                         }));
                     } else {

@@ -5,7 +5,7 @@ connect = Connect
 connect-must-login = You must login to enter multiplayer mode
 connect-success = Connected successfully
 connect-failed = Failed to connect
-connect-authorize-failed = Authorization failed
+connect-authenticate-failed = Authorization failed
 
 create-room = Create Room
 create-room-success = Room created

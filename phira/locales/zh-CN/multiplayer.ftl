@@ -5,7 +5,7 @@ connect = 连接
 connect-must-login = 登录后才能进入多人游戏
 connect-success = 连接成功
 connect-failed = 连接失败
-connect-authorize-failed = 鉴权失败
+connect-authenticate-failed = 鉴权失败
 
 create-room = 创建房间
 create-room-success = 房间已创建
@@ -52,7 +52,7 @@ chat-empty = 消息不能为空
 chat-sent = 已发送
 chat-send-failaed = 消息发送失败
 
-select-chart-host-only = 只有房间主可以选择谱面
+select-chart-host-only = 只有房主可以选择谱面
 select-chart-local = 不能选择本地谱面
 select-chart-failed = 选择谱面失败
 
