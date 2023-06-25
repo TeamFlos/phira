@@ -11,9 +11,9 @@ use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     ext::{semi_black, RectExt},
-    scene::{request_input, return_input, show_error, show_message, take_input, request_password},
+    scene::{request_input, request_password, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Ui},
+    ui::{DRectButton, Dialog, Ui},
 };
 use regex::Regex;
 use std::{borrow::Cow, future::Future};
@@ -218,7 +218,7 @@ impl Login {
                         self.t_pwd.clear();
                         show_message(tl!("action-success", "action" => *action)).ok();
                         if *action == "register" {
-                            show_message(tl!("email-sent"));
+                            Dialog::simple(tl!("email-sent")).show();
                             self.t_reg_email.clear();
                             self.t_reg_name.clear();
                             self.t_reg_pwd.clear();
