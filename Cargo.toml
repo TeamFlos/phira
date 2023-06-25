@@ -3,6 +3,7 @@ members = [
 	"prpr",
 	"phira",
 	"phira-main",
+	"phira-monitor",
 ]
 resolver = "2"
 
