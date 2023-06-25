@@ -10,6 +10,11 @@ about = 關於
 item-lang = 語言
 item-offline = 離線模式
 item-offline-sub = 離線模式下無法上傳成績
+item-mp = 多人遊戲
+item-mp-sub = 啟用多人遊戲
+item-mp-addr = 多人遊戲伺服器
+item-mp-addr-sub = 伺服器地址，'主機位址:埠號'
+item-mp-addr-invalid = 無效的伺服器地址
 item-lowq = 低畫質模式
 item-lowq-sub = 建議在畫面卡頓時啟用
 
