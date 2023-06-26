@@ -37,6 +37,8 @@ edit-saved = Zapisano
 edit-preview-invalid = Zły czas podglądu
 
 edit-upload = Prześlij
+edit-update = Aktualizuj
+
 upload-login-first = Musisz się zalogować
 upload-builtin = Wbudowane beatmapy nie mogą być przesyłane
 upload-downloaded = Pobrane beatmapy nie mogą być przesyłane
