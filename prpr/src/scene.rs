@@ -13,7 +13,7 @@ use crate::{
     ext::{draw_image, poll_future, screen_aspect, LocalTask, SafeTexture, ScaleType},
     judge::Judge,
     time::TimeManager,
-    ui::{BillBoard, Dialog, Message, MessageHandle, MessageKind, Ui},
+    ui::{BillBoard, Dialog, Message, MessageHandle, MessageKind, TextPainter, Ui},
 };
 use anyhow::{Error, Result};
 use cfg_if::cfg_if;
@@ -347,6 +347,7 @@ pub struct Main {
     should_exit: bool,
     pub show_billboard: bool,
     touches: Option<Vec<Touch>>,
+    pub viewport: Option<(i32, i32, i32, i32)>,
 }
 
 impl Main {
@@ -371,6 +372,7 @@ impl Main {
             should_exit: false,
             show_billboard: true,
             touches: None,
+            viewport: None,
         })
     }
 
@@ -423,7 +425,7 @@ impl Main {
                 *self.scenes.last_mut().unwrap() = scene;
             }
         }
-        Judge::on_new_frame();
+        Judge::on_new_frame(self.viewport);
         let mut touches = Judge::get_touches();
         touches.iter_mut().for_each(f);
         if !touches.is_empty() {
@@ -473,34 +475,32 @@ impl Main {
         self.scenes.last_mut().unwrap().update(&mut self.tm)
     }
 
-    pub fn render(&mut self, ui: &mut Ui) -> Result<()> {
+    pub fn render(&mut self, painter: &mut TextPainter) -> Result<()> {
         if self.paused {
             return Ok(());
         }
+        let mut ui = Ui::new(painter, self.viewport);
         ui.set_touches(self.touches.take().unwrap());
         ui.scope(|ui| self.scenes.last_mut().unwrap().render(&mut self.tm, ui))?;
+        push_camera_state();
+        set_camera(&ui.camera());
         if self.show_billboard {
-            push_camera_state();
-            set_camera(&Camera2D {
-                zoom: vec2(1., -screen_width() / screen_height()),
-                ..Default::default()
-            });
             let mut gl = unsafe { get_internal_gl() };
             gl.flush();
-            gl.quad_gl.render_pass(None);
-            gl.quad_gl.viewport(None);
+            // gl.quad_gl.render_pass(None);
+            // gl.quad_gl.viewport(None);
             BILLBOARD.with(|it| {
                 let mut guard = it.borrow_mut();
                 let t = guard.1.now() as f32;
-                guard.0.render(ui, t);
+                guard.0.render(&mut ui, t);
             });
-            pop_camera_state();
         }
         DIALOG.with(|it| {
             if let Some(dialog) = it.borrow_mut().as_mut() {
-                dialog.render(ui, self.tm.now() as _);
+                dialog.render(&mut ui, self.tm.now() as _);
             }
         });
+        pop_camera_state();
         Ok(())
     }
 

@@ -2,7 +2,7 @@ use super::{draw_background, ending::RecordUpdateState, game::GameMode, GameScen
 use crate::{
     config::Config,
     core::{BadNote, Chart, Resource},
-    ext::{poll_future, screen_aspect, semi_black, semi_white, LocalTask, RectExt, SafeTexture, BLACK_TEXTURE},
+    ext::{poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture, BLACK_TEXTURE},
     fs::FileSystem,
     info::ChartInfo,
     judge::Judge,
@@ -159,14 +159,12 @@ impl Scene for LoadingScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        let asp = screen_aspect();
+        let mut cam = ui.camera();
+        let asp = -cam.zoom.y;
         let top = 1. / asp;
         let t = tm.now() as f32;
-        set_camera(&Camera2D {
-            zoom: vec2(1., -asp),
-            render_target: self.target,
-            ..Default::default()
-        });
+        cam.render_target = self.target;
+        set_camera(&cam);
         draw_background(*self.background);
 
         let dx = if t > self.finish_time {

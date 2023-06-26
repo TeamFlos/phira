@@ -12,7 +12,7 @@ use chrono::Utc;
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
-    ext::{screen_aspect, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::{show_error, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -307,10 +307,7 @@ impl Scene for EventScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        set_camera(&Camera2D {
-            zoom: vec2(1., -screen_aspect()),
-            ..Default::default()
-        });
+        set_camera(&ui.camera());
         let t = tm.now() as f32;
         let rt = tm.real_time() as f32;
 

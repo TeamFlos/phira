@@ -10,7 +10,7 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{screen_aspect, RectExt, SafeTexture},
+    ext::{RectExt, SafeTexture},
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -142,10 +142,7 @@ impl Scene for ProfileScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        set_camera(&Camera2D {
-            zoom: vec2(1., -screen_aspect()),
-            ..Default::default()
-        });
+        set_camera(&ui.camera());
         let t = tm.now() as f32;
 
         let r = ui.screen_rect();

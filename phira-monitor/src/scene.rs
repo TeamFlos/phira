@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::Config;
 use anyhow::{Context, Result};
 use log::info;
@@ -7,13 +5,13 @@ use macroquad::prelude::*;
 use phira_mp_client::Client;
 use phira_mp_common::RoomId;
 use prpr::{
-    ext::screen_aspect,
-    scene::{show_error, Scene},
+    scene::{show_error, Scene, show_message},
     task::Task,
     time::TimeManager,
     ui::Ui,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::net::TcpStream;
 
 #[derive(Serialize)]
@@ -86,6 +84,7 @@ impl Scene for MainScene {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
+                        show_message("qwe");
                         show_error(err.context("初始化失败"));
                     }
                     Ok(client) => {
@@ -98,10 +97,7 @@ impl Scene for MainScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        set_camera(&Camera2D {
-            zoom: vec2(1., -screen_aspect()),
-            ..Default::default()
-        });
+        set_camera(&ui.camera());
         let t = tm.now() as f32;
 
         ui.fill_rect(ui.screen_rect(), ui.background());

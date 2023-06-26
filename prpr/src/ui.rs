@@ -23,7 +23,7 @@ pub use glyph_brush::ab_glyph::FontArc;
 
 use crate::{
     core::{Matrix, Point, Vector},
-    ext::{get_viewport, nalgebra_to_glm, screen_aspect, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
+    ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
     scene::{request_input_full, return_input, take_input},
 };
@@ -542,6 +542,7 @@ impl<'a> From<(f32, &'a mut bool)> for InputParams<'a> {
 
 pub struct Ui<'a> {
     pub top: f32,
+    viewport: (i32, i32, i32, i32),
 
     text_painter: &'a mut TextPainter,
 
@@ -556,14 +557,16 @@ pub struct Ui<'a> {
 }
 
 impl<'a> Ui<'a> {
-    pub fn new(text_painter: &'a mut TextPainter) -> Self {
+    pub fn new(text_painter: &'a mut TextPainter, viewport: Option<(i32, i32, i32, i32)>) -> Self {
         unsafe { get_internal_gl() }.quad_context.begin_default_pass(PassAction::Clear {
             depth: None,
             stencil: Some(0),
             color: None,
         });
+        let viewport = viewport.unwrap_or_else(|| (0, 0, screen_width() as i32, screen_height() as i32));
         Self {
-            top: 1. / screen_aspect(),
+            top: viewport.3 as f32 / viewport.2 as f32,
+            viewport,
 
             text_painter,
 
@@ -575,6 +578,14 @@ impl<'a> Ui<'a> {
             fill_options: FillOptions::default(),
             stroke_tess: StrokeTessellator::new(),
             stroke_options: StrokeOptions::default(),
+        }
+    }
+
+    pub fn camera(&self) -> Camera2D {
+        Camera2D {
+            zoom: vec2(1., -self.viewport.2 as f32 / self.viewport.3 as f32),
+            viewport: Some(self.viewport),
+            ..Default::default()
         }
     }
 
@@ -750,7 +761,10 @@ impl<'a> Ui<'a> {
         if let Some(rect) = rect {
             let rect = self.rect_to_global(rect);
             let vp = get_viewport();
-            let pt = (vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32, vp.1 as f32 + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32);
+            let pt = (
+                vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
+                (screen_height() - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
+            );
             gl.scissor(Some((pt.0 as _, pt.1 as _, (rect.w * vp.2 as f32 / 2.) as _, (rect.h * vp.2 as f32 / 2.) as _)));
         } else {
             gl.scissor(None);

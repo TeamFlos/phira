@@ -3,11 +3,12 @@ crate::tl_file!("ending");
 use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{
     config::Config,
-    ext::{create_audio_manger, screen_aspect, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    ext::{create_audio_manger, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
     judge::PlayResult,
     scene::show_message,
     task::Task,
+    time::TimeManager,
     ui::{rounded_rect, rounded_rect_shadow, DRectButton, Dialog, MessageHandle, ShadowConfig, Ui},
 };
 use anyhow::Result;
@@ -142,26 +143,26 @@ thread_local! {
 }
 
 impl Scene for EndingScene {
-    fn enter(&mut self, tm: &mut crate::time::TimeManager, target: Option<RenderTarget>) -> Result<()> {
+    fn enter(&mut self, tm: &mut TimeManager, target: Option<RenderTarget>) -> Result<()> {
         tm.reset();
         tm.seek_to(-0.4);
         self.target = target;
         Ok(())
     }
 
-    fn pause(&mut self, tm: &mut crate::time::TimeManager) -> Result<()> {
+    fn pause(&mut self, tm: &mut TimeManager) -> Result<()> {
         self.bgm.pause()?;
         tm.pause();
         Ok(())
     }
 
-    fn resume(&mut self, tm: &mut crate::time::TimeManager) -> Result<()> {
+    fn resume(&mut self, tm: &mut TimeManager) -> Result<()> {
         self.bgm.play()?;
         tm.resume();
         Ok(())
     }
 
-    fn touch(&mut self, tm: &mut crate::time::TimeManager, touch: &Touch) -> Result<bool> {
+    fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
         if self.btn_retry.touch(touch, t) {
             if self.upload_task.is_some() {
@@ -182,7 +183,7 @@ impl Scene for EndingScene {
         Ok(false)
     }
 
-    fn update(&mut self, tm: &mut crate::time::TimeManager) -> Result<()> {
+    fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         self.audio.recover_if_needed()?;
         if tm.now() >= 0. && self.target.is_none() && self.bgm.paused() {
             self.bgm.play()?;
@@ -219,16 +220,14 @@ impl Scene for EndingScene {
         Ok(())
     }
 
-    fn render(&mut self, tm: &mut crate::time::TimeManager, ui: &mut Ui) -> Result<()> {
-        let asp = screen_aspect();
+    fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
+        let mut cam = ui.camera();
+        let asp = -cam.zoom.y;
         let top = 1. / asp;
         let t = tm.now() as f32;
         let res = &self.result;
-        set_camera(&Camera2D {
-            zoom: vec2(1., -asp),
-            render_target: self.target,
-            ..Default::default()
-        });
+        cam.render_target = self.target;
+        set_camera(&cam);
         draw_background(*self.background);
 
         fn ran(t: f32, l: f32, r: f32) -> f32 {
@@ -395,7 +394,7 @@ impl Scene for EndingScene {
         Ok(())
     }
 
-    fn next_scene(&mut self, _tm: &mut crate::time::TimeManager) -> NextScene {
+    fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
         if self.next != 0 {
             let _ = self.bgm.pause();
         }

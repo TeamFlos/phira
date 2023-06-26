@@ -755,7 +755,9 @@ impl Emitter {
 
         ctx.apply_pipeline(&self.pipeline);
         // This is made
-        let (x, y, w, h) = quad_gl.get_viewport();
+        let (x, y, w, h) = quad_gl
+            .get_viewport()
+            .unwrap_or_else(|| (0, 0, screen_width() as _, screen_height() as _));
         ctx.apply_viewport(x, y, w, h);
     }
 
@@ -771,7 +773,9 @@ impl Emitter {
             }
 
             ctx.apply_pipeline(&self.post_processing_pipeline);
-            let (x, y, w, h) = quad_gl.get_viewport();
+            let (x, y, w, h) = quad_gl
+                .get_viewport()
+                .unwrap_or_else(|| (0, 0, screen_width() as _, screen_height() as _));
             ctx.apply_viewport(x, y, w, h);
 
             ctx.apply_bindings(&self.post_processing_bindings);

@@ -157,15 +157,17 @@ pub fn nalgebra_to_glm(mat: &Matrix) -> Mat4 {
 
 pub fn get_viewport() -> (i32, i32, i32, i32) {
     let gl = unsafe { get_internal_gl() };
-    let that = gl.quad_gl.get_viewport();
-    if that == (0, 0, screen_width() as _, screen_height() as _) {
-        gl.quad_gl.get_active_render_pass().map_or(that, |it| {
-            let tex = it.texture(gl.quad_context);
-            (0, 0, tex.width as i32, tex.height as i32)
-        })
-    } else {
-        that
-    }
+    gl.quad_gl.get_viewport().unwrap_or_else(|| {
+        let (w, h) = gl
+            .quad_gl
+            .get_active_render_pass()
+            .map(|it| {
+                let tex = it.texture(gl.quad_context);
+                (tex.width as i32, tex.height as i32)
+            })
+            .unwrap_or_else(|| (screen_width() as _, screen_height() as _));
+        (0, 0, w, h)
+    })
 }
 
 #[inline]

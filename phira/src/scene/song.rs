@@ -22,7 +22,7 @@ use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
     core::{BadNote, Tweenable, Vector},
-    ext::{screen_aspect, semi_black, semi_white, unzip_into, JoinToString, RectExt, SafeTexture, ScaleType},
+    ext::{semi_black, semi_white, unzip_into, JoinToString, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
     judge::{icon_index, Judge, JudgeStatus},
@@ -1848,10 +1848,7 @@ impl Scene for SongScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        set_camera(&Camera2D {
-            zoom: vec2(1., -screen_aspect()),
-            ..Default::default()
-        });
+        set_camera(&ui.camera());
         let t = tm.now() as f32;
         ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
