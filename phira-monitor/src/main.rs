@@ -4,7 +4,6 @@ use std::fs::File;
 
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
-use phira_mp_common::RoomId;
 use prpr::{
     core::init_assets,
     scene::show_error,
@@ -60,6 +59,7 @@ async fn the_main() -> Result<()> {
     let config: Config = (|| -> Result<Config> { Ok(serde_yaml::from_reader(File::open("monitor-config.yml")?)?) })().context("读取配置失败")?;
 
     let mut main = Main::new(Box::new(MainScene::new(config).await?), TimeManager::default(), None).await?;
+    main.viewport = Some((0, 100, 500, 500));
 
     let tm = TimeManager::default();
     let mut fps_time = -1;
@@ -67,7 +67,7 @@ async fn the_main() -> Result<()> {
         let frame_start = tm.real_time();
         let res = || -> Result<()> {
             main.update()?;
-            main.render(&mut Ui::new(&mut painter))?;
+            main.render(&mut painter)?;
             Ok(())
         }();
         if let Err(err) = res {

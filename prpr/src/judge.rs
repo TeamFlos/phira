@@ -229,7 +229,7 @@ pub struct Judge {
 
 static SUBSCRIBER_ID: Lazy<usize> = Lazy::new(register_input_subscriber);
 thread_local! {
-    static TOUCHES: RefCell<(Vec<Touch>, i32, u32)> = RefCell::default();
+    static TOUCHES: RefCell<(Vec<Touch>, i32, u32, Option<(i32, i32, i32, i32)>)> = RefCell::default();
 }
 
 impl Judge {
@@ -282,21 +282,23 @@ impl Judge {
         self.inner.score()
     }
 
-    pub(crate) fn on_new_frame() {
+    pub(crate) fn on_new_frame(viewport: Option<(i32, i32, i32, i32)>) {
         let mut handler = Handler(Vec::new(), 0, 0);
         repeat_all_miniquad_input(&mut handler, *SUBSCRIBER_ID);
         handler.finalize();
         TOUCHES.with(|it| {
-            *it.borrow_mut() = (handler.0, handler.1, handler.2);
+            *it.borrow_mut() = (handler.0, handler.1, handler.2, viewport);
         });
     }
 
-    fn touch_transform(flip_x: bool) -> impl Fn(&mut Touch) {
-        let vp = get_viewport();
+    fn touch_transform(viewport: Option<(i32, i32, i32, i32)>, flip_x: bool) -> impl Fn(&mut Touch) {
+        let vp = viewport.unwrap_or_else(|| (0, 0, screen_width() as _, screen_height() as _));
         move |touch| {
             let p = touch.position;
-            touch.position =
-                vec2((p.x - vp.0 as f32) / vp.2 as f32 * 2. - 1., ((p.y - vp.1 as f32) / vp.3 as f32 * 2. - 1.) / (vp.2 as f32 / vp.3 as f32));
+            touch.position = vec2(
+                (p.x - vp.0 as f32) / vp.2 as f32 * 2. - 1.,
+                ((p.y - (screen_height() - (vp.1 + vp.3) as f32)) / vp.3 as f32 * 2. - 1.) / (vp.2 as f32 / vp.3 as f32),
+            );
             if flip_x {
                 touch.position.x *= -1.;
             }
@@ -305,8 +307,9 @@ impl Judge {
 
     pub fn get_touches() -> Vec<Touch> {
         TOUCHES.with(|it| {
-            let tr = Self::touch_transform(false);
-            it.borrow()
+            let guard = it.borrow();
+            let tr = Self::touch_transform(guard.3, false);
+            guard
                 .0
                 .iter()
                 .cloned()
@@ -360,7 +363,7 @@ impl Judge {
                     time: f64::NEG_INFINITY,
                 });
             }
-            let tr = Self::touch_transform(res.config.flip_x());
+            let tr = Self::touch_transform(TOUCHES.with(|it| it.borrow().3), res.config.flip_x());
             touches
                 .into_iter()
                 .map(|mut it| {

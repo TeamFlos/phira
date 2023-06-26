@@ -11,7 +11,7 @@ use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
 use prpr::{
     core::ResPackInfo,
-    ext::{screen_aspect, unzip_into, RectExt, SafeTexture},
+    ext::{unzip_into, RectExt, SafeTexture},
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -370,10 +370,7 @@ impl Scene for MainScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        set_camera(&Camera2D {
-            zoom: vec2(1., -screen_aspect()),
-            ..Default::default()
-        });
+        set_camera(&ui.camera());
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
         let s = &mut self.state;
         s.update(tm);

@@ -26,7 +26,7 @@ use prpr::{
     l10n::{set_prefered_locale, GLOBAL, LANGS},
     scene::show_error,
     time::TimeManager,
-    ui::{FontArc, TextPainter, Ui},
+    ui::{FontArc, TextPainter},
     Main,
 };
 use scene::MainScene;
@@ -180,7 +180,7 @@ async fn the_main() -> Result<()> {
         let frame_start = tm.real_time();
         let res = || -> Result<()> {
             main.update()?;
-            main.render(&mut Ui::new(&mut painter))?;
+            main.render(&mut painter)?;
             if let Ok(paused) = rx.try_recv() {
                 if paused {
                     main.pause()?;
