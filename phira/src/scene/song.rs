@@ -22,13 +22,13 @@ use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
     core::{BadNote, Tweenable, Vector},
-    ext::{semi_black, semi_white, unzip_into, JoinToString, RectExt, SafeTexture, ScaleType},
+    ext::{poll_future, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
     judge::{icon_index, Judge, JudgeStatus},
     scene::{
-        load_scene, loading_scene, request_input, return_input, show_error, show_message, take_input, take_loaded_scene, BasicPlayer, GameMode,
-        LoadingScene, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn,
+        request_input, return_input, show_error, show_message, take_input, BasicPlayer, GameMode, LoadingScene, LocalSceneTask, NextScene,
+        RecordUpdateState, Scene, SimpleRecord, UpdateFn,
     },
     task::Task,
     time::TimeManager,
@@ -41,6 +41,7 @@ use serde_json::json;
 use std::{
     any::Any,
     borrow::Cow,
+    collections::VecDeque,
     fs::File,
     io::{Cursor, Write},
     path::Path,
@@ -263,6 +264,8 @@ pub struct SongScene {
 
     stabilize_task: Option<Task<Result<()>>>,
     should_stabilize: Arc<AtomicBool>,
+
+    scene_task: LocalTask<Result<NextScene>>,
 }
 
 impl SongScene {
@@ -419,6 +422,8 @@ impl SongScene {
 
             stabilize_task: None,
             should_stabilize: Arc::default(),
+
+            scene_task: None,
         }
     }
 
@@ -617,10 +622,18 @@ impl SongScene {
     }
 
     fn launch(&mut self, mode: GameMode) -> Result<()> {
-        Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None)
+        self.scene_task = Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None)?;
+        Ok(())
     }
 
-    pub fn global_launch(id: Option<i32>, local_path: &str, mods: Mods, mode: GameMode, client: Option<Arc<phira_mp_client::Client>>) -> Result<()> {
+    #[must_use]
+    pub fn global_launch(
+        id: Option<i32>,
+        local_path: &str,
+        mods: Mods,
+        mode: GameMode,
+        client: Option<(Arc<phira_mp_client::Client>, Option<i32>)>,
+    ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         #[cfg(feature = "closed")]
         let rated = {
@@ -632,15 +645,15 @@ impl SongScene {
         if !rated && id.is_some() && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
-        let update_fn = client.map(|client| {
+        let update_fn = client.map(|(client, player)| {
             let live = client.blocking_state().unwrap().live;
             let update_fn: UpdateFn = Box::new({
-                let mut touches: Vec<TouchFrame> = Vec::new();
-                let mut judges: Vec<JudgeEvent> = Vec::new();
-                move |t, watch, res, chart, judge, touch_points, bad_notes| {
-                    if !watch && live {
-                        if touches.last().map_or(true, |it| it.time + 1. / 20. < t) {
-                            touches.push(TouchFrame {
+                let mut touches: VecDeque<TouchFrame> = VecDeque::new();
+                let mut judges: VecDeque<JudgeEvent> = VecDeque::new();
+                move |t, res, chart, judge, touch_points, bad_notes| {
+                    if player.is_none() && live {
+                        if touches.back().map_or(true, |it| it.time + 1. / 20. < t) {
+                            touches.push_back(TouchFrame {
                                 time: t,
                                 points: Judge::get_touches()
                                     .into_iter()
@@ -648,8 +661,8 @@ impl SongScene {
                                     .collect(),
                             });
                         }
-                        if touches.len() > 20 || touches.first().map_or(false, |it| it.time + 1. < t) {
-                            let frames = Arc::new(std::mem::take(&mut touches));
+                        if touches.len() > 20 || touches.front().map_or(false, |it| it.time + 1. < t) {
+                            let frames = Arc::new(touches.drain(..).collect());
                             client.blocking_send(ClientCommand::Touches { frames }).unwrap();
                         }
                         judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
@@ -669,21 +682,21 @@ impl SongScene {
                                 }
                             },
                         }));
-                        if judges.len() > 10 || judges.first().map_or(false, |it| it.time + 0.6 < t) {
-                            let judges = Arc::new(std::mem::take(&mut judges));
+                        if judges.len() > 10 || judges.front().map_or(false, |it| it.time + 0.6 < t) {
+                            let judges = Arc::new(judges.drain(..).collect());
                             client.blocking_send(ClientCommand::Judges { judges }).unwrap();
                         }
                     }
-                    if watch {
+                    if let Some(player) = player {
                         {
-                            let mut frames = client.touch_frames();
+                            touches.extend(client.live_player(player).touch_frames.blocking_lock().drain(..));
                             let mut updated = false;
-                            while frames.front().map_or(false, |it| it.time < t) {
-                                frames.pop_front();
+                            while touches.front().map_or(false, |it| it.time < t) {
+                                touches.pop_front();
                                 updated = true;
                             }
                             if updated {
-                                if let Some(frame) = frames.front() {
+                                if let Some(frame) = touches.front() {
                                     *touch_points = frame.points.iter().map(|it| (it.x(), it.y())).collect();
                                 } else {
                                     touch_points.clear();
@@ -691,7 +704,7 @@ impl SongScene {
                             }
                         }
                         {
-                            let mut judges = client.judge_events();
+                            judges.extend(client.live_player(player).judge_events.blocking_lock().drain(..));
                             while let Some(event) = judges.front() {
                                 if event.time > t {
                                     break;
@@ -760,7 +773,7 @@ impl SongScene {
             });
             update_fn
         });
-        load_scene(async move {
+        Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
             let mut config = get_data().config.clone();
@@ -789,7 +802,6 @@ impl SongScene {
                     id: it.id,
                     rks: it.rks,
                 }),
-                None,
                 Some(Arc::new(move |data| {
                     Task::new(async move {
                         #[derive(Serialize)]
@@ -831,8 +843,8 @@ impl SongScene {
                 update_fn,
             )
             .await
-        });
-        Ok(())
+            .map(|it| NextScene::Overlay(Box::new(it)))
+        })))
     }
 
     fn is_owner(&self) -> bool {
@@ -1199,7 +1211,7 @@ impl Scene for SongScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
-        if loading_scene()
+        if self.scene_task.is_some()
             || self.save_task.is_some()
             || self.upload_task.is_some()
             || self.review_task.is_some()
@@ -1325,6 +1337,12 @@ impl Scene for SongScene {
             self.side_enter_time = tm.real_time() as _;
             return Ok(true);
         }
+        if let Some(task) = &mut self.scene_task {
+            if let Some(res) = poll_future(task.as_mut()) {
+                self.next_scene = Some(res?);
+                self.scene_task = None;
+            }
+        }
         Ok(false)
     }
 
@@ -1439,22 +1457,25 @@ impl Scene for SongScene {
                 self.downloading = None;
             }
         }
-        if let Some(res) = take_loaded_scene() {
-            match res {
-                Err(err) => {
-                    let error = format!("{err:?}");
-                    Dialog::plain(tl!("failed-to-play"), error)
-                        .buttons(vec![tl!("play-cancel").to_string(), tl!("play-switch-to-offline").to_string()])
-                        .listener(move |pos| {
-                            if pos == 1 {
-                                get_data_mut().config.offline_mode = true;
-                                let _ = save_data();
-                                show_message(tl!("switched-to-offline")).ok();
-                            }
-                        })
-                        .show();
+        if let Some(task) = &mut self.scene_task {
+            if let Some(res) = poll_future(task.as_mut()) {
+                match res {
+                    Err(err) => {
+                        let error = format!("{err:?}");
+                        Dialog::plain(tl!("failed-to-play"), error)
+                            .buttons(vec![tl!("play-cancel").to_string(), tl!("play-switch-to-offline").to_string()])
+                            .listener(move |pos| {
+                                if pos == 1 {
+                                    get_data_mut().config.offline_mode = true;
+                                    let _ = save_data();
+                                    show_message(tl!("switched-to-offline")).ok();
+                                }
+                            })
+                            .show();
+                    }
+                    Ok(scene) => self.next_scene = Some(scene),
                 }
-                Ok(scene) => self.next_scene = Some(scene),
+                self.scene_task = None;
             }
         }
         if let Some(task) = &mut self.fetch_best_task {
