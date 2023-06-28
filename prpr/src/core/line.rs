@@ -48,6 +48,7 @@ pub enum JudgeLineKind {
     Paint(Anim<f32>, RefCell<(Option<RenderPass>, bool)>),
 }
 
+#[derive(Clone)]
 pub struct JudgeLineCache {
     update_order: Vec<u32>,
     not_plain_count: usize,

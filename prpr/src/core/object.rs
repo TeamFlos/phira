@@ -70,7 +70,7 @@ impl Object {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CtrlObject {
     pub alpha: AnimFloat,
     pub size: AnimFloat,

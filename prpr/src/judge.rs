@@ -1,7 +1,7 @@
 use crate::{
     config::Config,
     core::{BadNote, Chart, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
-    ext::{get_viewport, NotNanExt},
+    ext::NotNanExt,
 };
 use macroquad::prelude::{
     utils::{register_input_subscriber, repeat_all_miniquad_input},
