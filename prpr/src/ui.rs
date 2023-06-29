@@ -542,9 +542,9 @@ impl<'a> From<(f32, &'a mut bool)> for InputParams<'a> {
 
 pub struct Ui<'a> {
     pub top: f32,
-    viewport: (i32, i32, i32, i32),
+    pub viewport: (i32, i32, i32, i32),
 
-    text_painter: &'a mut TextPainter,
+    pub text_painter: &'a mut TextPainter,
 
     model_stack: Vec<Matrix>,
     touches: Option<Vec<Touch>>,

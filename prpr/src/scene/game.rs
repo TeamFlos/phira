@@ -101,6 +101,7 @@ pub enum GameMode {
     TweakOffset,
     Exercise,
     NoRetry,
+    View,
 }
 
 #[derive(Clone)]
@@ -124,7 +125,6 @@ pub struct GameScene {
     chart_bytes: Vec<u8>,
     chart_format: ChartFormat,
     info_offset: f32,
-    compatible_mode: bool,
     effects: Vec<Effect>,
 
     first_in: bool,
@@ -134,14 +134,12 @@ pub struct GameScene {
 
     pub music: Music,
 
-    get_size_fn: Rc<dyn Fn() -> (u32, u32)>,
-
     state: State,
     last_update_time: f64,
     pause_rewind: Option<f64>,
     pause_first_time: f32,
 
-    bad_notes: Vec<BadNote>,
+    pub bad_notes: Vec<BadNote>,
 
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
@@ -238,7 +236,6 @@ impl GameScene {
         player: Option<BasicPlayer>,
         background: SafeTexture,
         illustration: SafeTexture,
-        get_size_fn: Rc<dyn Fn() -> (u32, u32)>,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
 
@@ -292,7 +289,6 @@ impl GameScene {
             player,
             chart_bytes,
             chart_format,
-            compatible_mode: false,
             effects,
             info_offset,
 
@@ -302,8 +298,6 @@ impl GameScene {
             exercise_btns: (RectButton::new(), RectButton::new()),
 
             music,
-
-            get_size_fn,
 
             state: State::Starting,
             last_update_time: 0.,
@@ -890,7 +884,7 @@ impl Scene for GameScene {
                         })
                     };
                     self.next_scene = match self.mode {
-                        GameMode::Normal | GameMode::NoRetry => Some(NextScene::Overlay(Box::new(EndingScene::new(
+                        GameMode::Normal | GameMode::NoRetry | GameMode::View => Some(NextScene::Overlay(Box::new(EndingScene::new(
                             self.res.background.clone(),
                             self.res.illustration.clone(),
                             self.res.player.clone(),
@@ -919,15 +913,13 @@ impl Scene for GameScene {
         };
         let time = (time - offset).max(0.);
         self.res.time = time;
-        if !tm.paused() && self.pause_rewind.is_none() {
+        if !tm.paused() && self.pause_rewind.is_none() && self.mode != GameMode::View {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
-            // if !self.res.config.autoplay() {
             self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
-            // }
             self.gl.quad_gl.viewport(None);
         }
         if let Some(update) = &mut self.update_fn {
-            update(self.res.time, false, &mut self.res, &mut self.chart, &mut self.judge, &mut self.touch_points, &mut self.bad_notes);
+            update(self.res.time, &mut self.res, &mut self.chart, &mut self.judge, &mut self.touch_points, &mut self.bad_notes);
         }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 {
@@ -1028,9 +1020,8 @@ impl Scene for GameScene {
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         let res = &mut self.res;
-        let asp = screen_aspect();
-        let dim = (self.get_size_fn)();
-        if res.update_size(dim) {
+        let asp = ui.viewport.2 as f32 / ui.viewport.3 as f32;
+        if res.update_size(ui.viewport) || self.mode == GameMode::View {
             set_camera(&res.camera);
         }
 
@@ -1042,9 +1033,9 @@ impl Scene for GameScene {
             .map(|it| if msaa { it.input() } else { it.output() })
             .or(res.camera.render_target);
         push_camera_state();
-        self.gl.quad_gl.viewport(None);
         set_camera(&Camera2D {
-            zoom: vec2(1., -screen_aspect()),
+            zoom: vec2(1., -asp),
+            viewport: if res.chart_target.is_some() { None } else { Some(ui.viewport) },
             render_target: chart_onto,
             ..Default::default()
         });
@@ -1052,8 +1043,14 @@ impl Scene for GameScene {
         draw_background(*res.background);
         pop_camera_state();
 
+        let chart_target_vp = if res.chart_target.is_some() {
+            let vp = res.camera.viewport.unwrap();
+            Some((vp.0 - ui.viewport.0, vp.1 - ui.viewport.1, vp.2, vp.3))
+        } else {
+            res.camera.viewport
+        };
         self.gl.quad_gl.render_pass(chart_onto.map(|it| it.render_pass));
-        self.gl.quad_gl.viewport(res.camera.viewport);
+        self.gl.quad_gl.viewport(chart_target_vp);
 
         let h = 1. / res.aspect_ratio;
         draw_rectangle(-1., -h, 2., h * 2., Color::new(0., 0., 0., res.alpha * res.info.background_dim));
@@ -1092,6 +1089,7 @@ impl Scene for GameScene {
             push_camera_state();
             set_camera(&Camera2D {
                 zoom: vec2(1., asp),
+                viewport: chart_target_vp,
                 ..Default::default()
             });
             for e in &self.effects {
@@ -1101,41 +1099,27 @@ impl Scene for GameScene {
         }
         if msaa || !self.res.no_effect {
             // render the texture onto screen
-            self.compatible_mode = true;
             if let Some(target) = &self.res.chart_target {
                 self.gl.flush();
-                if !self.compatible_mode
-                    && !copy_fbo(
-                        target.output().render_pass.gl_internal_id(self.gl.quad_context),
-                        self.res
-                            .camera
-                            .render_target
-                            .map_or(0, |it| it.render_pass.gl_internal_id(self.gl.quad_context)),
-                        dim,
-                    )
-                {
-                    self.compatible_mode = true;
-                }
-                if self.compatible_mode {
-                    push_camera_state();
-                    self.gl.quad_gl.viewport(None);
-                    set_camera(&Camera2D {
-                        zoom: vec2(1., screen_aspect()),
-                        render_target: self.res.camera.render_target,
+                push_camera_state();
+                self.gl.quad_gl.viewport(None);
+                set_camera(&Camera2D {
+                    zoom: vec2(1., asp),
+                    render_target: self.res.camera.render_target,
+                    viewport: Some(ui.viewport),
+                    ..Default::default()
+                });
+                draw_texture_ex(
+                    target.output().texture,
+                    -1.,
+                    -ui.top,
+                    WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(vec2(2., ui.top * 2.)),
                         ..Default::default()
-                    });
-                    draw_texture_ex(
-                        target.output().texture,
-                        -1.,
-                        -ui.top,
-                        WHITE,
-                        DrawTextureParams {
-                            dest_size: Some(vec2(2., ui.top * 2.)),
-                            ..Default::default()
-                        },
-                    );
-                    pop_camera_state();
-                }
+                    },
+                );
+                pop_camera_state();
             }
         }
         Ok(())
@@ -1149,7 +1133,7 @@ impl Scene for GameScene {
             tm.speed = 1.0;
             tm.adjust_time = false;
             match self.mode {
-                GameMode::Normal | GameMode::Exercise | GameMode::NoRetry => NextScene::Pop,
+                GameMode::Normal | GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),
             }
         } else if let Some(next_scene) = self.next_scene.take() {

@@ -10,7 +10,7 @@ mod loading;
 pub use loading::{BasicPlayer, LoadingScene, UpdateFn, UploadFn};
 
 use crate::{
-    ext::{draw_image, poll_future, screen_aspect, LocalTask, SafeTexture, ScaleType},
+    ext::{draw_image, screen_aspect, LocalTask, SafeTexture, ScaleType},
     judge::Judge,
     time::TimeManager,
     ui::{BillBoard, Dialog, Message, MessageHandle, MessageKind, TextPainter, Ui},
@@ -18,7 +18,7 @@ use crate::{
 use anyhow::{Error, Result};
 use cfg_if::cfg_if;
 use macroquad::prelude::*;
-use std::{any::Any, cell::RefCell, future::Future, sync::Mutex};
+use std::{any::Any, cell::RefCell, sync::Mutex};
 
 #[derive(Default)]
 pub enum NextScene {
@@ -345,7 +345,7 @@ pub struct Main {
     paused: bool,
     last_update_time: f64,
     should_exit: bool,
-    pub show_billboard: bool,
+    pub toplevel: bool,
     touches: Option<Vec<Touch>>,
     pub viewport: Option<(i32, i32, i32, i32)>,
 }
@@ -370,7 +370,7 @@ impl Main {
             paused: false,
             last_update_time,
             should_exit: false,
-            show_billboard: true,
+            toplevel: true,
             touches: None,
             viewport: None,
         })
@@ -482,9 +482,9 @@ impl Main {
         let mut ui = Ui::new(painter, self.viewport);
         ui.set_touches(self.touches.take().unwrap());
         ui.scope(|ui| self.scenes.last_mut().unwrap().render(&mut self.tm, ui))?;
-        push_camera_state();
-        set_camera(&ui.camera());
-        if self.show_billboard {
+        if self.toplevel {
+            push_camera_state();
+            set_camera(&ui.camera());
             let mut gl = unsafe { get_internal_gl() };
             gl.flush();
             // gl.quad_gl.render_pass(None);
@@ -494,13 +494,13 @@ impl Main {
                 let t = guard.1.now() as f32;
                 guard.0.render(&mut ui, t);
             });
+            DIALOG.with(|it| {
+                if let Some(dialog) = it.borrow_mut().as_mut() {
+                    dialog.render(&mut ui, self.tm.now() as _);
+                }
+            });
+            pop_camera_state();
         }
-        DIALOG.with(|it| {
-            if let Some(dialog) = it.borrow_mut().as_mut() {
-                dialog.render(&mut ui, self.tm.now() as _);
-            }
-        });
-        pop_camera_state();
         Ok(())
     }
 
@@ -526,29 +526,4 @@ fn draw_background(tex: Texture2D) {
     draw_rectangle(-1., -top, 2., top * 2., Color::new(0., 0., 0., 0.3));
 }
 
-thread_local! {
-    static LOAD_SCENE_TASK: RefCell<LocalTask<Result<NextScene>>> = RefCell::new(None);
-}
-
-pub fn load_scene<T: Scene + 'static>(future: impl Future<Output = Result<T>> + 'static) {
-    LOAD_SCENE_TASK.with(|it| *it.borrow_mut() = Some(Box::pin(async move { future.await.map(|scene| NextScene::Overlay(Box::new(scene))) })));
-}
-
-pub fn loading_scene() -> bool {
-    LOAD_SCENE_TASK.with(|it| it.borrow().is_some())
-}
-
-pub fn take_loaded_scene() -> Option<Result<NextScene>> {
-    LOAD_SCENE_TASK.with(|it| {
-        let mut guard = it.borrow_mut();
-        if let Some(task) = guard.as_mut() {
-            let res = poll_future(task.as_mut());
-            if res.is_some() {
-                *guard = None;
-            }
-            res
-        } else {
-            None
-        }
-    })
-}
+pub type LocalSceneTask = LocalTask<Result<NextScene>>;

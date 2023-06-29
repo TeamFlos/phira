@@ -12,9 +12,9 @@ use phira_mp_common::{RoomId, RoomState};
 use prpr::{
     config::Mods,
     core::Tweenable,
-    ext::{semi_black, semi_white, RectExt},
+    ext::{poll_future, semi_black, semi_white, LocalTask, RectExt},
     info::ChartInfo,
-    scene::{loading_scene, request_input, return_input, show_error, show_message, take_input, take_loaded_scene, GameMode, NextScene},
+    scene::{request_input, return_input, show_error, show_message, take_input, GameMode, NextScene},
     task::Task,
     time::TimeManager,
     ui::{DRectButton, DrawText},
@@ -99,6 +99,8 @@ pub struct MPPanel {
     next_scene: Option<NextScene>,
 
     task: Option<Task<Result<()>>>,
+
+    scene_task: LocalTask<Result<NextScene>>,
 }
 
 impl MPPanel {
@@ -148,6 +150,8 @@ impl MPPanel {
             next_scene: None,
 
             task: None,
+
+            scene_task: None,
         }
     }
 
@@ -161,7 +165,7 @@ impl MPPanel {
             || self.chat_task.is_some()
             || self.download_task.is_some()
             || self.task.is_some()
-            || loading_scene()
+            || self.scene_task.is_some()
     }
 
     fn connect(&mut self) {
@@ -346,6 +350,11 @@ impl MPPanel {
                     return true;
                 }
             }
+            if client.ping_fail_count() >= 2 && self.connect_task.is_none() {
+                warn!("lost connection, reconnecting…");
+                show_message(mtl!("reconnect")).warn();
+                self.connect();
+            }
         }
         true
     }
@@ -366,47 +375,47 @@ impl MPPanel {
                 use phira_mp_common::Message as M;
                 match msg {
                     M::Chat { user, content, .. } => Message {
-                        content: format!("{user}：{content}"),
+                        content: format!("{}：{content}", client.user_name(user)),
                         y: 0.,
                         bottom: 0.,
                         color: WHITE,
                     },
-                    _ => {
+                    msg => {
                         let content = match msg {
                             M::Chat { .. } => unreachable!(),
                             M::CreateRoom { user } => {
-                                mtl!("msg-create-room", "user" => user)
+                                mtl!("msg-create-room", "user" => client.user_name(user))
                             }
                             M::JoinRoom { user } => {
-                                mtl!("msg-join-room", "user" => user)
+                                mtl!("msg-join-room", "user" => client.user_name(user))
                             }
                             M::LeaveRoom { user } => {
-                                mtl!("msg-leave-room", "user" => user)
+                                mtl!("msg-leave-room", "user" => client.user_name_opt(user).unwrap_or_else(|| client.me().unwrap().name))
                             }
                             M::NewHost { user } => {
-                                mtl!("msg-new-host", "user" => user)
+                                mtl!("msg-new-host", "user" => client.user_name(user))
                             }
                             M::SelectChart { user, name, id } => {
-                                mtl!("msg-select-chart", "user" => user, "chart" => name, "id" => id)
+                                mtl!("msg-select-chart", "user" => client.user_name(user), "chart" => name, "id" => id)
                             }
                             M::GameStart { user } => {
-                                mtl!("msg-game-start", "user" => user)
+                                mtl!("msg-game-start", "user" => client.user_name(user))
                             }
                             M::Ready { user } => {
-                                mtl!("msg-ready", "user" => user)
+                                mtl!("msg-ready", "user" => client.user_name(user))
                             }
                             M::CancelReady { user } => {
-                                mtl!("msg-cancel-ready", "user" => user)
+                                mtl!("msg-cancel-ready", "user" => client.user_name(user))
                             }
                             M::CancelGame { user } => {
-                                mtl!("msg-cancel-game", "user" => user)
+                                mtl!("msg-cancel-game", "user" => client.user_name(user))
                             }
                             M::StartPlaying => mtl!("msg-start-playing").into_owned(),
                             M::Played { user, score, accuracy, full_combo } => {
-                                mtl!("msg-played", "user" => user, "score" => format!("{score:07}"), "accuracy" => format!("{:.2}%", accuracy * 100.), "full-combo" => full_combo.to_string())
+                                mtl!("msg-played", "user" => client.user_name(user), "score" => format!("{score:07}"), "accuracy" => format!("{:.2}%", accuracy * 100.), "full-combo" => full_combo.to_string())
                             }
                             M::GameEnd => mtl!("msg-game-end").into_owned(),
-                            M::Abort { user } => mtl!("msg-abort", "user" => user),
+                            M::Abort { user } => mtl!("msg-abort", "user" => client.user_name(user)),
                             M::LockRoom { lock } => mtl!("msg-room-lock", "lock" => lock.to_string()),
                             M::CycleRoom { cycle } => mtl!("msg-room-cycle", "cycle" => cycle.to_string()),
                         };
@@ -427,12 +436,12 @@ impl MPPanel {
                     RECORD_ID.store(-1, Ordering::Relaxed);
                     self.need_upload = true;
                     self.entered = false;
-                    SongScene::global_launch(
+                    self.scene_task = SongScene::global_launch(
                         Some(id),
                         &format!("download/{id}"),
                         Mods::default(),
                         GameMode::NoRetry,
-                        self.client.as_ref().map(Arc::clone),
+                        self.client.as_ref().map(|it| (Arc::clone(it), None)),
                     )?;
                 }
             } else {
@@ -571,12 +580,15 @@ impl MPPanel {
                 _ => return_input(id, text),
             }
         }
-        if let Some(res) = take_loaded_scene() {
-            match res {
-                Err(err) => {
-                    show_error(err);
+        if let Some(task) = &mut self.scene_task {
+            if let Some(res) = poll_future(task.as_mut()) {
+                match res {
+                    Err(err) => {
+                        show_error(err);
+                    }
+                    Ok(scene) => self.next_scene = Some(scene),
                 }
-                Ok(scene) => self.next_scene = Some(scene),
+                self.scene_task = None;
             }
         }
         if self.need_upload && self.entered {
