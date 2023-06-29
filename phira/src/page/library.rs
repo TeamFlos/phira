@@ -240,9 +240,11 @@ impl LibraryPage {
     }
 
     fn sync_local(&mut self, s: &SharedState) {
-        self.charts_view.can_refresh = false;
-        self.charts_view
-            .set(s.t, s.charts_local.iter().map(|it| ChartDisplayItem::new(it.clone(), None)).collect());
+        if self.chosen == ChartListType::Local {
+            self.charts_view.can_refresh = false;
+            self.charts_view
+                .set(s.t, s.charts_local.iter().map(|it| ChartDisplayItem::new(it.clone(), None)).collect());
+        }
     }
 }
 
