@@ -14,6 +14,9 @@ pub mod task;
 pub mod time;
 pub mod ui;
 
+#[cfg(feature = "log")]
+pub mod log;
+
 #[cfg(feature = "closed")]
 pub mod inner;
 

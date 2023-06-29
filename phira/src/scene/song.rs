@@ -21,11 +21,11 @@ use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::{BadNote, Tweenable, Vector},
+    core::Tweenable,
     ext::{poll_future, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
-    judge::{icon_index, Judge, JudgeStatus},
+    judge::{icon_index, Judge},
     scene::{
         request_input, return_input, show_error, show_message, take_input, BasicPlayer, GameMode, LoadingScene, LocalSceneTask, NextScene,
         RecordUpdateState, Scene, SimpleRecord, UpdateFn,
@@ -41,7 +41,7 @@ use serde_json::json;
 use std::{
     any::Any,
     borrow::Cow,
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     fs::File,
     io::{Cursor, Write},
     path::Path,
@@ -51,6 +51,7 @@ use std::{
     },
     thread_local,
 };
+use tokio::net::TcpStream;
 use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
@@ -632,7 +633,7 @@ impl SongScene {
         local_path: &str,
         mods: Mods,
         mode: GameMode,
-        client: Option<(Arc<phira_mp_client::Client>, Option<i32>)>,
+        client: Option<Arc<phira_mp_client::Client>>,
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         #[cfg(feature = "closed")]
@@ -645,23 +646,62 @@ impl SongScene {
         if !rated && id.is_some() && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
-        let update_fn = client.map(|(client, player)| {
+        let update_fn = client.and_then(|mut client| {
             let live = client.blocking_state().unwrap().live;
-            let update_fn: UpdateFn = Box::new({
-                let mut touches: VecDeque<TouchFrame> = VecDeque::new();
-                let mut judges: VecDeque<JudgeEvent> = VecDeque::new();
-                move |t, res, chart, judge, touch_points, bad_notes| {
-                    if player.is_none() && live {
-                        if touches.back().map_or(true, |it| it.time + 1. / 20. < t) {
-                            touches.push_back(TouchFrame {
-                                time: t,
-                                points: Judge::get_touches()
-                                    .into_iter()
-                                    .map(|it| CompactPos::new(it.position.x, it.position.y))
-                                    .collect(),
-                            });
+            let token = get_data().tokens.as_ref().map(|it| it.0.clone()).unwrap();
+            let addr = get_data().config.mp_address.clone();
+            let mut reconnect_task: Option<Task<Result<phira_mp_client::Client>>> = None;
+            let update_fn: Option<UpdateFn> = if live {
+                Some(Box::new({
+                    let mut touch_last_update: HashMap<i8, f32> = HashMap::new();
+                    let mut touches: VecDeque<TouchFrame> = VecDeque::new();
+                    let mut judges: VecDeque<JudgeEvent> = VecDeque::new();
+                    move |t, judge| {
+                        if client.ping_fail_count() >= 1 && reconnect_task.is_none() {
+                            warn!("lost connection, auto re-connect");
+                            let token = token.clone();
+                            let addr = addr.clone();
+                            reconnect_task = Some(Task::new(async move {
+                                let client = phira_mp_client::Client::new(TcpStream::connect(addr).await?).await?;
+                                client.authenticate(token).await?;
+                                Ok(client)
+                            }));
                         }
-                        if touches.len() > 20 || touches.front().map_or(false, |it| it.time + 1. < t) {
+                        if let Some(task) = &mut reconnect_task {
+                            if let Some(res) = task.take() {
+                                match res {
+                                    Err(err) => {
+                                        warn!("failed to reconnect: {:?}", err);
+                                    }
+                                    Ok(new) => {
+                                        warn!("reconnected!");
+                                        client = new.into();
+                                    }
+                                }
+                                reconnect_task = None;
+                            }
+                        }
+                        let points: Vec<_> = Judge::get_touches()
+                            .into_iter()
+                            .filter_map(|it| {
+                                if matches!(it.phase, TouchPhase::Stationary) {
+                                    return None;
+                                }
+                                let mut id: i8 = it.id.try_into().ok()?;
+                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).map_or(false, |it| *it + 1. / 20. >= t) {
+                                    return None;
+                                }
+                                touch_last_update.insert(id, t);
+                                if matches!(it.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                                    id = !id;
+                                }
+                                Some((id, CompactPos::new(it.position.x, it.position.y)))
+                            })
+                            .collect();
+                        if !points.is_empty() {
+                            touches.push_back(TouchFrame { time: t, points });
+                        }
+                        if touches.front().map_or(false, |it| it.time + 1. < t) {
                             let frames = Arc::new(touches.drain(..).collect());
                             client.blocking_send(ClientCommand::Touches { frames }).unwrap();
                         }
@@ -687,90 +727,10 @@ impl SongScene {
                             client.blocking_send(ClientCommand::Judges { judges }).unwrap();
                         }
                     }
-                    if let Some(player) = player {
-                        {
-                            touches.extend(client.live_player(player).touch_frames.blocking_lock().drain(..));
-                            let mut updated = false;
-                            while touches.front().map_or(false, |it| it.time < t) {
-                                touches.pop_front();
-                                updated = true;
-                            }
-                            if updated {
-                                if let Some(frame) = touches.front() {
-                                    *touch_points = frame.points.iter().map(|it| (it.x(), it.y())).collect();
-                                } else {
-                                    touch_points.clear();
-                                }
-                            }
-                        }
-                        {
-                            judges.extend(client.live_player(player).judge_events.blocking_lock().drain(..));
-                            while let Some(event) = judges.front() {
-                                if event.time > t {
-                                    break;
-                                }
-                                let Some(event) = judges.pop_front() else { unreachable!() };
-                                use phira_mp_common::Judgement::*;
-                                use prpr::judge::Judgement as TJ;
-                                let kind = match event.judgement {
-                                    Perfect => Ok(TJ::Perfect),
-                                    Good => Ok(TJ::Good),
-                                    Bad => Ok(TJ::Bad),
-                                    Miss => Ok(TJ::Miss),
-                                    HoldPerfect => Err(true),
-                                    HoldGood => Err(false),
-                                };
-                                let note = &mut chart.lines[event.line_id as usize].notes[event.note_id as usize];
-                                match kind {
-                                    Ok(tj) => {
-                                        note.judge = JudgeStatus::Judged;
-                                        let line = &chart.lines[event.line_id as usize];
-                                        let line_tr = line.now_transform(res, &chart.lines);
-                                        let note = &line.notes[event.note_id as usize];
-                                        judge.commit(t, tj, event.line_id, event.note_id, 0.);
-                                        match tj {
-                                            TJ::Perfect => {
-                                                res.with_model(line_tr * note.object.now(res), |res| {
-                                                    res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect())
-                                                });
-                                            }
-                                            TJ::Good => {
-                                                res.with_model(line_tr * note.object.now(res), |res| {
-                                                    res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good())
-                                                });
-                                            }
-                                            TJ::Bad => {
-                                                bad_notes.push(BadNote {
-                                                    time: t,
-                                                    kind: note.kind.clone(),
-                                                    matrix: {
-                                                        let mut mat = line_tr;
-                                                        if !note.above {
-                                                            mat.append_nonuniform_scaling_mut(&Vector::new(1., -1.));
-                                                        }
-                                                        let incline_sin = line.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default();
-                                                        mat *= note.now_transform(
-                                                            res,
-                                                            &line.ctrl_obj.borrow_mut(),
-                                                            (note.height - line.height.now()) / res.aspect_ratio * note.speed,
-                                                            incline_sin,
-                                                        );
-                                                        mat
-                                                    },
-                                                });
-                                            }
-                                            _ => {}
-                                        }
-                                    }
-                                    Err(perfect) => {
-                                        note.judge = JudgeStatus::Hold(perfect, t, 0., false, f32::INFINITY);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+                }))
+            } else {
+                None
+            };
             update_fn
         });
         Ok(Some(Box::pin(async move {

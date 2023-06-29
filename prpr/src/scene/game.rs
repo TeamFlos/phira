@@ -135,7 +135,7 @@ pub struct GameScene {
     pub music: Music,
 
     state: State,
-    last_update_time: f64,
+    pub last_update_time: f64,
     pause_rewind: Option<f64>,
     pause_first_time: f32,
 
@@ -919,7 +919,7 @@ impl Scene for GameScene {
             self.gl.quad_gl.viewport(None);
         }
         if let Some(update) = &mut self.update_fn {
-            update(self.res.time, &mut self.res, &mut self.chart, &mut self.judge, &mut self.touch_points, &mut self.bad_notes);
+            update(self.res.time, &mut self.judge);
         }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 {

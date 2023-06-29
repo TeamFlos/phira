@@ -6,17 +6,23 @@ use macroquad::prelude::*;
 use phira_mp_client::Client;
 use phira_mp_common::{JudgeEvent, Message, RoomId, RoomState, TouchFrame, UserInfo};
 use prpr::{
-    core::{BadNote, Chart, Resource, Vector, ParticleEmitter},
+    core::{BadNote, Chart, ParticleEmitter, Resource, Tweenable, Vector},
     ext::{poll_future, semi_black, semi_white, LocalTask, RectExt},
     info::ChartInfo,
     judge::{Judge, JudgeStatus},
+    particle::Emitter,
     scene::{show_error, GameScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::Ui, particle::Emitter,
+    ui::Ui,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::VecDeque, fs::File, path::Path, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    fs::File,
+    path::Path,
+    sync::Arc,
+};
 use tokio::net::TcpStream;
 
 const ASPECT_MIN: f32 = 3. / 2.;
@@ -48,11 +54,15 @@ pub struct PlayerView {
     chart: Chart,
     judge: Judge,
     emitter: ParticleEmitter,
+    last_update_time: f64,
     touch_points: Vec<(f32, f32)>,
     bad_notes: Vec<BadNote>,
 
     touches: VecDeque<TouchFrame>,
     judges: VecDeque<JudgeEvent>,
+
+    current_touches: HashMap<i8, Vec2>,
+    current_time: f32,
 
     latest_time: Option<f32>,
 }
@@ -66,11 +76,15 @@ impl PlayerView {
             chart,
             judge,
             emitter,
+            last_update_time: 0.,
             touch_points: Vec::new(),
             bad_notes: Vec::new(),
 
             touches: VecDeque::new(),
             judges: VecDeque::new(),
+
+            current_touches: HashMap::new(),
+            current_time: 0.,
 
             latest_time: None,
         }
@@ -101,21 +115,40 @@ impl PlayerView {
     fn update_with_res(&mut self, res: &mut Resource) {
         let t = res.time;
 
-        self.chart.update(res);
-
         let mut updated = false;
         while self.touches.front().map_or(false, |it| it.time < t) {
-            self.touches.pop_front();
+            let Some(frame) = self.touches.pop_front() else { unreachable!() };
+            for (id, pos) in frame.points {
+                if id >= 0 {
+                    self.current_touches.insert(id, Vec2::new(pos.x(), pos.y()));
+                } else {
+                    self.current_touches.remove(&!id);
+                }
+            }
+            self.current_time = frame.time;
             updated = true;
         }
         if updated {
+            self.touch_points.clear();
             if let Some(frame) = self.touches.front() {
-                self.touch_points.clear();
-                self.touch_points.extend(frame.points.iter().map(|it| (it.x(), it.y())));
-            } else {
-                self.touch_points.clear();
+                let mut current = self.current_touches.clone();
+                self.touch_points.extend(frame.points.iter().map(|(id, pos)| {
+                    let pos = vec2(pos.x(), pos.y());
+                    let id = if *id >= 0 { *id } else { !*id };
+                    let res = if let Some(old) = self.current_touches.get(&id) {
+                        Vec2::tween(&old, &pos, (t - self.current_time) / (frame.time - self.current_time))
+                    } else {
+                        pos
+                    };
+                    current.remove(&id);
+                    (res.x, res.y)
+                }));
+                self.touch_points.extend(current.into_values().map(|it| (it.x, it.y)));
             }
         }
+
+        std::mem::swap(&mut self.emitter, &mut res.emitter);
+        self.chart.update(res);
 
         while let Some(event) = self.judges.front() {
             if event.time > t {
@@ -179,12 +212,16 @@ impl PlayerView {
                 }
             }
         }
+
+        std::mem::swap(&mut self.emitter, &mut res.emitter);
     }
 
     fn swap(&mut self, scene: &mut GameScene) {
         use std::mem::swap;
         swap(&mut self.chart, &mut scene.chart);
         swap(&mut self.judge, &mut scene.judge);
+        swap(&mut self.emitter, &mut scene.res.emitter);
+        swap(&mut self.last_update_time, &mut scene.last_update_time);
         swap(&mut self.touch_points, &mut scene.touch_points);
         swap(&mut self.bad_notes, &mut scene.bad_notes);
     }
@@ -299,6 +336,7 @@ pub struct MainScene {
     render_started: bool,
 
     players: Vec<PlayerView>,
+    start_playing_time: f32,
 }
 
 impl MainScene {
@@ -322,6 +360,7 @@ impl MainScene {
             render_started: false,
 
             players: Vec::new(),
+            start_playing_time: f32::NAN,
         })
     }
 
@@ -330,6 +369,7 @@ impl MainScene {
         let id = self.selected_chart.as_ref().unwrap().0;
         let token = self.token.clone().unwrap();
         self.render_started = false;
+        self.game_scene = None;
         self.get_ready_task = Some(Task::new(async move {
             let entity = fetch_chart(id).await?;
             info!("谱面信息：{entity:?}");
@@ -364,7 +404,9 @@ impl Scene for MainScene {
         Ok(false)
     }
 
-    fn update(&mut self, _tm: &mut TimeManager) -> Result<()> {
+    fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
+        let t = tm.now() as f32;
+
         if let Some(task) = &mut self.init_task {
             if let Some(res) = task.take() {
                 match res {
@@ -403,7 +445,6 @@ impl Scene for MainScene {
                     Ok(_) => {
                         self.scene_task = launch_task(
                             self.selected_chart.as_ref().unwrap().0,
-                            self.client.as_ref().map(Arc::clone).unwrap(),
                             self.client
                                 .as_ref()
                                 .unwrap()
@@ -427,7 +468,7 @@ impl Scene for MainScene {
                     Err(err) => {
                         error!("failed to load scene: {err:?}");
                     }
-                    Ok((mut scene, players)) => {
+                    Ok((scene, players)) => {
                         self.game_scene = Some(scene);
                         self.players = players;
                     }
@@ -446,6 +487,9 @@ impl Scene for MainScene {
                     }
                     Message::SelectChart { id, name, .. } => {
                         self.selected_chart = Some((id, name));
+                    }
+                    Message::StartPlaying => {
+                        self.start_playing_time = t;
                     }
                     _ => {
                         info!("{msg:?}");
@@ -544,7 +588,8 @@ impl Scene for MainScene {
                 }
 
                 if let Some(scene) = &mut self.game_scene {
-                    if !self.render_started && self.players.iter().all(|it| it.latest_time.map_or(false, |it| it > 5.)) {
+                    if !self.render_started && !self.start_playing_time.is_nan() && t > self.start_playing_time + 6. {
+                        self.start_playing_time = f32::NAN;
                         self.tm.speed = 1.;
                         self.tm.reset();
                         scene.enter(&mut self.tm, None)?;

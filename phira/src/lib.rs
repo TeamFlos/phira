@@ -24,6 +24,7 @@ use prpr::{
     build_conf,
     core::init_assets,
     l10n::{set_prefered_locale, GLOBAL, LANGS},
+    log,
     scene::show_error,
     time::TimeManager,
     ui::{FontArc, TextPainter},
@@ -122,6 +123,8 @@ mod dir {
 }
 
 async fn the_main() -> Result<()> {
+    log::register();
+
     init_assets();
 
     let rt = tokio::runtime::Builder::new_multi_thread()
