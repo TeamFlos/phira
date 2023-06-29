@@ -1,6 +1,7 @@
+mod cloud;
+mod launch;
 mod scene;
-
-use std::fs::File;
+mod smooth;
 
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
@@ -8,11 +9,44 @@ use prpr::{
     core::init_assets,
     scene::show_error,
     time::TimeManager,
-    ui::{FontArc, TextPainter, Ui},
+    ui::{FontArc, TextPainter},
     Main,
 };
 use scene::MainScene;
 use serde::Deserialize;
+use std::fs::File;
+
+mod dir {
+    use anyhow::Result;
+
+    fn ensure(s: &str) -> Result<String> {
+        let path = std::path::Path::new(s);
+        if !path.exists() {
+            std::fs::create_dir_all(path)?;
+        }
+        Ok(s.to_owned())
+    }
+
+    pub fn root() -> Result<String> {
+        ensure("data")
+    }
+
+    pub fn charts() -> Result<String> {
+        ensure("data/charts")
+    }
+
+    pub fn custom_charts() -> Result<String> {
+        ensure("data/charts/custom")
+    }
+
+    pub fn downloaded_charts() -> Result<String> {
+        ensure("data/charts/download")
+    }
+
+    pub fn respacks() -> Result<String> {
+        ensure("data/respack")
+    }
+}
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,8 +92,8 @@ async fn the_main() -> Result<()> {
 
     let config: Config = (|| -> Result<Config> { Ok(serde_yaml::from_reader(File::open("monitor-config.yml")?)?) })().context("读取配置失败")?;
 
-    let mut main = Main::new(Box::new(MainScene::new(config).await?), TimeManager::default(), None).await?;
-    main.viewport = Some((0, 100, 500, 500));
+    let mut main = Main::new(Box::new(MainScene::new(config.clone()).await?), TimeManager::default(), None).await?;
+    // main.viewport = Some((0, 100, 500, 500));
 
     let tm = TimeManager::default();
     let mut fps_time = -1;

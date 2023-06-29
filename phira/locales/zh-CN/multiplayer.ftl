@@ -6,6 +6,7 @@ connect-must-login = 登录后才能进入多人游戏
 connect-success = 连接成功
 connect-failed = 连接失败
 connect-authenticate-failed = 鉴权失败
+reconnect = 断线重连中…
 
 create-room = 创建房间
 create-room-success = 房间已创建

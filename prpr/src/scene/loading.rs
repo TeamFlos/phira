@@ -14,14 +14,14 @@ use ::rand::{seq::SliceRandom, thread_rng};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use regex::Regex;
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 const BEFORE_TIME: f32 = 1.;
 const TRANSITION_TIME: f32 = 1.4;
 const WAIT_TIME: f32 = 0.4;
 
 pub type UploadFn = Arc<dyn Fn(Vec<u8>) -> Task<Result<RecordUpdateState>>>;
-pub type UpdateFn = Box<dyn FnMut(f32, bool, &mut Resource, &mut Chart, &mut Judge, &mut Vec<(f32, f32)>, &mut Vec<BadNote>)>;
+pub type UpdateFn = Box<dyn FnMut(f32, &mut Resource, &mut Chart, &mut Judge, &mut Vec<(f32, f32)>, &mut Vec<BadNote>)>;
 
 pub struct BasicPlayer {
     pub avatar: Option<SafeTexture>,
@@ -33,7 +33,7 @@ pub struct LoadingScene {
     info: ChartInfo,
     background: SafeTexture,
     illustration: SafeTexture,
-    load_task: LocalTask<Result<GameScene>>,
+    pub load_task: LocalTask<Result<GameScene>>,
     next_scene: Option<NextScene>,
     finish_time: f32,
     target: Option<RenderTarget>,
@@ -52,7 +52,6 @@ impl LoadingScene {
         config: Config,
         mut fs: Box<dyn FileSystem>,
         player: Option<BasicPlayer>,
-        get_size_fn: Option<Rc<dyn Fn() -> (u32, u32)>>,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
     ) -> Result<Self> {
@@ -93,7 +92,6 @@ impl LoadingScene {
         let (illustration, background): (SafeTexture, SafeTexture) = background
             .map(|(ill, back)| (ill.into(), back.into()))
             .unwrap_or_else(|| (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()));
-        let get_size_fn = get_size_fn.unwrap_or_else(|| Rc::new(|| (screen_width() as u32, screen_height() as u32)));
         if info.tip.is_none() {
             info.tip = Some(crate::config::TIPS.choose(&mut thread_rng()).unwrap().to_owned());
         }
@@ -105,7 +103,6 @@ impl LoadingScene {
             player,
             background.clone(),
             illustration.clone(),
-            get_size_fn,
             upload_fn,
             update_fn,
             theme_color,
