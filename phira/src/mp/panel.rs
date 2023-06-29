@@ -441,7 +441,7 @@ impl MPPanel {
                         &format!("download/{id}"),
                         Mods::default(),
                         GameMode::NoRetry,
-                        self.client.as_ref().map(|it| (Arc::clone(it), None)),
+                        self.client.as_ref().map(Arc::clone),
                     )?;
                 }
             } else {

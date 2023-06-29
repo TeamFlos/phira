@@ -1,7 +1,6 @@
 use super::{draw_background, ending::RecordUpdateState, game::GameMode, GameScene, NextScene, Scene};
 use crate::{
     config::Config,
-    core::{BadNote, Chart, Resource},
     ext::{poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture, BLACK_TEXTURE},
     fs::FileSystem,
     info::ChartInfo,
@@ -21,7 +20,7 @@ const TRANSITION_TIME: f32 = 1.4;
 const WAIT_TIME: f32 = 0.4;
 
 pub type UploadFn = Arc<dyn Fn(Vec<u8>) -> Task<Result<RecordUpdateState>>>;
-pub type UpdateFn = Box<dyn FnMut(f32, &mut Resource, &mut Chart, &mut Judge, &mut Vec<(f32, f32)>, &mut Vec<BadNote>)>;
+pub type UpdateFn = Box<dyn FnMut(f32, &mut Judge)>;
 
 pub struct BasicPlayer {
     pub avatar: Option<SafeTexture>,

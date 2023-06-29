@@ -8,7 +8,9 @@ license = "GPL-3.0-only"
 crate-type = ["lib", "cdylib"]
 
 [features]
+default = []
 closed = []
+log = ["dep:tracing", "dep:tracing-subscriber"]
 
 [dependencies]
 anyhow = "1.0"
@@ -55,6 +57,9 @@ subtle = "2.4.1"
 libc = "0.2.142"
 bitflags = { version = "2.2.1", features = ["serde"] }
 color-thief = "0.2.2"
+
+tracing = { version = "0.1.37", optional = true }
+tracing-subscriber = { version = "0.3.17", optional = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = "0.10"
