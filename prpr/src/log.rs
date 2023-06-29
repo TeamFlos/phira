@@ -1,8 +1,7 @@
+use chrono::{DateTime, Utc};
+use colored::Colorize;
 use miniquad::{debug, error, info, trace, warn};
-use tracing::{
-    field::{Field, Visit},
-    Level, Subscriber,
-};
+use tracing::{field::Visit, Level, Subscriber};
 use tracing_subscriber::{prelude::*, Layer};
 
 struct CustomLayer;
@@ -28,14 +27,31 @@ where
         event.record(&mut v);
 
         let meta = event.metadata();
-        let mut msg = meta.target().to_owned();
+        let mut msg = format!("{:.6?} ", Utc::now()).bright_black().to_string();
+
+        msg += &match *meta.level() {
+            Level::TRACE => "TRACE".bright_black(),
+            Level::DEBUG => "DEBUG".magenta(),
+            Level::INFO => " INFO".green(),
+            Level::WARN => " WARN".yellow(),
+            Level::ERROR => "ERROR".red(),
+        }
+        .to_string();
+
+        msg.push(' ');
+
+        msg += &meta.target().bright_black().to_string();
         if !v.1.is_empty() {
-            msg.push('{');
+            msg += &"{".bold().to_string();
             let len = v.1.len();
             for (idx, (name, val)) in v.1.into_iter().enumerate() {
                 use std::fmt::Write;
-                let _ = write!(msg, "{name}={val}{}", if idx + 1 == len { '}' } else { ' ' });
+                let _ = write!(msg, "{}={val}", name.italic());
+                if idx + 1 != len {
+                    msg.push(' ');
+                }
             }
+            msg += &"}".bold().to_string();
         }
         if let Some(content) = v.0 {
             msg += ": ";
