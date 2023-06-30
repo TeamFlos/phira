@@ -1,5 +1,5 @@
 use super::{File, Object};
-use crate::{client::Client, dir, images::Images};
+use crate::client::Client;
 use anyhow::Result;
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
@@ -8,7 +8,7 @@ use macroquad::prelude::warn;
 use once_cell::sync::Lazy;
 use prpr::{ext::SafeTexture, task::Task};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 bitflags! {

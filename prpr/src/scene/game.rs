@@ -919,7 +919,7 @@ impl Scene for GameScene {
             self.gl.quad_gl.viewport(None);
         }
         if let Some(update) = &mut self.update_fn {
-            update(self.res.time, &mut self.judge);
+            update(self.res.time, &mut self.res, &mut self.judge);
         }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 {

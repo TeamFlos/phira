@@ -135,13 +135,13 @@ impl PlayerView {
                 self.touch_points.extend(frame.points.iter().map(|(id, pos)| {
                     let pos = vec2(pos.x(), pos.y());
                     let id = if *id >= 0 { *id } else { !*id };
-                    let res = if let Some(old) = self.current_touches.get(&id) {
+                    let pos = if let Some(old) = self.current_touches.get(&id) {
                         Vec2::tween(&old, &pos, (t - self.current_time) / (frame.time - self.current_time))
                     } else {
                         pos
                     };
                     current.remove(&id);
-                    (res.x, res.y)
+                    (pos.x, pos.y / res.aspect_ratio)
                 }));
                 self.touch_points.extend(current.into_values().map(|it| (it.x, it.y)));
             }
@@ -589,7 +589,10 @@ impl Scene for MainScene {
                 }
 
                 if let Some(scene) = &mut self.game_scene {
-                    if !self.render_started && !self.start_playing_time.is_nan() && t > self.start_playing_time + 6. {
+                    if !self.render_started
+                        && !self.start_playing_time.is_nan()
+                        && self.players.iter().all(|it| it.latest_time.map_or(false, |it| it > 5.))
+                    {
                         self.start_playing_time = f32::NAN;
                         self.tm.speed = 1.;
                         self.tm.reset();
