@@ -103,10 +103,10 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         macro_rules! painter {
             ($t:expr) => {
                 if let Some(painter) = painter.as_mut() {
-                    ($t)(painter)
+                    $t(painter)
                 } else {
                     let painter = &mut self.ui.text_painter;
-                    ($t)(painter)
+                    $t(painter)
                 }
             };
         }

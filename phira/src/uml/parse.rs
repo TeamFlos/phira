@@ -174,7 +174,7 @@ impl RawExpr {
             Self::Rect([x, y, w, h]) => {
                 Var::Rect(Rect::new(x.eval(uml)?.float()?, y.eval(uml)?.float()?, w.eval(uml)?.float()?, h.eval(uml)?.float()?))
             }
-            Self::Var(rf) => uml.get_var(rf)?.clone(),
+            Self::Var(rf) => *uml.get_var(rf)?,
             Self::VarSub(rf, field) => {
                 let r = uml.get_var(rf)?.rect()?;
                 Var::Float(match field.as_str() {
@@ -425,7 +425,7 @@ pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &m
     Ok(Some(match ty.as_str() {
         "p" => Box::new(Text::new(take_config(lexer)?, take_text(lexer)?)),
         "img" => Box::new(Image::new(take_config(lexer)?)),
-        "col" => Box::new(Collection::new(Arc::clone(&icons), rank_icons.clone(), take_config(lexer)?)),
+        "col" => Box::new(Collection::new(Arc::clone(icons), rank_icons.clone(), take_config(lexer)?)),
         "let" => {
             let Some(Ok(Token::Ident(id))) = lexer.next() else {
                 bail!("expected variable name");
