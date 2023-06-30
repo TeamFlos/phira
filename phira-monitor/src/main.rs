@@ -26,24 +26,12 @@ mod dir {
         Ok(s.to_owned())
     }
 
-    pub fn root() -> Result<String> {
-        ensure("data")
-    }
-
     pub fn charts() -> Result<String> {
         ensure("data/charts")
     }
 
-    pub fn custom_charts() -> Result<String> {
-        ensure("data/charts/custom")
-    }
-
     pub fn downloaded_charts() -> Result<String> {
         ensure("data/charts/download")
-    }
-
-    pub fn respacks() -> Result<String> {
-        ensure("data/respack")
     }
 }
 
