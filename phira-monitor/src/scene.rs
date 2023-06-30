@@ -556,6 +556,7 @@ impl Scene for MainScene {
 
         match client.blocking_room_state().unwrap() {
             RoomState::SelectChart(_) => {
+                self.game_scene = None;
                 let ct = r.center();
                 let r = ui.text("选曲中").pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(1.6).draw();
                 if let Some((id, name)) = &self.selected_chart {
