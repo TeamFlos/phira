@@ -664,10 +664,17 @@ impl MPPanel {
             } else {
                 self.msgs.get(self.msgs_dirty_from - 1).map_or(0., |it| it.bottom)
             };
+            let old_dirty = self.msgs_dirty_from != self.msgs.len();
             for msg in &mut self.msgs[self.msgs_dirty_from..] {
                 msg.y = y + 0.02;
                 msg.bottom = msg.text(ui, mr.w).measure().bottom();
                 y = msg.bottom;
+            }
+            if old_dirty {
+                let o = y - mr.h;
+                if o >= 0. {
+                    self.msg_scroll.y_scroller.goto = Some(o);
+                }
             }
             self.msgs_dirty_from = self.msgs.len();
             self.msg_scroll.size((mr.w, mr.h));
