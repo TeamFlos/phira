@@ -1,7 +1,6 @@
 mod cloud;
 mod launch;
 mod scene;
-mod smooth;
 
 use anyhow::{Context, Result};
 use macroquad::prelude::*;

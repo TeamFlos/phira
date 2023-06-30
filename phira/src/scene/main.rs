@@ -116,7 +116,8 @@ impl MainScene {
 
     async fn new_inner(bgm: Option<Music>) -> Result<Self> {
         let state = SharedState::new().await?;
-        MP_PANEL.with(|it| *it.borrow_mut() = Some(MPPanel::new()));
+        let icon_user = load_texture("user.png").await?;
+        MP_PANEL.with(|it| *it.borrow_mut() = Some(MPPanel::new(icon_user.into())));
         Ok(Self {
             state,
 
