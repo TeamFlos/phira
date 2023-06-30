@@ -132,16 +132,15 @@ impl PlayerView {
             self.touch_points.clear();
             if let Some(frame) = self.touches.front() {
                 let mut current = self.current_touches.clone();
-                self.touch_points.extend(frame.points.iter().map(|(id, pos)| {
+                self.touch_points.extend(frame.points.iter().filter_map(|(id, pos)| {
                     let pos = vec2(pos.x(), pos.y());
                     let id = if *id >= 0 { *id } else { !*id };
-                    let pos = if let Some(old) = self.current_touches.get(&id) {
+                    let pos = if let Some(old) = current.remove(&id) {
                         Vec2::tween(&old, &pos, (t - self.current_time) / (frame.time - self.current_time))
                     } else {
-                        pos
+                        return None;
                     };
-                    current.remove(&id);
-                    (pos.x, pos.y / res.aspect_ratio)
+                    Some((pos.x, pos.y / res.aspect_ratio))
                 }));
                 self.touch_points.extend(current.into_values().map(|it| (it.x, it.y)));
             }
