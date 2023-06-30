@@ -198,6 +198,10 @@ impl MPPanel {
             show_message(mtl!("select-chart-host-only")).error();
             return;
         }
+        if !matches!(client.blocking_room_state(), Some(RoomState::SelectChart(_))) {
+            show_message(mtl!("select-chart-not-now")).error();
+            return;
+        }
         self.task = Some(Task::new(async move {
             client.select_chart(id).await.with_context(|| mtl!("select-chart-failed"))?;
             Ok(())

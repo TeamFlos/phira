@@ -56,6 +56,7 @@ chat-send-failed = Failed to send message
 select-chart-host-only = Only the host can select chart
 select-chart-local = Can't select local chart
 select-chart-failed = Failed to select chart
+select-chart-not-now = You can't select chart now
 
 msg-create-room = `{ $user }` created the room
 msg-join-room = `{ $user }` joined the room
