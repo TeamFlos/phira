@@ -56,6 +56,7 @@ chat-send-failed = 消息发送失败
 select-chart-host-only = 只有房主可以选择谱面
 select-chart-local = 不能选择本地谱面
 select-chart-failed = 选择谱面失败
+select-chart-not-now = 你现在不能选择谱面
 
 msg-create-room = `{ $user }` 创建了房间
 msg-join-room = `{ $user }` 加入了房间
