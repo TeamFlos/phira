@@ -425,7 +425,7 @@ impl Main {
                 *self.scenes.last_mut().unwrap() = scene;
             }
         }
-        Judge::on_new_frame(self.viewport);
+        Judge::on_new_frame();
         let mut touches = Judge::get_touches();
         touches.iter_mut().for_each(f);
         if !touches.is_empty() {

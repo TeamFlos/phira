@@ -97,10 +97,6 @@ mod dir {
         ensure(&format!("{}/image", cache()?))
     }
 
-    pub fn cache_avatar() -> Result<String> {
-        ensure(&format!("{}/avatar", cache()?))
-    }
-
     pub fn root() -> Result<String> {
         ensure("data")
     }

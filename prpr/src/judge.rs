@@ -1,7 +1,7 @@
 use crate::{
     config::Config,
     core::{BadNote, Chart, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
-    ext::NotNanExt,
+    ext::{get_viewport, NotNanExt},
 };
 use macroquad::prelude::{
     utils::{register_input_subscriber, repeat_all_miniquad_input},
@@ -229,7 +229,7 @@ pub struct Judge {
 
 static SUBSCRIBER_ID: Lazy<usize> = Lazy::new(register_input_subscriber);
 thread_local! {
-    static TOUCHES: RefCell<(Vec<Touch>, i32, u32, Option<(i32, i32, i32, i32)>)> = RefCell::default();
+    static TOUCHES: RefCell<(Vec<Touch>, i32, u32)> = RefCell::default();
 }
 
 impl Judge {
@@ -282,17 +282,17 @@ impl Judge {
         self.inner.score()
     }
 
-    pub(crate) fn on_new_frame(viewport: Option<(i32, i32, i32, i32)>) {
+    pub(crate) fn on_new_frame() {
         let mut handler = Handler(Vec::new(), 0, 0);
         repeat_all_miniquad_input(&mut handler, *SUBSCRIBER_ID);
         handler.finalize();
         TOUCHES.with(|it| {
-            *it.borrow_mut() = (handler.0, handler.1, handler.2, viewport);
+            *it.borrow_mut() = (handler.0, handler.1, handler.2);
         });
     }
 
-    fn touch_transform(viewport: Option<(i32, i32, i32, i32)>, flip_x: bool) -> impl Fn(&mut Touch) {
-        let vp = viewport.unwrap_or_else(|| (0, 0, screen_width() as _, screen_height() as _));
+    fn touch_transform(flip_x: bool) -> impl Fn(&mut Touch) {
+        let vp = get_viewport();
         move |touch| {
             let p = touch.position;
             touch.position = vec2(
@@ -308,7 +308,7 @@ impl Judge {
     pub fn get_touches() -> Vec<Touch> {
         TOUCHES.with(|it| {
             let guard = it.borrow();
-            let tr = Self::touch_transform(guard.3, false);
+            let tr = Self::touch_transform(false);
             guard
                 .0
                 .iter()
@@ -363,7 +363,7 @@ impl Judge {
                     time: f64::NEG_INFINITY,
                 });
             }
-            let tr = Self::touch_transform(TOUCHES.with(|it| it.borrow().3), res.config.flip_x());
+            let tr = Self::touch_transform(res.config.flip_x());
             touches
                 .into_iter()
                 .map(|mut it| {

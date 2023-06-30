@@ -656,7 +656,8 @@ impl SongScene {
                     let mut touch_last_update: HashMap<i8, f32> = HashMap::new();
                     let mut touches: VecDeque<TouchFrame> = VecDeque::new();
                     let mut judges: VecDeque<JudgeEvent> = VecDeque::new();
-                    move |t, judge| {
+                    let mut last_send_touch_time: f32 = 0.;
+                    move |t, res, judge| {
                         if client.ping_fail_count() >= 1 && reconnect_task.is_none() {
                             warn!("lost connection, auto re-connect");
                             let token = token.clone();
@@ -695,15 +696,19 @@ impl SongScene {
                                 if matches!(it.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
                                     id = !id;
                                 }
-                                Some((id, CompactPos::new(it.position.x, it.position.y)))
+                                Some((id, CompactPos::new(it.position.x, it.position.y * res.aspect_ratio)))
                             })
                             .collect();
                         if !points.is_empty() {
                             touches.push_back(TouchFrame { time: t, points });
                         }
-                        if touches.front().map_or(false, |it| it.time + 1. < t) {
+                        if last_send_touch_time + 1. < t || touches.len() > 20 {
+                            if touches.is_empty() {
+                                touches.push_back(TouchFrame { time: t, points: Vec::new() });
+                            }
                             let frames = Arc::new(touches.drain(..).collect());
                             client.blocking_send(ClientCommand::Touches { frames }).unwrap();
+                            last_send_touch_time = t;
                         }
                         judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
                             time: it.0,
