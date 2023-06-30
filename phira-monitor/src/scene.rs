@@ -591,7 +591,7 @@ impl Scene for MainScene {
                 if let Some(scene) = &mut self.game_scene {
                     if !self.render_started
                         && !self.start_playing_time.is_nan()
-                        && self.players.iter().all(|it| it.latest_time.map_or(false, |it| it > 5.))
+                        && (self.players.iter().all(|it| it.latest_time.map_or(false, |it| it > 5.)) || self.start_playing_time + 10. < t)
                     {
                         self.start_playing_time = f32::NAN;
                         self.tm.speed = 1.;
