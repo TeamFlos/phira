@@ -410,11 +410,11 @@ impl MPPanel {
                             M::CreateRoom { user } => {
                                 mtl!("msg-create-room", "user" => client.user_name(user))
                             }
-                            M::JoinRoom { user } => {
-                                mtl!("msg-join-room", "user" => client.user_name(user))
+                            M::JoinRoom { name, .. } => {
+                                mtl!("msg-join-room", "user" => name)
                             }
-                            M::LeaveRoom { user } => {
-                                mtl!("msg-leave-room", "user" => client.user_name_opt(user).unwrap_or_else(|| client.me().unwrap().name))
+                            M::LeaveRoom { name, .. } => {
+                                mtl!("msg-leave-room", "user" => name)
                             }
                             M::NewHost { user } => {
                                 mtl!("msg-new-host", "user" => client.user_name(user))
