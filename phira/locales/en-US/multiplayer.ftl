@@ -26,6 +26,8 @@ request-start = Start Game
 request-start-no-chart = You haven't selected a chart
 request-start-failed = Failed to start game
 
+user-list = Users
+
 lock-room = { $current ->
   [true] Unlock room
   *[other] Lock room

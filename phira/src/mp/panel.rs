@@ -1,6 +1,6 @@
 use super::mtl;
 use crate::{
-    client::{Chart, Ptr},
+    client::{Chart, Ptr, UserManager},
     dir, get_data,
     mp::L10N_LOCAL,
     scene::{Downloading, SongScene, RECORD_ID},
@@ -11,8 +11,8 @@ use phira_mp_client::Client;
 use phira_mp_common::{RoomId, RoomState};
 use prpr::{
     config::Mods,
-    core::Tweenable,
-    ext::{poll_future, semi_black, semi_white, LocalTask, RectExt},
+    core::{Smooth, Tweenable},
+    ext::{poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture},
     info::ChartInfo,
     scene::{request_input, return_input, show_error, show_message, take_input, GameMode, NextScene},
     task::Task,
@@ -29,6 +29,7 @@ use std::{
 use tokio::net::TcpStream;
 
 const ENTER_TRANSIT: f32 = 0.5;
+const USER_LIST_TRANSIT: f32 = 0.4;
 const WIDTH: f32 = 1.6;
 
 fn screen_size() -> (u32, u32) {
@@ -101,10 +102,14 @@ pub struct MPPanel {
     task: Option<Task<Result<()>>>,
 
     scene_task: LocalTask<Result<NextScene>>,
+
+    user_list_btn: DRectButton,
+    user_list_p: Smooth<f32>,
+    icon_user: SafeTexture,
 }
 
 impl MPPanel {
-    pub fn new() -> Self {
+    pub fn new(icon_user: SafeTexture) -> Self {
         Self {
             client: None,
 
@@ -152,6 +157,10 @@ impl MPPanel {
             task: None,
 
             scene_task: None,
+
+            user_list_btn: DRectButton::new(),
+            user_list_p: Smooth::default(),
+            icon_user,
         }
     }
 
@@ -258,6 +267,13 @@ impl MPPanel {
         if self.side_enter_time.is_infinite() {
             return false;
         }
+        if self.user_list_p.transiting(t) {
+            return true;
+        }
+        if *self.user_list_p.to() > 0.5 {
+            self.user_list_p.goto(0., t, USER_LIST_TRANSIT);
+            return true;
+        }
         if !(self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + ENTER_TRANSIT) {
             return true;
         }
@@ -337,6 +353,10 @@ impl MPPanel {
                         }
                     }
                     _ => {}
+                }
+                if self.user_list_btn.touch(touch, t) {
+                    self.user_list_p.goto(1., t, USER_LIST_TRANSIT);
+                    client.blocking_state().unwrap().users.keys().copied().for_each(UserManager::request);
                 }
             } else {
                 if self.create_room_btn.touch(touch, t) {
@@ -705,7 +725,7 @@ impl MPPanel {
         self.chat_send_btn.render_text(ui, br, t, 1., mtl!("chat-send"), 0.5, true);
 
         let mut br = Rect::new(mr.right() + 0.02, mr.y, r.right() - mr.right() - 0.02, 0.1);
-        let mut btns = SmallVec::<[(&mut DRectButton, String); 4]>::new();
+        let mut btns = SmallVec::<[(&mut DRectButton, String); 5]>::new();
         if let Some(state) = client.blocking_state() {
             match state.state {
                 RoomState::SelectChart(_) => {
@@ -725,6 +745,7 @@ impl MPPanel {
                 }
                 _ => {}
             }
+            btns.push((&mut self.user_list_btn, mtl!("user-list").into_owned()));
         } else {
             btns.push((&mut self.create_room_btn, mtl!("create-room").into_owned()));
             btns.push((&mut self.join_room_btn, mtl!("join-room").into_owned()));
@@ -733,6 +754,40 @@ impl MPPanel {
         for (btn, text) in btns {
             btn.render_text(ui, br, t, 1., text, 0.5, true);
             br.y += br.h + 0.02;
+        }
+
+        let p = self.user_list_p.now(t);
+        if p > 1e-4 {
+            let c = semi_white(p);
+            ui.abs_scope(|ui| {
+                let users: Vec<_> = client.blocking_state().unwrap().users.values().cloned().collect();
+                let n = users.len();
+                let rn = (n - 1) / 2 + 1;
+                ui.fill_rect(ui.screen_rect(), semi_black(p * 0.4));
+
+                let mut iter = users.into_iter();
+
+                let h = 0.1;
+                let w = 0.6;
+                let pad = 0.03;
+                ui.dy(-(rn as f32 * (h + pad) - pad) / 2.);
+                for i in 0..rn {
+                    let cn = (n - i * 2).min(2);
+                    let o = -(cn as f32 * (w + pad) - pad) / 2.;
+                    for j in 0..cn {
+                        let r = Rect::new(j as f32 * w + o, i as f32 * h, w, h);
+                        let Some(user) =  iter.next() else { unreachable!() };
+                        ui.avatar(r.x + 0.07, r.center().y, 0.05, c, t, UserManager::opt_avatar(user.id, &self.icon_user));
+                        ui.text(user.name)
+                            .pos(r.x + 0.14, r.center().y)
+                            .anchor(0., 0.5)
+                            .no_baseline()
+                            .size(0.7)
+                            .color(c)
+                            .draw();
+                    }
+                }
+            });
         }
     }
 

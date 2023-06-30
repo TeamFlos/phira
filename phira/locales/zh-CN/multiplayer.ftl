@@ -26,6 +26,8 @@ request-start = 开始游戏
 request-start-no-chart = 你还没有选择谱面
 request-start-failed = 开始游戏失败
 
+user-list = 用户列表
+
 lock-room = { $current ->
   [true] 解锁房间
   *[other] 锁定房间
