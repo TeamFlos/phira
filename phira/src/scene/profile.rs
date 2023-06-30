@@ -5,7 +5,7 @@ use crate::{
     client::{recv_raw, Client, User, UserManager},
     get_data, get_data_mut,
     page::SFader,
-    save_data, sync_data,
+    save_data, sync_data, anti_addiction_action,
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -126,6 +126,7 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_logout.touch(touch, t) {
+            anti_addiction_action("exit", None);
             get_data_mut().me = None;
             get_data_mut().tokens = None;
             let _ = save_data();

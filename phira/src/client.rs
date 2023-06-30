@@ -1,7 +1,7 @@
 mod model;
 pub use model::*;
 
-use crate::{get_data, get_data_mut, save_data};
+use crate::{anti_addiction_action, get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
@@ -172,10 +172,13 @@ impl Client {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct Resp {
+            id: i32,
             token: String,
             refresh_token: String,
         }
         let resp: Resp = recv_raw(Self::post("/login", &params)).await?.json().await?;
+
+        anti_addiction_action("startup", Some(format!("phira-{}", resp.id)));
 
         set_access_token(&resp.token).await?;
         get_data_mut().tokens = Some((resp.token, resp.refresh_token));
