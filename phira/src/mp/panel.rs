@@ -767,7 +767,7 @@ impl MPPanel {
 
                 let mut iter = users.into_iter();
 
-                let h = 0.1;
+                let h = 0.14;
                 let w = 0.6;
                 let pad = 0.03;
                 ui.dy(-(rn as f32 * (h + pad) - pad) / 2.);

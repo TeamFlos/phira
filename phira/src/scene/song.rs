@@ -41,7 +41,7 @@ use serde_json::json;
 use std::{
     any::Any,
     borrow::Cow,
-    collections::{HashMap, VecDeque},
+    collections::{hash_map, HashMap, VecDeque},
     fs::File,
     io::{Cursor, Write},
     path::Path,
@@ -653,6 +653,7 @@ impl SongScene {
             let mut reconnect_task: Option<Task<Result<phira_mp_client::Client>>> = None;
             let update_fn: Option<UpdateFn> = if live {
                 Some(Box::new({
+                    let mut touch_ids: HashMap<u64, i8> = HashMap::new();
                     let mut touch_last_update: HashMap<i8, f32> = HashMap::new();
                     let mut touches: VecDeque<TouchFrame> = VecDeque::new();
                     let mut judges: VecDeque<JudgeEvent> = VecDeque::new();
@@ -688,12 +689,17 @@ impl SongScene {
                                 if matches!(it.phase, TouchPhase::Stationary) {
                                     return None;
                                 }
-                                let mut id: i8 = it.id.try_into().ok()?;
+                                let len = touch_ids.len();
+                                let mut id = match touch_ids.entry(it.id) {
+                                    hash_map::Entry::Occupied(val) => *val.get(),
+                                    hash_map::Entry::Vacant(place) => *place.insert(len.try_into().ok()?),
+                                };
                                 if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).map_or(false, |it| *it + 1. / 20. >= t) {
                                     return None;
                                 }
                                 touch_last_update.insert(id, t);
                                 if matches!(it.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                                    touch_ids.remove(&it.id);
                                     id = !id;
                                 }
                                 Some((id, CompactPos::new(it.position.x, it.position.y * res.aspect_ratio)))
