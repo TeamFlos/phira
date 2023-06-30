@@ -25,7 +25,7 @@ use prpr::{
     core::init_assets,
     l10n::{set_prefered_locale, GLOBAL, LANGS},
     log,
-    scene::show_error,
+    scene::{show_error, show_message},
     time::TimeManager,
     ui::{FontArc, TextPainter},
     Main,
@@ -34,6 +34,7 @@ use scene::MainScene;
 use std::sync::{mpsc, Mutex};
 
 static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
+static AA_TX: Mutex<Option<mpsc::Sender<i32>>> = Mutex::new(None);
 static DATA_PATH: Mutex<Option<String>> = Mutex::new(None);
 static CACHE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static mut DATA: Option<Data> = None;
@@ -163,10 +164,20 @@ async fn the_main() -> Result<()> {
         rx
     };
 
+    let aa_rx = {
+        let (tx, rx) = mpsc::channel();
+        *AA_TX.lock().unwrap() = Some(tx);
+        rx
+    };
+
     unsafe { get_internal_gl() }
         .quad_context
         .display_mut()
         .set_pause_resume_listener(on_pause_resume);
+
+    if let Some(me) = &get_data().me {
+        anti_addiction_action("startup", Some(format!("phira-{}", me.id)));
+    }
 
     let font = FontArc::try_from_vec(load_file("font.ttf").await?)?;
     let mut painter = TextPainter::new(font);
@@ -175,6 +186,9 @@ async fn the_main() -> Result<()> {
 
     let tm = TimeManager::default();
     let mut fps_time = -1;
+
+    let mut exit_time = f64::INFINITY;
+
     'app: loop {
         let frame_start = tm.real_time();
         let res = || -> Result<()> {
@@ -197,7 +211,40 @@ async fn the_main() -> Result<()> {
             break 'app;
         }
 
+        if let Ok(code) = aa_rx.try_recv() {
+            warn!("aa callback code: {}", code);
+            match code {
+                // login success
+                500 => {}
+                // switch account
+                1001 => {
+                    warn!("switch account");
+                }
+                // period restrict
+                1030 => {
+                    show_message(ttl!("aa-period-restrict"));
+                    exit_time = frame_start;
+                }
+                // duration limit
+                1050 => {
+                    show_message(ttl!("aa-duration-limit"));
+                    exit_time = frame_start;
+                }
+                // stopped
+                9002 => {
+                    show_message(ttl!("aa-must-aa"));
+                    exit_time = frame_start;
+                }
+                _ => {}
+            }
+        }
+
         let t = tm.real_time();
+
+        if t > exit_time + 5. {
+            break;
+        }
+
         let fps_now = t as i32;
         if fps_now != fps_time {
             fps_time = fps_now;
@@ -321,4 +368,43 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_setFfmpegPath(_: *mut std:
 
     let env = crate::miniquad::native::attach_jni_env();
     *FFMPEG_PATH.lock().unwrap() = Some(string_from_java(env, path).into());
+}
+
+#[cfg(not(all(target_os = "android", feature = "aa")))]
+pub fn anti_addiction_action(_action: &str, _arg: Option<String>) {}
+
+#[cfg(all(target_os = "android", feature = "aa"))]
+pub fn anti_addiction_action(action: &str, arg: Option<String>) {
+    unsafe {
+        let env = miniquad::native::attach_jni_env();
+        let ctx = ndk_context::android_context().context();
+        let class = (**env).GetObjectClass.unwrap()(env, ctx);
+        let method =
+            (**env).GetMethodID.unwrap()(env, class, b"antiAddiction\0".as_ptr() as _, b"(Ljava/lang/String;Ljava/lang/String;)V\0".as_ptr() as _);
+        let action = std::ffi::CString::new(action.to_owned()).unwrap();
+        let arg = arg.map(|it| std::ffi::CString::new(it).unwrap());
+        (**env).CallVoidMethod.unwrap()(
+            env,
+            ctx,
+            method,
+            (**env).NewStringUTF.unwrap()(env, action.as_ptr()),
+            arg.map(|it| (**env).NewStringUTF.unwrap()(env, it.as_ptr()))
+                .unwrap_or_else(|| std::ptr::null_mut()),
+        );
+    }
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(
+    _: *mut std::ffi::c_void,
+    _: *const std::ffi::c_void,
+    #[allow(dead_code)]
+    code: ndk_sys::jint,
+) {
+    if cfg!(feature = "aa") {
+        if let Some(tx) = AA_TX.lock().unwrap().as_mut() {
+            let _ = tx.send(code);
+        }
+    }
 }
