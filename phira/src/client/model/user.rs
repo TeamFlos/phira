@@ -104,17 +104,9 @@ static RESULTS: Lazy<Mutex<HashMap<i32, (String, Option<Option<SafeTexture>>)>>>
 pub struct UserManager;
 
 impl UserManager {
-    fn cache_path(id: i32) -> Result<PathBuf> {
-        Ok(format!("{}/{id}", dir::cache_avatar()?).into())
-    }
-
     pub fn clear_cache(id: i32) -> Result<()> {
         TASKS.blocking_lock().remove(&id);
         RESULTS.blocking_lock().remove(&id);
-        let path = Self::cache_path(id)?;
-        if path.exists() {
-            std::fs::remove_file(path)?;
-        }
         Ok(())
     }
 
@@ -129,9 +121,7 @@ impl UserManager {
                 let user: Arc<User> = Client::load(id).await?;
                 RESULTS.lock().await.insert(id, (user.name.clone(), None));
                 if let Some(avatar) = &user.avatar {
-                    let image =
-                        Images::local_or_else(Self::cache_path(id)?, async move { Ok(image::load_from_memory(&avatar.fetch().await?)?) }).await?;
-                    Ok(Some(image))
+                    Ok(Some(image::load_from_memory(&avatar.fetch().await?)?))
                 } else {
                     Ok(None)
                 }
