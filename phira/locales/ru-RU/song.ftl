@@ -78,6 +78,9 @@ info-rating = Оценка игроков
 info-type = Тип
 info-tags = Теги
 
+reviewed = Модерированный
+unreviewed = Не модерированный
+
 review-approve = Подтвердить
 review-deny = Отклонить
 review-del = Удалить из онлайн-списка
