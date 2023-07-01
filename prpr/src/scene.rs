@@ -41,6 +41,7 @@ thread_local! {
 
 #[inline]
 pub fn show_error(error: Error) {
+    warn!("show error: {error:?}");
     Dialog::error(error).show();
 }
 

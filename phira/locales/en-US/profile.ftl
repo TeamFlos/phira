@@ -11,3 +11,5 @@ edit-avatar-success = Avatar updated
 edit-avatar-failed = Failed to update avatar
 
 uploading-avatar = Uploading avatar
+
+load-record-failed = Failed to load records

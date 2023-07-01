@@ -568,7 +568,7 @@ impl Scene for MainScene {
             }
             _ => {
                 let (row_count, col_count) = if self.players.len() > 2 {
-                    (2, (self.players.len() - 1) / 2 + 1)
+                    (2, (self.players.len() + 1) / 2)
                 } else {
                     (1, self.players.len())
                 };
