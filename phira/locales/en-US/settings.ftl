@@ -17,6 +17,8 @@ item-mp-addr-sub = Server address, 'host:port'
 item-mp-addr-invalid = Invalid server address
 item-lowq = Low quality mode
 item-lowq-sub = Enable this if the UI is laggy
+item-insecure = Insecure mode
+item-insecure-sub = Enable this if you can't use online functionalities. Makes your connection insecure!
 
 item-adjust = Automatic time adjustment
 item-adjust-sub = Adjusts time dynamically to sync the music and beatmap

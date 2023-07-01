@@ -71,6 +71,7 @@ pub struct Data {
     pub tokens: Option<(String, String)>,
     pub respacks: Vec<String>,
     pub respack_id: usize,
+    pub accept_invalid_cert: bool,
 }
 
 impl Data {

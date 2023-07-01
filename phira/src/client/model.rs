@@ -16,7 +16,7 @@ pub use record::*;
 mod user;
 pub use user::*;
 
-use super::{Client, CLIENT_TOKEN};
+use super::{basic_client_builder, Client, CLIENT_TOKEN};
 use crate::{
     dir,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
@@ -179,7 +179,7 @@ pub struct File {
 }
 impl File {
     fn request(&self) -> reqwest::RequestBuilder {
-        let req = reqwest::Client::new().get(&self.url);
+        let req = basic_client_builder().build().unwrap().get(&self.url);
         if let Some(token) = CLIENT_TOKEN.load().as_ref() {
             req.header("Authorization", format!("Bearer {token}"))
         } else {
