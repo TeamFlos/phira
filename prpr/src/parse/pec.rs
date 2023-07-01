@@ -9,7 +9,7 @@ use crate::{
     ext::NotNanExt,
     judge::JudgeStatus,
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use macroquad::prelude::warn;
 use std::cell::RefCell;
 
@@ -207,8 +207,8 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
     macro_rules! last_note {
         () => {{
             let Some(last_line) = last_line else {
-                ptl!(bail "no-notes-inserted");
-            };
+                        ptl!(bail "no-notes-inserted");
+                    };
             lines[last_line].notes.last_mut().unwrap()
         }};
     }

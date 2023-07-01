@@ -5,7 +5,7 @@ use crate::{
     ext::ScaleType,
     fs::FileSystem,
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use macroquad::prelude::{Color, Vec2};
 use serde::Deserialize;
 use std::{collections::HashMap, path::Path, rc::Rc};
@@ -178,8 +178,11 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem, ffmpeg: Option<&
     let mut effects = Vec::new();
     let mut global_effects = Vec::new();
     for (id, effect) in ext.effects.into_iter().enumerate() {
-        (if effect.global { &mut global_effects } else { &mut effects })
-            .push(parse_effect(&mut r, effect, fs).await.with_context(|| ptl!("effect-location", "id" => id))?);
+        (if effect.global { &mut global_effects } else { &mut effects }).push(
+            parse_effect(&mut r, effect, fs)
+                .await
+                .with_context(|| ptl!("effect-location", "id" => id))?,
+        );
     }
     let mut videos = Vec::new();
     if let Some(ffmpeg) = ffmpeg {
