@@ -1825,7 +1825,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad#2bd00db5ea757296b0f5730c3387967c75229953"
+source = "git+https://github.com/Mivik/prpr-miniquad#3c8025bb9055812ff6bba71c036241156d5923d4"
 dependencies = [
  "libc",
  "ndk-context",

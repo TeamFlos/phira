@@ -59,7 +59,6 @@ impl Dialog {
             buttons: vec![tl!("error-copy").to_string(), tl!("ok").to_string()],
             listener: Some(Box::new(move |pos| {
                 if pos == 0 {
-                    // TODO android
                     unsafe { get_internal_gl() }.quad_context.clipboard_set(&error);
                     show_message(tl!("error-copied")).ok();
                 }
