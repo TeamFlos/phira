@@ -177,7 +177,7 @@ impl Page for HomePage {
         if self.btn_user.touch(touch, t) {
             if let Some(me) = &get_data().me {
                 self.need_back = true;
-                self.sf.goto(t, ProfileScene::new(me.id, self.icons.user.clone()));
+                self.sf.goto(t, ProfileScene::new(me.id, self.icons.user.clone(), s.icons.clone()));
             } else {
                 self.login.enter(t);
             }

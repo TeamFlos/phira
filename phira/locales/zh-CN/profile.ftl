@@ -11,3 +11,5 @@ edit-avatar-success = 头像已更新
 edit-avatar-failed = 上传头像失败
 
 uploading-avatar = 上传头像中
+
+load-record-failed = 加载游玩记录失败

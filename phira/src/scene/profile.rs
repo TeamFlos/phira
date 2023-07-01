@@ -3,25 +3,34 @@ prpr::tl_file!("profile");
 use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
     anti_addiction_action,
-    client::{recv_raw, Client, User, UserManager},
+    client::{recv_raw, Client, Record, User, UserManager},
     get_data, get_data_mut,
-    page::SFader,
+    page::{Fader, Illustration, SFader},
     save_data, sync_data,
 };
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{RectExt, SafeTexture},
+    ext::{semi_black, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
+    judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, ShadowConfig, Ui},
+    ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, Scroll, ShadowConfig, Ui},
 };
 use serde_json::json;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use tokio::sync::Notify;
+
+struct RecordItem {
+    record: Record,
+    name: Task<Result<String>>,
+    btn: DRectButton,
+    illu: Illustration,
+}
 
 pub struct ProfileScene {
     id: i32,
@@ -44,11 +53,18 @@ pub struct ProfileScene {
     should_delete: Arc<AtomicBool>,
     delete_task: Option<Task<Result<()>>>,
 
+    scroll: Scroll,
+    record_task: Option<Task<Result<Vec<RecordItem>>>>,
+    record_items: Option<Vec<RecordItem>>,
+
     sf: SFader,
+    fader: Fader,
+
+    rank_icons: [SafeTexture; 8],
 }
 
 impl ProfileScene {
-    pub fn new(id: i32, icon_user: SafeTexture) -> Self {
+    pub fn new(id: i32, icon_user: SafeTexture, rank_icons: [SafeTexture; 8]) -> Self {
         let _ = UserManager::clear_cache(id);
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
@@ -73,7 +89,45 @@ impl ProfileScene {
             should_delete: Arc::default(),
             delete_task: None,
 
+            scroll: Scroll::new(),
+            record_task: Some(Task::new(async move {
+                let records: Vec<Record> = recv_raw(Client::get(format!("/record?player={id}"))).await?.json().await?;
+                Ok(records
+                    .into_iter()
+                    .map(|it| {
+                        let illu = {
+                            let chart = it.chart.clone();
+                            let notify = Arc::new(Notify::new());
+                            Illustration {
+                                texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
+                                notify: Arc::clone(&notify),
+                                task: Some(Task::new({
+                                    async move {
+                                        notify.notified().await;
+                                        let illu = &chart.fetch().await?.illustration;
+                                        Ok((illu.load_thumbnail().await?, None))
+                                    }
+                                })),
+                                loaded: Arc::default(),
+                                load_time: f32::NAN,
+                            }
+                        };
+                        let chart = it.chart.clone();
+                        RecordItem {
+                            record: it,
+                            name: Task::new(async move { Ok(chart.fetch().await?.name.clone()) }),
+                            btn: DRectButton::new(),
+                            illu,
+                        }
+                    })
+                    .collect())
+            })),
+            record_items: None,
+
             sf: SFader::new(),
+            fader: Fader::new().with_distance(0.12),
+
+            rank_icons,
         }
     }
 }
@@ -84,7 +138,11 @@ impl Scene for ProfileScene {
         Ok(())
     }
 
-    fn update(&mut self, _tm: &mut TimeManager) -> Result<()> {
+    fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
+        let t = tm.now() as f32;
+
+        self.scroll.update(t);
+
         if let Some(task) = &mut self.load_task {
             if let Some(res) = task.take() {
                 match res {
@@ -128,7 +186,9 @@ impl Scene for ProfileScene {
         if let Some(task) = &mut self.delete_task {
             if let Some(res) = task.take() {
                 match res {
-                    Err(err) => show_error(err.context(tl!("delete-failed"))),
+                    Err(err) => {
+                        show_error(err.context(tl!("delete-failed")));
+                    }
                     Ok(_) => {
                         show_message(tl!("delete-req-sent")).ok();
                     }
@@ -137,11 +197,30 @@ impl Scene for ProfileScene {
             }
         }
 
+        if let Some(task) = &mut self.record_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("load-record-failed"))),
+                    Ok(val) => {
+                        self.record_items = Some(val);
+                        self.fader.sub(t);
+                    }
+                }
+                self.record_task = None;
+            }
+        }
+
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.delete_task = Some(Task::new(async move {
                 Client::post("/delete-account", &()).send().await?.error_for_status()?;
                 Ok(())
             }));
+        }
+
+        if let Some(items) = &mut self.record_items {
+            for item in items {
+                item.illu.settle(t);
+            }
         }
 
         Ok(())
@@ -175,6 +254,20 @@ impl Scene for ProfileScene {
             request_file("avatar");
             return Ok(true);
         }
+
+        if self.scroll.touch(touch, t) {
+            return Ok(true);
+        }
+        if let Some(items) = &mut self.record_items {
+            for item in items {
+                if item.btn.touch(touch, t) {
+                    self.scroll.y_scroller.halt();
+
+                    return Ok(true);
+                }
+            }
+        }
+
         Ok(false)
     }
 
@@ -237,6 +330,63 @@ impl Scene for ProfileScene {
             }
         } else {
             ui.loading(r.center().x, (r.y + r.bottom().min(ui.top)) / 2., t, WHITE, ());
+        }
+
+        let r = Rect::new(r.right() + 0.05, r.y, 0.9 - r.right(), 1.5);
+        if let Some(items) = &mut self.record_items {
+            self.fader.reset();
+            self.fader.for_sub(|f| {
+                ui.scope(|ui| {
+                    ui.dx(r.x);
+                    ui.dy(-ui.top);
+                    let o = self.scroll.y_scroller.offset;
+                    self.scroll.size((r.w, ui.top * 2.));
+                    self.scroll.render(ui, |ui| {
+                        let n = items.len();
+                        let h = 0.2;
+                        let pad = 0.02;
+                        let mut iter = items.iter_mut();
+                        for i in 0..((n + 1) / 2) {
+                            for j in 0..(n - i * 2).min(2) {
+                                let Some(item) = iter.next() else { unreachable!() };
+                                f.render(ui, t, |ui, c| {
+                                    let r = Rect::new(j as f32 * r.w / 2. + pad, r.y + ui.top + i as f32 * h, r.w / 2. - pad * 2., h - pad * 2.);
+                                    if r.y - o > ui.top * 2. || r.bottom() - o < 0. {
+                                        return;
+                                    }
+                                    item.illu.notify();
+                                    let (r, path) = item
+                                        .btn
+                                        .render_shadow(ui, r, t, c.a, |r| (*item.illu.texture.0, r, ScaleType::CropCenter, c));
+                                    ui.fill_path(&path, semi_black(0.6));
+
+                                    let icon = icon_index(item.record.score as _, item.record.full_combo);
+                                    let s = r.h - pad * 2.;
+                                    let ir = Rect::new(r.x + pad, r.y + pad, s, s);
+                                    ui.fill_rect(ir, (*self.rank_icons[icon], ir, ScaleType::Fit, c));
+
+                                    let lf = ir.right() + 0.02;
+
+                                    if let Some(Ok(name)) = item.name.get().as_ref() {
+                                        ui.text(name).pos(lf, ir.y).max_width(r.right() - lf - 0.03).size(0.56).color(c).draw();
+                                    }
+
+                                    ui.text(format!("{:07} {}", item.record.score, if item.record.full_combo { "[FC]" } else { "" }))
+                                        .pos(lf, ir.bottom() - 0.02)
+                                        .anchor(0., 1.)
+                                        .size(0.6)
+                                        .color(Color { a: c.a * 0.6, ..c })
+                                        .draw();
+                                });
+                            }
+                        }
+                        (r.w, r.y + ui.top + h * ((n + 1) / 2) as f32 + 0.04)
+                    })
+                });
+            });
+        } else {
+            let ct = r.center();
+            ui.loading(ct.x, ct.y, t, WHITE, ());
         }
 
         self.sf.render(ui, t);

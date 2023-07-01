@@ -196,25 +196,7 @@ impl ChartsView {
                         let download_path = chart.info.id.map(|it| format!("download/{it}"));
                         let scene = SongScene::new(
                             chart.clone(),
-                            /*if matches!(self.chosen, ChartListType::Local) {
-                                None
-                            } else {
-                                s.charts_local
-                                    .iter()
-                                    .find(|it| it.local_path.as_ref() == Some(download_path.as_ref().unwrap()))
-                                    .map(|it| it.illu.clone())
-                            },*/
                             None,
-                            /*if matches!(self.chosen, ChartListType::Local) {
-                                chart.local_path.clone()
-                            } else {
-                                let path = download_path.clone().unwrap();
-                                if Path::new(&format!("{}/{path}", dir::charts()?)).exists() {
-                                    Some(path)
-                                } else {
-                                    None
-                                }
-                            },*/
                             if let Some(path) = &chart.local_path {
                                 Some(path.clone())
                             } else {

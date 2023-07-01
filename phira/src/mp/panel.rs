@@ -763,7 +763,7 @@ impl MPPanel {
             ui.abs_scope(|ui| {
                 let users: Vec<_> = client.blocking_state().unwrap().users.values().cloned().collect();
                 let n = users.len();
-                let rn = (n - 1) / 2 + 1;
+                let rn = (n + 1) / 2;
                 ui.fill_rect(ui.screen_rect(), semi_black(p * 0.4));
 
                 let mut iter = users.into_iter();
