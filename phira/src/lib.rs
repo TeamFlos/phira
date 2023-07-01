@@ -32,6 +32,7 @@ use prpr::{
 };
 use scene::MainScene;
 use std::sync::{mpsc, Mutex};
+use tracing::{error, info, warn};
 
 static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
 static AA_TX: Mutex<Option<mpsc::Sender<i32>>> = Mutex::new(None);
@@ -204,7 +205,7 @@ async fn the_main() -> Result<()> {
             Ok(())
         }();
         if let Err(err) = res {
-            warn!("uncaught error: {:?}", err);
+            error!("uncaught error: {err:?}");
             show_error(err);
         }
         if main.should_exit() {
@@ -212,7 +213,7 @@ async fn the_main() -> Result<()> {
         }
 
         if let Ok(code) = aa_rx.try_recv() {
-            warn!("aa callback code: {}", code);
+            info!("anti addiction callback: {code}");
             match code {
                 // login success
                 500 => {}
@@ -248,7 +249,7 @@ async fn the_main() -> Result<()> {
         let fps_now = t as i32;
         if fps_now != fps_time {
             fps_time = fps_now;
-            info!("| {}", (1. / (t - frame_start)) as u32);
+            info!("FPS {}", (1. / (t - frame_start)) as u32);
         }
 
         next_frame().await;
@@ -399,8 +400,7 @@ pub fn anti_addiction_action(action: &str, arg: Option<String>) {
 pub unsafe extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(
     _: *mut std::ffi::c_void,
     _: *const std::ffi::c_void,
-    #[allow(dead_code)]
-    code: ndk_sys::jint,
+    #[allow(dead_code)] code: ndk_sys::jint,
 ) {
     if cfg!(feature = "aa") {
         if let Some(tx) = AA_TX.lock().unwrap().as_mut() {

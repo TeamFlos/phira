@@ -21,6 +21,7 @@ use prpr::{
 };
 use serde::Deserialize;
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, sync::Arc};
+use tracing::warn;
 
 #[derive(Debug)]
 struct WrappedColor(Color);

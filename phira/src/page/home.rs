@@ -24,6 +24,7 @@ use prpr::{
     ui::{button_hit_large, rounded_rect, DRectButton, Ui},
 };
 use serde::Deserialize;
+use tracing::warn;
 
 const BOARD_SWITCH_TIME: f32 = 4.;
 const BOARD_TRANSIT_TIME: f32 = 1.2;

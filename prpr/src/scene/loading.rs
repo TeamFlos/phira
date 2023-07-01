@@ -15,6 +15,7 @@ use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use regex::Regex;
 use std::sync::Arc;
+use tracing::warn;
 
 const BEFORE_TIME: f32 = 1.;
 const TRANSITION_TIME: f32 = 1.4;
@@ -84,7 +85,7 @@ impl LoadingScene {
         let (background, theme_color) = match load(&mut fs, &info.illustration).await {
             Ok((ill, bg, color)) => (Some((ill, bg)), color),
             Err(err) => {
-                warn!("Failed to load background: {:?}", err);
+                warn!("failed to load background: {err:?}");
                 (None, WHITE)
             }
         };

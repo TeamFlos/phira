@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use chardetng::EncodingDetector;
 use concat_string::concat_string;
 use macroquad::prelude::load_file;
-use miniquad::warn;
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
@@ -15,6 +14,7 @@ use std::{
     path::Path,
     sync::{Arc, Mutex},
 };
+use tracing::warn;
 use zip::{write::FileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
 pub fn update_zip<R: Read + Seek>(zip: &mut ZipArchive<R>, patches: HashMap<String, Vec<u8>>) -> Result<Vec<u8>> {
@@ -90,7 +90,7 @@ impl FileSystem for ExternalFileSystem {
     async fn load_file(&mut self, path: &str) -> Result<Vec<u8>> {
         #[cfg(target_arch = "wasm32")]
         {
-            unimplemented!("Cannot use external file system on wasm32")
+            unimplemented!("cannot use external file system on wasm32")
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -244,11 +244,11 @@ fn info_from_kv<'a>(it: impl Iterator<Item = (&'a str, String)>, csv: bool) -> R
             continue;
         }
         if key == "NoteScale" || key == "ScaleRatio" {
-            warn!("Note scale is ignored");
+            warn!("note scale is ignored");
             continue;
         }
         if key == "GlobalAlpha" {
-            warn!("Global alpha is ignored");
+            warn!("global alpha is ignored");
             continue;
         }
         *match key {
@@ -270,12 +270,12 @@ fn info_from_txt(text: &str) -> Result<ChartInfo> {
     let mut it = text.lines().peekable();
     let first = it.next();
     if first != Some("#") && first != Some("\u{feff}#") {
-        bail!("Expected the first line to be #");
+        bail!("expected the first line to be #");
     }
     let kvs = it
         .map(|line| -> Result<(&str, String)> {
             let Some((key, value)) = line.split_once(": ") else {
-            bail!("Expected \"Key: Value\"");
+            bail!("expected \"Key: Value\"");
         };
             Ok((key, value.to_string()))
         })
@@ -287,7 +287,7 @@ fn info_from_csv(text: &str) -> Result<ChartInfo> {
     let mut reader = csv::ReaderBuilder::new().flexible(true).from_reader(Cursor::new(text));
     // shitty design
     let headers = reader.headers()?.iter().map(str::to_owned).collect::<Vec<_>>();
-    let record = reader.into_records().last().ok_or_else(|| anyhow!("Expected csv records"))??; // ??
+    let record = reader.into_records().last().ok_or_else(|| anyhow!("expected csv records"))??; // ??
     info_from_kv(
         headers
             .iter()
@@ -309,12 +309,12 @@ pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<(
             return;
         }
         if status.is_some() {
-            warn!("Found multiple {}, using the first one", desc);
+            warn!("found multiple {}, using the first one", desc);
         } else {
             *status = Some(value);
         }
     }
-    for file in fs.list_root().context("Cannot list files")? {
+    for file in fs.list_root().context("cannot list files")? {
         if let Some((_, ext)) = file.rsplit_once('.') {
             match ext.to_ascii_lowercase().as_str() {
                 "json" | "pec" => {
@@ -359,9 +359,9 @@ pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<(
             }
         }
     } else {
-        bail!("Cannot find chart");
+        bail!("cannot find chart");
     }
-    for file in fs.list_root().context("Cannot list files")? {
+    for file in fs.list_root().context("cannot list files")? {
         if let Some((_, ext)) = file.rsplit_once('.') {
             match ext.to_ascii_lowercase().as_str() {
                 "mp3" | "ogg" | "wav" | "flac" | "aac" => {
@@ -401,7 +401,7 @@ pub async fn load_info(fs: &mut dyn FileSystem) -> Result<ChartInfo> {
     } else if let Ok(bytes) = fs.load_file("info.csv").await {
         info_from_csv(&bytes_to_text_auto(&bytes))?
     } else {
-        warn!("None of info.yml, info.txt and info.csv is found, inferring");
+        warn!("none of info.yml, info.txt and info.csv is found, inferring");
         let mut info = ChartInfo::default();
         fix_info(fs, &mut info).await?;
         info
@@ -412,8 +412,8 @@ pub async fn load_info(fs: &mut dyn FileSystem) -> Result<ChartInfo> {
 pub fn fs_from_file(path: &Path) -> Result<Box<dyn FileSystem>> {
     let meta = fs::metadata(path)?;
     Ok(if meta.is_file() {
-        let bytes = fs::read(path).with_context(|| format!("Failed to read from {}", path.display()))?;
-        Box::new(ZipFileSystem::new(bytes).with_context(|| format!("Cannot open {} as zip archive", path.display()))?)
+        let bytes = fs::read(path).with_context(|| format!("failed to read from {}", path.display()))?;
+        Box::new(ZipFileSystem::new(bytes).with_context(|| format!("cannot open {} as zip archive", path.display()))?)
     } else {
         Box::new(ExternalFileSystem(Arc::new(crate::dir::Dir::new(path)?)))
     })
