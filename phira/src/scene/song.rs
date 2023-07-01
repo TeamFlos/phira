@@ -3,7 +3,7 @@ prpr::tl_file!("song");
 use super::{confirm_delete, confirm_dialog, fs_from_path, render_ldb, LdbDisplayItem};
 use crate::{
     charts_view::NEED_UPDATE,
-    client::{recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
+    client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
@@ -462,7 +462,7 @@ impl SongScene {
                     async fn download(mut file: impl Write, url: &str, prog_wk: &Weak<Mutex<Option<f32>>>) -> Result<()> {
                         let Some(prog) = prog_wk.upgrade() else { return Ok(()) };
                         *prog.lock().unwrap() = None;
-                        let req = reqwest::Client::new().get(url);
+                        let req = basic_client_builder().build().unwrap().get(url);
                         let req = if let Some(token) = CLIENT_TOKEN.load().as_ref() {
                             req.header("Authorization", format!("Bearer {token}"))
                         } else {

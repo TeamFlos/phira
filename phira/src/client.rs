@@ -6,19 +6,27 @@ use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
 use prpr::{l10n::LANG_IDENTS, scene::SimpleRecord};
-use reqwest::{header, Method, RequestBuilder, Response, StatusCode};
+use reqwest::{header, ClientBuilder, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData, sync::Arc};
 
 pub static CLIENT_TOKEN: Lazy<ArcSwap<Option<String>>> = Lazy::new(|| ArcSwap::from_pointee(None));
 
-static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_pointee(reqwest::Client::new()));
+static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_pointee(basic_client_builder().build().unwrap()));
 
 pub struct Client;
 
 // const API_URL: &str = "http://localhost:2924";
 const API_URL: &str = "https://api.phira.cn";
+
+pub fn basic_client_builder() -> ClientBuilder {
+    let mut builder = reqwest::ClientBuilder::new();
+    if get_data().accept_invalid_cert {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+    builder
+}
 
 fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
     CLIENT_TOKEN.store(access_token.map(str::to_owned).into());
@@ -29,7 +37,7 @@ fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
         auth_value.set_sensitive(true);
         headers.insert(header::AUTHORIZATION, auth_value);
     }
-    Ok(reqwest::ClientBuilder::new().default_headers(headers).build()?.into())
+    Ok(basic_client_builder().default_headers(headers).build()?.into())
 }
 
 pub fn set_access_token_sync(access_token: Option<&str>) -> Result<()> {

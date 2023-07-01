@@ -32,7 +32,6 @@ pub async fn download(entity: ChartEntity, token: String) -> Result<String> {
     let dir = prpr::dir::Dir::new(path)?;
 
     async fn download(mut file: impl Write, url: &str, token: &str) -> Result<()> {
-        info!("wtf {url} {token}");
         let res = recv_raw(reqwest::Client::new().get(url).header("Authorization", format!("Bearer {token}")))
             .await
             .context("请求失败")?;

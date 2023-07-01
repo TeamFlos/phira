@@ -218,7 +218,7 @@ fn render_title<'a>(ui: &mut Ui, c: Color, title: impl Into<Cow<'a, str>>, subti
     const SUBTITLE_SIZE: f32 = 0.35;
     const LEFT: f32 = 0.06;
     const PAD: f32 = 0.01;
-    const SUB_MAX_WIDTH: f32 = 1.;
+    const SUB_MAX_WIDTH: f32 = 1.4;
     if let Some(subtitle) = subtitle {
         let title = title.into();
         let r1 = ui.text(Cow::clone(&title)).size(TITLE_SIZE).measure();
@@ -278,6 +278,7 @@ struct GeneralList {
     mp_btn: DRectButton,
     mp_addr_btn: DRectButton,
     lowq_btn: DRectButton,
+    insecure_btn: DRectButton,
 }
 
 impl GeneralList {
@@ -299,6 +300,7 @@ impl GeneralList {
             mp_btn: DRectButton::new(),
             mp_addr_btn: DRectButton::new(),
             lowq_btn: DRectButton::new(),
+            insecure_btn: DRectButton::new(),
         }
     }
 
@@ -329,6 +331,10 @@ impl GeneralList {
         }
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
+            return Ok(Some(true));
+        }
+        if self.insecure_btn.touch(touch, t) {
+            data.accept_invalid_cert = true;
             return Ok(Some(true));
         }
         Ok(None)
@@ -394,6 +400,10 @@ impl GeneralList {
         item! {
             render_title(ui, c, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
             render_switch(ui, rr, t, c, &mut self.lowq_btn, config.sample_count == 1);
+        }
+        item! {
+            render_title(ui, c, tl!("item-insecure"), Some(tl!("item-insecure-sub")));
+            render_switch(ui, rr, t, c, &mut self.insecure_btn, data.accept_invalid_cert);
         }
         self.lang_btn.render_top(ui, t, c.a);
         (w, h)

@@ -17,6 +17,8 @@ item-mp-addr-sub = 服务器地址，'主机:端口'
 item-mp-addr-invalid = 无效的服务器地址
 item-lowq = 低画质模式
 item-lowq-sub = 建议在画面卡顿时启用
+item-insecure = 不安全模式
+item-insecure-sub = 当无法使用在线功能时可尝试该功能。这会使得你的连接不安全！
 
 item-adjust = 自动对齐时间
 item-adjust-sub = 自动调整延迟以同步音乐和谱面
