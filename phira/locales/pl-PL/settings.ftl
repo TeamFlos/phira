@@ -25,3 +25,19 @@ item-opt-sub = Popraw wydajność, może to spowodować niestabilność
 item-note-size = Rozmiar nut
 
 load-cali-failed = Nie załadowano dźwięku
+
+item-chart-debug = Tryb debug
+item-chart-debug-sub = Pokazuje liczbe linii i orientację
+item-touch-debug-sub = Pokazuje dotknięcia
+
+load-cali-failed = Nie załadowano plików audio
+
+about-content =
+  Phira v{ $version }
+
+  Phira to niekomercyjna, oparta na społeczności gra rytmiczna, inspirowana grą Phigros, zrobioną w Rust.
+
+  Jeśli ta gra ci się podoba, proszę pomyśl nad wspieraniem nas na Patreon (@PhiraGame) lub afdian.com (@Mivik). Twoje wsparcie jest najlepszym impetem dla nas!
+
+  konto BiliBili: @Phira官方
+  Grupa QQ: r48eajexth

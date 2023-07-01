@@ -2,6 +2,7 @@
 local = Lokalne
 online = Online
 popular = Popularne
+list-empty = Nic tutaj nie ma
 
 page = Strona { $current } / { $total }
 prev-page = Poprzednia strona
