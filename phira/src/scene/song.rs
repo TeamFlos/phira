@@ -1,13 +1,13 @@
 prpr::tl_file!("song");
 
-use super::{confirm_delete, confirm_dialog, fs_from_path, render_ldb, LdbDisplayItem};
+use super::{confirm_delete, confirm_dialog, fs_from_path, render_ldb, LdbDisplayItem, ProfileScene};
 use crate::{
     charts_view::NEED_UPDATE,
     client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{thumbnail_path, ChartItem, Fader, Illustration},
+    page::{thumbnail_path, ChartItem, Fader, Illustration, SFader},
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -188,6 +188,8 @@ struct LdbItem {
     #[serde(flatten)]
     pub inner: Record,
     pub rank: u32,
+    #[serde(skip, default)]
+    pub btn: RectButton,
 }
 
 pub struct SongScene {
@@ -268,6 +270,8 @@ pub struct SongScene {
     should_stabilize: Arc<AtomicBool>,
 
     scene_task: LocalTask<Result<NextScene>>,
+
+    sf: SFader,
 }
 
 impl SongScene {
@@ -426,6 +430,8 @@ impl SongScene {
             should_stabilize: Arc::default(),
 
             scene_task: None,
+
+            sf: SFader::new(),
         }
     }
 
@@ -908,8 +914,8 @@ impl SongScene {
             &mut self.ldb_scroll,
             &mut self.ldb_fader,
             &self.icons.user,
-            self.ldb.as_ref().map(|it| {
-                it.1.iter().map(|it| LdbDisplayItem {
+            self.ldb.as_mut().map(|it| {
+                it.1.iter_mut().map(|it| LdbDisplayItem {
                     player_id: it.inner.player.id,
                     rank: it.rank,
                     score: if self.ldb_std {
@@ -922,6 +928,7 @@ impl SongScene {
                     } else {
                         format!("{:.2}%", it.inner.accuracy * 100.)
                     }),
+                    btn: &mut it.btn,
                 })
             }),
         );
@@ -1232,6 +1239,16 @@ impl Scene for SongScene {
                         if self.ldb_scroll.touch(touch, t) {
                             return Ok(true);
                         }
+                        if let Some((_, ldb)) = &mut self.ldb {
+                            for item in ldb {
+                                if item.btn.touch(touch) {
+                                    button_hit();
+                                    self.sf
+                                        .goto(t, ProfileScene::new(item.inner.player.id, self.icons.user.clone(), self.rank_icons.clone()));
+                                    return Ok(true);
+                                }
+                            }
+                        }
                     }
                     SideContent::Info => {
                         if self.info_scroll.touch(touch, t) {
@@ -1309,12 +1326,7 @@ impl Scene for SongScene {
             self.side_enter_time = tm.real_time() as _;
             return Ok(true);
         }
-        if let Some(task) = &mut self.scene_task {
-            if let Some(res) = poll_future(task.as_mut()) {
-                self.next_scene = Some(res?);
-                self.scene_task = None;
-            }
-        }
+
         Ok(false)
     }
 
@@ -1838,6 +1850,12 @@ impl Scene for SongScene {
                 self.my_rating_task = None;
             }
         }
+        if let Some(task) = &mut self.scene_task {
+            if let Some(res) = poll_future(task.as_mut()) {
+                self.next_scene = Some(res?);
+                self.scene_task = None;
+            }
+        }
         Ok(())
     }
 
@@ -2019,11 +2037,14 @@ impl Scene for SongScene {
         let rt = tm.real_time() as f32;
         self.tags.render(ui, rt);
         self.rate_dialog.render(ui, rt);
+
+        self.sf.render(ui, t);
+
         Ok(())
     }
 
-    fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
-        if let Some(scene) = self.next_scene.take() {
+    fn next_scene(&mut self, tm: &mut TimeManager) -> NextScene {
+        if let Some(scene) = self.next_scene.take().or_else(|| self.sf.next_scene(tm.now() as _)) {
             if let Some(music) = &mut self.preview {
                 let _ = music.pause();
             }

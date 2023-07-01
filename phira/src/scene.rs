@@ -21,7 +21,7 @@ use prpr::{
     config::Mods,
     ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
-    ui::{Dialog, Scroll, Ui},
+    ui::{Dialog, RectButton, Scroll, Ui},
 };
 use std::{
     cell::RefCell,
@@ -101,14 +101,15 @@ pub async fn import_chart(path: String) -> Result<LocalChart> {
     }
 }
 
-pub struct LdbDisplayItem {
+pub struct LdbDisplayItem<'a> {
     pub player_id: i32,
     pub rank: u32,
     pub score: String,
     pub alt: Option<String>,
+    pub btn: &'a mut RectButton,
 }
 
-pub fn render_ldb(
+pub fn render_ldb<'a>(
     ui: &mut Ui,
     title: &str,
     w: f32,
@@ -116,7 +117,7 @@ pub fn render_ldb(
     scroll: &mut Scroll,
     fader: &mut Fader,
     icon_user: &SafeTexture,
-    iter: Option<impl Iterator<Item = LdbDisplayItem>>,
+    iter: Option<impl Iterator<Item = LdbDisplayItem<'a>>>,
 ) {
     use macroquad::prelude::*;
 
@@ -156,7 +157,9 @@ pub fn render_ldb(
                         .size(0.52)
                         .color(c)
                         .draw();
-                    ui.avatar(0.18, s / 2., r, c, rt, UserManager::opt_avatar(item.player_id, icon_user));
+                    let ct = (0.18, s / 2.);
+                    ui.avatar(ct.0, ct.1, r, c, rt, UserManager::opt_avatar(item.player_id, icon_user));
+                    item.btn.set(ui, Rect::new(ct.0 - r, ct.1 - r, r * 2., r * 2.));
                     let mut rt = width - 0.04;
                     if let Some(alt) = item.alt {
                         let r = ui
