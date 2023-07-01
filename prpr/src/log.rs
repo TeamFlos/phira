@@ -27,18 +27,21 @@ where
         event.record(&mut v);
 
         let meta = event.metadata();
-        let mut msg = format!("{:.6?} ", Utc::now()).bright_black().to_string();
 
-        msg += &match *meta.level() {
-            Level::TRACE => "TRACE".bright_black(),
-            Level::DEBUG => "DEBUG".magenta(),
-            Level::INFO => " INFO".green(),
-            Level::WARN => " WARN".yellow(),
-            Level::ERROR => "ERROR".red(),
-        }
-        .to_string();
+        #[cfg(not(target_os = "android"))]
+        let mut msg = format!("{:.6?} ", Utc::now()).bright_black().to_string()
+            + &match *meta.level() {
+                Level::TRACE => "TRACE".bright_black(),
+                Level::DEBUG => "DEBUG".magenta(),
+                Level::INFO => " INFO".green(),
+                Level::WARN => " WARN".yellow(),
+                Level::ERROR => "ERROR".red(),
+            }
+            .to_string()
+            + " ";
 
-        msg.push(' ');
+        #[cfg(target_os = "android")]
+        let mut msg = String::new();
 
         msg += &meta.target().bright_black().to_string();
         if !v.1.is_empty() {

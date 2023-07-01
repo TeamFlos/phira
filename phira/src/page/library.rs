@@ -365,6 +365,7 @@ impl Page for LibraryPage {
             self.filter_show_tag = false;
             self.rating.enter(t);
         } else if self.tags_last_show && !self.tags.showing() {
+            self.current_page = 0;
             self.load_online();
         }
         if self.rating.show_tags {
@@ -372,6 +373,7 @@ impl Page for LibraryPage {
             self.filter_show_tag = true;
             self.tags.enter(t);
         } else if self.rating_last_show && !self.rating.showing() {
+            self.current_page = 0;
             self.load_online();
         }
         self.tags_last_show = self.tags.showing();
