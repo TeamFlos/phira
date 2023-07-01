@@ -970,7 +970,7 @@ impl SongScene {
                     tl!("info-type"),
                     format!(
                         "{}{}",
-                        if entity.reviewed { "" } else { "[Unreviewed] " },
+                        if entity.reviewed { tl!("reviewed") } else { tl!("unreviewed") },
                         match (entity.stable, entity.ranked) {
                             (true, true) => ttl!("chart-ranked"),
                             (true, false) => ttl!("chart-special"),
