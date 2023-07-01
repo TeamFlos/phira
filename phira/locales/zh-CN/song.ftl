@@ -74,6 +74,9 @@ info-rating = 评分
 info-type = 种类
 info-tags = 标签
 
+reviewed = 已审核
+unreviewed = 未审核
+
 review-approve = 通过
 review-deny = 拒绝
 review-del = 删除在线

@@ -75,6 +75,9 @@ info-rating = Rating
 info-type = Type
 info-tags = Tags
 
+reviewed = Reviewed
+unreviewed = Unreviewed
+
 review-approve = Approve
 review-deny = Deny
 review-del = Delete online
