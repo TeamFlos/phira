@@ -209,10 +209,10 @@ macro_rules! tl_file {
                         $($p)* L10N_LOCAL.with(|it| it.borrow_mut().format($key, Some(&$crate::l10n::fluent_args![$d($d name => $d value), *])).to_string())
                     };
                     (err $d ($d body:tt)*) => {
-                        anyhow::Error::msg(tl!($d($d body)*))
+                        anyhow::Error::msg($macro_name!($d($d body)*))
                     };
                     (bail $d ($d body:tt)*) => {
-                        anyhow::Result::Err(anyhow::Error::msg(tl!($d($d body)*)))?
+                        return anyhow::Result::Err(anyhow::Error::msg($macro_name!($d($d body)*)))
                     };
                 }
 

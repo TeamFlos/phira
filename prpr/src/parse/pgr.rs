@@ -1,3 +1,5 @@
+crate::tl_file!("parser" ptl);
+
 use super::process_lines;
 use crate::{
     core::{
@@ -80,7 +82,7 @@ macro_rules! validate_events {
         });
         for i in 0..($pgr.len() - 1) {
             if $pgr[i].end_time != $pgr[i + 1].start_time {
-                bail!("Events should be contiguous");
+                ptl!(bail "event-not-contiguous");
             }
         }
         // if $pgr.last().unwrap().end_time <= 900000000.0 {
@@ -172,7 +174,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
                         NoteKind::Hold { end_time, end_height }
                     }
                     4 => NoteKind::Flick,
-                    _ => bail!("Unknown note type: {}", pgr.kind),
+                    _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
                 },
                 time,
                 speed: if pgr.kind == 3 {
@@ -202,9 +204,9 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
     let cache = JudgeLineCache::new(&mut notes);
     Ok(JudgeLine {
         object: Object {
-            alpha: parse_float_events(r, pgr.alpha_events).context("Failed to parse alpha events")?,
-            rotation: parse_float_events(r, pgr.rotate_events).context("Failed to parse rotate events")?,
-            translation: parse_move_events(r, pgr.move_events).context("Failed to parse move events")?,
+            alpha: parse_float_events(r, pgr.alpha_events).with_context(|| ptl!("alpha-events-parse-failed"))?,
+            rotation: parse_float_events(r, pgr.rotate_events).with_context(|| ptl!("rotate-events-parse-failed"))?,
+            translation: parse_move_events(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
             ..Default::default()
         },
         ctrl_obj: RefCell::default(),
@@ -223,7 +225,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
 }
 
 pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
-    let pgr: PgrChart = serde_json::from_str(source).context("Failed to parse JSON")?;
+    let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
     let max_time = *pgr
         .judge_line_list
         .iter()
@@ -243,7 +245,7 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         .judge_line_list
         .into_iter()
         .enumerate()
-        .map(|(id, pgr)| parse_judge_line(pgr, max_time).with_context(|| format!("In judge line #{id}")))
+        .map(|(id, pgr)| parse_judge_line(pgr, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
         .collect::<Result<Vec<_>>>()?;
     process_lines(&mut lines);
     Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra))
