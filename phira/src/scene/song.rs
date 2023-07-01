@@ -271,6 +271,8 @@ pub struct SongScene {
 
     scene_task: LocalTask<Result<NextScene>>,
 
+    uploader_btn: RectButton,
+
     sf: SFader,
 }
 
@@ -430,6 +432,8 @@ impl SongScene {
             should_stabilize: Arc::default(),
 
             scene_task: None,
+
+            uploader_btn: RectButton::new(),
 
             sf: SFader::new(),
         }
@@ -950,7 +954,10 @@ impl SongScene {
                 }};
             }
             if let Some(uploader) = &self.info.uploader {
-                let r = ui.avatar(0.06, 0.06, 0.05, WHITE, rt, UserManager::opt_avatar(uploader.id, &self.icons.user));
+                let c = 0.06;
+                let s = 0.05;
+                let r = ui.avatar(c, c, s, WHITE, rt, UserManager::opt_avatar(uploader.id, &self.icons.user));
+                self.uploader_btn.set(ui, Rect::new(c - s, c - s, s * 2., s * 2.));
                 if let Some(name) = UserManager::get_name(uploader.id) {
                     ui.text(name)
                         .pos(r.right() + 0.02, r.center().y)
@@ -1252,6 +1259,14 @@ impl Scene for SongScene {
                     }
                     SideContent::Info => {
                         if self.info_scroll.touch(touch, t) {
+                            return Ok(true);
+                        }
+                        if self.uploader_btn.touch(touch) {
+                            button_hit();
+                            self.sf.goto(
+                                t,
+                                ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
+                            );
                             return Ok(true);
                         }
                     }
