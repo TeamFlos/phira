@@ -10,7 +10,7 @@ use crate::{
     fs::FileSystem,
     judge::JudgeStatus,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use macroquad::prelude::{Color, WHITE};
 use serde::Deserialize;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -432,7 +432,10 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
         notes,
         kind: if rpe.texture == "line.png" {
             if let Some(events) = rpe.extended.as_ref().and_then(|e| e.paint_events.as_ref()) {
-                JudgeLineKind::Paint(parse_events(r, events, Some(-1.), bezier_map).with_context(|| ptl!("paint-events-parse-failed"))?, RefCell::default())
+                JudgeLineKind::Paint(
+                    parse_events(r, events, Some(-1.), bezier_map).with_context(|| ptl!("paint-events-parse-failed"))?,
+                    RefCell::default(),
+                )
             } else if let Some(events) = rpe.extended.as_ref().and_then(|e| e.text_events.as_ref()) {
                 JudgeLineKind::Text(parse_events(r, events, Some(String::new()), bezier_map).with_context(|| ptl!("text-events-parse-failed"))?)
             } else {

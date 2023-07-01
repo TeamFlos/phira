@@ -9,7 +9,7 @@ use crate::{
     ext::NotNanExt,
     judge::JudgeStatus,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use macroquad::prelude::warn;
 use serde::Deserialize;
 use std::cell::RefCell;
