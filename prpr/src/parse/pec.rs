@@ -1,3 +1,5 @@
+crate::tl_file!("parser" ptl);
+
 use super::{process_lines, RPE_TWEEN_MAP};
 use crate::{
     core::{
@@ -21,26 +23,26 @@ trait Take {
 impl<'a, T: Iterator<Item = &'a str>> Take for T {
     fn take_f32(&mut self) -> Result<f32> {
         self.next()
-            .ok_or_else(|| anyhow!("Unexpected end of line"))
+            .ok_or_else(|| ptl!(err "unexpected-eol"))
             .and_then(|it| -> Result<f32> { Ok(it.parse()?) })
-            .context("Expected f32")
+            .with_context(|| ptl!("expected-f32"))
     }
 
     fn take_usize(&mut self) -> Result<usize> {
         self.next()
-            .ok_or_else(|| anyhow!("Unexpected end of line"))
+            .ok_or_else(|| ptl!(err "unexpected-eol"))
             .and_then(|it| -> Result<usize> { Ok(it.parse()?) })
-            .context("Expected usize")
+            .with_context(|| ptl!("expected-usize"))
     }
 
     fn take_tween(&mut self) -> Result<TweenId> {
         self.next()
-            .ok_or_else(|| anyhow!("Unexpected end of line"))
+            .ok_or_else(|| ptl!(err "unexpected-eol"))
             .and_then(|it| -> Result<u8> {
                 let t = it.parse::<u8>()?;
                 Ok(RPE_TWEEN_MAP.get(t as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]))
             })
-            .context("Expected tween")
+            .with_context(|| ptl!("expected-tween"))
     }
 
     fn take_time(&mut self, r: &mut BpmList) -> Result<f32> {
@@ -205,7 +207,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
     macro_rules! last_note {
         () => {{
             let Some(last_line) = last_line else {
-                bail!("No note has been inserted yet");
+                ptl!(bail "no-notes-inserted");
             };
             lines[last_line].notes.last_mut().unwrap()
         }};
@@ -220,12 +222,12 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
 			};
             let cs: Vec<_> = cmd.chars().collect();
             if cs.len() > 2 {
-                bail!("Unknown command: {cmd}");
+                ptl!(bail "unknown-command", "cmd" => cmd);
             }
             match cs[0] {
                 'b' if cmd == "bp" => {
                     if r.is_some() {
-                        bail!("Bpm events (bp) should be contiguous and in the head of the file");
+                        ptl!(bail "bp-error");
                     }
                     bpm_list.push((it.take_f32()?, it.take_f32()?));
                 }
@@ -251,7 +253,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                     let fake = match it.take_usize()? {
                         0 => false,
                         1 => true,
-                        _ => bail!("Expected 0 / 1 (real note / fake note)"),
+                        _ => ptl!(bail "expected-01"),
                     };
                     line.notes.push(Note {
                         object: Object {
@@ -324,19 +326,19 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         'f' => {
                             line.alpha_events.push(PECEvent::new(time, it.take_time(r)?, it.take_f32()?, 2));
                         }
-                        _ => bail!("Unknown command {cmd}"),
+                        _ => ptl!(bail "unknown-command", "cmd" => cmd),
                     }
                 }
-                _ => bail!("Unknown command {cmd}"),
+                _ => ptl!(bail "unknown-command", "cmd" => cmd),
             }
         }
         if let Some(next) = it.next() {
-            bail!("Unexpected extra content: {next}");
+            ptl!(bail "unexpected-extra", "next" => next);
         }
         Ok(())
     };
     for (id, line) in source.lines().enumerate() {
-        inner(line).with_context(|| anyhow!("On line #{}", id + 1))?;
+        inner(line).with_context(|| ptl!("line-location", "lid" => id + 1))?;
     }
     let max_time = *lines
         .iter()
@@ -358,7 +360,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
     let mut lines = lines
         .into_iter()
         .enumerate()
-        .map(|(id, line)| parse_judge_line(line, id, max_time).with_context(|| format!("In judge line #{id}")))
+        .map(|(id, line)| parse_judge_line(line, id, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
         .collect::<Result<Vec<_>>>()?;
     process_lines(&mut lines);
     ensure_bpm(&mut r, &mut bpm_list);
