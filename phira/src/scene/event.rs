@@ -1,10 +1,10 @@
 prpr::tl_file!("event");
 
-use super::{render_ldb, LdbDisplayItem};
+use super::{render_ldb, LdbDisplayItem, ProfileScene};
 use crate::{
     client::{recv_raw, Client, Event},
     icons::Icons,
-    page::{EventPage, Fader, Illustration},
+    page::{EventPage, Fader, Illustration, SFader},
     uml::{parse_uml, Uml},
 };
 use anyhow::Result;
@@ -30,6 +30,8 @@ struct LdbItem {
     player: i32,
     rank: i32,
     score: i32,
+    #[serde(skip, default)]
+    btn: RectButton,
 }
 
 #[derive(Deserialize)]
@@ -74,6 +76,8 @@ pub struct EventScene {
     rank_icons: [SafeTexture; 8],
 
     last_scroll_handled_touch: bool,
+
+    sf: SFader,
 }
 
 impl EventScene {
@@ -117,6 +121,8 @@ impl EventScene {
             rank_icons,
 
             last_scroll_handled_touch: false,
+
+            sf: SFader::new(),
         }
     }
 
@@ -220,6 +226,17 @@ impl Scene for EventScene {
             self.scrolled = true;
             self.last_scroll_handled_touch = true;
             return Ok(true);
+        }
+
+        if let Some(ldb) = &mut self.ldb {
+            for item in ldb {
+                if item.btn.touch(touch) {
+                    button_hit();
+                    self.sf
+                        .goto(t, ProfileScene::new(item.player, self.icons.user.clone(), self.rank_icons.clone()));
+                    return Ok(true);
+                }
+            }
         }
 
         Ok(false)
@@ -449,12 +466,13 @@ impl Scene for EventScene {
                     &mut self.ldb_scroll,
                     &mut self.ldb_fader,
                     &self.icons.user,
-                    self.ldb.as_ref().map(|it| {
-                        it.iter().map(|it| LdbDisplayItem {
+                    self.ldb.as_mut().map(|it| {
+                        it.iter_mut().map(|it| LdbDisplayItem {
                             player_id: it.player,
                             rank: it.rank as _,
                             score: it.score.to_string(),
                             alt: None,
+                            btn: &mut it.btn,
                         })
                     }),
                 );
@@ -463,6 +481,8 @@ impl Scene for EventScene {
 
         self.uml.render_top(ui, t, rt)?;
 
+        self.sf.render(ui, t);
+
         if self.loading() {
             ui.full_loading_simple(t);
         }
@@ -470,7 +490,10 @@ impl Scene for EventScene {
         Ok(())
     }
 
-    fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
+    fn next_scene(&mut self, tm: &mut TimeManager) -> NextScene {
+        if let Some(scene) = self.sf.next_scene(tm.now() as _) {
+            return scene;
+        }
         self.next_scene.take().or_else(|| self.uml.next_scene()).unwrap_or_default()
     }
 }
