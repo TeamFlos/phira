@@ -1346,18 +1346,19 @@ impl Scene for SongScene {
             }
         }
         if self.rate_dialog.confirmed.take() == Some(true) {
-            let id = self.info.id.unwrap();
-            let score = self.rate_dialog.rate.score;
-            self.rate_task = Some(Task::new(async move {
-                recv_raw(Client::post(
-                    format!("/chart/{id}/rate"),
-                    &json!({
-                        "score": score,
-                    }),
-                ))
-                .await?;
-                Ok(())
-            }));
+            if let Some(id) = self.info.id {
+                let score = self.rate_dialog.rate.score;
+                self.rate_task = Some(Task::new(async move {
+                    recv_raw(Client::post(
+                        format!("/chart/{id}/rate"),
+                        &json!({
+                            "score": score,
+                        }),
+                    ))
+                    .await?;
+                    Ok(())
+                }));
+            }
         }
         if self.side_enter_time < 0. && -tm.real_time() as f32 + EDIT_TRANSIT < self.side_enter_time {
             self.side_enter_time = f32::INFINITY;
