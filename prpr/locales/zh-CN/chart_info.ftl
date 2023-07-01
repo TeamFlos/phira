@@ -24,4 +24,4 @@ intro = 简介
 tags = 标签
 tag-exists = 标签已存在
 
-illegal-input = 输入非法
+illegal-input = 非法输入
