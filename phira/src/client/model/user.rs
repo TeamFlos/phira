@@ -4,12 +4,12 @@ use anyhow::Result;
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use image::DynamicImage;
-use macroquad::prelude::warn;
 use once_cell::sync::Lazy;
 use prpr::{ext::SafeTexture, task::Task};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
+use tracing::warn;
 
 bitflags! {
     #[derive(Default, Debug, Clone, Copy)]
@@ -143,7 +143,7 @@ impl UserManager {
             if let Some(result) = task.take() {
                 match result {
                     Err(err) => {
-                        warn!("Failed to fetch user info: {:?}", err);
+                        warn!("Failed to fetch user info: {err:?}");
                         guard.remove(&id);
                     }
                     Ok(image) => {

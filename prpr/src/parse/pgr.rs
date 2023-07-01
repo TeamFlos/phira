@@ -10,9 +10,9 @@ use crate::{
     judge::JudgeStatus,
 };
 use anyhow::{Context, Result};
-use macroquad::prelude::warn;
 use serde::Deserialize;
 use std::cell::RefCell;
+use tracing::warn;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,7 +74,7 @@ macro_rules! validate_events {
     ($pgr:expr) => {
         $pgr.retain(|it| {
             if it.start_time > it.end_time {
-                warn!("Invalid time range, ignoring");
+                warn!("invalid time range, ignoring");
                 false
             } else {
                 true

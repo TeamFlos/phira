@@ -19,6 +19,7 @@ use anyhow::{Error, Result};
 use cfg_if::cfg_if;
 use macroquad::prelude::*;
 use std::{any::Any, cell::RefCell, sync::Mutex};
+use tracing::warn;
 
 #[derive(Default)]
 pub enum NextScene {

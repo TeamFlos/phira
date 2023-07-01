@@ -22,6 +22,7 @@ use std::{
     sync::{Arc, Mutex},
     task::{Poll, RawWaker, RawWakerVTable, Waker},
 };
+use tracing::info_span;
 
 pub type LocalTask<R> = Option<Pin<Box<dyn Future<Output = R>>>>;
 
@@ -457,26 +458,27 @@ pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &crate::dir:
     } else {
         String::new()
     };
-    info!("root is {}", root);
+    let _span = info_span!("unzip").entered();
+    debug!("root is {root}");
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i)?;
         let path = entry.enclosed_name().ok_or_else(|| anyhow!("invalid zip"))?;
         let path = path.display().to_string();
-        info!("entry: {}", path);
+        debug!("entry: {path}");
         if entry.is_dir() && entry.name() != root {
             if let Some(after) = path.strip_prefix(&root) {
-                info!("- mkdir: {}", after);
+                debug!("mkdir: {after}");
                 dir.create_dir_all(after)?;
             }
         } else if entry.is_file() {
             if let Some(after) = path.strip_prefix(&root) {
                 if let Some(p) = std::path::Path::new(after).parent() {
                     if !dir.exists(p)? {
-                        info!("- mkdir {}", p.display());
+                        debug!("mkdir {}", p.display());
                         dir.create_dir_all(p)?;
                     }
                 }
-                info!("- create {}", after);
+                debug!("create {}", after);
                 let mut file = dir.create(after)?;
                 std::io::copy(&mut entry, &mut file)?;
             }

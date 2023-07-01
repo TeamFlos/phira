@@ -52,6 +52,7 @@ use std::{
     thread_local,
 };
 use tokio::net::TcpStream;
+use tracing::warn;
 use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};

@@ -3,6 +3,7 @@ use crate::{fs::FileSystem, judge::JudgeStatus, ui::Ui};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use std::cell::RefCell;
+use tracing::warn;
 
 #[derive(Default)]
 pub struct ChartExtra {
@@ -101,7 +102,7 @@ impl Chart {
         }
         for video in &mut self.extra.videos {
             if let Err(err) = video.update(res.time) {
-                warn!("Video error: {:?}", err);
+                warn!("video error: {err:?}");
             }
         }
     }

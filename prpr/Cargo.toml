@@ -10,7 +10,7 @@ crate-type = ["lib", "cdylib"]
 [features]
 default = ["log"]
 closed = []
-log = ["dep:tracing", "dep:tracing-subscriber", "dep:colored"]
+log = ["dep:tracing-subscriber", "dep:colored"]
 
 [dependencies]
 anyhow = "1.0"
@@ -43,6 +43,7 @@ serde_yaml = "0.9"
 symphonia = { version = "0.5", features = ["flac", "mp3", "ogg", "vorbis", "wav", "pcm"] }
 sys-locale = "0.2.3"
 tempfile = "3.3.0"
+tracing = "0.1.37"
 unic-langid = { version = "0.9.1", features = ["macros"] }
 zip = { version = "0.6.3", default-features = false, features = ["deflate"] }
 
@@ -58,7 +59,6 @@ libc = "0.2.142"
 bitflags = { version = "2.2.1", features = ["serde"] }
 color-thief = "0.2.2"
 
-tracing = { version = "0.1.37", optional = true }
 tracing-subscriber = { version = "0.3.17", optional = true }
 colored = { version = "2.0.0", optional = true }
 

@@ -38,6 +38,7 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
+use tracing::{debug, warn};
 
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 

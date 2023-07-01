@@ -2412,6 +2412,7 @@ dependencies = [
  "smallvec",
  "tap",
  "tokio",
+ "tracing",
  "uuid",
  "walkdir",
  "zip",

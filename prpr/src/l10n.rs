@@ -1,5 +1,4 @@
 pub use fluent::{fluent_args, FluentBundle, FluentResource};
-use miniquad::warn;
 pub use once_cell::sync::Lazy;
 pub use unic_langid::{langid, LanguageIdentifier};
 
@@ -15,6 +14,7 @@ use std::{
     },
 };
 use sys_locale::get_locale;
+use tracing::warn;
 
 pub static LANGS: [&str; 11] = [
     "en-US", "fr-FR", "id-ID", "ja-JP", "ko-KR", "pl-PL", "ru-RU", "th-TH", "vi-VN", "zh-CN", "zh-TW",
@@ -178,7 +178,7 @@ impl L10nLocal {
         let mut errors = Vec::new();
         let res = self.format_with_errors(key, args, &mut errors);
         for error in errors {
-            warn!("Message error {}: {:?}", key, error);
+            warn!("l10n error {key}: {error:?}");
         }
         res
     }

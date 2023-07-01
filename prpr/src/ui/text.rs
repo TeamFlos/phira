@@ -1,3 +1,4 @@
+use super::Ui;
 use crate::{
     core::{Matrix, Vector},
     ext::get_viewport,
@@ -12,8 +13,7 @@ use macroquad::{
 };
 use once_cell::sync::Lazy;
 use std::borrow::Cow;
-
-use super::Ui;
+use tracing::debug;
 
 #[must_use = "DrawText does nothing until you 'draw' it"]
 pub struct DrawText<'a, 's, 'ui> {

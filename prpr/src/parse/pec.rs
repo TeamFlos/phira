@@ -10,8 +10,8 @@ use crate::{
     judge::JudgeStatus,
 };
 use anyhow::{bail, Context, Result};
-use macroquad::prelude::warn;
 use std::cell::RefCell;
+use tracing::warn;
 
 trait Take {
     fn take_f32(&mut self) -> Result<f32>;
@@ -87,9 +87,11 @@ fn sanitize_events(events: &mut [PECEvent], id: usize, desc: &str) {
     let mut last_end = f32::NEG_INFINITY;
     for e in events.iter_mut() {
         if e.start_time < last_end {
-            warn!("In judge line #{}: Overlap detected in {desc} events: [{last_start}, {last_end}) and [{}, {}). Clipping the last one to [{last_end}, {})",
-                id + 1,
-                e.start_time, e.end_time,
+            warn!(
+                judge_line = id,
+                "Overlap detected in {desc} events: [{last_start}, {last_end}) and [{}, {}). Clipping the last one to [{last_end}, {})",
+                e.start_time,
+                e.end_time,
                 e.end_time
             );
             e.start_time = last_end;
@@ -107,7 +109,7 @@ fn parse_events(mut events: Vec<PECEvent>, id: usize, desc: &str) -> Result<Anim
             kfs.push(Keyframe::new(e.start_time, e.end, 0));
         } else {
             if kfs.is_empty() {
-                bail!("Failed to parse {desc} events: interpolating event found before a concrete value appears");
+                bail!("failed to parse {desc} events: interpolating event found before a concrete value appears");
             }
             assert!(!kfs.is_empty());
             kfs.push(Keyframe::new(e.start_time, kfs.last().unwrap().value, e.easing));
@@ -207,8 +209,8 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
     macro_rules! last_note {
         () => {{
             let Some(last_line) = last_line else {
-                        ptl!(bail "no-notes-inserted");
-                    };
+                                                        ptl!(bail "no-notes-inserted");
+                                                    };
             lines[last_line].notes.last_mut().unwrap()
         }};
     }

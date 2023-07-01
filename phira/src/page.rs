@@ -46,6 +46,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+use tracing::warn;
 
 pub fn thumbnail_path(path: &str) -> Result<PathBuf> {
     Ok(format!("{}/{}", dir::cache_image_local()?, path.replace('/', "_")).into())
