@@ -2626,6 +2626,7 @@ dependencies = [
  "once_cell",
  "ordered-float",
  "phf",
+ "prpr-avc",
  "rand",
  "rayon",
  "regex",
@@ -2648,6 +2649,14 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "zip",
+]
+
+[[package]]
+name = "prpr-avc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "tracing",
 ]
 
 [[package]]

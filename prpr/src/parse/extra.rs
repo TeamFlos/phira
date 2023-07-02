@@ -1,5 +1,6 @@
 crate::tl_file!("parser" ptl);
 
+use super::RPE_TWEEN_MAP;
 use crate::{
     core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, Video, EPS},
     ext::ScaleType,
@@ -8,9 +9,7 @@ use crate::{
 use anyhow::{Context, Result};
 use macroquad::prelude::{Color, Vec2};
 use serde::Deserialize;
-use std::{collections::HashMap, path::Path, rc::Rc};
-
-use super::RPE_TWEEN_MAP;
+use std::{collections::HashMap, rc::Rc};
 
 // serde is weird...
 fn f32_zero() -> f32 {
@@ -172,7 +171,7 @@ async fn parse_effect(r: &mut BpmList, rpe: ExtEffect, fs: &mut dyn FileSystem) 
     )
 }
 
-pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem, ffmpeg: Option<&Path>) -> Result<ChartExtra> {
+pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartExtra> {
     let ext: Extra = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
     let mut r: BpmList = ext.bpm.into();
     let mut effects = Vec::new();
@@ -185,22 +184,19 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem, ffmpeg: Option<&
         );
     }
     let mut videos = Vec::new();
-    if let Some(ffmpeg) = ffmpeg {
-        for video in ext.videos {
-            videos.push(
-                Video::new(
-                    ffmpeg,
-                    fs.load_file(&video.path)
-                        .await
-                        .with_context(|| ptl!("video-load-failed", "path" => video.path.clone()))?,
-                    r.time(&video.time),
-                    video.scale,
-                    video.alpha.into(&mut r, Some(1.)),
-                    video.dim.into(&mut r, Some(0.)),
-                )
-                .with_context(|| ptl!("video-load-failed", "path" => video.path))?,
-            );
-        }
+    for video in ext.videos {
+        videos.push(
+            Video::new(
+                fs.load_file(&video.path)
+                    .await
+                    .with_context(|| ptl!("video-load-failed", "path" => video.path.clone()))?,
+                r.time(&video.time),
+                video.scale,
+                video.alpha.into(&mut r, Some(1.)),
+                video.dim.into(&mut r, Some(0.)),
+            )
+            .with_context(|| ptl!("video-load-failed", "path" => video.path))?,
+        );
     }
     Ok(ChartExtra {
         effects,
