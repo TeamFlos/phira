@@ -20,6 +20,8 @@ inner.rs
 /test.uml
 /monitor-config.yml
 
+/prpr-avc/static-lib
+
 # Mac
 
 ._*

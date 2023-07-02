@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"prpr",
+	"prpr-avc",
 	"phira",
 	"phira-main",
 	"phira-monitor",

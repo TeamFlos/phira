@@ -1,15 +1,10 @@
-use crate::ext::{source_of_image, ScaleType};
-
 use super::{Anim, Resource};
-use anyhow::{bail, Context, Result};
+use crate::ext::{source_of_image, ScaleType};
+use anyhow::Result;
 use macroquad::prelude::*;
 use miniquad::{Texture, TextureFormat, TextureParams, TextureWrap};
-use std::{
-    cell::RefCell,
-    io::{BufRead, Read, Write},
-    path::Path,
-    process::{Child, ChildStdout, Command, Stdio},
-};
+use prpr_avc::AVPixelFormat;
+use std::{cell::RefCell, io::Write};
 use tempfile::NamedTempFile;
 
 thread_local! {
@@ -17,8 +12,7 @@ thread_local! {
 }
 
 pub struct Video {
-    child: Child,
-    child_output: Option<ChildStdout>,
+    video: prpr_avc::Video,
     _video_file: NamedTempFile,
 
     material: Material,
@@ -30,7 +24,6 @@ pub struct Video {
     scale_type: ScaleType,
     alpha: Anim<f32>,
     dim: Anim<f32>,
-    size: (u32, u32),
     frame_delta: f64,
     next_frame: usize,
     ended: bool,
@@ -50,44 +43,15 @@ fn new_tex(w: u32, h: u32) -> Texture2D {
 }
 
 impl Video {
-    pub fn new(ffmpeg: &Path, data: Vec<u8>, start_time: f32, scale_type: ScaleType, alpha: Anim<f32>, dim: Anim<f32>) -> Result<Self> {
+    pub fn new(data: Vec<u8>, start_time: f32, scale_type: ScaleType, alpha: Anim<f32>, dim: Anim<f32>) -> Result<Self> {
         let mut video_file = NamedTempFile::new()?;
         video_file.write_all(&data)?;
         drop(data);
-        let (fps, (w, h)) = || -> Result<(f64, (u32, u32))> {
-            for line in Command::new(ffmpeg)
-                .arg("-i")
-                .arg(video_file.path())
-                .arg("-hide_banner")
-                .output()?
-                .stderr
-                .lines()
-            {
-                let line = line?;
-                let line = line.trim();
-                if line.starts_with("Stream #0") {
-                    let mut fps: Option<f64> = None;
-                    let mut size: Option<(u32, u32)> = None;
-                    for info in line.split(',') {
-                        if let Some(s) = info.strip_suffix(" fps") {
-                            fps = Some(s.trim().parse()?);
-                        } else if let Some(s) = info.trim().split(' ').next() {
-                            if let Some((w, h)) = s.split_once('x') {
-                                size = Some((w.parse()?, h.parse()?));
-                            }
-                        }
-                    }
-                    if let (Some(fps), Some(size)) = (fps, size) {
-                        return Ok((fps, size));
-                    } else {
-                        bail!("Video info line is not complete");
-                    }
-                }
-            }
-            bail!("Video info line is not found");
-        }()
-        .context("Failed to get frame rate")?;
-        let frame_delta = 1. / fps;
+        let video = prpr_avc::Video::open(video_file.path().as_os_str().to_str().unwrap(), AVPixelFormat::YUV420P)?;
+        let frame_delta = video.frame_rate().to_f64_inv();
+        let format = video.stream_format();
+        let w = format.width as u32;
+        let h = format.height as u32;
 
         let material = load_material(
             shader::VERTEX,
@@ -105,17 +69,8 @@ impl Video {
         material.set_texture("tex_u", tex_u);
         material.set_texture("tex_v", tex_v);
 
-        let mut child = Command::new(ffmpeg)
-            .arg("-i")
-            .arg(video_file.path())
-            .args(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
-            .stderr(Stdio::null())
-            .stdout(Stdio::piped())
-            .spawn()?;
-        let child_output = child.stdout.take().unwrap();
         Ok(Self {
-            child,
-            child_output: Some(child_output),
+            video,
             _video_file: video_file,
 
             material,
@@ -127,7 +82,6 @@ impl Video {
             scale_type,
             alpha,
             dim,
-            size: (w, h),
             frame_delta,
             next_frame: 0,
             ended: false,
@@ -142,29 +96,31 @@ impl Video {
         self.dim.set_time(t);
         let that_frame = ((t - self.start_time) as f64 / self.frame_delta) as usize;
         if self.next_frame <= that_frame {
-            let result = VIDEO_BUFFERS.with(|it| -> Result<()> {
+            VIDEO_BUFFERS.with(|it| {
                 let mut buf = it.borrow_mut();
-                let (w, h) = self.size;
-                let (w, h) = (w as usize, h as usize);
-                buf[0].resize(w * h, 0);
-                buf[1].resize(w * h / 4, 0);
-                buf[2].resize(w * h / 4, 0);
-                let out = self.child_output.as_mut().unwrap();
                 while self.next_frame <= that_frame {
-                    out.read_exact(&mut buf[0])?;
-                    out.read_exact(&mut buf[1])?;
-                    out.read_exact(&mut buf[2])?;
+                    buf[0].clear();
+                    buf[1].clear();
+                    buf[2].clear();
+                    if self
+                        .video
+                        .with_frame(|frame| {
+                            buf[0].extend_from_slice(frame.data(0));
+                            buf[1].extend_from_slice(frame.data_half(1));
+                            buf[2].extend_from_slice(frame.data_half(2));
+                        })
+                        .is_none()
+                    {
+                        self.ended = true;
+                        return;
+                    }
                     self.next_frame += 1;
                 }
                 let ctx = unsafe { get_internal_gl() }.quad_context;
                 self.tex_y.raw_miniquad_texture_handle().update(ctx, &buf[0]);
                 self.tex_u.raw_miniquad_texture_handle().update(ctx, &buf[1]);
                 self.tex_v.raw_miniquad_texture_handle().update(ctx, &buf[2]);
-                Ok(())
             });
-            if result.is_err() {
-                self.ended = true;
-            }
         }
         Ok(())
     }
@@ -189,13 +145,6 @@ impl Video {
         gl.draw_mode(DrawMode::Triangles);
         gl.geometry(&vertices, &[0, 2, 3, 0, 1, 3]);
         gl_use_default_material();
-    }
-}
-
-impl Drop for Video {
-    fn drop(&mut self) {
-        drop(self.child_output.take().unwrap());
-        let _ = self.child.wait();
     }
 }
 
