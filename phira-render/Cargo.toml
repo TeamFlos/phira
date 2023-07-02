@@ -1,0 +1,13 @@
+[package]
+name = "phira-render"
+version = "0.3.2"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+# macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
+macroquad = { path = "../../prpr-macroquad", default-features = false }
+prpr = { path = "../prpr" }
+serde_yaml = "0.9"
+tokio = "*"
+sasa = { git = "https://github.com/Mivik/sasa" }

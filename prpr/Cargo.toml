@@ -28,8 +28,10 @@ image = "0.24"
 intl-memoizer = "0.5.1"
 lru = "0.9.0"
 lyon = "1.0.1"
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad" }
+# macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
+# miniquad = { git = "https://github.com/Mivik/prpr-miniquad" }
+macroquad = { path = "../../prpr-macroquad", default-features = false }
+miniquad = { path = "../../prpr-miniquad" }
 nalgebra = "*"
 once_cell = "1.16.0"
 ordered-float = "3.4.0"

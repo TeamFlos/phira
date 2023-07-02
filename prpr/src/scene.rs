@@ -347,7 +347,7 @@ pub struct Main {
     paused: bool,
     last_update_time: f64,
     should_exit: bool,
-    pub toplevel: bool,
+    pub top_level: bool,
     touches: Option<Vec<Touch>>,
     pub viewport: Option<(i32, i32, i32, i32)>,
 }
@@ -372,7 +372,7 @@ impl Main {
             paused: false,
             last_update_time,
             should_exit: false,
-            toplevel: true,
+            top_level: true,
             touches: None,
             viewport: None,
         })
@@ -484,7 +484,7 @@ impl Main {
         let mut ui = Ui::new(painter, self.viewport);
         ui.set_touches(self.touches.take().unwrap());
         ui.scope(|ui| self.scenes.last_mut().unwrap().render(&mut self.tm, ui))?;
-        if self.toplevel {
+        if self.top_level {
             push_camera_state();
             set_camera(&ui.camera());
             let mut gl = unsafe { get_internal_gl() };

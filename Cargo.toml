@@ -4,6 +4,7 @@ members = [
 	"phira",
 	"phira-main",
 	"phira-monitor",
+	"phira-render",
 ]
 resolver = "2"
 

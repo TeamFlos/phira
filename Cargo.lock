@@ -1722,16 +1722,33 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.3.25"
+dependencies = [
+ "bumpalo",
+ "fontdue",
+ "glam",
+ "image",
+ "macroquad_macro 0.1.7",
+ "miniquad 0.3.15",
+ "quad-rand",
+]
+
+[[package]]
+name = "macroquad"
+version = "0.3.25"
 source = "git+https://github.com/Mivik/prpr-macroquad#c72b02da5b4c9b4fc3c8d9025f2eac293d19ffe8"
 dependencies = [
  "bumpalo",
  "fontdue",
  "glam",
  "image",
- "macroquad_macro",
- "miniquad",
+ "macroquad_macro 0.1.7 (git+https://github.com/Mivik/prpr-macroquad)",
+ "miniquad 0.3.15 (git+https://github.com/Mivik/prpr-miniquad.git)",
  "quad-rand",
 ]
+
+[[package]]
+name = "macroquad_macro"
+version = "0.1.7"
 
 [[package]]
 name = "macroquad_macro"
@@ -1825,7 +1842,18 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad#3c8025bb9055812ff6bba71c036241156d5923d4"
+dependencies = [
+ "libc",
+ "ndk-context",
+ "ndk-sys 0.2.2",
+ "objc",
+ "winapi",
+]
+
+[[package]]
+name = "miniquad"
+version = "0.3.15"
+source = "git+https://github.com/Mivik/prpr-miniquad.git#3c8025bb9055812ff6bba71c036241156d5923d4"
 dependencies = [
  "libc",
  "ndk-context",
@@ -2388,7 +2416,7 @@ dependencies = [
  "logos",
  "lru",
  "lyon",
- "macroquad",
+ "macroquad 0.3.25",
  "md5",
  "nalgebra",
  "ndk-context",
@@ -2434,7 +2462,7 @@ dependencies = [
  "chrono",
  "futures-util",
  "log",
- "macroquad",
+ "macroquad 0.3.25 (git+https://github.com/Mivik/prpr-macroquad)",
  "phira-mp-client",
  "phira-mp-common",
  "pretty_env_logger",
@@ -2485,6 +2513,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "phira-render"
+version = "0.3.2"
+dependencies = [
+ "anyhow",
+ "macroquad 0.3.25",
+ "prpr",
+ "sasa",
+ "serde_yaml",
+ "tokio",
 ]
 
 [[package]]
@@ -2614,8 +2654,8 @@ dependencies = [
  "libc",
  "lru",
  "lyon",
- "macroquad",
- "miniquad",
+ "macroquad 0.3.25",
+ "miniquad 0.3.15",
  "miniz_oxide",
  "nalgebra",
  "ndk-context",
