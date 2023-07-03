@@ -185,17 +185,7 @@ impl GameScene {
     pub async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<(Chart, Vec<u8>, ChartFormat)> {
         let extra = fs.load_file("extra.json").await.ok().map(String::from_utf8).transpose()?;
         let extra = if let Some(extra) = extra {
-            let ffmpeg: PathBuf = FFMPEG_PATH.lock().unwrap().to_owned().unwrap_or_else(|| "ffmpeg".into());
-            let ffmpeg = if match Command::new(&ffmpeg).stdout(Stdio::null()).stderr(Stdio::null()).spawn() {
-                Ok(_) => true,
-                Err(err) => err.kind() != ErrorKind::NotFound,
-            } {
-                Some(ffmpeg.as_path())
-            } else {
-                warn!("ffmpeg not found at {}, disabling video", ffmpeg.display());
-                None
-            };
-            parse_extra(&extra, fs, ffmpeg).await.context("Failed to parse extra")?
+            parse_extra(&extra, fs).await.context("Failed to parse extra")?
         } else {
             ChartExtra::default()
         };
