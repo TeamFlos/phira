@@ -5,7 +5,6 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [lib]
-crate-type = ["lib", "cdylib"]
 
 [features]
 default = ["log"]

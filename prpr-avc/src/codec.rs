@@ -10,6 +10,12 @@ use std::{
     },
 };
 
+#[cfg(any(target_os = "ios", target_os = "macos"))]
+const EAGAIN: i32 = 35;
+
+#[cfg(not(any(target_os = "ios", target_os = "macos")))]
+const EAGAIN: i32 = 11;
+
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct AVCodecParamsRef(pub(crate) *const ffi::AVCodecParameters);
@@ -96,7 +102,7 @@ impl AVCodecContext {
     pub fn receive_frame(&mut self, frame: &mut AVFrame) -> AVResult<bool> {
         unsafe {
             match handle(ffi::avcodec_receive_frame(self.0 .0, frame.0 .0)) {
-                Err(AVError { code: -11, .. }) => return Ok(false),
+                Err(AVError { code, .. }) if code == -EAGAIN => return Ok(false),
                 x => {
                     x?;
                     Ok(true)
