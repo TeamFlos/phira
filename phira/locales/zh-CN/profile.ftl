@@ -13,3 +13,7 @@ edit-avatar-failed = 上传头像失败
 uploading-avatar = 上传头像中
 
 load-record-failed = 加载游玩记录失败
+
+last-login = 最近登录：{ $time }
+badge-admin = 管理员
+badge-sponsor = 赞助者
