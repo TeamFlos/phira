@@ -82,7 +82,7 @@ impl Default for Config {
             fxaa: false,
             interactive: true,
             mods: Mods::default(),
-            mp_address: "mp.phira.cn:7890".to_owned(),
+            mp_address: "mp2.phira.cn:12345".to_owned(),
             mp_enabled: false,
             note_scale: 1.0,
             offline_mode: false,
