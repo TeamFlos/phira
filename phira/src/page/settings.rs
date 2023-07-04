@@ -196,7 +196,8 @@ impl Page for SettingsPage {
                                 .max_width(r.w - pad * 2.)
                                 .color(c)
                                 .draw()
-                                .bottom(),
+                                .bottom()
+                                + 0.03,
                         )
                     }
                 });
