@@ -9,9 +9,10 @@ use crate::{
     save_data, sync_data,
 };
 use anyhow::Result;
+use chrono::Local;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{semi_black, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
+    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
@@ -35,6 +36,7 @@ struct RecordItem {
 pub struct ProfileScene {
     id: i32,
     user: Option<Arc<User>>,
+    user_badges: Vec<String>,
 
     background: SafeTexture,
 
@@ -71,6 +73,7 @@ impl ProfileScene {
         Self {
             id,
             user: None,
+            user_badges: Vec::new(),
 
             background: TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap()),
 
@@ -148,6 +151,14 @@ impl Scene for ProfileScene {
                 match res {
                     Err(err) => show_error(err.context(tl!("load-user-failed"))),
                     Ok(res) => {
+                        self.user_badges.clear();
+                        for badge in &res.badges {
+                            match badge.as_str() {
+                                "admin" => self.user_badges.push(tl!("badge-admin").into_owned()),
+                                "sponsor" => self.user_badges.push(tl!("badge-sponsor").into_owned()),
+                                _ => {}
+                            }
+                        }
                         self.user = Some(res);
                     }
                 }
@@ -297,7 +308,6 @@ impl Scene for ProfileScene {
         if let Some(user) = &self.user {
             let pad = 0.02;
             let mw = r.w - pad * 2.;
-            let lf = r.x + pad;
             let cx = r.center().x;
             let radius = 0.12;
             let r = ui.avatar(cx, r.y + radius + 0.05, radius, WHITE, t, UserManager::opt_avatar(self.id, &self.icon_user));
@@ -316,11 +326,28 @@ impl Scene for ProfileScene {
                 .pos(cx, r.bottom() + 0.01)
                 .anchor(0.5, 0.)
                 .draw();
-            ui.text(user.bio.as_deref().unwrap_or(""))
-                .pos(lf, r.y + 0.1)
+            let mut r = ui
+                .text(user.bio.as_deref().unwrap_or(""))
+                .pos(cx, r.bottom() + 0.01)
+                .anchor(0.5, 0.)
                 .multiline()
                 .max_width(mw)
                 .size(0.4)
+                .draw();
+            if !self.user_badges.is_empty() {
+                r = ui
+                    .text(self.user_badges.join(" "))
+                    .pos(cx, r.bottom() + 0.01)
+                    .anchor(0.5, 0.)
+                    .size(0.5)
+                    .draw();
+            }
+            let r = ui
+                .text(tl!("last-login", "time" => user.last_login.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()))
+                .pos(cx, r.bottom() + 0.01)
+                .anchor(0.5, 0.)
+                .size(0.4)
+                .color(semi_white(0.6))
                 .draw();
             if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
                 let hw = 0.2;
