@@ -4,7 +4,7 @@ mod ending;
 pub use ending::{EndingScene, RecordUpdateState};
 
 mod game;
-pub use game::{GameMode, GameScene, SimpleRecord, FFMPEG_PATH};
+pub use game::{GameMode, GameScene, SimpleRecord};
 
 mod loading;
 pub use loading::{BasicPlayer, LoadingScene, UpdateFn, UploadFn};
