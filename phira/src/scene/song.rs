@@ -958,13 +958,14 @@ impl SongScene {
                 let s = 0.05;
                 let r = ui.avatar(c, c, s, WHITE, rt, UserManager::opt_avatar(uploader.id, &self.icons.user));
                 self.uploader_btn.set(ui, Rect::new(c - s, c - s, s * 2., s * 2.));
-                if let Some(name) = UserManager::get_name(uploader.id) {
+                if let Some((name, color)) = UserManager::name_and_color(uploader.id) {
                     ui.text(name)
                         .pos(r.right() + 0.02, r.center().y)
                         .anchor(0., 0.5)
                         .no_baseline()
                         .max_width(width - 0.15)
                         .size(0.6)
+                        .color(color)
                         .draw();
                 }
                 dy!(0.14);
@@ -1206,6 +1207,15 @@ impl Scene for SongScene {
         {
             return Ok(true);
         }
+        if self.downloading.is_some() {
+            if let Some(dl) = &mut self.downloading {
+                if dl.touch(touch, t) {
+                    self.downloading = None;
+                    return Ok(true);
+                }
+            }
+            return Ok(false);
+        }
         let rt = tm.real_time() as f32;
         if self.tags.touch(touch, rt) {
             return Ok(true);
@@ -1285,12 +1295,6 @@ impl Scene for SongScene {
                 }
             }
             return Ok(false);
-        }
-        if let Some(dl) = &mut self.downloading {
-            if dl.touch(touch, t) {
-                self.downloading = None;
-                return Ok(true);
-            }
         }
         if self.back_btn.touch(touch) {
             button_hit();
