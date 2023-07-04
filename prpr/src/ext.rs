@@ -22,7 +22,7 @@ use std::{
     sync::{Arc, Mutex},
     task::{Poll, RawWaker, RawWakerVTable, Waker},
 };
-use tracing::info_span;
+use tracing::{debug, info_span};
 
 pub type LocalTask<R> = Option<Pin<Box<dyn Future<Output = R>>>>;
 
