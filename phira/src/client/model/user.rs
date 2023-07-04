@@ -4,6 +4,7 @@ use anyhow::Result;
 use bitflags::bitflags;
 use chrono::{DateTime, Utc};
 use image::DynamicImage;
+use macroquad::prelude::Color;
 use once_cell::sync::Lazy;
 use prpr::{ext::SafeTexture, task::Task};
 use serde::{Deserialize, Serialize};
@@ -71,6 +72,7 @@ pub struct User {
     pub name: String,
     pub avatar: Option<File>,
     pub badge: Option<String>,
+    pub badges: Vec<String>,
     pub language: String,
     pub bio: Option<String>,
     pub exp: i64,
@@ -96,10 +98,20 @@ impl User {
     pub fn has_perm(&self, perm: Permissions) -> bool {
         Roles::from_bits(self.roles).map_or(false, |it| it.perms(false).contains(perm))
     }
+
+    pub fn name_color(&self) -> Color {
+        Color::from_hex(if self.badges.iter().any(|it| it == "admin") {
+            0xff673ab7
+        } else if self.badges.iter().any(|it| it == "sponsor") {
+            0xffff7043
+        } else {
+            0xffffffff
+        })
+    }
 }
 
 static TASKS: Lazy<Mutex<HashMap<i32, Task<Result<Option<DynamicImage>>>>>> = Lazy::new(Mutex::default);
-static RESULTS: Lazy<Mutex<HashMap<i32, (String, Option<Option<SafeTexture>>)>>> = Lazy::new(Mutex::default);
+static RESULTS: Lazy<Mutex<HashMap<i32, (String, Color, Option<Option<SafeTexture>>)>>> = Lazy::new(Mutex::default);
 
 pub struct UserManager;
 
@@ -119,7 +131,7 @@ impl UserManager {
             id,
             Task::new(async move {
                 let user: Arc<User> = Client::load(id).await?;
-                RESULTS.lock().await.insert(id, (user.name.clone(), None));
+                RESULTS.lock().await.insert(id, (user.name.clone(), user.name_color(), None));
                 if let Some(avatar) = &user.avatar {
                     Ok(Some(image::load_from_memory(&avatar.fetch().await?)?))
                 } else {
@@ -129,12 +141,13 @@ impl UserManager {
         );
     }
 
-    pub fn get_name(id: i32) -> Option<String> {
+    pub fn name_and_color(id: i32) -> Option<(String, Color)> {
         let names = RESULTS.blocking_lock();
-        if let Some((name, _)) = names.get(&id) {
-            return Some(name.clone());
+        if let Some((name, color, ..)) = names.get(&id) {
+            Some((name.to_owned(), *color))
+        } else {
+            None
         }
-        None
     }
 
     pub fn get_avatar(id: i32) -> Option<Option<SafeTexture>> {
@@ -147,14 +160,14 @@ impl UserManager {
                         guard.remove(&id);
                     }
                     Ok(image) => {
-                        RESULTS.blocking_lock().get_mut(&id).unwrap().1 = Some(image.map(|it| SafeTexture::from(it).with_mipmap()));
+                        RESULTS.blocking_lock().get_mut(&id).unwrap().2 = Some(image.map(|it| SafeTexture::from(it).with_mipmap()));
                     }
                 }
             }
         } else {
             drop(guard);
         }
-        RESULTS.blocking_lock().get(&id).and_then(|it| it.1.clone())
+        RESULTS.blocking_lock().get(&id).and_then(|it| it.2.clone())
     }
 
     pub fn opt_avatar(id: i32, tex: &SafeTexture) -> Result<Option<SafeTexture>, SafeTexture> {

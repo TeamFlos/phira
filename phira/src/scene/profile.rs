@@ -308,6 +308,7 @@ impl Scene for ProfileScene {
                 .pos(cx, r.bottom() + 0.03)
                 .anchor(0.5, 0.)
                 .max_width(mw)
+                .color(user.name_color())
                 .draw();
             let r = ui
                 .text(format!("RKS {:.2}", user.rks))

@@ -184,14 +184,14 @@ pub fn render_ldb<'a>(
                         .draw();
                     rt -= r.w + 0.03;
                     let lt = 0.24;
-                    if let Some(name) = UserManager::get_name(item.player_id) {
+                    if let Some((name, color)) = UserManager::name_and_color(item.player_id) {
                         ui.text(name)
                             .pos(lt, s / 2.)
                             .anchor(0., 0.5)
                             .no_baseline()
                             .max_width(rt - lt - 0.01)
                             .size(0.5)
-                            .color(c)
+                            .color(Color { a: c.a, ..color })
                             .draw();
                     }
                 });
