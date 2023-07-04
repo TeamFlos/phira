@@ -47,8 +47,6 @@ mod inner;
 #[cfg(feature = "closed")]
 use inner::*;
 
-pub static FFMPEG_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
-
 const WAIT_TIME: f32 = 0.5;
 const AFTER_TIME: f32 = 0.7;
 

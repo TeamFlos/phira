@@ -362,15 +362,6 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_setInputText(_: *mut std::
     INPUT_TEXT.lock().unwrap().1 = Some(string_from_java(env, text));
 }
 
-#[cfg(target_os = "android")]
-#[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setFfmpegPath(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
-    use prpr::scene::FFMPEG_PATH;
-
-    let env = crate::miniquad::native::attach_jni_env();
-    *FFMPEG_PATH.lock().unwrap() = Some(string_from_java(env, path).into());
-}
-
 #[cfg(not(all(target_os = "android", feature = "aa")))]
 pub fn anti_addiction_action(_action: &str, _arg: Option<String>) {}
 
