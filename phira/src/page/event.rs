@@ -213,6 +213,9 @@ impl Page for EventPage {
                         (*self.icons.back, r, ScaleType::CropCenter, if self.index + 1 >= events.len() { semi_white(c.a * 0.3) } else { c }),
                     );
                 });
+                if events.is_empty() {
+                    ui.text(ttl!("list-empty")).anchor(0.5, 0.5).no_baseline().size(1.4).color(c).draw();
+                }
             });
         }
 
