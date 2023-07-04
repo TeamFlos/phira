@@ -33,6 +33,8 @@ const ENTER_TRANSIT: f32 = 0.5;
 const USER_LIST_TRANSIT: f32 = 0.4;
 const WIDTH: f32 = 1.6;
 
+const CHAT_ENABLED: bool = cfg!(feature = "chat");
+
 fn screen_size() -> (u32, u32) {
     (screen_width() as u32, screen_height() as u32)
 }
@@ -676,7 +678,7 @@ impl MPPanel {
     fn render_main(&mut self, tm: &mut TimeManager, ui: &mut Ui, r: Rect) {
         let t = tm.now() as f32;
         let client = self.client.as_ref().unwrap();
-        let mr = Rect::new(r.x, r.y, r.w * 0.8, r.h - 0.11);
+        let mr = Rect::new(r.x, r.y, r.w * 0.8, r.h - if CHAT_ENABLED { 0.11 } else { 0. });
         ui.fill_path(&mr.rounded(0.01), semi_black(0.4));
         ui.scope(|ui| {
             let mut mr = mr.feather(-0.015);
@@ -718,12 +720,14 @@ impl MPPanel {
             });
         });
 
-        let lw = 0.16;
-        let h = 0.09;
-        let br = Rect::new(r.x, r.bottom() - h, mr.w - lw - 0.02, h);
-        self.chat_btn.render_input(ui, br, t, 1., &self.chat_text, mtl!("chat-placeholder"), 0.5);
-        let br = Rect::new(mr.right() - lw, br.y, lw, br.h);
-        self.chat_send_btn.render_text(ui, br, t, 1., mtl!("chat-send"), 0.5, true);
+        if CHAT_ENABLED {
+            let lw = 0.16;
+            let h = 0.09;
+            let br = Rect::new(r.x, r.bottom() - h, mr.w - lw - 0.02, h);
+            self.chat_btn.render_input(ui, br, t, 1., &self.chat_text, mtl!("chat-placeholder"), 0.5);
+            let br = Rect::new(mr.right() - lw, br.y, lw, br.h);
+            self.chat_send_btn.render_text(ui, br, t, 1., mtl!("chat-send"), 0.5, true);
+        }
 
         let mut br = Rect::new(mr.right() + 0.02, mr.y, r.right() - mr.right() - 0.02, 0.1);
         let mut btns = SmallVec::<[(&mut DRectButton, String); 5]>::new();

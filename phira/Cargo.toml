@@ -9,6 +9,7 @@ crate-type = ["lib", "cdylib"]
 
 [features]
 closed = ["prpr/closed"]
+chat = []
 aa = []
 
 [dependencies]
