@@ -32,7 +32,7 @@ use prpr::{
 };
 use scene::MainScene;
 use std::sync::{mpsc, Mutex};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
 static AA_TX: Mutex<Option<mpsc::Sender<i32>>> = Mutex::new(None);
@@ -216,24 +216,32 @@ async fn the_main() -> Result<()> {
             info!("anti addiction callback: {code}");
             match code {
                 // login success
-                500 => {}
+                500 => {
+                    anti_addiction_action("enterGame", None);
+                }
                 // switch account
                 1001 => {
-                    warn!("switch account");
+                    anti_addiction_action("exit", None);
+                    get_data_mut().me = None;
+                    get_data_mut().tokens = None;
+                    let _ = save_data();
+                    sync_data();
+                    use crate::login::L10N_LOCAL;
+                    show_message(crate::login::tl!("logged-out")).ok();
                 }
                 // period restrict
                 1030 => {
-                    show_message(ttl!("aa-period-restrict"));
+                    show_and_exit("你当前为未成年账号，已被纳入防沉迷系统。根据国家相关规定，周五、周六、周日及法定节假日 20 点 - 21 点之外为健康保护时段。当前时间段无法游玩，请合理安排时间。");
                     exit_time = frame_start;
                 }
                 // duration limit
                 1050 => {
-                    show_message(ttl!("aa-duration-limit"));
+                    show_and_exit("你当前为未成年账号，已被纳入防沉迷系统。根据国家相关规定，周五、周六、周日及法定节假日 20 点 - 21 点之外为健康保护时段。你已达时间限制，无法继续游戏。");
                     exit_time = frame_start;
                 }
                 // stopped
                 9002 => {
-                    show_message(ttl!("aa-must-aa"));
+                    show_and_exit("必须实名认证方可进行游戏。");
                     exit_time = frame_start;
                 }
                 _ => {}
@@ -255,6 +263,13 @@ async fn the_main() -> Result<()> {
         next_frame().await;
     }
     Ok(())
+}
+
+fn show_and_exit(msg: &str) {
+    prpr::ui::Dialog::simple(msg)
+        .buttons(vec!["确定".to_owned()])
+        .listener(|_| std::process::exit(0))
+        .show();
 }
 
 #[no_mangle]
@@ -287,6 +302,7 @@ unsafe fn string_from_java(env: *mut ndk_sys::JNIEnv, s: ndk_sys::jstring) -> St
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+    anti_addiction_action("leaveGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(true);
     }
@@ -295,6 +311,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_: *mut std::
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+    anti_addiction_action("enterGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(false);
     }

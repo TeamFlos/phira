@@ -15,7 +15,3 @@ chart-special = 特殊
 chart-unstable = 未上架
 
 list-empty = 空空如也
-
-aa-period-restrict = 未成年人当前不能进行游戏
-aa-duration-limit = 你已达到时长限制
-aa-must-aa = 必须完成实名认证以继续游戏
