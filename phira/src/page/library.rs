@@ -281,6 +281,7 @@ impl Page for LibraryPage {
         }
         if self.btn_local.touch(touch, t) {
             self.switch_to_type(s, ChartListType::Local);
+            self.online_task = None;
             return Ok(true);
         }
         let to_type = [

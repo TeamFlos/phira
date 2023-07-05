@@ -1,5 +1,6 @@
 use super::{import_chart, itl, L10N_LOCAL};
 use crate::{
+    charts_view::NEED_UPDATE,
     data::LocalChart,
     dir, get_data, get_data_mut,
     mp::MPPanel,
@@ -321,6 +322,7 @@ impl Scene for MainScene {
                         get_data_mut().charts.push(chart);
                         save_data()?;
                         self.state.reload_local_charts();
+                        NEED_UPDATE.store(true, Ordering::Relaxed);
                     }
                 }
                 self.import_task = None;
