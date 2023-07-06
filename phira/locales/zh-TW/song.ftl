@@ -74,6 +74,9 @@ info-rating = 評分
 info-type = 種類
 info-tags = 標籤
 
+reviewed = 已審核
+unreviewed = 未審核
+
 review-approve = 通過
 review-deny = 拒絕
 review-del = 從在線刪除
