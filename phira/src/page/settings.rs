@@ -335,7 +335,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.insecure_btn.touch(touch, t) {
-            data.accept_invalid_cert = true;
+            data.accept_invalid_cert ^= true;
             return Ok(Some(true));
         }
         Ok(None)
