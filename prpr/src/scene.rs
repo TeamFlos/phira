@@ -190,9 +190,14 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                     completion: 0 as ObjcId
                 ];
             }
-        } else {
-            INPUT_TEXT.lock().unwrap().1 = Some(unsafe { get_internal_gl() }.quad_context.clipboard_get().unwrap_or_default());
-            show_message(ttl!("pasted")).ok();
+        } else { //linux or macos or windows
+            use dialoguer::Editor;
+            
+            if let Some(rv) = Editor::new().edit("").unwrap() {
+                INPUT_TEXT.lock().unwrap().1 =  Some(rv);
+            } else {
+                show_message(ttl!("aborted!")).ok();
+            }
         }
     }
 }
