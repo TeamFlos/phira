@@ -195,8 +195,9 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
             
             if let Some(rv) = Editor::new().edit("").unwrap() {
                 INPUT_TEXT.lock().unwrap().1 =  Some(rv);
+                show_message(ttl!("input-loaded")).ok();
             } else {
-                show_message(ttl!("aborted!")).ok();
+                show_message(ttl!("input-aborted")).ok();
             }
         }
     }

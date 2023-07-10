@@ -4,4 +4,5 @@ input-msg = Veuillez saisir du texte
 input-hint = texte
 
 read-file-failed = Impossible de lire le fichier
-pasted = Collé depuis le presse-papiers
+input-aborted = Interruption de l'entrée
+input-loaded = Entrée depuis un fichier
