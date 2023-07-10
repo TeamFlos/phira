@@ -4,4 +4,5 @@ input-msg = Wprowadź tekst
 input-hint = tekst
 
 read-file-failed = Nie załadowano pliku
-pasted = Wklejono ze schowka
+input-aborted = Przerwano wprowadzanie danych
+input-loaded = Wejście z pliku

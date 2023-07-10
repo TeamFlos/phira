@@ -42,3 +42,7 @@ inner.rs
 # Test
 
 /log*
+
+
+
+build_win.sh
