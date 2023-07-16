@@ -13,7 +13,7 @@ create-room-success = Room dibuat
 create-room-failed = Gagal membuat room
 create-invalid-id = ID room terdiri dari tidak lebih dari 20 karakter, termasuk huruf, angka, - (tanda hubung) dan _ (garis bawah)
 
-join-room = Bergabung Room
+join-room = Bergabung ke Room
 join-room-invalid-id = ID room tidak valid
 join-room-failed = Gagal bergabung ke dalam room
 
@@ -63,7 +63,7 @@ select-chart-not-now = Anda tidak dapat memilih chart sekarang
 msg-create-room = `{ $user }` membuat room
 msg-join-room = `{ $user }` bergabung ke dalam room
 msg-leave-room = `{ $user }` keluar dari room
-msg-new-host = `{ $user }` became the new host
+msg-new-host = `{ $user }` menjadi host baru
 msg-select-chart = Host `{ $user }`memilih chart `{ $chart }` (#{ $id })
 msg-game-start = Host `{ $user }` memulai permainan. Pemain lain harus segera bersiap.
 msg-ready = `{ $user }` siap
