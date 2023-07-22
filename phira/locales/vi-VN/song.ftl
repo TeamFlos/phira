@@ -1,7 +1,7 @@
 
 load-preview-failed = Không thể tải nghe trước nhạc
 load-charts-failed = Tải biểu đồ thất bại
-no-chart-for-download = Biểu đồ này không thể tải (thử lại)
+no-chart-for-download = Biểu đồ này không thể tải.
 
 load-chart-failed = Không thể tải biểu đồ
 
@@ -16,7 +16,7 @@ dl-status-saving = Đang lưu
 dl-failed = Không thể tải
 dl-success = Đã tải
 
-guest = Neko
+guest = Khách
 
 warn-unrated = Lượt chơi không được ghi nhận
 failed-to-play = Không thể bắt đầu ở chế độ trực tuyến
@@ -48,10 +48,11 @@ upload-downloaded = Biểu đồ đã tải không thể tải lên
 upload-rules = Quy tắc tải lên
 upload-rules-content =
   Trước khi tải lên. Bạn cần xác nhận rằng:
-  1. ! Biểu đồ do mình tạo ra.
-  2. Được khuyến khích sử dụng hình đại diện và ID có tính nhận diện cao; Nếu ID của bạn trong Phira khác rất nhiều so với nền tảng phát hành video tự làm điểm số (cụ thể là BiliBili), cần phải thêm chú thích bổ sung;
-  3. ! Cấm vi phạm các quy tắc và tải lên beatmap mà không có sự đồng ý của người tạo điểm số, nếu không bạn có thể bị cấm tải lên mãi mãi;
-  4. Nội dung của beatmap (bao gồm âm nhạc, hình minh họa, văn bản, v.v.) phải tuân thủ các luật pháp khác của nước Cộng hoà Nhân dân Trung Hoa và không được vi phạm pháp luật hoặc chứa thông tin xấu.
+    1. ! Beatmap này do tôi tạo ra, bản đồ hợp tác cần có sự cho phép tải lên từ tất cả các nhà thiết kế bản đồ, nếu không bạn có thể đối mặt với hình phạt bị cấm tải lên vĩnh viễn
+    2. Đề nghị sử dụng hình đại diện và ID dễ nhận biết; Nếu ID hình đại diện bạn sử dụng trong Phira khá khác với nền tảng phát hành video tự tạo điểm (cụ thể là BiliBili), yêu cầu phải có các chú thích bổ sung, cũng như vui lòng thêm ngôn ngữ yêu thích của bạn vào mô tả bản đồ (nếu không phải là tiếng Trung Quốc đại lục)
+    3. Nội dung của beatmap (bao gồm âm nhạc, hình minh họa, văn bản, v.v.) phải tuân thủ các quy định pháp luật khác của Cộng hòa Nhân dân Trung Hoa và không được vi phạm pháp luật hoặc chứa thông tin xấu
+    4. Tôi ủy quyền sử dụng nội dung tôi cung cấp cho việc quảng bá công khai bởi Phira. Mọi việc sử dụng khác đòi hỏi sự cho phép bổ sung của tôi.
+    5. Quyền giải thích cuối cùng của quy định này thuộc về TeamFlos
 upload-cancel = Hủy bỏ
 upload-confirm = Chấp nhận
 uploading = Đang tải lên...
@@ -88,6 +89,9 @@ review-edit-tags = Sửa thẻ
 review-edit-tags-failed = Sửa thẻ thất bại
 review-edit-tags-done = Đã cập nhật thẻ
 
+reviewed = Đã xem xét
+unreviewed = Chưa được xem xét
+
 mods = Mods
 mods-autoplay = Tự động chơi
 mods-autoplay-sub = Bật và vô hiệu tải lên thành tích
@@ -104,3 +108,17 @@ need-update-info-only-content = Thông tin về biểu đồ đã được cập
 need-update-content = Biểu đồ này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản cục bộ của mình trước khi tải lên bản ghi. Bạn có muốn làm điều đó ngay bây giờ?
 
 request-failed = Yêu cầu thất bại
+
+stabilize = Ổn định
+stabilize-warn = Người dùng bình thường chỉ có thể yêu cầu ổn định beatmap một lần trong 3 ngày. Nếu bạn có biểu đồ ổn định, khoảng thời gian sẽ giảm xuống còn 1 ngày.
+stabilize-requested = Đã gửi yêu cầu ổn định
+stabilize-failed = Ổn định không thành công
+stabilize-approve = Phê duyệt đặc biệt
+stabilize-approve-ranked = Phê duyệt ổn định
+stabilize-comment = Bình luận ổn định
+stabilize-commented = Đã nhận xét
+stabilize-deny = Từ chối ổn định
+stabilize-approved = Tán thành
+stabilize-approved-passed = Đã được phê duyệt, biểu đồ đã ổn định
+stabilize-denied = Từ chối
+stabilize-denied-passed = Bị từ chối, biểu đồ bị từ chối
