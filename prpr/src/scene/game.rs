@@ -1078,7 +1078,6 @@ impl Scene for GameScene {
             push_camera_state();
             set_camera(&Camera2D {
                 zoom: vec2(1., asp),
-                viewport: chart_target_vp,
                 ..Default::default()
             });
             for e in &self.effects {
