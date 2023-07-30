@@ -24,7 +24,7 @@ pub fn launch_task(id: i32, players: Vec<UserInfo>) -> Result<LocalTask<Result<(
         for _ in 0..players.len() {
             charts.push(GameScene::load_chart(fs.as_mut(), &info).await?.0);
         }
-        let loading_scene = LoadingScene::new(GameMode::NoRetry, info, config, fs, None, None, None).await?;
+        let loading_scene = LoadingScene::new(GameMode::View, info, config, fs, None, None, None).await?;
         let game_scene = loading_scene.load_task.unwrap().await?;
 
         let views = players
