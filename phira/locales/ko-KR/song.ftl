@@ -91,7 +91,7 @@ mods = 모드
 mods-autoplay = 오토플레이
 mods-autoplay-sub = 이를 활성화하면 녹화 업로드가 비활성화됩니다.
 mods-flip-x = X축 뒤집기
-mods-flip-x-sub = X 축에 대해 뒤집기
+mods-flip-x-sub = X 축을 기준으로 뒤집기
 mods-fade-out = 페이드 아웃
 mods-fade-out-sub = 라인에 가까워질 때 노트가 사라집니다.
 
