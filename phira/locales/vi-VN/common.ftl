@@ -14,4 +14,4 @@ chart-ranked = Xếp Hạng
 chart-special = Đặc Biệt
 chart-unstable = K.Ổn Định
 
-list-empty = Meowww
+list-empty = Không có gì ở đây!
