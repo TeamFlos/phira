@@ -5,7 +5,7 @@ connect = Kết nối
 connect-must-login = Cần đăng nhập để vào chế độ đa người chơi
 connect-success = Kết nối thành công
 connect-failed = Kết nối thất bại
-connect-authenticate-failed = Ủy quyển thất bại
+connect-authenticate-failed = Ủy quyền thất bại
 reconnect = Đang kết nối lại...
 
 create-room = Tạo phòng
@@ -48,7 +48,7 @@ room-id = ID Phòng: { $id }
 
 download-failed = Không thể tải biểu đồ
 
-chat-placeholder = Uoccc....
+chat-placeholder = Viết gì đó
 chat-send = Gửi
 chat-empty = Tin nhắn rỗng
 chat-sent = Đã gửi

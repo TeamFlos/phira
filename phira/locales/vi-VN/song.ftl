@@ -61,14 +61,14 @@ upload-success = Đã t.lên, chờ xét duyệt!
 upload-failed = T.lên thất bại
 
 ldb = Bảng xếp hạng
-ldb-load-failed = Không thể bải bảng xếp hạng
+ldb-load-failed = Không thể tải bảng xếp hạng
 ldb-no-rank = Vô hạng
 ldb-score = Điểm
 ldb-std = Độ C.Xác
 
 info-name = Tên
-info-composer = Nhà soạn
-info-charter = Charter
+info-composer = Nhà S.nhạc
+info-charter = Nhà B.đồ
 info-difficulty = Độ khó
 info-desc = Mô tả
 info-rating = Đánh giá
@@ -92,7 +92,7 @@ review-edit-tags-done = Đã cập nhật thẻ
 reviewed = Đã xem xét
 unreviewed = Chưa được xem xét
 
-mods = Mods
+mods = Các Sửa Đổi
 mods-autoplay = Tự động chơi
 mods-autoplay-sub = Bật và vô hiệu tải lên thành tích
 mods-flip-x = Lật trục X
