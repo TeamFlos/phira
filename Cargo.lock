@@ -1728,7 +1728,7 @@ dependencies = [
  "glam",
  "image",
  "macroquad_macro 0.1.7",
- "miniquad 0.3.15",
+ "miniquad",
  "quad-rand",
 ]
 
@@ -1742,7 +1742,7 @@ dependencies = [
  "glam",
  "image",
  "macroquad_macro 0.1.7 (git+https://github.com/Mivik/prpr-macroquad)",
- "miniquad 0.3.15 (git+https://github.com/Mivik/prpr-miniquad.git)",
+ "miniquad",
  "quad-rand",
 ]
 
@@ -1842,18 +1842,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-dependencies = [
- "libc",
- "ndk-context",
- "ndk-sys 0.2.2",
- "objc",
- "winapi",
-]
-
-[[package]]
-name = "miniquad"
-version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad.git#3c8025bb9055812ff6bba71c036241156d5923d4"
+source = "git+https://github.com/Mivik/prpr-miniquad#3c8025bb9055812ff6bba71c036241156d5923d4"
 dependencies = [
  "libc",
  "ndk-context",
@@ -2520,7 +2509,7 @@ name = "phira-render"
 version = "0.3.2"
 dependencies = [
  "anyhow",
- "macroquad 0.3.25",
+ "macroquad 0.3.25 (git+https://github.com/Mivik/prpr-macroquad)",
  "prpr",
  "sasa",
  "serde_yaml",
@@ -2654,8 +2643,8 @@ dependencies = [
  "libc",
  "lru",
  "lyon",
- "macroquad 0.3.25",
- "miniquad 0.3.15",
+ "macroquad 0.3.25 (git+https://github.com/Mivik/prpr-macroquad)",
+ "miniquad",
  "miniz_oxide",
  "nalgebra",
  "ndk-context",
