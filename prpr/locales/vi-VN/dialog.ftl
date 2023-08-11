@@ -1,5 +1,5 @@
 
-notice = Thông báo
+notice = Chú ý
 ok = OK
 
 error = Lỗi
