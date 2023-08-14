@@ -854,7 +854,8 @@ impl Scene for GameScene {
                     // TODO strengthen the protection
                     #[cfg(feature = "closed")]
                     if let Some(upload_fn) = &self.upload_fn {
-                        if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
+                        // Extra mods added by me seems to break the game and should not be uploaded. So I'd like to skip them. -- Astro_angelfish
+                        if !self.res.config.offline_mode && !(self.res.config.autoplay() || self.res.config.burn_fat() || self.res.config.hardrock()) && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {
                                 if let Some(chart) = &self.res.info.id {
                                     record_data = Some(encode_record(self, player.id, *chart));

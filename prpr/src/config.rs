@@ -19,9 +19,14 @@ bitflags! {
     #[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq, Debug)]
     #[serde(transparent)]
     pub struct Mods: i32 {
-        const AUTOPLAY = 1;
-        const FLIP_X = 2;
-        const FADE_OUT = 4;
+        // I guess it is a bitmap
+        // So maybe shifting is better than constant
+        // But be aware of overflowing -- Astro_angelfish
+        const AUTOPLAY = 1 << 0;
+        const FLIP_X = 1 << 1;
+        const FADE_OUT = 1 << 2;
+        const HARDROCK = 1 << 3;
+        const BURN_FAT = 1 << 4;
     }
 }
 
@@ -124,5 +129,15 @@ impl Config {
     #[inline]
     pub fn flip_x(&self) -> bool {
         self.has_mod(Mods::FLIP_X)
+    }
+
+    #[inline]
+    pub fn hardrock(&self) -> bool {
+        self.has_mod(Mods::HARDROCK)
+    }
+
+    #[inline]
+    pub fn burn_fat(&self) -> bool {
+        self.has_mod(Mods::BURN_FAT)
     }
 }

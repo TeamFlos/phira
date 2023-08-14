@@ -120,7 +120,7 @@ impl EndingScene {
             player_rks,
             challenge_texture,
             challenge_rank: config.challenge_rank,
-            autoplay: config.autoplay(),
+            autoplay: config.autoplay() || config.hardrock() || config.burn_fat(),
             speed: config.speed,
             next: 0,
 
