@@ -24,8 +24,8 @@ hex = "0.4.3"
 image = "*"
 lru = "0.9.0"
 lyon = "*"
-# macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-macroquad = { path = "../../prpr-macroquad", default-features = false }
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
+# macroquad = { path = "../../prpr-macroquad", default-features = false }
 md5 = "0.7"
 nalgebra = "*"
 once_cell = "*"
