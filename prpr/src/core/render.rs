@@ -23,7 +23,7 @@ pub fn copy_fbo(src: GLuint, dst: GLuint, dim: (u32, u32)) -> bool {
     }
 }
 
-fn internal_id(target: RenderTarget) -> GLuint {
+pub fn internal_id(target: RenderTarget) -> GLuint {
     target.render_pass.gl_internal_id(unsafe { get_internal_gl() }.quad_context)
 }
 
