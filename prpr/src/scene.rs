@@ -264,7 +264,7 @@ pub fn request_file(id: impl Into<String>) {
                         let tp: ObjcId = msg_send![tp_cls, typeWithFilenameExtension: str_to_ns(e)];
                         std::mem::transmute::<_, ShareId<NSObject>>(ShareId::from_ptr(tp))
                     };
-                    let types = NSArray::from_slice(&[ext("zip"), ext("pez"), ext("jpg"), ext("png"), ext("jpeg")]);
+                    let types = NSArray::from_slice(&[ext("zip"), ext("pez"), ext("jpg"), ext("png"), ext("jpeg"), ext("json"), ext("mp3")]);
                     let types: ObjcId = std::mem::transmute(types);
                     msg_send![picker, initForOpeningContentTypes: types]
                 } else {
@@ -285,7 +285,7 @@ pub fn request_file(id: impl Into<String>) {
                     completion: 0 as ObjcId
                 ];
             }
-        } else {
+        } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }
     }
