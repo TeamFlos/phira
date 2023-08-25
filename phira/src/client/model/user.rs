@@ -23,7 +23,13 @@ bitflags! {
         const STABILIZE_CHART   = 0x00000020;
         const EDIT_TAGS         = 0x00000040;
         const STABILIZE_JUDGE   = 0x00000080;
-        const DELETE_STABLE     = 0x00000080;
+        const DELETE_STABLE     = 0x00000100;
+        const SEE_ALL_EVENTS    = 0x00000200;
+        const BAN_USER          = 0x00000400;
+        const SET_RANKED        = 0x00000800;
+        const SET_ALL_ROLE      = 0x00001000;
+        const SET_REVIEWER      = 0x00002000;
+        const SET_SUPERVISOR    = 0x00004000;
     }
 }
 
@@ -34,6 +40,7 @@ bitflags! {
         const REVIEWER          = 0x0002;
         const SUPERVISOR        = 0x0004;
         const HEAD_SUPERVISOR   = 0x0008;
+        const HEAD_REVIEWER     = 0x0010;
     }
 }
 
@@ -52,6 +59,10 @@ impl Roles {
             perm |= Permissions::REVIEW;
             perm |= Permissions::EDIT_TAGS;
         }
+        if self.contains(Self::HEAD_REVIEWER) {
+            perm |= Permissions::BAN_USER;
+            perm |= Permissions::SET_REVIEWER;
+        }
         if self.contains(Self::SUPERVISOR) {
             perm |= Permissions::SEE_UNREVIEWED;
             perm |= Permissions::SEE_STABLE_REQ;
@@ -61,6 +72,8 @@ impl Roles {
         if self.contains(Self::HEAD_SUPERVISOR) {
             perm |= Permissions::STABILIZE_JUDGE;
             perm |= Permissions::DELETE_STABLE;
+            perm |= Permissions::SET_RANKED;
+            perm |= Permissions::SET_SUPERVISOR;
         }
         perm
     }
