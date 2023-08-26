@@ -95,7 +95,7 @@ impl FileSystem for ExternalFileSystem {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut file = self.0.open(path)?;
-            tokio::spawn(async move {
+            tokio::task::spawn_blocking(move || {
                 let mut res = Vec::new();
                 file.read_to_end(&mut res)?;
                 Ok(res)
@@ -141,14 +141,14 @@ impl FileSystem for ZipFileSystem {
     async fn load_file(&mut self, path: &str) -> Result<Vec<u8>> {
         let arc = Arc::clone(&self.0);
         let path = concat_string!(self.1, path);
-        spawn_task(async move {
+        spawn_task(move || {
             let mut zip = arc.lock().unwrap();
             let mut entry = zip.by_name(&path)?;
             let mut res = Vec::new();
             entry.read_to_end(&mut res)?;
             Ok(res)
         })
-        .await?
+        .await
     }
 
     async fn exists(&mut self, path: &str) -> Result<bool> {
@@ -409,7 +409,7 @@ pub async fn load_info(fs: &mut dyn FileSystem) -> Result<ChartInfo> {
     Ok(info)
 }
 
-pub fn fs_from_file(path: &Path) -> Result<Box<dyn FileSystem>> {
+pub fn fs_from_file(path: &Path) -> Result<Box<dyn FileSystem + Send + Sync + 'static>> {
     let meta = fs::metadata(path)?;
     Ok(if meta.is_file() {
         let bytes = fs::read(path).with_context(|| format!("failed to read from {}", path.display()))?;
@@ -419,6 +419,6 @@ pub fn fs_from_file(path: &Path) -> Result<Box<dyn FileSystem>> {
     })
 }
 
-pub fn fs_from_assets(name: impl Into<String>) -> Result<Box<dyn FileSystem>> {
+pub fn fs_from_assets(name: impl Into<String>) -> Result<Box<dyn FileSystem + Send + Sync + 'static>> {
     Ok(Box::new(AssetsFileSystem(name.into())))
 }

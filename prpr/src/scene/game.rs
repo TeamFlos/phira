@@ -249,6 +249,7 @@ impl GameScene {
                 .push(Effect::new(0.0..f32::INFINITY, include_str!("fxaa.glsl"), Vec::new(), false).unwrap());
         }
 
+        println!("原神……");
         let info_offset = info.offset;
         let mut res = Resource::new(
             config,
@@ -261,6 +262,7 @@ impl GameScene {
         )
         .await
         .context("Failed to load resources")?;
+        println!("启动！");
         let exercise_range = (chart.offset + info_offset + res.config.offset)..res.track_length;
 
         let judge = Judge::new(&chart);
@@ -882,7 +884,6 @@ impl Scene for GameScene {
                             self.res.icon_proceed.clone(),
                             self.res.info.clone(),
                             self.judge.result(),
-                            self.res.challenge_icons[self.res.config.challenge_color.clone() as usize].clone(),
                             &self.res.config,
                             self.res.res_pack.ending.clone(),
                             self.upload_fn.as_ref().map(Arc::clone),

@@ -40,7 +40,7 @@ thread_local! {
     pub static TEX_ICON_BACK: RefCell<Option<SafeTexture>> = RefCell::new(None);
 }
 
-pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem>> {
+pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem + Send + Sync + 'static>> {
     if let Some(name) = path.strip_prefix(':') {
         fs::fs_from_assets(format!("charts/{name}/"))
     } else {

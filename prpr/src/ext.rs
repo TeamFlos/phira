@@ -337,14 +337,14 @@ pub fn thread_as_future<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'stati
     DummyFuture(arc)
 }
 
-pub fn spawn_task<R: Send + 'static>(future: impl Future<Output = R> + Send + 'static) -> impl Future<Output = anyhow::Result<R>> {
+pub async fn spawn_task<R: Send + 'static>(f: impl FnOnce() -> Result<R> + Send + 'static) -> Result<R> {
     #[cfg(target_arch = "wasm32")]
     {
-        async move { Ok(future.await) }
+        f()
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        async move { Ok(tokio::spawn(future).await?) }
+        Ok(tokio::task::spawn_blocking(f).await??)
     }
 }
 
