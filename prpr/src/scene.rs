@@ -474,7 +474,8 @@ impl Main {
                 dialog.update(self.last_update_time as _);
             }
         });
-        self.scenes.last_mut().unwrap().update(&mut self.tm)
+        self.scenes.last_mut().unwrap().update(&mut self.tm)?;
+        Ok(())
     }
 
     pub fn render(&mut self, painter: &mut TextPainter) -> Result<()> {
