@@ -237,7 +237,7 @@ pub struct CollectionConfig {
     #[serde(default = "default_row_num")]
     rn: I32,
     #[serde(default = "default_chart_height")]
-    rh: f32,
+    rh: f32, // TODO: Expr？
     r: Expr,
 }
 
