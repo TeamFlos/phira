@@ -158,7 +158,7 @@ impl ResourcePack {
             if let Some(path) = path {
                 crate::fs::fs_from_file(path.as_ref())?
             } else {
-                crate::fs::fs_from_assets("respack/")?
+                crate::fs::fs_from_assets(format!("respack{}", std::path::MAIN_SEPARATOR))?
             }
             .deref_mut(),
         )
