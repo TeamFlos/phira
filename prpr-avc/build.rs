@@ -5,6 +5,8 @@ fn main() {
     let libs_path = Path::new(&libs_dir).join(std::env::var("TARGET").unwrap());
     let libs_path = libs_path.display();
     println!("cargo:rustc-link-search={libs_path}");
-    println!("cargo:rustc-link-lib=z");
+    // if !std::env::var("CARGO_CFG_TARGET_OS").map_or(false, |it| it == "windows") {
+        // println!("cargo:rustc-link-lib=z");
+    // }
     println!("cargo:rerun-if-changed={libs_path}");
 }
