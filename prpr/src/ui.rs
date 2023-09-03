@@ -761,9 +761,13 @@ impl<'a> Ui<'a> {
         if let Some(rect) = rect {
             let rect = self.rect_to_global(rect);
             let vp = get_viewport();
+            let screen_height = gl
+                .get_active_render_pass()
+                .map(|it| it.texture(igl.quad_context).height as f32)
+                .unwrap_or_else(screen_height);
             let pt = (
                 vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
-                (screen_height() - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
+                (screen_height - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
             );
             gl.scissor(Some((pt.0 as _, pt.1 as _, (rect.w * vp.2 as f32 / 2.) as _, (rect.h * vp.2 as f32 / 2.) as _)));
         } else {

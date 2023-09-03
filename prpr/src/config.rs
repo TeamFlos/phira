@@ -15,6 +15,17 @@ bitflags! {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ChallengeModeColor {
+    White,
+    Green,
+    Blue,
+    Red,
+    Golden,
+    Rainbow,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
@@ -23,6 +34,8 @@ pub struct Config {
     pub aggressive: bool,
     pub aspect_ratio: Option<f32>,
     pub audio_buffer_size: Option<u32>,
+    pub challenge_color: ChallengeModeColor,
+    pub challenge_rank: u32,
     pub chart_debug: bool,
     pub disable_effect: bool,
     pub double_click_to_pause: bool,
@@ -49,7 +62,7 @@ pub struct Config {
     pub volume_bgm: f32,
 
     // for compatibility
-    autoplay: Option<bool>,
+    pub autoplay: Option<bool>,
 }
 
 impl Default for Config {
@@ -59,6 +72,8 @@ impl Default for Config {
             aggressive: true,
             aspect_ratio: None,
             audio_buffer_size: None,
+            challenge_color: ChallengeModeColor::Golden,
+            challenge_rank: 45,
             chart_debug: false,
             disable_effect: false,
             double_click_to_pause: true,

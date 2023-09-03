@@ -143,9 +143,6 @@ pub struct GameScene {
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
 
-    theme_color: Color,
-    use_black: bool,
-
     pub touch_points: Vec<(f32, f32)>,
 }
 
@@ -227,9 +224,6 @@ impl GameScene {
         illustration: SafeTexture,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
-
-        theme_color: Color,
-        use_black: bool,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -249,7 +243,6 @@ impl GameScene {
                 .push(Effect::new(0.0..f32::INFINITY, include_str!("fxaa.glsl"), Vec::new(), false).unwrap());
         }
 
-        println!("原神……");
         let info_offset = info.offset;
         let mut res = Resource::new(
             config,
@@ -262,7 +255,6 @@ impl GameScene {
         )
         .await
         .context("Failed to load resources")?;
-        println!("启动！");
         let exercise_range = (chart.offset + info_offset + res.config.offset)..res.track_length;
 
         let judge = Judge::new(&chart);
@@ -299,9 +291,6 @@ impl GameScene {
 
             upload_fn,
             update_fn,
-
-            theme_color,
-            use_black,
 
             touch_points: Vec::new(),
         })
@@ -343,9 +332,9 @@ impl GameScene {
         let res = &mut self.res;
         let eps = 2e-2 / res.aspect_ratio;
         let top = -1. / res.aspect_ratio;
-        let pause_w = 0.015;
-        let pause_h = pause_w * 3.2;
-        let pause_center = Point::new(pause_w * 4.0 - 1., top + eps * 3.5 - (1. - p) * 0.4 + pause_h / 2.);
+        let pause_w = 0.012;
+        let pause_h = pause_w * 3.375;
+        let pause_center = Point::new(pause_w * 4.4 - 1., top + eps * 3.6454 - (1. - p) * 0.4 + pause_h / 2.);
         if res.config.interactive
             && !tm.paused()
             && self.pause_rewind.is_none()
@@ -372,13 +361,13 @@ impl GameScene {
             ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
         }
 
-        let margin = 0.03;
+        let margin = 0.046;
 
         self.chart.with_element(ui, res, UIElement::Score, |ui, color, scale| {
             ui.text(format!("{:07}", self.judge.score()))
-                .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
+                .pos(1. - margin + 0.001, top + eps * 2.8125 - (1. - p) * 0.4)
                 .anchor(1., 0.)
-                .size(0.8)
+                .size(0.70867)
                 .color(Color { a: color.a * c.a, ..color })
                 .scale(scale)
                 .draw();
@@ -413,16 +402,16 @@ impl GameScene {
             });
             self.chart.with_element(ui, res, UIElement::Combo, |ui, color, scale| {
                 ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
-                    .pos(0., btm + 0.01)
+                    .pos(0., btm + 0.007777)
                     .anchor(0.5, 0.)
-                    .size(0.4)
+                    .size(0.325)
                     .color(Color { a: color.a * c.a, ..color })
                     .scale(scale)
                     .draw();
             });
         }
         let lf = -1. + margin;
-        let bt = -top - eps * 2.8;
+        let bt = -top - eps * 3.64;
         self.chart.with_element(ui, res, UIElement::Name, |ui, color, scale| {
             ui.text(&res.info.name)
                 .pos(lf, bt + (1. - p) * 0.4)
@@ -884,14 +873,13 @@ impl Scene for GameScene {
                             self.res.icon_proceed.clone(),
                             self.res.info.clone(),
                             self.judge.result(),
+                            self.res.challenge_icons[self.res.config.challenge_color.clone() as usize].clone(),
                             &self.res.config,
                             self.res.res_pack.ending.clone(),
                             self.upload_fn.as_ref().map(Arc::clone),
                             self.player.as_ref().map(|it| it.rks),
                             record_data,
                             record,
-                            self.theme_color,
-                            self.use_black,
                         )?))),
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
