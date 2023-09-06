@@ -1,4 +1,3 @@
-use chrono::Utc;
 use colored::Colorize;
 use miniquad::{debug, error, info, trace, warn};
 use tracing::{field::Visit, Level, Subscriber};
@@ -29,7 +28,7 @@ where
         let meta = event.metadata();
 
         #[cfg(not(target_os = "android"))]
-        let mut msg = format!("{:.6?} ", Utc::now()).bright_black().to_string()
+        let mut msg = format!("{:.6?} ", chrono::Utc::now()).bright_black().to_string()
             + &match *meta.level() {
                 Level::TRACE => "TRACE".bright_black(),
                 Level::DEBUG => "DEBUG".magenta(),

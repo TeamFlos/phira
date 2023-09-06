@@ -73,6 +73,7 @@ objc_id = "*"
 block = "0.1.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
+ndk-sys = "0.2"
 ndk-context = "0.1"
 sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = ["oboe"] }
 
