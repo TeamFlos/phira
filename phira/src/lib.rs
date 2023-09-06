@@ -325,15 +325,13 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_: *mut std
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDataPath(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
-    let env = crate::miniquad::native::attach_jni_env();
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDataPath(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
     *DATA_PATH.lock().unwrap() = Some(string_from_java(env, path));
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setTempDir(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
-    let env = crate::miniquad::native::attach_jni_env();
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setTempDir(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
     let path = string_from_java(env, path);
     std::env::set_var("TMPDIR", path.clone());
     *CACHE_DIR.lock().unwrap() = Some(path);
@@ -347,10 +345,8 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDpi(_: *mut std::ffi::c
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setChosenFile(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, file: ndk_sys::jstring) {
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setChosenFile(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, file: ndk_sys::jstring) {
     use prpr::scene::CHOSEN_FILE;
-
-    let env = crate::miniquad::native::attach_jni_env();
     CHOSEN_FILE.lock().unwrap().1 = Some(string_from_java(env, file));
 }
 
@@ -372,10 +368,8 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_: *mut 
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setInputText(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, text: ndk_sys::jstring) {
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setInputText(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, text: ndk_sys::jstring) {
     use prpr::scene::INPUT_TEXT;
-
-    let env = crate::miniquad::native::attach_jni_env();
     INPUT_TEXT.lock().unwrap().1 = Some(string_from_java(env, text));
 }
 
