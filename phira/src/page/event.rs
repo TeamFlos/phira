@@ -173,11 +173,12 @@ impl Page for EventPage {
                         ui.dy(ui.top);
                         for (index, item) in events.iter_mut().enumerate() {
                             item.illu.notify();
-                            let a = item.illu.alpha(t) * a;
-                            let c = semi_white(a);
+                            let ca = item.illu.alpha(t) * a;
                             let r = ui.screen_rect().nonuniform_feather(-0.2, -0.12);
-                            let (r, path) = item.btn.render_shadow(ui, r, t, a, |r| item.illu.shading(r.feather(ILLU_FEATHER), t, a));
-                            ui.fill_path(&path, semi_black(0.4 * a));
+                            let (r, path) = item
+                                .btn
+                                .render_shadow(ui, r, t, ca, |r| item.illu.shading(r.feather(ILLU_FEATHER), t, ca));
+                            ui.fill_path(&path, semi_black(0.4 * if item.illu.task.is_some() { a } else { ca }));
                             if index == self.index {
                                 self.tr_from = ui.rect_to_global(r);
                             }
