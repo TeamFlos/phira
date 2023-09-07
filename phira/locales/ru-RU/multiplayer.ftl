@@ -77,8 +77,8 @@ msg-played = `{ $user }` завершил играть: { $score } ({ $accuracy 
 msg-game-end = Раунд окончен
 msg-abort = `{ $user }` вышел посреди раунда
 msg-room-lock = { $lock ->
-  [true] Room locked
-  *[other] Room unlocked
+  [true] Комната закрыта
+  *[other] Комната открыта
 }
 msg-room-cycle = { $cycle ->
   [true] Включëн режим "По очереди".Теперь роль хоста передаëтся другому игроку после окончания раунда
