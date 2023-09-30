@@ -48,8 +48,6 @@ about-content =
 
   Phira is a non-commercial community-driven rhythm game, inspired by Phigros, developed with Rust.
 
-  If you enjoy the game, please consider supporting us on Patreon (@PhiraGame) or afdian.com (@Mivik). Your support is the greatest impetus for us!
-
   BiliBili Account: @Phira官方
   QQ Guild: r48eajexth
 
