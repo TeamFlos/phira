@@ -46,7 +46,5 @@ about-content =
 
   Phira est un jeu de rythme communautaire et non commercial, inspiré de Phigros, développé en Rust.
 
-  Si vous aimez le jeu, pensez à nous soutenir sur Patreon (@PhiraGame) ou afdian.com (@Mivik). Votre soutien est la plus grande force motrice pour nous !
-
   Compte BiliBili : @Phira官方
   Chaîne QQ : r48eajexth
