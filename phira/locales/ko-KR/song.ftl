@@ -1,3 +1,4 @@
+
 load-preview-failed = 미리듣기를 불러오는데 실패했습니다.
 load-charts-failed = 비트맵을 불러오는데 실패했습니다.
 no-chart-for-download = 이 비트맵은 다운로드할 수 없습니다.
@@ -15,7 +16,7 @@ dl-status-saving = 저장 중...
 dl-failed = 다운로드 실패
 dl-success = 다운로드 완료
 
-guest = GUEST
+guest = 게스트
 
 warn-unrated = 이번 플레이는 평가되지 않았습니다.
 failed-to-play = 온라인 모드로 시작할 수 없습니다.
@@ -46,11 +47,12 @@ upload-builtin = 기본 비트맵은 업로드할 수 없습니다.
 upload-downloaded = 다운로드된 비트맵은 업로드할 수 없습니다.
 upload-rules = 업로드 규칙
 upload-rules-content =
-  업로드 전 확인해야 할 사항은 다음과 같습니다:
-  1. ! 비트맵이 내가 만든 것이어야합니다.
-  2. 인식하기 쉬운 아바타와 ID를 사용하는 것이 좋으며, 만약 Phira에서 사용하는 아바타 ID가 자체 제작한 점수 영상 게시 플랫폼(구체적으로 BiliBili)과 매우 다르다면 추가적인 주석이 필요합니다.
-  3. ! 규칙을 위반하여 맵 영상 게시자의 동의 없이 비트맵을 업로드하는 것은 금지되며, 그렇게 하면 영구적인 업로드 금지 처분을 받을 수 있습니다.
-  4. 비트맵의 내용(음악, 일러스트, 텍스트 등)은 중국 법률과 규정을 준수해야 하며, 법률을 위반하거나 나쁜 정보를 포함해서는 안 됩니다.
+  업로드하기 전에 다음을 확인해야 합니다:
+  1. 비트맵은 본인이 만든 것이어야 합니다. 협업 차트의 경우 모든 차트 디자이너에게 업로드 권한이 있어야 합니다. 그렇지 않으면 업로드에 대한 영구 금지 처분을 받을 수 있습니다.
+  2. 인지도가 높은 아바타와 ID를 사용하는 것이 권장됩니다. Phira에서 사용하는 아바타 ID가 자체 제작된 점수 비디오 게시 플랫폼(특히 BiliBili)에서 사용하는 것과 크게 다른 경우 추가 주석이 필요하며, 차트 설명에 선호하는 언어를 추가해 주십시오(중국어가 아닌 경우).
+  3. 비트맵의 내용(음악, 일러스트, 텍스트 등)은 중화인민공화국의 다른 법률과 규정을 준수여야 하며, 법을 위반하거나 부적절한 정보를 포함해서는 안 됩니다.
+  4. Phira에서 제공한 콘텐츠를 대중 홍보에 사용할 수 있도록 허가합니다. 다른 용도로 사용하려면 추가 허가가 필요합니다.
+  5. 이 규칙의 최종 해석 권한은 TeamFlos에게 속합니다.
 upload-cancel = 취소
 upload-confirm = 확인
 uploading = 업로드 중
@@ -72,6 +74,9 @@ info-desc = 설명
 info-rating = 평점
 info-type = 타입
 info-tags = 태그
+
+reviewed = Reviewed
+unreviewed = Unreviewed
 
 review-approve = 승인
 review-deny = 거부
@@ -110,6 +115,8 @@ stabilize-requested = 안정화 요청이 전송되었습니다.
 stabilize-failed = 안정화 실패
 stabilize-approve = 안정화 승인
 stabilize-approve-ranked = 랭크 승인
+stabilize-comment = 안정된 댓글
+stabilize-commented = 댓글 작성됨
 stabilize-deny = 안정화 거부
 stabilize-approved = 승인됨
 stabilize-approved-passed = 승인됨, 비트맵이 안정화되었습니다.
