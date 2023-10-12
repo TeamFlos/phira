@@ -10,7 +10,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
-    ext::{semi_black, RectExt},
+    ext::{semi_black, semi_white, RectExt},
     scene::{request_input, request_password, return_input, show_error, show_message, take_input},
     task::Task,
     ui::{DRectButton, Dialog, Ui},
@@ -241,67 +241,66 @@ impl Login {
             let p = if self.show { 1. } else { -self.fader.progress(t) };
             ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
             self.fader.for_sub(|f| {
-                f.render(ui, t, |ui, c| {
+                f.render(ui, t, |ui| {
                     let wr = Ui::dialog_rect();
-                    ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
-                    ui.scissor(Some(wr));
-
-                    let p = (if self.start_time.is_nan() {
-                        if self.in_reg {
-                            0.
+                    ui.fill_path(&wr.rounded(0.01), ui.background());
+                    ui.scissor(wr, |ui| {
+                        let p = (if self.start_time.is_nan() {
+                            if self.in_reg {
+                                0.
+                            } else {
+                                -1.
+                            }
                         } else {
-                            -1.
-                        }
-                    } else {
-                        let p = ((t - self.start_time) / Self::TIME).clamp(0., 1.);
-                        let p = 1. - (1. - p).powi(3);
-                        let res = if self.in_reg { -p } else { p - 1. };
-                        if p >= 1. {
-                            self.in_reg = !self.in_reg;
-                            self.start_time = f32::NAN;
-                        }
-                        res
-                    }) * wr.h;
-                    ui.dy(p);
+                            let p = ((t - self.start_time) / Self::TIME).clamp(0., 1.);
+                            let p = 1. - (1. - p).powi(3);
+                            let res = if self.in_reg { -p } else { p - 1. };
+                            if p >= 1. {
+                                self.in_reg = !self.in_reg;
+                                self.start_time = f32::NAN;
+                            }
+                            res
+                        }) * wr.h;
+                        ui.dy(p);
 
-                    let r = ui.text(tl!("register")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).color(c).draw();
-                    let pad = 0.035;
-                    let mut r = Rect::new(wr.x + pad, r.bottom() + 0.05, wr.w - pad * 2., 0.1);
-                    self.input_reg_email.render_input(ui, r, t, c.a, &self.t_reg_email, tl!("email"), 0.62);
-                    r.y += r.h + 0.02;
-                    self.input_reg_name.render_input(ui, r, t, c.a, &self.t_reg_name, tl!("username"), 0.62);
-                    r.y += r.h + 0.02;
-                    self.input_reg_pwd
-                        .render_input(ui, r, t, c.a, "*".repeat(self.t_reg_pwd.len()), tl!("password"), 0.62);
-                    let h = 0.09;
-                    let pad = 0.05;
-                    let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
-                    self.btn_to_login.render_text(ui, r, t, c.a, tl!("back-login"), 0.66, false);
-                    r.x += r.w + pad;
-                    self.btn_reg.render_text(ui, r, t, c.a, tl!("register"), 0.66, false);
+                        let r = ui.text(tl!("register")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).draw();
+                        let pad = 0.035;
+                        let mut r = Rect::new(wr.x + pad, r.bottom() + 0.05, wr.w - pad * 2., 0.1);
+                        self.input_reg_email.render_input(ui, r, t, &self.t_reg_email, tl!("email"), 0.62);
+                        r.y += r.h + 0.02;
+                        self.input_reg_name.render_input(ui, r, t, &self.t_reg_name, tl!("username"), 0.62);
+                        r.y += r.h + 0.02;
+                        self.input_reg_pwd
+                            .render_input(ui, r, t, "*".repeat(self.t_reg_pwd.len()), tl!("password"), 0.62);
+                        let h = 0.09;
+                        let pad = 0.05;
+                        let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
+                        self.btn_to_login.render_text(ui, r, t, tl!("back-login"), 0.66, false);
+                        r.x += r.w + pad;
+                        self.btn_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
 
-                    ui.dy(wr.h);
-                    let r = ui.text(tl!("login")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).color(c).draw();
-                    let r = ui
-                        .text(tl!("login-sub"))
-                        .pos(r.x + 0.006, r.bottom() + 0.032)
-                        .size(0.4)
-                        .color(Color { a: c.a * 0.6, ..c })
-                        .draw();
-                    let pad = 0.037;
-                    let mut r = Rect::new(wr.x + pad, r.bottom() + 0.06, wr.w - pad * 2., 0.1);
-                    self.input_email.render_input(ui, r, t, c.a, &self.t_email, tl!("email"), 0.62);
-                    r.y += r.h + 0.04;
-                    self.input_pwd
-                        .render_input(ui, r, t, c.a, "*".repeat(self.t_pwd.len()), tl!("password"), 0.62);
+                        ui.dy(wr.h);
+                        let r = ui.text(tl!("login")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).draw();
+                        let r = ui
+                            .text(tl!("login-sub"))
+                            .pos(r.x + 0.006, r.bottom() + 0.032)
+                            .size(0.4)
+                            .color(semi_white(0.6))
+                            .draw();
+                        let pad = 0.037;
+                        let mut r = Rect::new(wr.x + pad, r.bottom() + 0.06, wr.w - pad * 2., 0.1);
+                        self.input_email.render_input(ui, r, t, &self.t_email, tl!("email"), 0.62);
+                        r.y += r.h + 0.04;
+                        self.input_pwd
+                            .render_input(ui, r, t, "*".repeat(self.t_pwd.len()), tl!("password"), 0.62);
 
-                    let h = 0.09;
-                    let pad = 0.05;
-                    let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
-                    self.btn_to_reg.render_text(ui, r, t, c.a, tl!("register"), 0.66, false);
-                    r.x += r.w + pad;
-                    self.btn_login.render_text(ui, r, t, c.a, tl!("login"), 0.66, false);
-                    ui.scissor(None);
+                        let h = 0.09;
+                        let pad = 0.05;
+                        let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
+                        self.btn_to_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
+                        r.x += r.w + pad;
+                        self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
+                    });
                 });
             });
         }

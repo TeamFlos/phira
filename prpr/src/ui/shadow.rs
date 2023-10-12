@@ -40,7 +40,7 @@ impl Default for ShadowConfig {
     fn default() -> Self {
         Self {
             elevation: 0.005,
-            radius: 0.02,
+            radius: 0.005,
             base: 0.7,
         }
     }
@@ -68,7 +68,11 @@ pub fn rounded_rect_shadow(ui: &mut Ui, r: Rect, config: &ShadowConfig) {
     let mat = *SHADOW_MATERIAL;
     let gr = ui.rect_to_global(r);
     mat.set_uniform("rect", vec4(gr.x, gr.y, gr.right(), gr.bottom()));
-    config.apply(&mat);
+    ShadowConfig {
+        base: config.base * ui.alpha,
+        ..*config
+    }
+    .apply(&mat);
     gl_use_material(mat);
     let r3 = config.elevation * 3.0;
     draw_rectangle(gr.x - r3, gr.y - r3, gr.w + r3 * 2., gr.h + r3 * 2., WHITE);

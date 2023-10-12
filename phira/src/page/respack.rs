@@ -11,7 +11,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::{NoteStyle, ParticleEmitter, ResPackInfo, ResourcePack},
-    ext::{create_audio_manger, poll_future, semi_black, LocalTask, RectExt, SafeTexture, ScaleType},
+    ext::{create_audio_manger, poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, show_error, show_message},
     ui::{DRectButton, Dialog, Scroll, Ui},
 };
@@ -204,13 +204,15 @@ impl Page for ResPackPage {
 
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+
         let mut cr = ui.content_rect();
         let d = 0.29;
         cr.x += d;
         cr.w -= d;
         let r = Rect::new(-0.92, cr.y, 0.47, cr.h);
-        s.render_fader(ui, |ui, c| {
-            ui.fill_path(&r.rounded(0.02), semi_black(c.a * 0.4));
+
+        s.render_fader(ui, |ui| {
+            ui.fill_path(&r.rounded(0.02), semi_black(0.4));
             let pad = 0.02;
             self.btns_scroll.size((r.w, r.h - pad));
             ui.dx(r.x);
@@ -220,18 +222,19 @@ impl Page for ResPackPage {
                 let mut h = 0.;
                 let r = Rect::new(pad, 0., r.w - pad * 2., 0.1);
                 for (index, item) in self.items.iter_mut().enumerate() {
-                    item.btn.render_text(ui, r, t, c.a, &item.name, 0.7, index == self.index);
+                    item.btn.render_text(ui, r, t, &item.name, 0.7, index == self.index);
                     ui.dy(r.h + pad);
                     h += r.h + pad;
                 }
-                self.import_btn.render_text(ui, r, t, c.a, "+", 0.8, false);
+                self.import_btn.render_text(ui, r, t, "+", 0.8, false);
                 ui.dy(r.h + pad);
                 h += r.h + pad;
                 (w, h)
             });
         });
-        s.render_fader(ui, |ui, c| {
-            ui.fill_path(&cr.rounded(0.02), semi_black(c.a * 0.4));
+
+        s.render_fader(ui, |ui| {
+            ui.fill_path(&cr.rounded(0.02), semi_black(0.4));
             let item = &self.items[self.index];
             if let Some(pack) = &item.loaded {
                 let width = 0.16;
@@ -240,13 +243,13 @@ impl Page for ResPackPage {
                     let y = r.y;
                     r.h = tex.height() / tex.width() * r.w;
                     r.y = y - r.h / 2.;
-                    ui.fill_rect(r, (tex, r, ScaleType::Fit, c));
+                    ui.fill_rect(r, (tex, r, ScaleType::Fit));
                     r.x += r.w * 1.8;
                     r.w *= mh.width() / tex.width();
                     r.x -= r.w / 2.;
                     r.h = mh.height() / mh.width() * r.w;
                     r.y = y - r.h / 2.;
-                    ui.fill_rect(r, (mh, r, ScaleType::Fit, c));
+                    ui.fill_rect(r, (mh, r, ScaleType::Fit));
                 };
                 let sp = (cr.h - 0.4) / 2.;
                 draw(r, *pack.note_style.click, *pack.note_style_mh.click);
@@ -267,7 +270,7 @@ impl Page for ResPackPage {
                         *style.hold,
                         r2.x,
                         r2.y,
-                        c,
+                        semi_white(ui.alpha),
                         DrawTextureParams {
                             source: Some(tr),
                             dest_size: Some(vec2(r2.w, r2.h)),
@@ -282,7 +285,7 @@ impl Page for ResPackPage {
                         *style.hold,
                         r2.x,
                         r2.y,
-                        c,
+                        semi_white(ui.alpha),
                         DrawTextureParams {
                             source: Some(tr),
                             dest_size: Some(vec2(r2.w, r2.h)),
@@ -299,7 +302,7 @@ impl Page for ResPackPage {
                         },
                         r2.x,
                         r2.y,
-                        c,
+                        semi_white(ui.alpha),
                         DrawTextureParams {
                             source: Some({
                                 if pack.info.hold_repeat {
@@ -335,13 +338,13 @@ impl Page for ResPackPage {
                 let st = r.y + 0.06;
                 let cx = r.x + 0.43;
                 let line = 0.12;
-                ui.fill_rect(Rect::new(cx - 0.2, line - 0.004, 0.4, 0.008), c);
+                ui.fill_rect(Rect::new(cx - 0.2, line - 0.004, 0.4, 0.008), WHITE);
                 let p = (t - inter * rnd) / 0.9;
                 if p <= 1. {
                     let y = st + (line - st) * p;
                     let h = tex.height() / tex.width() * width;
                     let r = Rect::new(cx - width / 2., y - h / 2., width, h);
-                    ui.fill_rect(r, (tex, r, ScaleType::Fit, c));
+                    ui.fill_rect(r, (tex, r, ScaleType::Fit));
                 } else if irnd != self.last_round {
                     if let Some(emitter) = &mut self.emitter {
                         emitter.emit_at(vec2(cx, line), 0., pack.info.fx_perfect());
@@ -359,18 +362,22 @@ impl Page for ResPackPage {
                     .draw();
             } else {
                 let ct = cr.center();
-                ui.loading(ct.x, ct.y, t, c, ());
+                ui.loading(ct.x, ct.y, t, WHITE, ());
             }
             let s = 0.12;
             let mut tr = Rect::new(cr.right() - 0.04 - s, cr.bottom() - 0.04 - s, s, s);
-            let (r, _) = self.delete_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
-            let r = r.feather(-0.02);
-            ui.fill_rect(r, (*self.icons.delete, r, ScaleType::Fit, c));
+            self.delete_btn.render_shadow(ui, tr, t, |ui, path| {
+                ui.fill_path(&path, semi_black(0.2));
+                let r = tr.feather(-0.02);
+                ui.fill_rect(r, (*self.icons.delete, r, ScaleType::Fit));
+            });
             if item.loaded.is_some() {
                 tr.x -= tr.w + 0.02;
-                let (r, _) = self.info_btn.render_shadow(ui, tr, t, c.a, |_| semi_black(0.2 * c.a));
-                let r = r.feather(-0.02);
-                ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit, c));
+                self.info_btn.render_shadow(ui, tr, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.2));
+                    let r = tr.feather(-0.02);
+                    ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                });
             }
         });
         Ok(())

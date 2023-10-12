@@ -150,8 +150,8 @@ impl Illustration {
         }
     }
 
-    pub fn shading(&self, r: Rect, t: f32, alpha: f32) -> impl Shading {
-        (*self.texture.0, r, ScaleType::CropCenter, semi_white(alpha * self.alpha(t))).into_shading()
+    pub fn shading(&self, r: Rect, t: f32) -> impl Shading {
+        (*self.texture.0, r, ScaleType::CropCenter, semi_white(self.alpha(t))).into_shading()
     }
 }
 
@@ -223,11 +223,11 @@ impl Fader {
         self.back = true;
     }
 
-    pub fn progress(&self, t: f32) -> f32 {
+    pub fn progress_scaled(&self, t: f32, scale: f32) -> f32 {
         if self.start_time.is_nan() {
             0.
         } else {
-            let p = ((t - self.start_time) / self.time).clamp(0., 1.);
+            let p = ((t - self.start_time) / self.time * scale).clamp(0., 1.);
             let p = (1. - p).powi(3);
             let p = if self.back { p } else { 1. - p };
             if self.sub {
@@ -238,17 +238,21 @@ impl Fader {
         }
     }
 
+    pub fn progress(&self, t: f32) -> f32 {
+        self.progress_scaled(t, 1.)
+    }
+
     pub fn roll_back(&mut self) {
         self.index = self.index.saturating_sub(1);
     }
 
-    pub fn render<R>(&mut self, ui: &mut Ui, t: f32, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
+    pub fn render<R>(&mut self, ui: &mut Ui, t: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
         let p = self.progress(t - self.index as f32 * Self::DELTA);
         let (dy, alpha) = (p * self.distance, 1. - p.abs());
         self.index += 1;
         ui.scope(|ui| {
             ui.dy(dy);
-            f(ui, Color::new(1., 1., 1., alpha))
+            ui.alpha(alpha, f)
         })
     }
 
@@ -267,20 +271,35 @@ impl Fader {
     }
 
     pub fn render_title(&mut self, ui: &mut Ui, painter: &mut TextPainter, t: f32, s: &str) {
-        let tp = -ui.top + 0.08;
-        let h = ui.text("L").size(1.4).no_baseline().measure().h;
-        ui.scissor(Some(Rect::new(-1., tp, 2., h)));
-        let p = self.progress(t);
-        let tp = tp + h * p;
-        for (i, c) in s.chars().enumerate() {
-            ui.text(c.to_string())
-                .pos(-0.8 + i as f32 * 0.117, tp)
-                .anchor(0.5, 0.)
-                .size(1.4)
-                .color(Color::new(1., 1., 1., 0.4))
-                .draw_with_font(Some(painter));
-        }
-        ui.scissor(None);
+        let tp = ui.back_rect().center().y;
+        let h = ui.text("L").size(1.4).no_baseline().measure_with_font(Some(painter)).h;
+        ui.scissor(Rect::new(-1., tp - h / 2., 2., h), |ui| {
+            let p = self.progress_scaled(t, 1.6);
+            let tp = tp + h * p - h / 2.;
+            let mut x = -0.87;
+            if s == "PHIRA" {
+                x -= ui.back_rect().w;
+            }
+            for c in s.chars() {
+                x += ui
+                    .text(c.to_string())
+                    .pos(x, tp)
+                    .anchor(0., 0.)
+                    .size(1.4)
+                    .color(WHITE)
+                    .draw_with_font(Some(painter))
+                    .w
+                    + 0.012;
+            }
+            if s == "PHIRA" {
+                ui.text(concat!('v', env!("CARGO_PKG_VERSION")))
+                    .pos(x + 0.01, tp + h - 0.027)
+                    .anchor(0., 1.)
+                    .color(semi_white(0.4))
+                    .size(0.5)
+                    .draw_with_font(Some(painter));
+            }
+        });
     }
 }
 
@@ -350,7 +369,7 @@ pub struct SharedState {
 
 impl SharedState {
     pub async fn new() -> Result<Self> {
-        let font = FontArc::try_from_vec(load_file("halva.ttf").await?)?;
+        let font = FontArc::try_from_vec(load_file("bold.ttf").await?)?;
         let painter = TextPainter::new(font);
         Ok(Self {
             t: 0.,
@@ -368,7 +387,7 @@ impl SharedState {
         self.rt = tm.real_time() as _;
     }
 
-    pub fn render_fader<R>(&mut self, ui: &mut Ui, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
+    pub fn render_fader<R>(&mut self, ui: &mut Ui, f: impl FnOnce(&mut Ui) -> R) -> R {
         self.fader.render(ui, self.t, f)
     }
 

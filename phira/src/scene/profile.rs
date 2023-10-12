@@ -310,7 +310,7 @@ impl Scene for ProfileScene {
             let mw = r.w - pad * 2.;
             let cx = r.center().x;
             let radius = 0.12;
-            let r = ui.avatar(cx, r.y + radius + 0.05, radius, WHITE, t, UserManager::opt_avatar(self.id, &self.icon_user));
+            let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icon_user));
             self.avatar_btn.set(ui, r);
             let r = ui
                 .text(&user.name)
@@ -352,9 +352,9 @@ impl Scene for ProfileScene {
             if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
                 let hw = 0.2;
                 let mut r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
-                self.btn_logout.render_text(ui, r, t, 1., tl!("logout"), 0.6, false);
+                self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, false);
                 r.y += r.h + 0.02;
-                self.btn_delete.render_text(ui, r, t, 1., tl!("delete"), 0.6, false);
+                self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, false);
             }
         } else {
             ui.loading(r.center().x, (r.y + r.bottom().min(ui.top)) / 2., t, WHITE, ());
@@ -377,33 +377,33 @@ impl Scene for ProfileScene {
                         for i in 0..((n + 1) / 2) {
                             for j in 0..(n - i * 2).min(2) {
                                 let Some(item) = iter.next() else { unreachable!() };
-                                f.render(ui, t, |ui, c| {
+                                f.render(ui, t, |ui| {
                                     let r = Rect::new(j as f32 * r.w / 2. + pad, r.y + ui.top + i as f32 * h, r.w / 2. - pad * 2., h - pad * 2.);
                                     if r.y - o > ui.top * 2. || r.bottom() - o < 0. {
                                         return;
                                     }
                                     item.illu.notify();
-                                    let (r, path) = item
-                                        .btn
-                                        .render_shadow(ui, r, t, c.a, |r| (*item.illu.texture.0, r, ScaleType::CropCenter, c));
-                                    ui.fill_path(&path, semi_black(0.6));
+                                    item.btn.render_shadow(ui, r, t, |ui, path| {
+                                        ui.fill_path(&path, (*item.illu.texture.0, r));
+                                        ui.fill_path(&path, semi_black(0.6));
+                                    });
 
                                     let icon = icon_index(item.record.score as _, item.record.full_combo);
                                     let s = r.h - pad * 2.;
                                     let ir = Rect::new(r.x + pad, r.y + pad, s, s);
-                                    ui.fill_rect(ir, (*self.rank_icons[icon], ir, ScaleType::Fit, c));
+                                    ui.fill_rect(ir, (*self.rank_icons[icon], ir, ScaleType::Fit));
 
                                     let lf = ir.right() + 0.02;
 
                                     if let Some(Ok(name)) = item.name.get().as_ref() {
-                                        ui.text(name).pos(lf, ir.y).max_width(r.right() - lf - 0.03).size(0.56).color(c).draw();
+                                        ui.text(name).pos(lf, ir.y).max_width(r.right() - lf - 0.03).size(0.56).draw();
                                     }
 
                                     ui.text(format!("{:07} {}", item.record.score, if item.record.full_combo { "[FC]" } else { "" }))
                                         .pos(lf, ir.bottom() - 0.02)
                                         .anchor(0., 1.)
                                         .size(0.6)
-                                        .color(Color { a: c.a * 0.6, ..c })
+                                        .color(semi_white(0.6))
                                         .draw();
                                 });
                             }

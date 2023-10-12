@@ -174,7 +174,7 @@ impl Dialog {
             let bw = (wr.w - pad * (self.buttons.len() + 1) as f32) / self.buttons.len() as f32;
             let mut r = Rect::new(wr.x + pad, wr.bottom() - s - bh, bw, bh);
             for (text, btn) in self.buttons.iter().zip(self.rect_buttons.iter_mut()) {
-                btn.render_text(ui, r, t, 1., text, 0.5, true);
+                btn.render_text(ui, r, t, text, 0.5, true);
                 r.x += bw + pad;
             }
         });

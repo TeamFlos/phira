@@ -145,9 +145,9 @@ pub fn render_ldb<'a>(
         let me = get_data().me.as_ref().map(|it| it.id);
         fader.for_sub(|f| {
             for item in iter {
-                f.render(ui, rt, |ui, c| {
+                f.render(ui, rt, |ui| {
                     if me == Some(item.player_id) {
-                        ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), Color { a: c.a, ..ui.background() });
+                        ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), ui.background());
                     }
                     let r = s / 2. - 0.02;
                     ui.text(format!("#{}", item.rank))
@@ -155,10 +155,9 @@ pub fn render_ldb<'a>(
                         .anchor(0.5, 0.5)
                         .no_baseline()
                         .size(0.52)
-                        .color(c)
                         .draw();
                     let ct = (0.18, s / 2.);
-                    ui.avatar(ct.0, ct.1, r, c, rt, UserManager::opt_avatar(item.player_id, icon_user));
+                    ui.avatar(ct.0, ct.1, r, rt, UserManager::opt_avatar(item.player_id, icon_user));
                     item.btn.set(ui, Rect::new(ct.0 - r, ct.1 - r, r * 2., r * 2.));
                     let mut rt = width - 0.04;
                     if let Some(alt) = item.alt {
@@ -168,20 +167,13 @@ pub fn render_ldb<'a>(
                             .anchor(1., 0.5)
                             .no_baseline()
                             .size(0.4)
-                            .color(semi_white(c.a * 0.6))
+                            .color(semi_white(0.6))
                             .draw();
                         rt -= r.w + 0.01;
                     } else {
                         rt -= 0.01;
                     }
-                    let r = ui
-                        .text(item.score)
-                        .pos(rt, s / 2.)
-                        .anchor(1., 0.5)
-                        .no_baseline()
-                        .size(0.6)
-                        .color(c)
-                        .draw();
+                    let r = ui.text(item.score).pos(rt, s / 2.).anchor(1., 0.5).no_baseline().size(0.6).draw();
                     rt -= r.w + 0.03;
                     let lt = 0.24;
                     if let Some((name, color)) = UserManager::name_and_color(item.player_id) {
@@ -191,7 +183,7 @@ pub fn render_ldb<'a>(
                             .no_baseline()
                             .max_width(rt - lt - 0.01)
                             .size(0.5)
-                            .color(Color { a: c.a, ..color })
+                            .color(color)
                             .draw();
                     }
                 });

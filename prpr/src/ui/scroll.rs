@@ -123,6 +123,11 @@ impl Scroller {
         self.goto = Some(self.step * index as f32);
     }
 
+    pub fn reset(&mut self) {
+        self.offset = 0.;
+        self.speed = 0.;
+    }
+
     pub fn touch(&mut self, id: u64, phase: TouchPhase, val: f32, t: f32) -> bool {
         match phase {
             TouchPhase::Started => {
@@ -300,9 +305,9 @@ impl Scroll {
 
     pub fn render(&mut self, ui: &mut Ui, content: impl FnOnce(&mut Ui) -> (f32, f32)) {
         self.matrix = Some(ui.get_matrix().try_inverse().unwrap());
-        ui.scissor(Some(Rect::new(0., 0., self.size.0, self.size.1)));
-        let s = ui.with(Translation2::new(-self.x_scroller.offset, -self.y_scroller.offset).to_homogeneous(), content);
-        ui.scissor(None);
+        let s = ui.scissor(Rect::new(0., 0., self.size.0, self.size.1), |ui| {
+            ui.with(Translation2::new(-self.x_scroller.offset, -self.y_scroller.offset).to_homogeneous(), content)
+        });
         self.x_scroller.size((s.0 - self.size.0).max(0.));
         self.y_scroller.size((s.1 - self.size.1).max(0.));
     }

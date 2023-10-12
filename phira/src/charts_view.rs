@@ -10,7 +10,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
-    ext::{semi_black, semi_white, RectExt, SafeTexture, BLACK_TEXTURE},
+    ext::{semi_black, RectExt, SafeTexture, BLACK_TEXTURE},
     scene::{show_message, NextScene},
     task::Task,
     ui::{button_hit_large, DRectButton, Scroll, Ui},
@@ -112,7 +112,7 @@ impl ChartsView {
     pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Self {
         Self {
             scroll: Scroll::new(),
-            fader: Fader::new().with_distance(0.12),
+            fader: Fader::new().with_distance(0.06),
 
             icons,
             rank_icons,
@@ -146,7 +146,7 @@ impl ChartsView {
     }
 
     pub fn reset_scroll(&mut self) {
-        self.scroll.y_scroller.offset = 0.;
+        self.scroll.y_scroller.reset();
     }
 
     pub fn transiting(&self) -> bool {
@@ -272,22 +272,17 @@ impl ChartsView {
         Ok(refreshed)
     }
 
-    pub fn render(&mut self, ui: &mut Ui, r: Rect, alpha: f32, t: f32) {
+    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) {
         let content_size = (r.w, r.h);
         let range = self.charts_display_range(content_size);
         let Some(charts) = &mut self.charts else {
             let ct = r.center();
-            ui.loading(ct.x, ct.y, t, semi_white(alpha), ());
+            ui.loading(ct.x, ct.y, t, WHITE, ());
             return;
         };
         if charts.is_empty() {
             let ct = r.center();
-            ui.text(ttl!("list-empty"))
-                .pos(ct.x, ct.y)
-                .anchor(0.5, 0.5)
-                .no_baseline()
-                .color(semi_white(alpha))
-                .draw();
+            ui.text(ttl!("list-empty")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().draw();
             return;
         }
         ui.scope(|ui| {
@@ -316,60 +311,66 @@ impl ChartsView {
                             }
                             return;
                         }
-                        f.render(ui, t, |ui, nc| {
-                            let mut c = Color { a: nc.a * alpha, ..nc };
+                        f.render(ui, t, |ui| {
+                            let mut c = WHITE;
+
                             let item = &mut charts[id as usize];
                             item.chart.illu.notify();
-                            let (r, path) = item.btn.render_shadow(ui, r, t, c.a, |_| semi_black(c.a));
-                            ui.fill_path(&path, item.chart.illu.shading(r.feather(0.01), t, c.a));
-                            if let Some((that_id, start_time)) = &self.back_fade_in {
-                                if id == *that_id {
-                                    let p = ((t - start_time) / BACK_FADE_IN_TIME).max(0.);
-                                    if p > 1. {
-                                        self.back_fade_in = None;
-                                    } else {
-                                        ui.fill_path(&path, semi_black(0.55 * (1. - p)));
-                                        c.a *= p;
+
+                            item.btn.render_shadow(ui, r, t, |ui, path| {
+                                ui.fill_path(&path, semi_black(c.a));
+                                ui.fill_path(&path, item.chart.illu.shading(r.feather(0.01), t));
+                                if let Some((that_id, start_time)) = &self.back_fade_in {
+                                    if id == *that_id {
+                                        let p = ((t - start_time) / BACK_FADE_IN_TIME).max(0.);
+                                        if p > 1. {
+                                            self.back_fade_in = None;
+                                        } else {
+                                            ui.fill_path(&path, semi_black(0.55 * (1. - p)));
+                                            c.a *= p;
+                                        }
                                     }
                                 }
-                            }
-                            ui.fill_path(&path, (semi_black(0.4 * c.a), (0., 0.), semi_black(0.8 * c.a), (0., ch)));
-                            let info = &item.chart.info;
-                            let mut level = info.level.clone();
-                            if !level.contains("Lv.") {
-                                use std::fmt::Write;
-                                write!(&mut level, " Lv.{}", info.difficulty as i32).unwrap();
-                            }
-                            let mut t = ui
-                                .text(level)
-                                .pos(r.right() - 0.016, r.y + 0.016)
-                                .max_width(r.w * 2. / 3.)
-                                .anchor(1., 0.)
-                                .size(0.52 * r.w / cw)
-                                .color(c);
-                            let ms = t.measure();
-                            t.ui.fill_path(
-                                &ms.feather(0.008).rounded(0.01),
-                                Color {
-                                    a: c.a * 0.7,
-                                    ..t.ui.background()
-                                },
-                            );
-                            t.draw();
-                            ui.text(&info.name)
-                                .pos(r.x + 0.01, r.bottom() - 0.02)
-                                .max_width(r.w)
-                                .anchor(0., 1.)
-                                .size(0.6 * r.w / cw)
-                                .color(c)
-                                .draw();
-                            if let Some(symbol) = item.symbol {
-                                ui.text(symbol.to_string())
-                                    .pos(r.x + 0.01, r.y + 0.01)
-                                    .size(0.8 * r.w / cw)
+
+                                ui.fill_path(&path, (semi_black(0.4 * c.a), (0., 0.), semi_black(0.8 * c.a), (0., ch)));
+
+                                let info = &item.chart.info;
+                                let mut level = info.level.clone();
+                                if !level.contains("Lv.") {
+                                    use std::fmt::Write;
+                                    write!(&mut level, " Lv.{}", info.difficulty as i32).unwrap();
+                                }
+                                let mut t = ui
+                                    .text(level)
+                                    .pos(r.right() - 0.016, r.y + 0.016)
+                                    .max_width(r.w * 2. / 3.)
+                                    .anchor(1., 0.)
+                                    .size(0.52 * r.w / cw)
+                                    .color(c);
+                                let ms = t.measure();
+                                t.ui.fill_path(
+                                    &ms.feather(0.008).rounded(0.01),
+                                    Color {
+                                        a: c.a * 0.7,
+                                        ..t.ui.background()
+                                    },
+                                );
+                                t.draw();
+                                ui.text(&info.name)
+                                    .pos(r.x + 0.01, r.bottom() - 0.02)
+                                    .max_width(r.w)
+                                    .anchor(0., 1.)
+                                    .size(0.6 * r.w / cw)
                                     .color(c)
                                     .draw();
-                            }
+                                if let Some(symbol) = item.symbol {
+                                    ui.text(symbol.to_string())
+                                        .pos(r.x + 0.01, r.y + 0.01)
+                                        .size(0.8 * r.w / cw)
+                                        .color(c)
+                                        .draw();
+                                }
+                            });
                         });
                     })
                 })

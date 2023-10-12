@@ -3,6 +3,7 @@ prpr::tl_file!("common" ttl crate::);
 #[cfg(feature = "closed")]
 mod inner;
 
+mod anim;
 mod charts_view;
 mod client;
 mod data;
@@ -14,7 +15,9 @@ mod page;
 mod popup;
 mod rate;
 mod scene;
+mod tabs;
 mod tags;
+mod threed;
 mod uml;
 
 use anyhow::Result;

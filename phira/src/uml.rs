@@ -72,7 +72,7 @@ pub trait Element {
     fn touch(&self, _touch: &Touch, _uml: &Uml) -> Result<bool> {
         Ok(false)
     }
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var>;
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var>;
     fn render_top(&self, _ui: &mut Ui, _uml: &Uml) -> Result<()> {
         Ok(())
     }
@@ -130,14 +130,14 @@ impl Element for Text {
         self.config.id.as_deref()
     }
 
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
         let c = &self.config;
         let mut text = ui
             .text(&self.text)
             .pos(c.x.eval(uml)?.float()?, c.y.eval(uml)?.float()?)
             .anchor(c.ax, c.ay)
             .size(c.size.eval(uml)?.float()?)
-            .color(Color { a: c.c.0.a * alpha, ..c.c.0 });
+            .color(c.c.0);
         if c.ml {
             text = text.multiline();
         }
@@ -186,7 +186,7 @@ impl Element for Image {
         self.config.id.as_deref()
     }
 
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
         let c = &self.config;
         let mut guard = self.task.borrow_mut();
         if let Some(task) = guard.as_mut() {
@@ -203,7 +203,7 @@ impl Element for Image {
         }
         let r = c.r.eval(uml)?.rect()?;
         if let Some(tex) = self.tex.borrow().as_ref() {
-            ui.fill_rect(r, (**tex, r, c.t, Color { a: c.c.0.a * alpha, ..c.c.0 }));
+            ui.fill_rect(r, (**tex, r, c.t, c.c.0));
         }
         Ok(Var::Rect(r))
     }
@@ -280,7 +280,7 @@ impl Element for Collection {
         self.state.borrow_mut().charts_view.touch(touch, uml.t, uml.rt)
     }
 
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
         let mut state = self.state.borrow_mut();
         if let Some(task) = &mut state.task {
             if let Some(res) = task.take() {
@@ -303,7 +303,7 @@ impl Element for Collection {
         let r = c.r.eval(uml)?.rect()?;
 
         state.charts_view.update(t)?;
-        state.charts_view.render(ui, r, alpha, t);
+        state.charts_view.render(ui, r, t);
 
         Ok(Var::Float(0.))
     }
@@ -334,7 +334,7 @@ impl Element for Assign {
         Some(&self.id)
     }
 
-    fn render(&self, _ui: &mut Ui, uml: &Uml, _alpha: f32) -> Result<Var> {
+    fn render(&self, _ui: &mut Ui, uml: &Uml) -> Result<Var> {
         self.value.eval(uml)
     }
 }
@@ -405,7 +405,7 @@ impl Uml {
         Ok(false)
     }
 
-    pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, alpha: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
+    pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
         let first_time = self.var_map.is_empty();
         self.vars.clear();
         for (name, val) in vars {
@@ -419,7 +419,7 @@ impl Uml {
         self.t = t;
         self.rt = rt;
         for elem in &self.elements {
-            let r = elem.render(ui, self, alpha)?;
+            let r = elem.render(ui, self)?;
             if let Var::Rect(r) = &r {
                 right = right.max(r.right());
                 bottom = bottom.max(r.bottom());
