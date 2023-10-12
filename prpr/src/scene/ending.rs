@@ -288,14 +288,14 @@ impl Scene for EndingScene {
             .size(0.8)
             .color(sub)
             .draw();
-        ui.scissor(Some(gr));
-        ui.text(format!("(±{}ms)", (res.std * 1000.).round() as i32))
-            .pos(sr.right() + 0.02, sr.bottom())
-            .anchor(0., 1.)
-            .size(0.4)
-            .color(sub)
-            .draw();
-        ui.scissor(None);
+        ui.scissor(gr, |ui| {
+            ui.text(format!("(±{}ms)", (res.std * 1000.).round() as i32))
+                .pos(sr.right() + 0.02, sr.bottom())
+                .anchor(0., 1.)
+                .size(0.4)
+                .color(sub)
+                .draw();
+        });
 
         let spd = if (self.speed - 1.).abs() <= 1e-4 {
             String::new()
@@ -352,7 +352,7 @@ impl Scene for EndingScene {
 
         let ct = (0.91, -ui.top + 0.09);
         let rad = 0.05;
-        ui.avatar(ct.0, ct.1, rad, semi_white(p), t, Ok(Some(self.player.clone())));
+        ui.alpha(p, |ui| ui.avatar(ct.0, ct.1, rad, t, Ok(Some(self.player.clone()))));
         let rt = ct.0 - rad - 0.02;
         ui.text(&self.player_name)
             .pos(rt, ct.1 + 0.002)
@@ -374,17 +374,19 @@ impl Scene for EndingScene {
         .draw();
 
         let s = 0.14;
-        let c = Color { a: ep, ..main };
         let mut r = Rect::new(ir.right() - s - 0.04, ir.bottom() - s - 0.04, s, s);
 
-        let (cr, _) = self.btn_proceed.render_shadow(ui, r, t, ep, |_| semi_white(0.3 * ep));
-        let cr = cr.feather(-0.02);
-        ui.fill_rect(cr, (*self.icon_proceed, cr, ScaleType::Fit, c));
+        ui.alpha(ep, |ui| {
+            let ww = 2;
+            self.btn_proceed.render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, semi_white(0.3)));
+            let cr = r.feather(-0.02);
+            ui.fill_rect(cr, (*self.icon_proceed, cr, ScaleType::Fit));
 
-        r.x -= r.w + 0.03;
-        let (cr, _) = self.btn_retry.render_shadow(ui, r, t, ep, |_| semi_white(0.3 * ep));
-        let cr = cr.feather(-0.02);
-        ui.fill_rect(cr, (*self.icon_retry, cr, ScaleType::Fit, c));
+            r.x -= r.w + 0.03;
+            self.btn_retry.render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, semi_white(0.3)));
+            let cr = r.feather(-0.02);
+            ui.fill_rect(cr, (*self.icon_retry, cr, ScaleType::Fit));
+        });
 
         Ok(())
     }

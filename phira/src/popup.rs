@@ -81,8 +81,7 @@ impl Popup {
             ui.dx(r.x);
             ui.dy(r.y);
             self.fader.for_sub(|f| {
-                f.render(ui, t, |ui, c| {
-                    let alpha = alpha * c.a;
+                f.render(ui, t, |ui| {
                     let r = Rect::new(0., 0., r.w, r.h);
                     let mut cfg = ShadowConfig {
                         radius: 0.01,
@@ -212,9 +211,9 @@ impl ChooseButton {
         self.popup.changed()
     }
 
-    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32) {
+    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) {
         self.btn
-            .render_text(ui, r, t, alpha, &self.popup.options[self.popup.selected].0, self.popup.size, false);
+            .render_text(ui, r, t, &self.popup.options[self.popup.selected].0, self.popup.size, false);
         if self.need_to_show {
             let pad = 0.007;
             let mut rr = Rect::new(r.x, r.bottom() + pad, self.width.unwrap_or(r.w), self.height);

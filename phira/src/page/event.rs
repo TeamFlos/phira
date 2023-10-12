@@ -161,8 +161,7 @@ impl Page for EventPage {
 
         self.scroll.y_scroller.step = ui.top * 2.;
 
-        s.render_fader::<Result<()>>(ui, |ui, c| {
-            let a = c.a;
+        s.render_fader(ui, |ui| {
             if let Some(events) = &mut self.events {
                 ui.scope(|ui| {
                     ui.dx(-1.);
@@ -173,19 +172,20 @@ impl Page for EventPage {
                         ui.dy(ui.top);
                         for (index, item) in events.iter_mut().enumerate() {
                             item.illu.notify();
-                            let ca = item.illu.alpha(t) * a;
+                            let ca = item.illu.alpha(t);
                             let r = ui.screen_rect().nonuniform_feather(-0.2, -0.12);
-                            let (r, path) = item
-                                .btn
-                                .render_shadow(ui, r, t, ca, |r| item.illu.shading(r.feather(ILLU_FEATHER), t, ca));
-                            ui.fill_path(&path, semi_black(0.4 * if item.illu.task.is_some() { a } else { ca }));
+                            ui.alpha(ca, |ui| {
+                                item.btn.render_shadow(ui, r, t, |ui, path| {
+                                    ui.fill_path(&path, item.illu.shading(r.feather(ILLU_FEATHER), t));
+                                    ui.fill_path(&path, semi_black(0.4 * if item.illu.task.is_some() { 1. } else { ca }));
+                                });
+                            });
                             if index == self.index {
                                 self.tr_from = ui.rect_to_global(r);
                             }
                             ui.text(&item.event.name)
                                 .pos(r.x + Self::LB_PAD, r.bottom() - Self::LB_PAD)
                                 .anchor(0., 1.)
-                                .color(c)
                                 .size(1.3)
                                 .draw();
                             ui.dy(ui.top * 2.);
@@ -194,11 +194,10 @@ impl Page for EventPage {
                     });
                 });
             }
-            Ok(())
-        })?;
+        });
 
         if let Some(events) = &self.events {
-            s.render_fader(ui, |ui, c| {
+            s.render_fader(ui, |ui| {
                 let d = ui.top - 0.057;
                 let s = 0.04;
                 let r = Rect::new(-d, 0., 0., 0.).feather(s);
@@ -206,16 +205,13 @@ impl Page for EventPage {
                 self.btn_down.set(ui, Rect::new(0., d, 0., 0.).feather(s));
                 self.index = (self.scroll.y_scroller.offset / (ui.top * 2.)).round() as usize;
                 ui.with(Rotation2::new(std::f32::consts::FRAC_PI_2).into(), |ui| {
-                    ui.fill_rect(r, (*self.icons.back, r, ScaleType::CropCenter, if self.index == 0 { semi_white(c.a * 0.3) } else { c }));
+                    ui.fill_rect(r, (*self.icons.back, r, ScaleType::CropCenter, semi_white(if self.index == 0 { 0.3 } else { 1. })));
                 });
                 ui.with(Rotation2::new(-std::f32::consts::FRAC_PI_2).into(), |ui| {
-                    ui.fill_rect(
-                        r,
-                        (*self.icons.back, r, ScaleType::CropCenter, if self.index + 1 >= events.len() { semi_white(c.a * 0.3) } else { c }),
-                    );
+                    ui.fill_rect(r, (*self.icons.back, r, ScaleType::CropCenter, semi_white(if self.index + 1 >= events.len() { 0.3 } else { 1. })));
                 });
                 if events.is_empty() {
-                    ui.text(ttl!("list-empty")).anchor(0.5, 0.5).no_baseline().size(1.4).color(c).draw();
+                    ui.text(ttl!("list-empty")).anchor(0.5, 0.5).no_baseline().size(1.4).draw();
                 }
             });
         }
@@ -247,7 +243,7 @@ impl Page for EventPage {
             };
             let r = Rect::tween(&self.tr_from, &ui.screen_rect(), p);
             let path = r.rounded(0.02 * (1. - p));
-            ui.fill_path(&path, item.illu.shading(r.feather((1. - p) * ILLU_FEATHER), t, 1.));
+            ui.fill_path(&path, item.illu.shading(r.feather((1. - p) * ILLU_FEATHER), t));
             ui.fill_path(&path, semi_black(0.4));
             ui.text(&item.event.name)
                 .pos(r.x + Self::LB_PAD, r.bottom() - Self::LB_PAD)

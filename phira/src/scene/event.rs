@@ -329,7 +329,7 @@ impl Scene for EventScene {
         let rt = tm.real_time() as f32;
 
         let r = ui.screen_rect();
-        ui.fill_rect(r, self.illu.shading(r, t, 1.));
+        ui.fill_rect(r, self.illu.shading(r, t));
         ui.fill_rect(r, semi_black(0.4));
 
         let p = 1. - (self.scroll.y_scroller.offset / 0.4).clamp(0., 1.);
@@ -357,7 +357,7 @@ impl Scene for EventScene {
                     ui.loading(1., pad + 0.05, t, WHITE, ());
                     (2., ui.top * 2. + (pad + 0.05) * 2.)
                 } else {
-                    let h = match self.uml.render(ui, t, rt, 1., &[("t", t), ("o", o), ("top", ui.top)]) {
+                    let h = match self.uml.render(ui, t, rt, &[("t", t), ("o", o), ("top", ui.top)]) {
                         Ok((_, h)) => h,
                         Err(e) => {
                             eprintln!("{e:?}");
@@ -380,64 +380,60 @@ impl Scene for EventScene {
                 .draw();
         }
 
-        let p = p * (elapsed / 0.3).min(1.);
-        let c = semi_white(p);
-        let r = Rect::new(1. - 0.24, ui.top - 0.12, 0., 0.).nonuniform_feather(0.19, 0.07);
-        let ct = r.center();
-        if let Some(status) = &self.status {
-            let bc = ui.background();
-            let mut draw = |text, bc| {
-                let oh = r.h;
-                let (r, _) = self.btn_join.render_shadow(ui, r, t, p, |_| Color { a: p, ..bc });
-                ui.text(text)
-                    .pos(ct.x, ct.y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.8 * (1. - (1. - r.h / oh).powf(1.3)))
-                    .max_width(r.w)
-                    .color(c)
-                    .draw();
-            };
-            if status.joined {
-                if Utc::now() > self.event.time_end {
-                    draw(tl!("btn-ended"), semi_black(0.4));
-                } else if Utc::now() < self.event.time_start {
-                    draw(tl!("btn-not-started"), Color::from_hex(0xffe3f2fd));
-                } else {
-                    let (r, _) = self.btn_join.render_shadow(ui, r, t, p, |_| Color {
-                        a: p,
-                        ..Color::from_hex(0xfff57c00)
+        ui.alpha(p * (elapsed / 0.3).min(1.), |ui| {
+            let r = Rect::new(1. - 0.24, ui.top - 0.12, 0., 0.).nonuniform_feather(0.19, 0.07);
+            let ct = r.center();
+            if let Some(status) = &self.status {
+                let bc = ui.background();
+                let mut draw = |text, bc| {
+                    let oh = r.h;
+                    self.btn_join.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, Color { a: p, ..bc });
                     });
-                    let mut text = ui
-                        .text(format!("#{}", status.rank.unwrap()))
-                        .anchor(0., 0.5)
+                    ui.text(text)
+                        .pos(ct.x, ct.y)
+                        .anchor(0.5, 0.5)
                         .no_baseline()
-                        .size(0.7)
-                        .color(c);
-                    let w = text.measure().w;
-                    let mut ir = Rect::new(ct.x, ct.y, 0., 0.).feather(r.h / 2. - 0.02);
-                    let w = w + 0.01 + ir.w;
-                    ir.x += (ir.w - w) / 2.;
-                    text.pos(ir.right() + 0.01, ct.y).draw();
-                    ui.fill_rect(ir, (*self.icons.ldb, ir, ScaleType::Fit, c));
+                        .size(0.8 * (1. - (1. - r.h / oh).powf(1.3)))
+                        .max_width(r.w)
+                        .draw();
+                };
+                if status.joined {
+                    if Utc::now() > self.event.time_end {
+                        draw(tl!("btn-ended"), semi_black(0.4));
+                    } else if Utc::now() < self.event.time_start {
+                        draw(tl!("btn-not-started"), Color::from_hex(0xffe3f2fd));
+                    } else {
+                        self.btn_join
+                            .render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, Color::from_hex(0xfff57c00)));
+                        let mut text = ui.text(format!("#{}", status.rank.unwrap())).anchor(0., 0.5).no_baseline().size(0.7);
+                        let w = text.measure().w;
+                        let mut ir = Rect::new(ct.x, ct.y, 0., 0.).feather(r.h / 2. - 0.02);
+                        let w = w + 0.01 + ir.w;
+                        ir.x += (ir.w - w) / 2.;
+                        text.pos(ir.right() + 0.01, ct.y).draw();
+                        ui.fill_rect(ir, (*self.icons.ldb, ir, ScaleType::Fit));
+                    }
+                } else {
+                    draw(tl!("btn-join"), bc);
                 }
             } else {
-                draw(tl!("btn-join"), bc);
+                self.btn_join.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                });
+                ui.loading(
+                    ct.x,
+                    ct.y,
+                    t,
+                    WHITE,
+                    LoadingParams {
+                        radius: 0.03,
+                        width: 0.008,
+                        ..Default::default()
+                    },
+                );
             }
-        } else {
-            self.btn_join.render_shadow(ui, r, t, p, |_| semi_black(0.4 * p));
-            ui.loading(
-                ct.x,
-                ct.y,
-                t,
-                c,
-                LoadingParams {
-                    radius: 0.03,
-                    width: 0.008,
-                    ..Default::default()
-                },
-            );
-        }
+        });
 
         if !self.side_enter_time.is_nan() {
             let p = ((rt - self.side_enter_time.abs()) / TRANSIT_TIME).min(1.);

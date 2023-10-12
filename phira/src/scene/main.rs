@@ -390,7 +390,10 @@ impl Scene for MainScene {
         // 2. page
         if s.fader.transiting() {
             let pos = self.pages.len() - 2;
+            let old = s.fader.distance;
+            s.fader.distance *= -0.6;
             self.pages[pos].render(ui, s)?;
+            s.fader.distance = old;
         }
         s.fader.sub = true;
         s.fader.reset();
@@ -401,14 +404,14 @@ impl Scene for MainScene {
         if self.pages.len() >= 2 {
             let mut r = ui.back_rect();
             self.btn_back.set(ui, r);
-            ui.scissor(Some(r));
-            r.y += match self.pages.len() {
-                1 => 1.,
-                2 => s.fader.for_sub(|f| f.progress(s.t)),
-                _ => 0.,
-            } * r.h;
-            ui.fill_rect(r, (*self.icon_back, r));
-            ui.scissor(None);
+            ui.scissor(r, |ui| {
+                r.y += match self.pages.len() {
+                    1 => 1.,
+                    2 => s.fader.for_sub(|f| f.progress(s.t)),
+                    _ => 0.,
+                } * r.h;
+                ui.fill_rect(r, (*self.icon_back, r));
+            });
         }
 
         if get_data().config.mp_enabled {

@@ -138,17 +138,17 @@ impl Page for OffsetPage {
 
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
         let t = s.t;
-        s.render_fader(ui, |ui, c| {
+        s.render_fader(ui, |ui| {
             let lf = -0.92;
             let mut r = ui.content_rect();
             r.w += r.x - lf;
             r.x = lf;
-            ui.fill_path(&r.rounded(0.02), semi_black(c.a * 0.4));
+            ui.fill_path(&r.rounded(0.02), semi_black(0.4));
 
             let ct = (-0.4, r.bottom() - 0.12);
             let hw = 0.4;
             let hh = 0.005;
-            ui.fill_rect(Rect::new(ct.0 - hw, ct.1 - hh, hw * 2., hh * 2.), c);
+            ui.fill_rect(Rect::new(ct.0 - hw, ct.1 - hh, hw * 2., hh * 2.), WHITE);
 
             let ot = t;
 
@@ -169,7 +169,7 @@ impl Page for OffsetPage {
                 let w = NOTE_WIDTH_RATIO_BASE * config.note_scale * 2.;
                 let h = w * self.click.height() / self.click.width();
                 let r = Rect::new(ct.0 - w / 2., ny, w, h);
-                ui.fill_rect(r, (*self.click, r, ScaleType::Fit, c));
+                ui.fill_rect(r, (*self.click, r, ScaleType::Fit));
                 self.cali_last = true;
             } else {
                 if self.cali_last {
@@ -187,7 +187,7 @@ impl Page for OffsetPage {
                 } else {
                     let p = p.max(0.);
                     let c = Color {
-                        a: (if p <= 0.5 { 1. } else { (1. - p) * 2. }) * c.a * self.color.a,
+                        a: (if p <= 0.5 { 1. } else { (1. - p) * 2. }) * self.color.a,
                         ..self.color
                     };
                     ui.fill_rect(Rect::new(ct.0 - hw, pos - hh, hw * 2., hh * 2.), c);
@@ -196,7 +196,7 @@ impl Page for OffsetPage {
 
             let offset = config.offset * 1000.;
             self.slider
-                .render(ui, Rect::new(0.46, -0.1, 0.45, 0.2), ot, c, offset, format!("{offset:.0}ms"));
+                .render(ui, Rect::new(0.46, -0.1, 0.45, 0.2), ot, offset, format!("{offset:.0}ms"));
         });
 
         self.emitter.draw(get_frame_time());

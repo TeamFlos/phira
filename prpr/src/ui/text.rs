@@ -193,9 +193,9 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             .with((Matrix::new_scaling(1. / s) * self.scale).append_translation(&Vector::new(rect.x, rect.y)), |ui| {
                 ui.apply(|ui| {
                     if let Some(painter) = painter {
-                        painter.submit();
+                        painter.submit(ui.alpha);
                     } else {
-                        ui.text_painter.submit();
+                        ui.text_painter.submit(ui.alpha);
                     }
                 });
             });
@@ -255,7 +255,7 @@ impl TextPainter {
         self.brush.fonts()[0].as_scaled(scale).line_gap()
     }
 
-    fn submit(&mut self) {
+    fn submit(&mut self, alpha: f32) {
         let mut flushed = false;
         loop {
             match self.brush.process_queued(
@@ -286,7 +286,8 @@ impl TextPainter {
                 |vertex| {
                     let pos = &vertex.pixel_coords;
                     let uv = &vertex.tex_coords;
-                    let color = vertex.extra.color.into();
+                    let mut color: Color = vertex.extra.color.into();
+                    color.a *= alpha;
                     [
                         Vertex::new(pos.min.x, pos.min.y, 0., uv.min.x, uv.min.y, color),
                         Vertex::new(pos.max.x, pos.min.y, 0., uv.max.x, uv.min.y, color),
