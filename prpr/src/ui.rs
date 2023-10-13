@@ -810,24 +810,24 @@ impl<'a> Ui<'a> {
                     if entry.take() == Some(touch.id) {
                         res = true;
                         false
-                    } else {
-                        true
-                    }
+                } else {
+                    true
                 }
             }
-        });
-        if res {
-            return true;
         }
-        if !any && exists {
-            *entry = None;
-        }
-        false
+    });
+    if res {
+        return true;
     }
+    if !any && exists {
+        *entry = None;
+    }
+    false
+}
 
-    pub fn accent(&self) -> Color {
-        Color::from_hex(0xff2196f3)
-    }
+pub fn accent(&self) -> Color {
+    Color::from_hex(0xff2196f3)
+}
 
     pub fn background(&self) -> Color {
         Color::from_hex(0xff2a323c)
