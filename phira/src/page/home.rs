@@ -353,7 +353,7 @@ impl Page for HomePage {
         let r = Rect::new(0., top, 0.38, 0.23);
         text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal);
 
-        let r = Rect::new(r.right() + 0.02, top, 0.27, 0.23);
+        let r = Rect::new(r.right() + 0.02, top, 0.29, 0.23);
         text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack);
 
         let lf = r.right() + 0.02;
