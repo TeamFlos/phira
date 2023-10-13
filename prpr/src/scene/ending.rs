@@ -377,15 +377,18 @@ impl Scene for EndingScene {
         let mut r = Rect::new(ir.right() - s - 0.04, ir.bottom() - s - 0.04, s, s);
 
         ui.alpha(ep, |ui| {
-            let ww = 2;
-            self.btn_proceed.render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, semi_white(0.3)));
-            let cr = r.feather(-0.02);
-            ui.fill_rect(cr, (*self.icon_proceed, cr, ScaleType::Fit));
+            self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, semi_white(0.3));
+                let cr = r.feather(-0.02);
+                ui.fill_rect(cr, (*self.icon_proceed, cr, ScaleType::Fit));
+            });
 
             r.x -= r.w + 0.03;
-            self.btn_retry.render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, semi_white(0.3)));
-            let cr = r.feather(-0.02);
-            ui.fill_rect(cr, (*self.icon_retry, cr, ScaleType::Fit));
+            self.btn_retry.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, semi_white(0.3));
+                let cr = r.feather(-0.02);
+                ui.fill_rect(cr, (*self.icon_retry, cr, ScaleType::Fit));
+            });
         });
 
         Ok(())
