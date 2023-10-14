@@ -22,7 +22,7 @@ use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    },
+    }, borrow::Cow,
 };
 
 fn build_emitter(pack: &ResourcePack) -> Result<ParticleEmitter> {
@@ -118,8 +118,8 @@ impl ResPackPage {
 }
 
 impl Page for ResPackPage {
-    fn label(&self) -> std::borrow::Cow<'static, str> {
-        "RESPACK".into()
+    fn label(&self) -> Cow<'static, str> {
+        tl!("label")
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {

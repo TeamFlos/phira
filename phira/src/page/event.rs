@@ -88,7 +88,8 @@ impl EventPage {
 
 impl Page for EventPage {
     fn label(&self) -> Cow<'static, str> {
-        "EVENT".into()
+        use crate::scene::event::{tl, L10N_LOCAL};
+        tl!("label")
     }
 
     fn enter(&mut self, s: &mut SharedState) -> Result<()> {

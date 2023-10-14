@@ -68,7 +68,7 @@ impl SettingsPage {
 
 impl Page for SettingsPage {
     fn label(&self) -> Cow<'static, str> {
-        "SETTINGS".into()
+        tl!("label")
     }
 
     fn exit(&mut self) -> Result<()> {

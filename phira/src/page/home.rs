@@ -1,6 +1,6 @@
 prpr::tl_file!("home");
 
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
@@ -138,7 +138,7 @@ impl HomePage {
 }
 
 impl Page for HomePage {
-    fn label(&self) -> std::borrow::Cow<'static, str> {
+    fn label(&self) -> Cow<'static, str> {
         "PHIRA".into()
     }
 

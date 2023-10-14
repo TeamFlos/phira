@@ -1,4 +1,6 @@
 
+label = 谱面库
+
 local = 本地
 popular = 热门
 

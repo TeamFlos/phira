@@ -1,5 +1,5 @@
 
-label = Settings
+label = SETTINGS
 
 general = General
 audio = Audio
