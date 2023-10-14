@@ -18,7 +18,7 @@ item-mp-addr-invalid = 無效的伺服器地址
 item-lowq = 低畫質模式
 item-lowq-sub = 建議在畫面卡頓時啟用
 item-insecure = 不安全模式
-item-insecure-sub = 當無法使用在線功能時可嘗試該功能。這會使得你的連線不安全！
+item-insecure-sub = 當無法使用線上功能時可嘗試該功能。這會使得你的連線不安全！
 
 item-adjust = 自動對齊時間
 item-adjust-sub = 自動調整延遲以同步音樂和譜面
