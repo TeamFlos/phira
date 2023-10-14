@@ -1,6 +1,6 @@
-time = Time
-rev-time = Time (rev)
-name = Name
-rev-name = Name (rev)
-rating = Rating
-rev-rating = Rating (rev)
+time = Time desc.
+rev-time = Time asc.
+name = Name asc.
+rev-name = Name desc.
+rating = Rating desc.
+rev-rating = Rating asc.
