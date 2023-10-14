@@ -11,7 +11,7 @@ use super::{
 use crate::{
     bin::{BinaryReader, BinaryWriter},
     config::{Config, Mods},
-    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector},
+    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, PGR_FONT},
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
@@ -19,7 +19,7 @@ use crate::{
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
-    ui::{RectButton, Ui},
+    ui::{RectButton, TextPainter, Ui},
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
@@ -32,7 +32,7 @@ use std::{
     cell::RefCell,
     fs::File,
     io::{Cursor, ErrorKind},
-    ops::{DerefMut, Range},
+    ops::{Deref, DerefMut, Range},
     path::PathBuf,
     process::{Command, Stdio},
     rc::Rc,
@@ -372,53 +372,56 @@ impl GameScene {
 
         let margin = 0.03;
 
-        self.chart.with_element(ui, res, UIElement::Score, |ui, color, scale| {
-            ui.text(format!("{:07}", self.judge.score()))
-                .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
-                .anchor(1., 0.)
-                .size(0.8)
-                .color(Color { a: color.a * c.a, ..color })
-                .scale(scale)
-                .draw();
-        });
-        if res.config.show_acc {
-            ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
-                .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
-                .anchor(1., 0.)
-                .size(0.4)
-                .color(semi_white(0.7))
-                .draw();
-        }
-        self.chart.with_element(ui, res, UIElement::Pause, |ui, color, scale| {
-            let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
-            let ct = pause_center.coords;
-            let c = Color { a: color.a * c.a, ..color };
-            ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
-                ui.fill_rect(r, c);
-                r.x += pause_w * 2.;
-                ui.fill_rect(r, c);
-            });
-        });
-        if self.judge.combo() >= 3 {
-            let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, |ui, color, scale| {
-                ui.text(self.judge.combo().to_string())
-                    .pos(0., top + eps * 2. - (1. - p) * 0.4)
-                    .anchor(0.5, 0.)
+        PGR_FONT.with(|it| {
+            let mut font = it.borrow_mut();
+            self.chart.with_element(ui, res, UIElement::Score, |ui, color, scale| {
+                ui.text(format!("{:07}", self.judge.score()))
+                    .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
+                    .anchor(1., 0.)
+                    .size(0.8)
                     .color(Color { a: color.a * c.a, ..color })
                     .scale(scale)
-                    .draw()
-                    .bottom()
+                    .draw_with_font(font.as_mut());
             });
-            self.chart.with_element(ui, res, UIElement::Combo, |ui, color, scale| {
-                ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
-                    .pos(0., btm + 0.01)
-                    .anchor(0.5, 0.)
+            if res.config.show_acc {
+                ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
+                    .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
+                    .anchor(1., 0.)
                     .size(0.4)
-                    .color(Color { a: color.a * c.a, ..color })
-                    .scale(scale)
-                    .draw();
+                    .color(semi_white(0.7))
+                    .draw_with_font(font.as_mut());
+            }
+            self.chart.with_element(ui, res, UIElement::Pause, |ui, color, scale| {
+                let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
+                let ct = pause_center.coords;
+                let c = Color { a: color.a * c.a, ..color };
+                ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
+                    ui.fill_rect(r, c);
+                    r.x += pause_w * 2.;
+                    ui.fill_rect(r, c);
+                });
             });
-        }
+            if self.judge.combo() >= 3 {
+                let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, |ui, color, scale| {
+                    ui.text(self.judge.combo().to_string())
+                        .pos(0., top + eps * 2. - (1. - p) * 0.4)
+                        .anchor(0.5, 0.)
+                        .color(Color { a: color.a * c.a, ..color })
+                        .scale(scale)
+                        .draw_with_font(font.as_mut())
+                        .bottom()
+                });
+                self.chart.with_element(ui, res, UIElement::Combo, |ui, color, scale| {
+                    ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                        .pos(0., btm + 0.01)
+                        .anchor(0.5, 0.)
+                        .size(0.4)
+                        .color(Color { a: color.a * c.a, ..color })
+                        .scale(scale)
+                        .draw_with_font(font.as_mut());
+                });
+            }
+        });
         let lf = -1. + margin;
         let bt = -top - eps * 2.8;
         self.chart.with_element(ui, res, UIElement::Name, |ui, color, scale| {
