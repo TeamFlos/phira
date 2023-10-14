@@ -2,7 +2,7 @@ use crate::{anim::Anim, Result};
 use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, RectExt},
-    ui::{rounded_rect_shadow, RectButton, ShadowConfig, Ui},
+    ui::{rounded_rect_shadow, RectButton, ShadowConfig, Ui, button_hit},
 };
 use std::borrow::Cow;
 
@@ -97,6 +97,7 @@ impl<T> Tabs<T> {
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
         for (index, item) in self.items.iter_mut().enumerate() {
             if item.btn.touch(touch) {
+                button_hit();
                 self.goto(t, index);
                 return true;
             }

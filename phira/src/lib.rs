@@ -25,7 +25,7 @@ use data::Data;
 use macroquad::prelude::*;
 use prpr::{
     build_conf,
-    core::init_assets,
+    core::{init_assets, PGR_FONT},
     l10n::{set_prefered_locale, GLOBAL, LANGS},
     log,
     scene::{show_error, show_message},
@@ -182,6 +182,9 @@ async fn the_main() -> Result<()> {
     if let Some(me) = &get_data().me {
         anti_addiction_action("startup", Some(format!("phira-{}", me.id)));
     }
+
+    let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
+    PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font)));
 
     let font = FontArc::try_from_vec(load_file("font.ttf").await?)?;
     let mut painter = TextPainter::new(font);

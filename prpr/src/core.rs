@@ -43,6 +43,13 @@ pub use tween::{easing_from, BezierTween, ClampedTween, StaticTween, TweenFuncti
 mod video;
 pub use video::Video;
 
+use std::cell::RefCell;
+use crate::ui::TextPainter;
+
+thread_local! {
+    pub static PGR_FONT: RefCell<Option<TextPainter>> = RefCell::default();
+}
+
 pub fn init_assets() {
     if let Ok(mut exe) = std::env::current_exe() {
         while exe.pop() {
