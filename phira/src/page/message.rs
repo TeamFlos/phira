@@ -1,5 +1,7 @@
 prpr::tl_file!("message");
 
+use std::borrow::Cow;
+
 use super::{Page, SharedState};
 use crate::{
     client::{recv_raw, Client, Message},
@@ -54,8 +56,8 @@ impl MessagePage {
 }
 
 impl Page for MessagePage {
-    fn label(&self) -> std::borrow::Cow<'static, str> {
-        "MESSAGE".into()
+    fn label(&self) -> Cow<'static, str> {
+        tl!("label")
     }
 
     fn enter(&mut self, _s: &mut SharedState) -> Result<()> {

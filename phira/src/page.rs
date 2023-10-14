@@ -272,7 +272,7 @@ impl Fader {
 
     pub fn render_title(&mut self, ui: &mut Ui, painter: &mut TextPainter, t: f32, s: &str) {
         let tp = ui.back_rect().center().y;
-        let h = ui.text("L").size(1.4).no_baseline().measure_with_font(Some(painter)).h;
+        let h = ui.text("L").size(1.2).no_baseline().measure_with_font(Some(painter)).h;
         ui.scissor(Rect::new(-1., tp - h / 2., 2., h), |ui| {
             let p = self.progress_scaled(t, 1.6);
             let tp = tp + h * p - h / 2.;
@@ -285,7 +285,7 @@ impl Fader {
                     .text(c.to_string())
                     .pos(x, tp)
                     .anchor(0., 0.)
-                    .size(1.4)
+                    .size(1.2)
                     .color(WHITE)
                     .draw_with_font(Some(painter))
                     .w

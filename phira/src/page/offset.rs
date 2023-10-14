@@ -1,3 +1,7 @@
+prpr::tl_file!("cali");
+
+use std::borrow::Cow;
+
 use super::{Page, SharedState};
 use crate::{get_data, get_data_mut, save_data};
 use anyhow::{Context, Result};
@@ -77,8 +81,8 @@ impl Page for OffsetPage {
         false
     }
 
-    fn label(&self) -> std::borrow::Cow<'static, str> {
-        "CALIBRATION".into()
+    fn label(&self) -> Cow<'static, str> {
+        tl!("label")
     }
 
     fn exit(&mut self) -> Result<()> {

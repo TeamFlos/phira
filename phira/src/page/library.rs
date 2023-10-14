@@ -238,7 +238,7 @@ impl LibraryPage {
 
 impl Page for LibraryPage {
     fn label(&self) -> Cow<'static, str> {
-        "LIBRARY".into()
+        tl!("label")
     }
 
     fn on_result(&mut self, res: Box<dyn Any>, s: &mut SharedState) -> Result<()> {

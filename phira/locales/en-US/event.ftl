@@ -1,4 +1,6 @@
 
+label = EVENTS
+
 load-list-failed = Failed to load events
 load-failed = Failed to load event
 load-status-failed = Failed to load event status
