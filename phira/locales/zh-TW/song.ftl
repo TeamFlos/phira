@@ -19,7 +19,7 @@ dl-success = 下載完成
 guest = 遊客
 
 warn-unrated = 本次遊玩將不計入成績
-failed-to-play = 啟動在線模式失敗
+failed-to-play = 啟動線上模式失敗
 play-cancel = 取消
 play-switch-to-offline = 切換到離線模式
 switched-to-offline = 已切換到離線模式
@@ -79,7 +79,7 @@ unreviewed = 未審核
 
 review-approve = 通過
 review-deny = 拒絕
-review-del = 從在線刪除
+review-del = 從線上刪除
 review-approved = 已通過
 review-passed = 已通過，譜面已過審
 review-denied = 已拒絕
