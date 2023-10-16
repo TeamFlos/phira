@@ -1,4 +1,6 @@
 
+label = 材質包
+
 default = 默認材質包
 load-failed = 載入材質包失敗
 
