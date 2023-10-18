@@ -17,10 +17,15 @@ use prpr::{
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::NextScene,
     task::Task,
-    ui::Ui,
+    ui::{RectButton, Ui},
 };
 use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, sync::Arc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    fmt::Debug,
+    sync::Arc,
+};
 use tracing::warn;
 
 #[derive(Debug)]
@@ -69,7 +74,7 @@ impl<'de> Deserialize<'de> for WrappedColor {
 pub trait Element {
     fn id(&self) -> Option<&str>;
     fn on_result(&self, _t: f32, _delete: bool) {}
-    fn touch(&self, _touch: &Touch, _uml: &Uml) -> Result<bool> {
+    fn touch(&self, _touch: &Touch, _uml: &Uml, _action: &mut Option<String>) -> Result<bool> {
         Ok(false)
     }
     fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var>;
@@ -279,7 +284,7 @@ impl Element for Collection {
         self.state.borrow_mut().charts_view.on_result(t, delete)
     }
 
-    fn touch(&self, touch: &Touch, uml: &Uml) -> Result<bool> {
+    fn touch(&self, touch: &Touch, uml: &Uml, _action: &mut Option<String>) -> Result<bool> {
         self.state.borrow_mut().charts_view.touch(touch, uml.t, uml.rt)
     }
 
@@ -366,6 +371,52 @@ impl Element for RectElement {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButtonConfig {
+    #[serde(default)]
+    id: Option<String>,
+    r: Expr,
+    action: Option<String>,
+}
+
+pub struct ButtonElement {
+    config: ButtonConfig,
+    btn: RefCell<RectButton>,
+    last_touched: Cell<f32>,
+}
+
+impl ButtonElement {
+    pub fn new(config: ButtonConfig) -> Self {
+        Self {
+            config,
+            btn: RefCell::default(),
+            last_touched: Cell::new(-1.),
+        }
+    }
+}
+
+impl Element for ButtonElement {
+    fn id(&self) -> Option<&str> {
+        self.config.id.as_deref()
+    }
+
+    fn touch(&self, touch: &Touch, uml: &Uml, action: &mut Option<String>) -> Result<bool> {
+        if self.btn.borrow_mut().touch(touch) {
+            *action = self.config.action.clone();
+            self.last_touched.set(uml.t);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let r = self.config.r.eval(uml)?.rect()?;
+        self.btn.borrow_mut().set(ui, r);
+        Ok(Var::Float(self.last_touched.get()))
+    }
+}
+
 pub struct Assign {
     id: String,
     value: Expr,
@@ -442,11 +493,11 @@ impl Uml {
         Ok(&self.vars[rf.id(self)?])
     }
 
-    pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32) -> Result<bool> {
+    pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32, action: &mut Option<String>) -> Result<bool> {
         self.t = t;
         self.rt = rt;
         for element in &self.elements {
-            if element.touch(touch, self)? {
+            if element.touch(touch, self, action)? {
                 return Ok(true);
             }
         }

@@ -1,4 +1,4 @@
-use super::{lexer::Token, Assign, Collection, Element, Image, Text, Uml, Var, RectElement};
+use super::{lexer::Token, Assign, ButtonElement, Collection, Element, Image, RectElement, Text, Uml, Var};
 use crate::icons::Icons;
 use anyhow::Result;
 use logos::Logos;
@@ -423,6 +423,7 @@ pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &m
         "img" => Box::new(Image::new(take_config(lexer)?)),
         "col" => Box::new(Collection::new(Arc::clone(icons), rank_icons.clone(), take_config(lexer)?)),
         "r" => Box::new(RectElement::new(take_config(lexer)?)),
+        "btn" => Box::new(ButtonElement::new(take_config(lexer)?)),
         "let" => {
             let Some(Ok(Token::Ident(id))) = lexer.next() else {
                 bail!("expected variable name");
