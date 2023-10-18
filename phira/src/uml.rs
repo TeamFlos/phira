@@ -147,12 +147,11 @@ impl Element for Text {
         if !c.bl {
             text = text.no_baseline();
         }
-        warn!("fuck!!!!!!");
-        match c.id.as_deref() {
-            Some("pgr") => prpr::core::PGR_FONT.with(|it| Ok(Var::Rect(text.draw_with_font(it.borrow_mut().as_mut())))),
-            Some("bold") => prpr::core::BOLD_FONT.with(|it| Ok(Var::Rect(text.draw_with_font(it.borrow_mut().as_mut())))),
-            _ => Ok(Var::Rect(text.draw())),
-        }
+        Ok(Var::Rect(match c.id.as_deref() {
+            Some("pgr") => prpr::core::PGR_FONT.with(|it| text.draw_with_font(it.borrow_mut().as_mut())),
+            Some("bold") => prpr::core::BOLD_FONT.with(|it| text.draw_with_font(it.borrow_mut().as_mut())),
+            _ => text.draw(),
+        }))
     }
 }
 
