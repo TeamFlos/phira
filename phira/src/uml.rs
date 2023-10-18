@@ -14,7 +14,7 @@ use image::DynamicImage;
 use macroquad::prelude::*;
 use parse::{Expr, VarRef};
 use prpr::{
-    ext::{semi_black, semi_white, SafeTexture, ScaleType},
+    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::NextScene,
     task::Task,
     ui::Ui,
@@ -88,8 +88,8 @@ pub struct TextConfig {
     size: Expr,
     x: Expr,
     y: Expr,
-    ax: f32,
-    ay: f32,
+    ax: Expr,
+    ay: Expr,
     ml: bool,
     mw: Option<Expr>,
     bl: bool,
@@ -103,8 +103,8 @@ impl Default for TextConfig {
             size: constant(1.0),
             x: constant(0.),
             y: constant(0.),
-            ax: 0.,
-            ay: 0.,
+            ax: constant(0.),
+            ay: constant(0.),
             ml: false,
             mw: None,
             bl: true,
@@ -135,7 +135,7 @@ impl Element for Text {
         let mut text = ui
             .text(&self.text)
             .pos(c.x.eval(uml)?.float()?, c.y.eval(uml)?.float()?)
-            .anchor(c.ax, c.ay)
+            .anchor(c.ax.eval(uml)?.float()?, c.ay.eval(uml)?.float()?)
             .size(c.size.eval(uml)?.float()?)
             .color(c.c.0);
         if c.ml {
@@ -147,7 +147,12 @@ impl Element for Text {
         if !c.bl {
             text = text.no_baseline();
         }
-        Ok(Var::Rect(text.draw()))
+        warn!("fuck!!!!!!");
+        match c.id.as_deref() {
+            Some("pgr") => prpr::core::PGR_FONT.with(|it| Ok(Var::Rect(text.draw_with_font(it.borrow_mut().as_mut())))),
+            Some("bold") => prpr::core::BOLD_FONT.with(|it| Ok(Var::Rect(text.draw_with_font(it.borrow_mut().as_mut())))),
+            _ => Ok(Var::Rect(text.draw())),
+        }
     }
 }
 
@@ -224,8 +229,8 @@ fn default_row_num() -> I32 {
     I32(4)
 }
 
-fn default_chart_height() -> f32 {
-    0.3
+fn default_chart_height() -> Expr {
+    constant(0.3)
 }
 
 #[derive(Debug, Deserialize)]
@@ -237,7 +242,7 @@ pub struct CollectionConfig {
     #[serde(default = "default_row_num")]
     rn: I32,
     #[serde(default = "default_chart_height")]
-    rh: f32, // TODO: Expr？
+    rh: Expr,
     r: Expr,
 }
 
@@ -256,7 +261,6 @@ impl Collection {
         let cid = config.cid;
         let mut charts_view = ChartsView::new(icons, rank_icons);
         charts_view.row_num = config.rn.0 as _;
-        charts_view.row_height = config.rh;
         Self {
             config,
             state: RefCell::new(CollectionState {
@@ -302,6 +306,7 @@ impl Element for Collection {
         let t = uml.t;
         let r = c.r.eval(uml)?.rect()?;
 
+        state.charts_view.row_height = self.config.rh.eval(uml)?.float()?;
         state.charts_view.update(t)?;
         state.charts_view.render(ui, r, t);
 
@@ -315,6 +320,50 @@ impl Element for Collection {
 
     fn next_scene(&self) -> Option<NextScene> {
         self.state.borrow_mut().charts_view.next_scene()
+    }
+}
+
+fn default_radius() -> Expr {
+    constant(0.)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RectConfig {
+    #[serde(default)]
+    id: Option<String>,
+    r: Expr,
+    #[serde(default)]
+    c: WrappedColor,
+    #[serde(default = "default_radius")]
+    rad: Expr,
+}
+
+pub struct RectElement {
+    config: RectConfig,
+}
+
+impl RectElement {
+    pub fn new(config: RectConfig) -> Self {
+        Self { config }
+    }
+}
+
+impl Element for RectElement {
+    fn id(&self) -> Option<&str> {
+        self.config.id.as_deref()
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let c = &self.config;
+        let r = c.r.eval(uml)?.rect()?;
+        let rad = c.rad.eval(uml)?.float()?;
+        if rad > 1e-5 {
+            ui.fill_path(&r.rounded(rad), c.c.0);
+        } else {
+            ui.fill_rect(r, c.c.0);
+        }
+        Ok(Var::Rect(r))
     }
 }
 

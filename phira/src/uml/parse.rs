@@ -1,4 +1,4 @@
-use super::{lexer::Token, Assign, Collection, Element, Image, Text, Uml, Var};
+use super::{lexer::Token, Assign, Collection, Element, Image, Text, Uml, Var, RectElement};
 use crate::icons::Icons;
 use anyhow::Result;
 use logos::Logos;
@@ -8,7 +8,6 @@ use serde::{
     de::{value::MapDeserializer, DeserializeOwned, Visitor},
     Deserialize,
 };
-use serde_json::Number;
 use std::{cell::Cell, collections::HashMap, fmt::Display, iter::Peekable, sync::Arc};
 use tap::Tap;
 
@@ -38,9 +37,6 @@ fn take_config<T: DeserializeOwned>(lexer: &mut Lexer) -> Result<T, String> {
             take(lexer, Token::Colon)?;
             let value = match lexer.peek() {
                 Some(Ok(Token::Quoted(s))) => serde_json::Value::String(s.to_owned()).tap(|_| {
-                    lexer.next();
-                }),
-                Some(Ok(Token::Number(num))) => serde_json::Value::Number(Number::from_f64(*num as _).unwrap()).tap(|_| {
                     lexer.next();
                 }),
                 Some(Ok(Token::Bool(val))) => serde_json::Value::Bool(*val).tap(|_| {
@@ -426,6 +422,7 @@ pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &m
         "p" => Box::new(Text::new(take_config(lexer)?, take_text(lexer)?)),
         "img" => Box::new(Image::new(take_config(lexer)?)),
         "col" => Box::new(Collection::new(Arc::clone(icons), rank_icons.clone(), take_config(lexer)?)),
+        "r" => Box::new(RectElement::new(take_config(lexer)?)),
         "let" => {
             let Some(Ok(Token::Ident(id))) = lexer.next() else {
                 bail!("expected variable name");

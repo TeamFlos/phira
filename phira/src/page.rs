@@ -31,7 +31,7 @@ use anyhow::Result;
 use image::DynamicImage;
 use macroquad::prelude::*;
 use prpr::{
-    core::Resource,
+    core::{Resource, BOLD_FONT},
     ext::{semi_black, semi_white, SafeTexture, ScaleType, BLACK_TEXTURE},
     fs,
     scene::{NextScene, Scene},
@@ -370,7 +370,8 @@ pub struct SharedState {
 impl SharedState {
     pub async fn new() -> Result<Self> {
         let font = FontArc::try_from_vec(load_file("bold.ttf").await?)?;
-        let painter = TextPainter::new(font);
+        let painter = TextPainter::new(font.clone());
+        BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font)));
         Ok(Self {
             t: 0.,
             rt: 0.,

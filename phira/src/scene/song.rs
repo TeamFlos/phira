@@ -22,7 +22,7 @@ use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
     core::Tweenable,
-    ext::{poll_future, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
+    ext::{poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
     judge::{icon_index, Judge},
@@ -274,6 +274,10 @@ pub struct SongScene {
     uploader_btn: RectButton,
 
     sf: SFader,
+    fade_start: f32,
+
+    background: Arc<Mutex<Option<SafeTexture>>>,
+    tr_start: f32,
 }
 
 impl SongScene {
@@ -436,6 +440,10 @@ impl SongScene {
             uploader_btn: RectButton::new(),
 
             sf: SFader::new(),
+            fade_start: 0.,
+
+            tr_start: f32::NAN,
+            background: Arc::default(),
         }
     }
 
@@ -634,7 +642,7 @@ impl SongScene {
     }
 
     fn launch(&mut self, mode: GameMode) -> Result<()> {
-        self.scene_task = Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None)?;
+        self.scene_task = Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None, Some(self.background.clone()))?;
         Ok(())
     }
 
@@ -645,6 +653,7 @@ impl SongScene {
         mods: Mods,
         mode: GameMode,
         client: Option<Arc<phira_mp_client::Client>>,
+        background_output: Option<Arc<Mutex<Option<SafeTexture>>>>,
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         #[cfg(feature = "closed")]
@@ -774,6 +783,10 @@ impl SongScene {
             };
             let chart_updated = info.chart_updated;
             config.mods = mods;
+            let preload = LoadingScene::load(fs.as_mut(), &info.illustration).await?;
+            if let Some(output) = background_output {
+                *output.lock().unwrap() = Some(preload.1.clone());
+            }
             LoadingScene::new(
                 mode,
                 info,
@@ -823,6 +836,7 @@ impl SongScene {
                     })
                 })),
                 update_fn,
+                Some(preload),
             )
             .await
             .map(|it| NextScene::Overlay(Box::new(it)))
@@ -1133,6 +1147,7 @@ impl Scene for SongScene {
         let res = match res.downcast::<SimpleRecord>() {
             Err(res) => res,
             Ok(rec) => {
+                self.fade_start = tm.now() as f32 + FADE_IN_TIME;
                 if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
                     self.rate_dialog.enter(tm.real_time() as _);
                 }
@@ -1247,7 +1262,7 @@ impl Scene for SongScene {
                         }
                     }
                     SideContent::Leaderboard => {
-                        if self.ldb_type_btn.touch(touch, t) {
+                        if self.ldb_type_btn.touch(touch, rt) {
                             self.ldb_std ^= true;
                             self.ldb_scroll.y_scroller.offset = 0.;
                             self.load_ldb();
@@ -1465,6 +1480,7 @@ impl Scene for SongScene {
             if let Some(res) = poll_future(task.as_mut()) {
                 match res {
                     Err(err) => {
+                        self.tr_start = f32::NAN;
                         let error = format!("{err:?}");
                         Dialog::plain(tl!("failed-to-play"), error)
                             .buttons(vec![tl!("play-cancel").to_string(), tl!("play-switch-to-offline").to_string()])
@@ -1875,6 +1891,10 @@ impl Scene for SongScene {
                 self.scene_task = None;
             }
         }
+        if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() {
+            self.tr_start = rt;
+        }
+
         Ok(())
     }
 
@@ -1888,7 +1908,7 @@ impl Scene for SongScene {
         self.back_btn.set(ui, r);
         ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
 
-        ui.alpha::<Result<()>>((t / FADE_IN_TIME).clamp(-1., 0.) + 1., |ui| {
+        ui.alpha::<Result<()>>(((t - self.fade_start) / FADE_IN_TIME).clamp(-1., 0.) + 1., |ui| {
             let r = ui
                 .text(&self.info.name)
                 .max_width(0.57 - r.right())
@@ -1957,20 +1977,22 @@ impl Scene for SongScene {
             let w = 0.26;
             let pad = 0.08;
             let r = Rect::new(1. - pad - w, ui.top - pad - w, w, w);
-            self.play_btn.render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, semi_white(0.3)));
-            let r = r.feather(-0.04);
-            ui.fill_rect(
-                r,
-                (
-                    if self.local_path.is_some() {
-                        *self.icons.play
-                    } else {
-                        *self.icons.download
-                    },
+            self.play_btn.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, semi_white(0.3));
+                let r = r.feather(-0.04);
+                ui.fill_rect(
                     r,
-                    ScaleType::Fit,
-                ),
-            );
+                    (
+                        if self.local_path.is_some() {
+                            *self.icons.play
+                        } else {
+                            *self.icons.download
+                        },
+                        r,
+                        ScaleType::Fit,
+                    ),
+                );
+            });
 
             ui.scope(|ui| {
                 ui.dx(1. - 0.03);
@@ -2055,19 +2077,36 @@ impl Scene for SongScene {
         self.tags.render(ui, rt);
         self.rate_dialog.render(ui, rt);
 
+        if !self.tr_start.is_nan() {
+            let p = ((rt - self.tr_start - 0.2) / 0.4).clamp(0., 1.);
+            if p >= 1. {
+                self.tr_start = f32::NAN;
+            }
+            let p = 1. - (1. - p).powi(3);
+            let mut r = ui.screen_rect();
+            r.y += r.h * (1. - p);
+            rect_shadow(r, 0.01, 0.5);
+            ui.fill_rect(r, (**self.background.lock().unwrap().as_ref().unwrap(), r));
+            ui.fill_rect(r, semi_black(0.3));
+        }
+
         self.sf.render(ui, t);
 
         Ok(())
     }
 
     fn next_scene(&mut self, tm: &mut TimeManager) -> NextScene {
+        if !self.tr_start.is_nan() {
+            return NextScene::None;
+        }
         if let Some(scene) = self.next_scene.take().or_else(|| self.sf.next_scene(tm.now() as _)) {
+            *self.background.lock().unwrap() = None;
             if let Some(music) = &mut self.preview {
                 let _ = music.pause();
             }
             scene
         } else {
-            NextScene::default()
+            NextScene::None
         }
     }
 }

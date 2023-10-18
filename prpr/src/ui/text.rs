@@ -168,7 +168,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         self.measure_with_font(None)
     }
 
-    pub fn draw_with_font(mut self, mut painter: Option<&mut TextPainter>) -> Rect {
+    pub fn draw_with_font(&mut self, mut painter: Option<&mut TextPainter>) -> Rect {
         let text = std::mem::take(&mut self.text).unwrap();
         let (section, bound) = self.measure_inner(&text, &mut painter);
         let rect = self.bounds(bound);
@@ -189,11 +189,12 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
                     }
                 });
             });
+        self.text = Some(text);
         rect
     }
 
     #[inline]
-    pub fn draw(self) -> Rect {
+    pub fn draw(&mut self) -> Rect {
         self.draw_with_font(None)
     }
 }
