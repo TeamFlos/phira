@@ -30,6 +30,19 @@ static RR_MATERIAL: Lazy<Material> = Lazy::new(|| {
     .unwrap()
 });
 
+static SECTOR_MATERIAL: Lazy<Material> = Lazy::new(|| {
+    load_material(
+        shader::VERTEX,
+        shader::SECTOR_FRAGMENT,
+        alpha_blend_material_params(vec![
+            ("center".to_owned(), UniformType::Float2),
+            ("angle".to_owned(), UniformType::Float2),
+            ("blur".to_owned(), UniformType::Float2),
+        ]),
+    )
+    .unwrap()
+});
+
 #[derive(Clone, Copy)]
 pub struct ShadowConfig {
     pub elevation: f32,
@@ -79,12 +92,23 @@ pub fn rounded_rect_shadow(ui: &mut Ui, r: Rect, config: &ShadowConfig) {
     gl_use_default_material();
 }
 
-pub fn rounded_rect<R>(ui: &mut Ui, r: Rect, radius: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
-    // r.y += elevation * 0.5;
+pub fn clip_rounded_rect<R>(ui: &mut Ui, r: Rect, radius: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
     let mat = *RR_MATERIAL;
     let gr = ui.rect_to_global(r);
     mat.set_uniform("rect", vec4(gr.x, gr.y, gr.right(), gr.bottom()));
     mat.set_uniform("radius", radius);
+    gl_use_material(mat);
+    let res = f(ui);
+    gl_use_default_material();
+    res
+}
+
+pub fn clip_sector<R>(ui: &mut Ui, ct: Vec2, start: f32, end: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
+    let mat = *SECTOR_MATERIAL;
+    mat.set_uniform("center", ui.to_global((ct.x, ct.y)));
+    mat.set_uniform("angle", vec2(start, end));
+    let t = -end.sin();
+    mat.set_uniform("blur", vec2((ct.y - ui.top) / t, (ct.y + ui.top) / t));
     gl_use_material(mat);
     let res = f(ui);
     gl_use_default_material();
@@ -224,5 +248,29 @@ void main() {
     * step(point.y, upper.y);
   gl_FragColor = texture2D(Texture, uv) * color;
   gl_FragColor.a *= factor;
+}"#;
+
+    pub const SECTOR_FRAGMENT: &str = r#"#version 100
+precision highp float;
+
+varying lowp vec4 color;
+varying lowp vec2 pos0;
+varying lowp vec2 uv;
+
+uniform highp vec2 center;
+uniform highp vec2 angle;
+uniform highp vec2 blur;
+
+uniform sampler2D Texture;
+
+void main() {
+    vec2 delta = pos0.xy - center;
+    float cur = atan(delta.y, delta.x);
+    float p = clamp((length(delta) - blur.y) / (blur.x - blur.y), 0.0, 1.0);
+    p = p * p;
+    float blur_range = 0.005 + 0.0 * p;
+    float factor = step(angle.x, cur) * smoothstep(angle.y, cur - blur_range * 0.5, cur + blur_range * 0.5) * step(cur, angle.y);
+    gl_FragColor = texture2D(Texture, uv);
+    gl_FragColor.a *= factor;
 }"#;
 }

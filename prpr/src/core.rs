@@ -48,6 +48,7 @@ use crate::ui::TextPainter;
 
 thread_local! {
     pub static PGR_FONT: RefCell<Option<TextPainter>> = RefCell::default();
+    pub static BOLD_FONT: RefCell<Option<TextPainter>> = RefCell::default();
 }
 
 pub fn init_assets() {

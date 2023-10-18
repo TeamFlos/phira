@@ -12,7 +12,7 @@ use crate::{
     bin::{BinaryReader, BinaryWriter},
     config::{Config, Mods},
     core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, PGR_FONT},
-    ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture},
+    ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
     judge::Judge,
@@ -143,9 +143,6 @@ pub struct GameScene {
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
 
-    theme_color: Color,
-    use_black: bool,
-
     pub touch_points: Vec<(f32, f32)>,
 }
 
@@ -227,9 +224,6 @@ impl GameScene {
         illustration: SafeTexture,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
-
-        theme_color: Color,
-        use_black: bool,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -297,9 +291,6 @@ impl GameScene {
 
             upload_fn,
             update_fn,
-
-            theme_color,
-            use_black,
 
             touch_points: Vec::new(),
         })
@@ -482,16 +473,8 @@ impl GameScene {
                     ..Default::default()
                 },
             );
-            draw_texture_ex(
-                *res.icon_retry,
-                -s,
-                -s + o,
-                if no_retry { semi_white(res.alpha * 0.6) } else { c },
-                DrawTextureParams {
-                    dest_size: Some(vec2(s * 2., s * 2.)),
-                    ..Default::default()
-                },
-            );
+            let r = Rect::new(0., o, 0., 0.).feather(s);
+            ui.fill_rect(r, (*res.icon_retry, r.feather(0.02), ScaleType::Fit, if no_retry { semi_white(res.alpha * 0.6) } else { c }));
             draw_texture_ex(
                 *res.icon_resume,
                 s + w,
@@ -819,6 +802,7 @@ impl Scene for GameScene {
                     } else {
                         offset.min(0.) as f64
                     });
+                    tm.seek_to(self.res.track_length as _);
                     self.last_update_time = tm.real_time();
                     if self.first_in && self.mode == GameMode::Exercise {
                         tm.pause();
@@ -891,8 +875,6 @@ impl Scene for GameScene {
                             self.player.as_ref().map(|it| it.rks),
                             record_data,
                             record,
-                            self.theme_color,
-                            self.use_black,
                         )?))),
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,

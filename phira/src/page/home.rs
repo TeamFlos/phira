@@ -22,7 +22,7 @@ use prpr::{
     info::ChartInfo,
     scene::{show_error, NextScene},
     task::Task,
-    ui::{button_hit_large, rounded_rect, DRectButton, Ui},
+    ui::{button_hit_large, clip_rounded_rect, DRectButton, Ui},
 };
 use serde::Deserialize;
 use tap::Tap;
@@ -306,7 +306,7 @@ impl Page for HomePage {
                         let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
                         let p = 1. - (1. - p).powi(3);
                         let p = if self.board_dir { 1. - p } else { p };
-                        rounded_rect(ui, r, rad, |ui| {
+                        clip_rounded_rect(ui, r, rad, |ui| {
                             let mut nr = r;
                             nr.h = r.h * (1. - p);
                             ui.fill_rect(nr, (**last, nr));
@@ -383,7 +383,7 @@ impl Page for HomePage {
         s.fader.roll_back();
         s.render_fader(ui, |ui| {
             let rad = 0.05;
-            let ct = (0.9, -ui.top + 0.1);
+            let ct = (0.92, -ui.top + 0.08);
             self.btn_user.config.radius = rad;
             let r = Rect::new(ct.0, ct.1, 0., 0.).feather(rad);
             self.btn_user.build(ui, t, r, |ui, _| {

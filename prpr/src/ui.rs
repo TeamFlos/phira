@@ -1104,9 +1104,9 @@ pub fn accent(&self) -> Color {
 
     pub fn main_sub_colors(use_black: bool, alpha: f32) -> (Color, Color) {
         if use_black {
-            (semi_black(alpha), Color::new(0.3, 0.3, 0.3, alpha))
+            (semi_black(alpha), semi_black(alpha * 0.64))
         } else {
-            (semi_white(alpha), Color::new(0.8, 0.8, 0.8, alpha))
+            (semi_white(alpha), semi_white(alpha * 0.64))
         }
     }
 }

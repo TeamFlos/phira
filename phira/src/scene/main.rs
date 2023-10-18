@@ -10,6 +10,7 @@ use crate::{
 };
 use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
+use once_cell::sync::Lazy;
 use prpr::{
     core::ResPackInfo,
     ext::{unzip_into, RectExt, SafeTexture},
@@ -374,7 +375,12 @@ impl Scene for MainScene {
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
+
+        STRIPE_MATERIAL.set_uniform("time", tm.real_time() as f32);
+        gl_use_material(*STRIPE_MATERIAL);
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
+        gl_use_default_material();
+
         let s = &mut self.state;
         s.update(tm);
 
@@ -448,4 +454,56 @@ impl Scene for MainScene {
         }
         res
     }
+}
+
+static STRIPE_MATERIAL: Lazy<Material> = Lazy::new(|| {
+    load_material(
+        shader::VERTEX,
+        shader::FRAGMENT,
+        MaterialParams {
+            uniforms: vec![("time".to_owned(), UniformType::Float1)],
+            ..Default::default()
+        },
+    )
+    .unwrap()
+});
+
+mod shader {
+    pub const VERTEX: &str = r#"#version 100
+attribute vec3 position;
+attribute vec2 texcoord;
+attribute vec4 color0;
+
+varying lowp vec4 color;
+varying lowp vec2 pos0;
+varying lowp vec2 uv;
+
+uniform mat4 Model;
+uniform mat4 Projection;
+
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    color = color0 / 255.0;
+    pos0 = position.xy;
+    uv = texcoord;
+}"#;
+
+    pub const FRAGMENT: &str = r#"#version 100
+precision mediump float;
+
+varying lowp vec4 color;
+varying lowp vec2 pos0;
+varying lowp vec2 uv;
+
+uniform sampler2D Texture;
+uniform float time;
+
+void main() {
+    float angle = 0.6;
+    float w = sin(angle) * pos0.y + cos(angle) * pos0.x - time * 0.02;
+    float t = mod(w, 0.02);
+    float p = step(t, 0.012) * 0.07;
+    gl_FragColor = texture2D(Texture, uv);
+    gl_FragColor += (vec4(1.0) - gl_FragColor) * p;
+}"#;
 }
