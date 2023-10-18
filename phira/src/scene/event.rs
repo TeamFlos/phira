@@ -12,7 +12,7 @@ use chrono::Utc;
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
-    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::{show_error, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -141,6 +141,25 @@ impl EventScene {
     fn loading(&self) -> bool {
         self.join_task.is_some()
     }
+
+    fn join_or(&mut self, rt: f32) {
+        if let Some(status) = &self.status {
+            if status.joined {
+                if (self.event.time_start..self.event.time_end).contains(&Utc::now()) {
+                    if self.ldb_task.is_none() && self.ldb.is_none() {
+                        self.load_ldb();
+                    }
+                    self.side_enter_time = rt;
+                }
+            } else {
+                let id = self.event.id;
+                self.join_task = Some(Task::new(async move {
+                    recv_raw(Client::post(format!("/event/{id}/join"), &())).await?;
+                    Ok(())
+                }));
+            }
+        }
+    }
 }
 
 impl Scene for EventScene {
@@ -191,22 +210,7 @@ impl Scene for EventScene {
                 return Ok(true);
             }
             if self.btn_join.touch(touch, t) {
-                if let Some(status) = &self.status {
-                    if status.joined {
-                        if (self.event.time_start..self.event.time_end).contains(&Utc::now()) {
-                            if self.ldb_task.is_none() && self.ldb.is_none() {
-                                self.load_ldb();
-                            }
-                            self.side_enter_time = rt;
-                        }
-                    } else {
-                        let id = self.event.id;
-                        self.join_task = Some(Task::new(async move {
-                            recv_raw(Client::post(format!("/event/{id}/join"), &())).await?;
-                            Ok(())
-                        }));
-                    }
-                }
+                self.join_or(rt);
                 return Ok(true);
             }
         }
@@ -218,7 +222,20 @@ impl Scene for EventScene {
             self.last_scroll_handled_touch = false;
         }
 
-        if self.uml.touch(touch, t, rt)? {
+        let mut action = None;
+        if self.uml.touch(touch, t, rt, &mut action)? {
+            if let Some(action) = action {
+                match action.as_str() {
+                    "join" => {
+                        self.join_or(rt);
+                    }
+                    x => {
+                        if let Some(url) = x.strip_prefix("open:") {
+                            open_url(url)?;
+                        }
+                    }
+                }
+            }
             return Ok(true);
         }
 
