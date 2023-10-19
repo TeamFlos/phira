@@ -5,7 +5,7 @@ use crate::{
 };
 use glyph_brush::{
     ab_glyph::{Font, FontArc, ScaleFont},
-    BrushAction, BrushError, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, Section, SectionGlyph, Text,
+    BrushAction, BrushError, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, SectionGlyph, Text,
 };
 use macroquad::{
     miniquad::{Texture, TextureParams},
@@ -27,6 +27,7 @@ pub struct DrawText<'a, 's, 'ui> {
     baseline: bool,
     multiline: bool,
     scale: Matrix,
+    h_align: HorizontalAlign,
 }
 
 impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
@@ -42,7 +43,13 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             baseline: true,
             multiline: false,
             scale: Matrix::identity(),
+            h_align: HorizontalAlign::Left,
         }
+    }
+
+    pub fn h_center(mut self) -> Self {
+        self.h_align = HorizontalAlign::Center;
+        self
     }
 
     pub fn size(mut self, size: f32) -> Self {
@@ -89,20 +96,22 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         0.04 * self.size * w as f32
     }
 
-    fn bounds(&self, (w, h): (f32, f32)) -> Rect {
+    fn bounds(&self, (x, y, w, h): (f32, f32, f32, f32)) -> Rect {
         let vp = get_viewport();
         let s = 2. / vp.2 as f32;
-        let mut rect = Rect::new(self.pos.0, self.pos.1, w * s, h * s);
+        let mut rect = Rect::new(self.pos.0 - x * s, self.pos.1 - y * s, w * s, h * s);
         rect.x -= rect.w * self.anchor.0;
         rect.y -= rect.h * self.anchor.1;
         rect
     }
 
-    fn measure_inner<'this, 'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, (f32, f32)) {
+    fn measure_inner<'this, 'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, (f32, f32, f32, f32)) {
         use glyph_brush::ab_glyph;
         let vp = get_viewport();
         let scale = self.get_scale(vp.2);
-        let mut section = Section::new().add_text(Text::new(text).with_scale(scale).with_color(self.color));
+        let mut section = Section::new()
+            .add_text(Text::new(text).with_scale(scale).with_color(self.color))
+            .with_layout(Layout::default().h_align(self.h_align));
         let s = 2. / vp.2 as f32;
         if let Some(max_width) = self.max_width {
             section = section.with_bounds((max_width / s, f32::INFINITY));
@@ -121,17 +130,17 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             section.bounds.0 = f32::INFINITY;
             let glyphs: Vec<_> = painter.brush.glyphs(section.clone()).cloned().collect();
             let Some(last) = glyphs.last() else {
-                return (section, (0., line_height));
+                return (section, (0., 0., 0., line_height));
             };
             let end = |glyph: &SectionGlyph| glyph.glyph.position.x + painter.brush.fonts()[glyph.font_id].as_scaled(scale).h_advance(glyph.glyph.id);
             if end(last) <= bounds.max.x {
-                return (section, (end(last), line_height));
+                return (section, (0., 0., end(last), line_height));
             }
             let font = painter.brush.fonts()[0].as_scaled(scale);
             let id = font.glyph_id('…');
             let w = font.h_advance(id);
             if w > bounds.max.x {
-                return (section, (0., line_height));
+                return (section, (0., 0., 0., line_height));
             }
             let index = glyphs.partition_point(|it| end(it) <= bounds.max.x - w);
             let st = if index == 0 { 0. } else { end(&glyphs[index - 1]) };
@@ -141,7 +150,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
                     Text::new(&text[..byte_index]).with_scale(scale).with_color(self.color),
                     Text::new("…").with_scale(scale).with_color(self.color),
                 ]),
-                (st + w, line_height),
+                (0., 0., st + w, line_height),
             );
         }
         let bound = painter.brush.glyph_bounds(&section).unwrap_or_default();
@@ -150,10 +159,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         if self.baseline {
             height += painter.brush.fonts()[0].as_scaled(scale).descent();
         }
-        let mut rect = Rect::new(self.pos.0, self.pos.1, bound.width() * s, height * s);
-        rect.x -= rect.w * self.anchor.0;
-        rect.y -= rect.h * self.anchor.1;
-        (section, (bound.width(), height))
+        (section, (bound.min.x, bound.min.y, bound.width(), height))
     }
 
     pub fn measure_with_font(&mut self, mut painter: Option<&mut TextPainter>) -> Rect {

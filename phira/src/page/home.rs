@@ -184,7 +184,7 @@ impl Page for HomePage {
             return Ok(true);
         }
         if self.btn_settings.touch(touch, t) {
-            self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.lang.clone()))));
+            self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.icon.clone(), self.icons.lang.clone()))));
             return Ok(true);
         }
         if self.btn_user.touch(touch, t) {

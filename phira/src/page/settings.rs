@@ -12,10 +12,11 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
+    core::BOLD_FONT,
     ext::{poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, take_input},
-    ui::{DRectButton, Scroll, Slider, Ui},
+    ui::{DRectButton, Scroll, Slider, TextPainter, Ui},
 };
 use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
@@ -40,12 +41,14 @@ pub struct SettingsPage {
 
     scroll: Scroll,
     save_time: f32,
+
+    icon: SafeTexture,
 }
 
 impl SettingsPage {
     const SAVE_TIME: f32 = 0.5;
 
-    pub fn new(icon_lang: SafeTexture) -> Self {
+    pub fn new(icon: SafeTexture, icon_lang: SafeTexture) -> Self {
         Self {
             list_general: GeneralList::new(icon_lang),
             list_audio: AudioList::new(),
@@ -62,6 +65,8 @@ impl SettingsPage {
 
             scroll: Scroll::new(),
             save_time: f32::INFINITY,
+
+            icon,
         }
     }
 }
@@ -137,7 +142,7 @@ impl Page for SettingsPage {
         let t = s.t;
         let rt = s.rt;
 
-        s.render_fader(ui, |ui| {
+        s.fader.render(ui, s.t, |ui| {
             let r = ui.content_rect();
             self.tabs.render(ui, rt, r, |ui, item| {
                 let r = r.feather(-0.01);
@@ -150,20 +155,7 @@ impl Page for SettingsPage {
                         SettingListType::Audio => self.list_audio.render(ui, r, t),
                         SettingListType::Chart => self.list_chart.render(ui, r, t),
                         SettingListType::Debug => self.list_debug.render(ui, r, t),
-                        SettingListType::About => {
-                            let pad = 0.04;
-                            (
-                                r.w,
-                                ui.text(tl!("about-content", "version" => env!("CARGO_PKG_VERSION")))
-                                    .pos(pad, pad)
-                                    .size(0.55)
-                                    .multiline()
-                                    .max_width(r.w - pad * 2.)
-                                    .draw()
-                                    .bottom()
-                                    + 0.03,
-                            )
-                        }
+                        SettingListType::About => render_settings(ui, r, &self.icon, &mut s.painter),
                     });
                 });
 
@@ -180,6 +172,33 @@ impl Page for SettingsPage {
         }
         NextPage::None
     }
+}
+
+fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture, painter: &mut TextPainter) -> (f32, f32) {
+    r.x = 0.;
+    r.y = 0.;
+    let ow = r.w;
+    let r = r.feather(-0.02);
+
+    let ct = r.center();
+    let s = 0.1;
+    let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
+    ui.fill_path(&ir.rounded(0.02), (**icon, ir));
+
+    let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
+    let (first, text) = text.split_once('\n').unwrap();
+    let tr = ui.text(first).pos(ct.x, ir.bottom() + 0.03).anchor(0.5, 0.).size(0.6).draw_with_font(Some(painter));
+
+    let r = ui
+        .text(text.trim())
+        .pos(r.x, tr.bottom() + 0.06)
+        .size(0.55)
+        .multiline()
+        .max_width(r.w)
+        .h_center()
+        .draw();
+
+    (ow, r.bottom() + 0.03)
 }
 
 fn render_title<'a>(ui: &mut Ui, title: impl Into<Cow<'a, str>>, subtitle: Option<Cow<'a, str>>) -> f32 {
