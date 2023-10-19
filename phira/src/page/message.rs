@@ -129,7 +129,7 @@ impl Page for MessagePage {
         cr.w -= d;
         let r = Rect::new(-0.92, cr.y, 0.47, cr.h);
         s.render_fader(ui, |ui| {
-            ui.fill_path(&r.rounded(0.02), semi_black(0.4));
+            ui.fill_path(&r.rounded(0.005), semi_black(0.4));
             let ct = r.center();
             let pad = 0.014;
             self.btns_scroll.size((r.w, r.h - pad));
@@ -156,12 +156,12 @@ impl Page for MessagePage {
                 }
             }
             if self.load_task.is_some() {
-                ui.fill_path(&r.rounded(0.02), semi_white(0.3));
+                ui.fill_path(&r.rounded(0.005), semi_white(0.3));
                 ui.loading(ct.x, ct.y, t, WHITE, ());
             }
         });
         s.render_fader(ui, |ui| {
-            ui.fill_path(&cr.rounded(0.02), semi_black(0.4));
+            ui.fill_path(&cr.rounded(0.005), semi_black(0.4));
             let pad = 0.03;
             ui.dx(cr.x + pad + 0.01);
             ui.dy(cr.y + pad);
