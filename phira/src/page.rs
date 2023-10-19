@@ -57,9 +57,12 @@ pub fn illustration_task(notify: Arc<Notify>, path: String) -> Task<Result<(Dyna
         notify.notified().await;
         let mut fs = fs_from_path(&path)?;
         let info = fs::load_info(fs.deref_mut()).await?;
-        let image = image::load_from_memory(&fs.load_file(&info.illustration).await?)?;
-        let thumbnail = Images::local_or_else(thumbnail_path(&path)?, async { Ok(Images::thumbnail(&image)) }).await?;
-        Ok((thumbnail, Some(image)))
+        let thumbnail = Images::local_or_else(thumbnail_path(&path)?, async {
+            let image = image::load_from_memory(&fs.load_file(&info.illustration).await?)?;
+            Ok(Images::thumbnail(&image))
+        })
+        .await?;
+        Ok((thumbnail, None))
     })
 }
 
