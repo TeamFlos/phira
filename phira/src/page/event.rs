@@ -179,16 +179,16 @@ impl Page for EventPage {
                                 item.btn.render_shadow(ui, r, t, |ui, path| {
                                     ui.fill_path(&path, item.illu.shading(r.feather(ILLU_FEATHER), t));
                                     ui.fill_path(&path, semi_black(0.4 * if item.illu.task.is_some() { 1. } else { ca }));
+                                    ui.text(&item.event.name)
+                                        .pos(r.x + Self::LB_PAD, r.bottom() - Self::LB_PAD)
+                                        .anchor(0., 1.)
+                                        .size(1.3)
+                                        .draw();
                                 });
                             });
                             if index == self.index {
                                 self.tr_from = ui.rect_to_global(r);
                             }
-                            ui.text(&item.event.name)
-                                .pos(r.x + Self::LB_PAD, r.bottom() - Self::LB_PAD)
-                                .anchor(0., 1.)
-                                .size(1.3)
-                                .draw();
                             ui.dy(ui.top * 2.);
                         }
                         (2., events.len() as f32 * ui.top * 2.)
