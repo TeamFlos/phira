@@ -122,7 +122,7 @@ attribute vec2 texcoord;
 attribute vec4 color0;
 
 varying lowp vec4 color;
-varying lowp vec2 pos0;
+varying highp vec2 pos0;
 varying lowp vec2 uv;
 
 uniform mat4 Model;
@@ -140,7 +140,7 @@ void main() {
 precision highp float;
 
 varying lowp vec4 color;
-varying lowp vec2 pos0;
+varying highp vec2 pos0;
 
 // A standard gaussian function, used for weighting samples
 float gaussian(float x, float sigma) {
@@ -173,15 +173,16 @@ float roundedBoxShadow(vec2 lower, vec2 upper, vec2 point, float sigma, float co
   float rt = step(upperp.x, point.x);
   float bt = step(upperp.y, point.y);
   float eps = 0.0003;
+  float ein = 0.0007;
   float factor = 1.0 -
       (1.0 - step(corner - eps, distance(lowerp, point)) * lf * tp)
     * (1.0 - step(corner - eps, distance(upperp, point)) * rt * bt)
     * (1.0 - step(corner - eps, distance(vec2(lowerp.x, upperp.y), point)) * lf * bt)
     * (1.0 - step(corner - eps, distance(vec2(upperp.x, lowerp.y), point)) * rt * tp)
-    * step(lower.x, point.x)
-    * step(lower.y, point.y)
-    * step(point.x, upper.x)
-    * step(point.y, upper.y);
+    * smoothstep(lower.x, lower.x + ein, point.x)
+    * smoothstep(lower.y, lower.y + ein, point.y)
+    * smoothstep(point.x, point.x + ein, upper.x)
+    * smoothstep(point.y, point.y + ein, upper.y);
 
   point.y -= sigma * 0.5;
   // Center everything to make the math easier
