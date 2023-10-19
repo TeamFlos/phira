@@ -886,7 +886,7 @@ pub fn accent(&self) -> Color {
         if if params.password {
             self.button(&id, r, &"*".repeat(value.chars().count()))
         } else {
-            self.button(&id, r, value.as_str())
+            self.button(&id, r, value.lines().next().unwrap_or_default())
         } {
             request_input_full(&id, value, params.password);
         }
