@@ -225,7 +225,8 @@ impl<'de> Deserialize<'de> for I32 {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self(f32::deserialize(deserializer)?.round() as i32))
+        use serde::de::Error;
+        Ok(Self(String::deserialize(deserializer)?.parse().map_err(D::Error::custom)?))
     }
 }
 
