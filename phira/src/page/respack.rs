@@ -212,7 +212,7 @@ impl Page for ResPackPage {
         let r = Rect::new(-0.92, cr.y, 0.47, cr.h);
 
         s.render_fader(ui, |ui| {
-            ui.fill_path(&r.rounded(0.02), semi_black(0.4));
+            ui.fill_path(&r.rounded(0.005), semi_black(0.4));
             let pad = 0.02;
             self.btns_scroll.size((r.w, r.h - pad));
             ui.dx(r.x);
@@ -234,7 +234,7 @@ impl Page for ResPackPage {
         });
 
         s.render_fader(ui, |ui| {
-            ui.fill_path(&cr.rounded(0.02), semi_black(0.4));
+            ui.fill_path(&cr.rounded(0.005), semi_black(0.4));
             let item = &self.items[self.index];
             if let Some(pack) = &item.loaded {
                 let width = 0.16;
