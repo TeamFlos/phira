@@ -499,8 +499,8 @@ uniform sampler2D Texture;
 uniform float time;
 
 void main() {
-    float angle = 0.6;
-    float w = sin(angle) * pos0.y + cos(angle) * pos0.x - time * 0.02;
+    float angle = 0.66;
+    float w = sin(angle) * pos0.y + cos(angle) * pos0.x - time * 0.025;
     float t = mod(w, 0.02);
     float p = step(t, 0.012) * 0.07;
     gl_FragColor = texture2D(Texture, uv);
