@@ -371,10 +371,10 @@ pub struct SharedState {
 }
 
 impl SharedState {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(fallback: FontArc) -> Result<Self> {
         let font = FontArc::try_from_vec(load_file("bold.ttf").await?)?;
-        let painter = TextPainter::new(font.clone());
-        BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font)));
+        let painter = TextPainter::new(font.clone(), Some(fallback));
+        BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font, None)));
         Ok(Self {
             t: 0.,
             rt: 0.,

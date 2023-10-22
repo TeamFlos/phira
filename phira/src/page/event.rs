@@ -174,7 +174,7 @@ impl Page for EventPage {
                         for (index, item) in events.iter_mut().enumerate() {
                             item.illu.notify();
                             let ca = item.illu.alpha(t);
-                            let r = ui.screen_rect().nonuniform_feather(-0.2, -0.12);
+                            let r = ui.screen_rect().nonuniform_feather(-0.24, -0.144);
                             ui.alpha(ca, |ui| {
                                 item.btn.render_shadow(ui, r, t, |ui, path| {
                                     ui.fill_path(&path, item.illu.shading(r.feather(ILLU_FEATHER), t));

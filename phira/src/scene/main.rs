@@ -17,7 +17,7 @@ use prpr::{
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, RectButton, Ui, UI_AUDIO},
+    ui::{button_hit, RectButton, Ui, UI_AUDIO, FontArc},
 };
 use sasa::{AudioClip, Music};
 use std::{
@@ -68,7 +68,7 @@ pub struct MainScene {
 
 impl MainScene {
     // shall be call exactly once
-    pub async fn new() -> Result<Self> {
+    pub async fn new(fallback: FontArc) -> Result<Self> {
         Self::init().await?;
 
         #[cfg(feature = "closed")]
@@ -89,7 +89,7 @@ impl MainScene {
         #[cfg(not(feature = "closed"))]
         let bgm = None;
 
-        let mut sf = Self::new_inner(bgm).await?;
+        let mut sf = Self::new_inner(bgm, fallback).await?;
         sf.pages.push(Box::new(HomePage::new().await?));
         Ok(sf)
     }
@@ -116,8 +116,8 @@ impl MainScene {
         Ok(())
     }
 
-    async fn new_inner(bgm: Option<Music>) -> Result<Self> {
-        let state = SharedState::new().await?;
+    async fn new_inner(bgm: Option<Music>, fallback: FontArc) -> Result<Self> {
+        let state = SharedState::new(fallback).await?;
         let icon_user = load_texture("user.png").await?;
         MP_PANEL.with(|it| *it.borrow_mut() = Some(MPPanel::new(icon_user.into())));
         Ok(Self {
