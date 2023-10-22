@@ -917,7 +917,7 @@ impl SongScene {
         ui.dy(0.03);
         self.ldb_type_btn.render_text(
             ui,
-            Rect::new(width - 0.24, -0.01, 0.23, 0.09),
+            Rect::new(width - 0.24, 0.01, 0.23, 0.08),
             rt,
             if self.ldb_std { tl!("ldb-std") } else { tl!("ldb-score") },
             0.6,

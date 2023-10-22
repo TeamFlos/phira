@@ -126,9 +126,9 @@ pub fn render_ldb<'a>(
         let mut bold = it.borrow_mut();
         let pad = 0.03;
         let width = w - pad;
-        ui.dy(0.02);
+        ui.dy(0.01);
         let r = ui.text(title).size(0.9).draw_with_font(bold.as_mut());
-        ui.dy(r.h + 0.04);
+        ui.dy(r.h + 0.05);
         let sh = ui.top * 2. - r.h - 0.08;
         let Some(iter) = iter else {
             ui.loading(width / 2., sh / 2., rt, WHITE, ());
