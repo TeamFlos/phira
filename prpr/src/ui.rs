@@ -8,7 +8,7 @@ mod dialog;
 pub use dialog::Dialog;
 
 mod scroll;
-pub use scroll::Scroll;
+pub use scroll::*;
 
 mod shading;
 pub use shading::*;

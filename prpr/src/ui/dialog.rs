@@ -1,7 +1,7 @@
 crate::tl_file!("dialog");
 
 use super::{DRectButton, Scroll, Ui};
-use crate::{ext::RectExt, scene::show_message};
+use crate::{core::BOLD_FONT, ext::RectExt, scene::show_message};
 use anyhow::Error;
 use macroquad::prelude::*;
 
@@ -131,7 +131,7 @@ impl Dialog {
         wr.x = -wr.w / 2.;
         wr.y = -wr.h / 2.;
         self.window_rect = Some(ui.rect_to_global(wr));
-        ui.fill_path(&wr.rounded(0.02), ui.background());
+        ui.fill_path(&wr.rounded(0.01), ui.background());
 
         let s = 0.02;
         let pad = 0.02;
@@ -147,15 +147,16 @@ impl Dialog {
                     ui.dy(dy);
                 }};
             }
-            dy!(wr.y + s * 3.6);
-            let r = ui
-                .text(&self.title)
-                .pos(wr.x + pad * 2., 0.)
-                .anchor(0., 0.)
-                .size(0.9)
-                .max_width(wr.w - pad * 2.)
-                .no_baseline()
-                .draw();
+            dy!(wr.y + s * 3.);
+            let r = BOLD_FONT.with(|it| {
+                ui.text(&self.title)
+                    .pos(wr.x + pad * 2., 0.)
+                    .anchor(0., 0.)
+                    .size(0.95)
+                    .max_width(wr.w - pad * 2.)
+                    .no_baseline()
+                    .draw_with_font(it.borrow_mut().as_mut())
+            });
             dy!(r.h + s * 2.);
             self.scroll.size((wr.w - pad * 2., wr.bottom() - h - bh - s * 2.));
             ui.dx(wr.x + pad);

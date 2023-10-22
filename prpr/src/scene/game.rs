@@ -328,7 +328,6 @@ impl GameScene {
                 1. - (t / (AFTER_TIME + 0.3)).min(1.).powi(2)
             }
         };
-        let c = Color::new(1., 1., 1., self.res.alpha);
         let res = &mut self.res;
         let eps = 2e-2 / res.aspect_ratio;
         let top = -1. / res.aspect_ratio;
@@ -357,97 +356,93 @@ impl GameScene {
                 tm.pause();
             }
         }
-        if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
-            ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
-        }
-
-        let margin = 0.03;
-
-        PGR_FONT.with(|it| {
-            let mut font = it.borrow_mut();
-            self.chart.with_element(ui, res, UIElement::Score, |ui, color, scale| {
-                ui.text(format!("{:07}", self.judge.score()))
-                    .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
-                    .anchor(1., 0.)
-                    .size(0.8)
-                    .color(Color { a: color.a * c.a, ..color })
-                    .scale(scale)
-                    .draw_with_font(font.as_mut());
-            });
-            if res.config.show_acc {
-                ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
-                    .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
-                    .anchor(1., 0.)
-                    .size(0.4)
-                    .color(semi_white(0.7))
-                    .draw_with_font(font.as_mut());
+        ui.alpha(res.alpha, |ui| {
+            if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
+                ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
             }
-            self.chart.with_element(ui, res, UIElement::Pause, |ui, color, scale| {
-                let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
-                let ct = pause_center.coords;
-                let c = Color { a: color.a * c.a, ..color };
-                ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
-                    ui.fill_rect(r, c);
-                    r.x += pause_w * 2.;
-                    ui.fill_rect(r, c);
-                });
-            });
-            if self.judge.combo() >= 3 {
-                let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, |ui, color, scale| {
-                    ui.text(self.judge.combo().to_string())
-                        .pos(0., top + eps * 2. - (1. - p) * 0.4)
-                        .anchor(0.5, 0.)
-                        .color(Color { a: color.a * c.a, ..color })
-                        .scale(scale)
-                        .draw_with_font(font.as_mut())
-                        .bottom()
-                });
-                self.chart.with_element(ui, res, UIElement::Combo, |ui, color, scale| {
-                    ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
-                        .pos(0., btm + 0.01)
-                        .anchor(0.5, 0.)
-                        .size(0.4)
-                        .color(Color { a: color.a * c.a, ..color })
+
+            let margin = 0.03;
+
+            PGR_FONT.with(|it| {
+                let mut font = it.borrow_mut();
+                self.chart.with_element(ui, res, UIElement::Score, |ui, c, scale| {
+                    ui.text(format!("{:07}", self.judge.score()))
+                        .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
+                        .anchor(1., 0.)
+                        .size(0.8)
+                        .color(c)
                         .scale(scale)
                         .draw_with_font(font.as_mut());
+                    if res.config.show_acc {
+                        ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
+                            .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
+                            .anchor(1., 0.)
+                            .size(0.4)
+                            .color(Color { a: c.a * 0.7, ..c })
+                            .scale(scale)
+                            .draw_with_font(font.as_mut());
+                    }
                 });
-            }
-        });
-        let lf = -1. + margin;
-        let bt = -top - eps * 2.8;
-        self.chart.with_element(ui, res, UIElement::Name, |ui, color, scale| {
-            ui.text(&res.info.name)
-                .pos(lf, bt + (1. - p) * 0.4)
-                .anchor(0., 1.)
-                .size(0.5)
-                .color(Color { a: color.a * c.a, ..color })
-                .scale(scale)
-                .max_width(0.8)
-                .draw();
-        });
-        self.chart.with_element(ui, res, UIElement::Level, |ui, color, scale| {
-            ui.text(&res.info.level)
-                .pos(-lf, bt + (1. - p) * 0.4)
-                .anchor(1., 1.)
-                .size(0.5)
-                .color(Color { a: color.a * c.a, ..color })
-                .scale(scale)
-                .draw();
-        });
-        let hw = 0.003;
-        let height = eps * 1.2;
-        let dest = 2. * res.time / res.track_length;
-        self.chart.with_element(ui, res, UIElement::Bar, |ui, color, scale| {
-            let ct = Vector::new(0., top + height / 2.);
-            ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
-                ui.fill_rect(
-                    Rect::new(-1., top, dest, height),
-                    Color {
-                        a: color.a * c.a * 0.6,
-                        ..color
-                    },
-                );
-                ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), Color { a: color.a * c.a, ..color });
+                self.chart.with_element(ui, res, UIElement::Pause, |ui, c, scale| {
+                    let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
+                    let ct = pause_center.coords;
+                    ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
+                        ui.fill_rect(r, c);
+                        r.x += pause_w * 2.;
+                        ui.fill_rect(r, c);
+                    });
+                });
+                if self.judge.combo() >= 3 {
+                    let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, |ui, c, scale| {
+                        ui.text(self.judge.combo().to_string())
+                            .pos(0., top + eps * 2. - (1. - p) * 0.4)
+                            .anchor(0.5, 0.)
+                            .color(c)
+                            .scale(scale)
+                            .draw_with_font(font.as_mut())
+                            .bottom()
+                    });
+                    self.chart.with_element(ui, res, UIElement::Combo, |ui, c, scale| {
+                        ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                            .pos(0., btm + 0.01)
+                            .anchor(0.5, 0.)
+                            .size(0.4)
+                            .color(c)
+                            .scale(scale)
+                            .draw_with_font(font.as_mut());
+                    });
+                }
+            });
+            let lf = -1. + margin;
+            let bt = -top - eps * 2.8;
+            self.chart.with_element(ui, res, UIElement::Name, |ui, c, scale| {
+                ui.text(&res.info.name)
+                    .pos(lf, bt + (1. - p) * 0.4)
+                    .anchor(0., 1.)
+                    .size(0.5)
+                    .color(c)
+                    .scale(scale)
+                    .max_width(0.8)
+                    .draw();
+            });
+            self.chart.with_element(ui, res, UIElement::Level, |ui, c, scale| {
+                ui.text(&res.info.level)
+                    .pos(-lf, bt + (1. - p) * 0.4)
+                    .anchor(1., 1.)
+                    .size(0.5)
+                    .color(c)
+                    .scale(scale)
+                    .draw();
+            });
+            let hw = 0.003;
+            let height = eps * 1.2;
+            let dest = 2. * res.time / res.track_length;
+            self.chart.with_element(ui, res, UIElement::Bar, |ui, c, scale| {
+                let ct = Vector::new(0., top + height / 2.);
+                ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
+                    ui.fill_rect(Rect::new(-1., top, dest, height), Color { a: c.a * 0.6, ..c });
+                    ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), c);
+                });
             });
         });
         Ok(())

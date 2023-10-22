@@ -22,7 +22,7 @@ use prpr::{
     core::{BOLD_FONT, PGR_FONT},
     ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
-    ui::{Dialog, RectButton, Scroll, Ui},
+    ui::{Dialog, RectButton, Scroll, Ui, Scroller},
 };
 use std::{
     cell::RefCell,
@@ -134,13 +134,10 @@ pub fn render_ldb<'a>(
             ui.loading(width / 2., sh / 2., rt, WHITE, ());
             return;
         };
+        let off = scroll.y_scroller.offset;
         scroll.size((width, sh));
         scroll.render(ui, |ui| {
-            ui.text(ttl!("release-to-refresh"))
-                .pos(width / 2., -0.13)
-                .anchor(0.5, 0.)
-                .size(0.8)
-                .draw();
+            render_release_to_refresh(ui, width / 2., off);
             let s = 0.14;
             let mut h = 0.;
             ui.dx(0.02);
@@ -206,4 +203,14 @@ pub fn render_ldb<'a>(
             (width, h)
         });
     });
+}
+
+pub fn render_release_to_refresh(ui: &mut Ui, cx: f32, off: f32) {
+    let p = (-off / Scroller::EXTEND).clamp(0., 1.);
+    ui.text(ttl!("release-to-refresh"))
+        .pos(cx, -0.2 + p * 0.07)
+        .anchor(0.5, 0.)
+        .size(0.8)
+        .color(semi_white(p * 0.8))
+        .draw();
 }
