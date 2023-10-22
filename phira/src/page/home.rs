@@ -66,7 +66,8 @@ pub struct HomePage {
 
 impl HomePage {
     pub async fn new() -> Result<Self> {
-        let character = SafeTexture::from(load_texture("char.png").await?).with_mipmap();
+        // let character = SafeTexture::from(load_texture("char.png").await?).with_mipmap();
+        let character = SafeTexture::from(image::load_from_memory(&crate::load_res("res/xi").await)?).with_mipmap();
         let update_task = if get_data().config.offline_mode {
             None
         } else if let Some(u) = &get_data().me {
@@ -284,7 +285,7 @@ impl Page for HomePage {
         let pad = 0.04;
 
         s.render_fader(ui, |ui| {
-            let r = Rect::new(-1., -ui.top + 0.1, 1., 1.7);
+            let r = Rect::new(-1., -ui.top + 0.12, 1., 1.7);
             ui.fill_rect(r, (*self.character, r));
         });
 
