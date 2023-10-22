@@ -5,7 +5,6 @@ use nalgebra::Translation2;
 use std::collections::VecDeque;
 
 const THRESHOLD: f32 = 0.03;
-const EXTEND: f32 = 0.33;
 
 pub struct VelocityTracker {
     movements: VecDeque<(f32, Point)>,
@@ -98,6 +97,8 @@ impl Default for Scroller {
 }
 
 impl Scroller {
+    pub const EXTEND: f32 = 0.33;
+
     pub fn new() -> Self {
         Self {
             touch: None,
@@ -148,7 +149,7 @@ impl Scroller {
                             *unlock = true;
                         }
                         if *unlock {
-                            self.offset = (*st_off + (*st - val)).clamp(-EXTEND, self.size + EXTEND);
+                            self.offset = (*st_off + (*st - val)).clamp(-Self::EXTEND, self.size + Self::EXTEND);
                         }
                         self.frame_touched = true;
                     }
@@ -162,10 +163,10 @@ impl Scroller {
                         self.speed = -speed * 0.4;
                         self.last_time = t;
                     }
-                    if self.offset <= -EXTEND * 0.7 {
+                    if self.offset <= -Self::EXTEND * 0.7 {
                         self.pulled = true;
                     }
-                    if self.offset >= self.size + EXTEND * 0.4 {
+                    if self.offset >= self.size + Self::EXTEND * 0.4 {
                         self.pulled_down = true;
                     }
                     let res = self.touch.map(|it| it.3).unwrap_or_default();

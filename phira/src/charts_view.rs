@@ -4,7 +4,7 @@ use crate::{
     icons::Icons,
     page::{ChartItem, Fader, Illustration},
     save_data,
-    scene::{SongScene, MP_PANEL},
+    scene::{render_release_to_refresh, SongScene, MP_PANEL},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -288,10 +288,11 @@ impl ChartsView {
         ui.scope(|ui| {
             ui.dx(r.x);
             ui.dy(r.y);
+            let off = self.scroll.y_scroller.offset;
             self.scroll.size(content_size);
             self.scroll.render(ui, |ui| {
                 if self.can_refresh {
-                    ui.text(ttl!("release-to-refresh")).pos(r.w / 2., -0.13).anchor(0.5, 0.).size(0.8).draw();
+                    render_release_to_refresh(ui, r.w / 2., off);
                 }
                 let cw = r.w / self.row_num as f32;
                 let ch = self.row_height;

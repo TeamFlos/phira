@@ -61,9 +61,8 @@ impl Chart {
             let obj = &self.lines[id].object;
             let mut tr = obj.now_translation(res);
             tr.y = -tr.y;
-            let mut color = self.lines[id].color.now_opt().unwrap_or(WHITE);
-            color.a *= obj.now_alpha().max(0.);
-            ui.with(obj.now_rotation().append_translation(&tr), |ui| f(ui, color, obj.now_scale()))
+            let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
+            ui.with(obj.now_rotation().append_translation(&tr), |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color, obj.now_scale())))
         } else {
             f(ui, WHITE, Matrix::identity())
         }

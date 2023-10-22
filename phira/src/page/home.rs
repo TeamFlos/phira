@@ -66,7 +66,8 @@ pub struct HomePage {
 
 impl HomePage {
     pub async fn new() -> Result<Self> {
-        // let character = SafeTexture::from(load_texture("char.png").await?).with_mipmap();
+        let character = SafeTexture::from(load_texture("char.png").await?).with_mipmap();
+        #[cfg(feature = "closed")]
         let character = SafeTexture::from(image::load_from_memory(&crate::load_res("res/xi").await)?).with_mipmap();
         let update_task = if get_data().config.offline_mode {
             None
