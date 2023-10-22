@@ -5,14 +5,14 @@ use crate::{
 };
 use glyph_brush::{
     ab_glyph::{Font, FontArc, ScaleFont},
-    BrushAction, BrushError, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, SectionGlyph, Text,
+    BrushAction, BrushError, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, SectionGlyph, Text,
 };
 use macroquad::{
     miniquad::{Texture, TextureParams},
     prelude::*,
 };
 use once_cell::sync::Lazy;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashSet};
 use tracing::debug;
 
 #[must_use = "DrawText does nothing until you 'draw' it"]
@@ -109,15 +109,45 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         use glyph_brush::ab_glyph;
         let vp = get_viewport();
         let scale = self.get_scale(vp.2);
-        let mut section = Section::new()
-            .add_text(Text::new(text).with_scale(scale).with_color(self.color))
-            .with_layout(Layout::default().h_align(self.h_align));
+
+        let default_text_painter = &mut self.ui.text_painter;
+        let painter = painter.as_deref_mut().unwrap_or(default_text_painter);
+
+        let mut section = Section::new().with_layout(Layout::default().h_align(self.h_align));
+        if painter.brush.fonts().len() > 1 {
+            let mut last = 0;
+            let mut last_contain = false;
+            for (i, c) in text.char_indices() {
+                let contain = painter.valid_chars.contains(&c);
+                if last_contain != contain {
+                    if last != i {
+                        section = section.add_text(
+                            Text::new(&text[last..i])
+                                .with_scale(scale)
+                                .with_color(self.color)
+                                .with_font_id(FontId((!contain) as usize)),
+                        );
+                    }
+                    last = i;
+                    last_contain = contain;
+                }
+            }
+            if last != text.len() {
+                section = section.add_text(
+                    Text::new(&text[last..])
+                        .with_scale(scale)
+                        .with_color(self.color)
+                        .with_font_id(FontId((!last_contain) as usize)),
+                );
+            }
+        } else {
+            section = section.add_text(Text::new(text).with_scale(scale).with_color(self.color));
+        }
+
         let s = 2. / vp.2 as f32;
         if let Some(max_width) = self.max_width {
             section = section.with_bounds((max_width / s, f32::INFINITY));
         }
-        let default_text_painter = &mut self.ui.text_painter;
-        let painter = painter.as_deref_mut().unwrap_or(default_text_painter);
         let font = painter.brush.fonts()[0].as_scaled(scale);
         let line_height = if self.baseline { font.ascent() } else { font.height() };
 
@@ -217,11 +247,19 @@ pub struct TextPainter {
     cache_texture: Texture2D,
     data_buffer: Vec<u8>,
     vertices_buffer: Vec<Vertex>,
+
+    valid_chars: HashSet<char>,
 }
 
 impl TextPainter {
-    pub fn new(font: FontArc) -> Self {
-        let mut brush = GlyphBrushBuilder::using_font(font).build();
+    pub fn new(font: FontArc, fallback: Option<FontArc>) -> Self {
+        let valid_chars = font.codepoint_ids().map(|it| it.1).collect();
+
+        let mut fonts = vec![font];
+        if let Some(fallback) = fallback {
+            fonts.push(fallback);
+        }
+        let mut brush = GlyphBrushBuilder::using_fonts(fonts).build();
         let dim = *TEXTURE_DIM;
         brush.resize_texture(dim, dim);
         // TODO optimize
@@ -231,6 +269,8 @@ impl TextPainter {
             cache_texture,
             data_buffer: Vec::new(),
             vertices_buffer: Vec::new(),
+
+            valid_chars,
         }
     }
 
