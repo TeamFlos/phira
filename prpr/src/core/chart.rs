@@ -62,14 +62,8 @@ impl Chart {
             let mut tr = obj.now_translation(res);
             tr.y = -tr.y;
             let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
-            let mut scale = obj.now_scale();
-            if let Some(ct) = ct {
-                let ct = Vector::new(ct.0, ct.1);
-                scale = scale.prepend_translation(&-ct).append_translation(&ct);
-            }
-            ui.with(obj.now_rotation().append_translation(&tr) * scale, |ui| {
-                ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color))
-            })
+            let scale = obj.now_scale(ct.map_or_else(|| Vector::default(), |(x, y)| Vector::new(x, y)));
+            ui.with(obj.now_rotation().append_translation(&tr) * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
         } else {
             f(ui, WHITE)
         }

@@ -183,7 +183,7 @@ impl JudgeLine {
                     ui.text(id.to_string()).pos(0., -0.01).anchor(0.5, 1.).size(0.8).draw();
                 });
             }
-            res.with_model(self.object.now_scale(), |res| {
+            res.with_model(self.object.now_scale(Vector::default()), |res| {
                 res.apply_model(|res| match &self.kind {
                     JudgeLineKind::Normal => {
                         let mut color = color.unwrap_or(res.judge_line_color);
