@@ -12,7 +12,7 @@ use macroquad::{
     prelude::*,
 };
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, collections::HashSet};
+use std::{borrow::Cow, collections::HashSet, thread::LocalKey, cell::RefCell};
 use tracing::debug;
 
 #[must_use = "DrawText does nothing until you 'draw' it"]
@@ -199,6 +199,10 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         self.bounds(bound)
     }
 
+    pub fn measure_using(&mut self, font: &'static LocalKey<RefCell<Option<TextPainter>>>) -> Rect {
+        font.with(|it| self.measure_with_font(it.borrow_mut().as_mut()))
+    }
+
     #[inline]
     pub fn measure(&mut self) -> Rect {
         self.measure_with_font(None)
@@ -227,6 +231,10 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             });
         self.text = Some(text);
         rect
+    }
+
+    pub fn draw_using(&mut self, font: &'static LocalKey<RefCell<Option<TextPainter>>>) -> Rect {
+        font.with(|it| self.draw_with_font(it.borrow_mut().as_mut()))
     }
 
     #[inline]
