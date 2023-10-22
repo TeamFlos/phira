@@ -64,7 +64,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
             }};
         }
         dy!(0.01);
-        let r = BOLD_FONT.with(|it| ui.text(tl!("edit-chart")).size(0.9).draw_with_font(it.borrow_mut().as_mut()));
+        let r = ui.text(tl!("edit-chart")).size(0.9).draw_using(&BOLD_FONT);
         dy!(r.h + 0.04);
         let rt = 0.22;
         ui.dx(rt);

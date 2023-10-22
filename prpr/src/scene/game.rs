@@ -363,56 +363,53 @@ impl GameScene {
 
             let margin = 0.03;
 
-            PGR_FONT.with(|it| {
-                let mut font = it.borrow_mut();
-                self.chart.with_element(ui, res, UIElement::Score, |ui, c, scale| {
-                    ui.text(format!("{:07}", self.judge.score()))
-                        .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
+            self.chart.with_element(ui, res, UIElement::Score, |ui, c, scale| {
+                ui.text(format!("{:07}", self.judge.score()))
+                    .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
+                    .anchor(1., 0.)
+                    .size(0.8)
+                    .color(c)
+                    .scale(scale)
+                    .draw_using(&PGR_FONT);
+                if res.config.show_acc {
+                    ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
+                        .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
                         .anchor(1., 0.)
-                        .size(0.8)
-                        .color(c)
+                        .size(0.4)
+                        .color(Color { a: c.a * 0.7, ..c })
                         .scale(scale)
-                        .draw_with_font(font.as_mut());
-                    if res.config.show_acc {
-                        ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
-                            .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
-                            .anchor(1., 0.)
-                            .size(0.4)
-                            .color(Color { a: c.a * 0.7, ..c })
-                            .scale(scale)
-                            .draw_with_font(font.as_mut());
-                    }
-                });
-                self.chart.with_element(ui, res, UIElement::Pause, |ui, c, scale| {
-                    let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
-                    let ct = pause_center.coords;
-                    ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
-                        ui.fill_rect(r, c);
-                        r.x += pause_w * 2.;
-                        ui.fill_rect(r, c);
-                    });
-                });
-                if self.judge.combo() >= 3 {
-                    let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, |ui, c, scale| {
-                        ui.text(self.judge.combo().to_string())
-                            .pos(0., top + eps * 2. - (1. - p) * 0.4)
-                            .anchor(0.5, 0.)
-                            .color(c)
-                            .scale(scale)
-                            .draw_with_font(font.as_mut())
-                            .bottom()
-                    });
-                    self.chart.with_element(ui, res, UIElement::Combo, |ui, c, scale| {
-                        ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
-                            .pos(0., btm + 0.01)
-                            .anchor(0.5, 0.)
-                            .size(0.4)
-                            .color(c)
-                            .scale(scale)
-                            .draw_with_font(font.as_mut());
-                    });
+                        .draw_using(&PGR_FONT);
                 }
             });
+            self.chart.with_element(ui, res, UIElement::Pause, |ui, c, scale| {
+                let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
+                let ct = pause_center.coords;
+                ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
+                    ui.fill_rect(r, c);
+                    r.x += pause_w * 2.;
+                    ui.fill_rect(r, c);
+                });
+            });
+            if self.judge.combo() >= 3 {
+                let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, |ui, c, scale| {
+                    ui.text(self.judge.combo().to_string())
+                        .pos(0., top + eps * 2. - (1. - p) * 0.4)
+                        .anchor(0.5, 0.)
+                        .color(c)
+                        .scale(scale)
+                        .draw_using(&PGR_FONT)
+                        .bottom()
+                });
+                self.chart.with_element(ui, res, UIElement::Combo, |ui, c, scale| {
+                    ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                        .pos(0., btm + 0.01)
+                        .anchor(0.5, 0.)
+                        .size(0.4)
+                        .color(c)
+                        .scale(scale)
+                        .draw_using(&PGR_FONT);
+                });
+            }
             let lf = -1. + margin;
             let bt = -top - eps * 2.8;
             self.chart.with_element(ui, res, UIElement::Name, |ui, c, scale| {

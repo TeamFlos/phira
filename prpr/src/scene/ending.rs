@@ -271,238 +271,219 @@ impl Scene for EndingScene {
             let r = Rect::new(0.75, br.center().y, 0., 0.).feather(0.13 + (1. - p) * 0.05);
             ui.fill_rect(r, (**icon, r, ScaleType::Fit, semi_white(p)));
 
-            PGR_FONT.with(|pgr_font| {
-                let mut font = pgr_font.borrow_mut();
-
-                let y = y + 0.16;
-                let lf = -0.48 + (1.2 - y) / 1.9 * 0.4;
-                let mut x = lf;
-                let p = ran(t, 0.9, 2.6);
-                let mut digits = Vec::with_capacity(7);
-                let mut s = res.score;
-                for _ in 0..7 {
-                    digits.push(s % 10);
-                    s /= 10;
-                }
-                digits.reverse();
-                let s = 1.5;
-                let sr = ui.text("0").size(s).measure_with_font(font.as_mut());
-                let h = sr.h;
-                ui.scissor(Rect::new(-1., y, 2., h + 0.01), |ui| {
-                    for (i, d) in digits.into_iter().enumerate() {
-                        let p = (p * (1. + (0.16 * (6 - i) as f32).powi(2))).min(1.);
-                        let p = 1. - (1. - p).powi(3);
-                        let mut p = d as f32 + (1. - p) * 7.;
-                        if p > 10. {
-                            p -= 10.;
-                        }
-                        let up = p as u32;
-                        let dw = (up + 1) % 10;
-                        let o = -h * (p - up as f32);
-                        ui.text(up.to_string())
-                            .pos(x + sr.w / 2., y + o)
-                            .anchor(0.5, 0.)
-                            .size(s)
-                            .draw_with_font(font.as_mut());
-                        ui.text(dw.to_string())
-                            .pos(x + sr.w / 2., y + h + o)
-                            .anchor(0.5, 0.)
-                            .size(s)
-                            .draw_with_font(font.as_mut());
-                        x += sr.w;
+            let y = y + 0.16;
+            let lf = -0.48 + (1.2 - y) / 1.9 * 0.4;
+            let mut x = lf;
+            let p = ran(t, 0.9, 2.6);
+            let mut digits = Vec::with_capacity(7);
+            let mut s = res.score;
+            for _ in 0..7 {
+                digits.push(s % 10);
+                s /= 10;
+            }
+            digits.reverse();
+            let s = 1.5;
+            let sr = ui.text("0").size(s).measure_using(&PGR_FONT);
+            let h = sr.h;
+            ui.scissor(Rect::new(-1., y, 2., h + 0.01), |ui| {
+                for (i, d) in digits.into_iter().enumerate() {
+                    let p = (p * (1. + (0.16 * (6 - i) as f32).powi(2))).min(1.);
+                    let p = 1. - (1. - p).powi(3);
+                    let mut p = d as f32 + (1. - p) * 7.;
+                    if p > 10. {
+                        p -= 10.;
                     }
-                });
-
-                if let Some(s) = &self.update_state {
-                    if !s.best {
-                        BOLD_FONT.with(|it| {
-                            let mut font = it.borrow_mut();
-                            ui.text(format!("{}  {:+07}", tl!("new-best"), s.improvement))
-                                .pos(x - 0.01, y - 0.016)
-                                .anchor(1., 1.)
-                                .color(semi_white(pf))
-                                .size(0.5)
-                                .draw_with_font(font.as_mut());
-                        })
-                    }
+                    let up = p as u32;
+                    let dw = (up + 1) % 10;
+                    let o = -h * (p - up as f32);
+                    ui.text(up.to_string())
+                        .pos(x + sr.w / 2., y + o)
+                        .anchor(0.5, 0.)
+                        .size(s)
+                        .draw_using(&PGR_FONT);
+                    ui.text(dw.to_string())
+                        .pos(x + sr.w / 2., y + h + o)
+                        .anchor(0.5, 0.)
+                        .size(s)
+                        .draw_using(&PGR_FONT);
+                    x += sr.w;
                 }
-
-                BOLD_FONT.with(|it| {
-                    let mut font = it.borrow_mut();
-
-                    let cl = semi_white(0.6);
-                    let ct = semi_white(0.8);
-                    let cs = semi_white(0.4);
-                    let s = 0.5;
-
-                    let r = ui
-                        .text(tl!("accuracy"))
-                        .pos(lf - 0.017, y + h + 0.03)
-                        .color(cl)
-                        .size(s)
-                        .draw_with_font(font.as_mut());
-                    let r = ui
-                        .text(format!("{:.2}%", res.accuracy * 100.))
-                        .pos(r.right() + 0.02, r.y)
-                        .color(ct)
-                        .size(s)
-                        .draw_with_font(font.as_mut());
-
-                    let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
-
-                    let r = ui
-                        .text(tl!("error"))
-                        .pos(r.right() + 0.03, r.y)
-                        .color(cl)
-                        .size(s)
-                        .draw_with_font(font.as_mut());
-                    ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
-                        .pos(r.right() + 0.02, r.y)
-                        .size(s)
-                        .color(ct)
-                        .draw_with_font(font.as_mut());
-                });
             });
-            BOLD_FONT.with(|it| {
-                let mut font = it.borrow_mut();
 
-                let mut y = -top + 0.4 + ui.top * 0.3;
-                let tp = y;
-                let mut x = -0.26 + (1.2 - y) / 1.9 * 0.4;
-                let lf = x;
-                let s = 0.64;
-                for (title, num) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().zip(res.counts) {
-                    ui.text(title)
-                        .pos(x, y)
-                        .anchor(1., 0.)
-                        .color(semi_white(0.6))
-                        .size(s)
-                        .draw_with_font(font.as_mut());
-                    let r = ui.text(num.to_string()).pos(x + 0.06, y).size(s).draw_with_font(font.as_mut());
-                    let dy = r.h + 0.03;
-                    y += dy;
-                    x -= dy / 1.9 * 0.4;
+            if let Some(s) = &self.update_state {
+                if !s.best {
+                    ui.text(format!("{}  {:+07}", tl!("new-best"), s.improvement))
+                        .pos(x - 0.01, y - 0.016)
+                        .anchor(1., 1.)
+                        .color(semi_white(pf))
+                        .size(0.5)
+                        .draw_using(&BOLD_FONT);
                 }
+            }
 
-                let p = ran(t, 0.8, 1.8);
-                let p = 1. - (1. - p).powi(3);
-                let mut y = tp + 0.07;
-                let mut x = lf + 0.44;
-                let r = ui
-                    .text(tl!("max-combo"))
+            let cl = semi_white(0.6);
+            let ct = semi_white(0.8);
+            let cs = semi_white(0.4);
+            let s = 0.5;
+
+            let r = ui
+                .text(tl!("accuracy"))
+                .pos(lf - 0.017, y + h + 0.03)
+                .color(cl)
+                .size(s)
+                .draw_using(&BOLD_FONT);
+            let r = ui
+                .text(format!("{:.2}%", res.accuracy * 100.))
+                .pos(r.right() + 0.02, r.y)
+                .color(ct)
+                .size(s)
+                .draw_using(&BOLD_FONT);
+
+            let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
+
+            let r = ui.text(tl!("error")).pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
+            ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
+                .pos(r.right() + 0.02, r.y)
+                .size(s)
+                .color(ct)
+                .draw_using(&BOLD_FONT);
+
+            let mut y = -top + 0.4 + ui.top * 0.3;
+            let tp = y;
+            let mut x = -0.26 + (1.2 - y) / 1.9 * 0.4;
+            let lf = x;
+            let s = 0.64;
+            for (title, num) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().zip(res.counts) {
+                ui.text(title)
                     .pos(x, y)
                     .anchor(1., 0.)
                     .color(semi_white(0.6))
                     .size(s)
-                    .draw_with_font(font.as_mut());
-                let mut r = Rect::new(r.right() + 0.03, r.y + 0.004, 0.45, r.h);
-                ui.fill_rect(r, semi_black(0.4));
-                let ct = r.center();
-                let combo = (res.max_combo as f32 * p).round() as u32;
-                let text = format!("{combo} / {}", res.num_of_notes);
-                ui.text(&text)
+                    .draw_using(&BOLD_FONT);
+                let r = ui.text(num.to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT);
+                let dy = r.h + 0.03;
+                y += dy;
+                x -= dy / 1.9 * 0.4;
+            }
+
+            let p = ran(t, 0.8, 1.8);
+            let p = 1. - (1. - p).powi(3);
+            let mut y = tp + 0.07;
+            let mut x = lf + 0.44;
+            let r = ui
+                .text(tl!("max-combo"))
+                .pos(x, y)
+                .anchor(1., 0.)
+                .color(semi_white(0.6))
+                .size(s)
+                .draw_using(&BOLD_FONT);
+            let mut r = Rect::new(r.right() + 0.03, r.y + 0.004, 0.45, r.h);
+            ui.fill_rect(r, semi_black(0.4));
+            let ct = r.center();
+            let combo = (res.max_combo as f32 * p).round() as u32;
+            let text = format!("{combo} / {}", res.num_of_notes);
+            ui.text(&text)
+                .pos(ct.x, ct.y)
+                .anchor(0.5, 0.5)
+                .no_baseline()
+                .size(0.4)
+                .draw_using(&BOLD_FONT);
+            r.w *= combo as f32 / res.num_of_notes as f32;
+            ui.fill_rect(r, WHITE);
+            ui.scissor(r, |ui| {
+                ui.text(text)
                     .pos(ct.x, ct.y)
                     .anchor(0.5, 0.5)
                     .no_baseline()
                     .size(0.4)
-                    .draw_with_font(font.as_mut());
-                r.w *= combo as f32 / res.num_of_notes as f32;
-                ui.fill_rect(r, WHITE);
-                ui.scissor(r, |ui| {
-                    ui.text(text)
-                        .pos(ct.x, ct.y)
-                        .anchor(0.5, 0.5)
-                        .no_baseline()
-                        .size(0.4)
-                        .color(BLACK)
-                        .draw_with_font(font.as_mut());
-                });
-
-                let dy = r.h + 0.03;
-                y += dy;
-                x -= dy / 1.9 * 0.4;
-
-                let r = ui
-                    .text(tl!("rks-delta"))
-                    .pos(x, y)
-                    .anchor(1., 0.)
-                    .color(semi_white(0.6))
-                    .size(s)
-                    .draw_with_font(font.as_mut());
-                let text = if let Some((state, now)) = self.update_state.as_ref().zip(self.player_rks) {
-                    let delta = state.new_rks - now;
-                    format!("{:+.2}", delta)
-                } else {
-                    "-".to_owned()
-                };
-                ui.text(text).pos(r.right() + 0.03, y).size(s).draw_with_font(font.as_mut());
-
-                let mut r = Rect::new(0.96, ui.top - 0.04, 0.25, 0.1);
-                r.x -= r.w;
-                r.y -= r.h;
-                self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
-                    ui.fill_path(&path, Color::from_hex(0x3f51b5));
-                    let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                    ui.fill_rect(ir, (*self.icon_proceed, ir));
-                    ui.text(tl!("proceed"))
-                        .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
-                        .anchor(0.5, 0.5)
-                        .no_baseline()
-                        .size(0.44)
-                        .draw_with_font(font.as_mut());
-                });
-
-                r.x -= r.w + 0.02;
-                self.btn_retry.render_shadow(ui, r, t, |ui, path| {
-                    ui.fill_path(&path, Color::from_hex(0x78909c));
-                    let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                    ui.fill_rect(ir, (*self.icon_retry, ir));
-                    ui.text(tl!("retry"))
-                        .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
-                        .anchor(0.5, 0.5)
-                        .no_baseline()
-                        .size(0.44)
-                        .draw_with_font(font.as_mut());
-                });
-
-                let spd = if (self.speed - 1.).abs() <= 1e-4 {
-                    String::new()
-                } else {
-                    format!("{:.2}x", self.speed)
-                };
-                let text = if self.autoplay {
-                    format!("AUTOPLAY {spd}")
-                } else if !self.rated {
-                    format!("UNRATED {spd}")
-                } else {
-                    String::new()
-                };
-                let text = text.trim();
-                if !text.is_empty() {
-                    let ty = br.bottom();
-                    let x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
-                    let h = 0.04;
-                    let mut text = ui
-                        .text(text)
-                        .pos(x + 0.02, ty - h / 2.)
-                        .anchor(0., 0.5)
-                        .no_baseline()
-                        .color(semi_black(0.6))
-                        .size(0.5);
-                    let tr = text.measure_with_font(font.as_mut());
-                    let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
-                    let mut b = text.ui.builder(WHITE);
-                    b.add(-1., tr.y);
-                    b.add(r.right(), tr.y);
-                    b.add(r.right() - tr.h / 1.9 * 0.4, tr.bottom());
-                    b.add(-1., tr.bottom());
-                    b.triangle(0, 1, 2);
-                    b.triangle(0, 2, 3);
-                    b.commit();
-
-                    text.draw_with_font(font.as_mut());
-                }
+                    .color(BLACK)
+                    .draw_using(&BOLD_FONT);
             });
+
+            let dy = r.h + 0.03;
+            y += dy;
+            x -= dy / 1.9 * 0.4;
+
+            let r = ui
+                .text(tl!("rks-delta"))
+                .pos(x, y)
+                .anchor(1., 0.)
+                .color(semi_white(0.6))
+                .size(s)
+                .draw_using(&BOLD_FONT);
+            let text = if let Some((state, now)) = self.update_state.as_ref().zip(self.player_rks) {
+                let delta = state.new_rks - now;
+                format!("{:+.2}", delta)
+            } else {
+                "-".to_owned()
+            };
+            ui.text(text).pos(r.right() + 0.03, y).size(s).draw_using(&BOLD_FONT);
+
+            let mut r = Rect::new(0.96, ui.top - 0.04, 0.25, 0.1);
+            r.x -= r.w;
+            r.y -= r.h;
+            self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, Color::from_hex(0x3f51b5));
+                let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
+                ui.fill_rect(ir, (*self.icon_proceed, ir));
+                ui.text(tl!("proceed"))
+                    .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.44)
+                    .draw_using(&BOLD_FONT);
+            });
+
+            r.x -= r.w + 0.02;
+            self.btn_retry.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, Color::from_hex(0x78909c));
+                let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
+                ui.fill_rect(ir, (*self.icon_retry, ir));
+                ui.text(tl!("retry"))
+                    .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.44)
+                    .draw_using(&BOLD_FONT);
+            });
+
+            let spd = if (self.speed - 1.).abs() <= 1e-4 {
+                String::new()
+            } else {
+                format!("{:.2}x", self.speed)
+            };
+            let text = if self.autoplay {
+                format!("AUTOPLAY {spd}")
+            } else if !self.rated {
+                format!("UNRATED {spd}")
+            } else {
+                String::new()
+            };
+            let text = text.trim();
+            if !text.is_empty() {
+                let ty = br.bottom();
+                let x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
+                let h = 0.04;
+                let mut text = ui
+                    .text(text)
+                    .pos(x + 0.02, ty - h / 2.)
+                    .anchor(0., 0.5)
+                    .no_baseline()
+                    .color(semi_black(0.6))
+                    .size(0.5);
+                let tr = text.measure_using(&BOLD_FONT);
+                let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
+                let mut b = text.ui.builder(WHITE);
+                b.add(-1., tr.y);
+                b.add(r.right(), tr.y);
+                b.add(r.right() - tr.h / 1.9 * 0.4, tr.bottom());
+                b.add(-1., tr.bottom());
+                b.triangle(0, 1, 2);
+                b.triangle(0, 2, 3);
+                b.commit();
+
+                text.draw_using(&BOLD_FONT);
+            }
         }
         clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
             ui.fill_rect(sr, (*self.illustration, sr));

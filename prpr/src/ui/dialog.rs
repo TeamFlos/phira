@@ -148,15 +148,14 @@ impl Dialog {
                 }};
             }
             dy!(wr.y + s * 3.);
-            let r = BOLD_FONT.with(|it| {
-                ui.text(&self.title)
-                    .pos(wr.x + pad * 2., 0.)
-                    .anchor(0., 0.)
-                    .size(0.95)
-                    .max_width(wr.w - pad * 2.)
-                    .no_baseline()
-                    .draw_with_font(it.borrow_mut().as_mut())
-            });
+            let r = ui
+                .text(&self.title)
+                .pos(wr.x + pad * 2., 0.)
+                .anchor(0., 0.)
+                .size(0.95)
+                .max_width(wr.w - pad * 2.)
+                .no_baseline()
+                .draw_using(&BOLD_FONT);
             dy!(r.h + s * 2.);
             self.scroll.size((wr.w - pad * 2., wr.bottom() - h - bh - s * 2.));
             ui.dx(wr.x + pad);

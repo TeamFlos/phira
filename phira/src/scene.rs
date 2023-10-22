@@ -22,7 +22,7 @@ use prpr::{
     core::{BOLD_FONT, PGR_FONT},
     ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
-    ui::{Dialog, RectButton, Scroll, Ui, Scroller},
+    ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
 use std::{
     cell::RefCell,
@@ -122,86 +122,80 @@ pub fn render_ldb<'a>(
 ) {
     use macroquad::prelude::*;
 
-    BOLD_FONT.with(|it| {
-        let mut bold = it.borrow_mut();
-        let pad = 0.03;
-        let width = w - pad;
-        ui.dy(0.01);
-        let r = ui.text(title).size(0.9).draw_with_font(bold.as_mut());
-        ui.dy(r.h + 0.05);
-        let sh = ui.top * 2. - r.h - 0.08;
-        let Some(iter) = iter else {
-            ui.loading(width / 2., sh / 2., rt, WHITE, ());
-            return;
-        };
-        let off = scroll.y_scroller.offset;
-        scroll.size((width, sh));
-        scroll.render(ui, |ui| {
-            render_release_to_refresh(ui, width / 2., off);
-            let s = 0.14;
-            let mut h = 0.;
-            ui.dx(0.02);
-            fader.reset();
-            let me = get_data().me.as_ref().map(|it| it.id);
-            fader.for_sub(|f| {
-                PGR_FONT.with(|it| {
-                    let mut pgr = it.borrow_mut();
-                    for item in iter {
-                        f.render(ui, rt, |ui| {
-                            if me == Some(item.player_id) {
-                                ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), ui.background());
-                            }
-                            let r = s / 2. - 0.02;
-                            ui.text(format!("#{}", item.rank))
-                                .pos((0.18 - r) / 2., s / 2.)
-                                .anchor(0.5, 0.5)
-                                .no_baseline()
-                                .size(0.52)
-                                .draw_with_font(bold.as_mut());
-                            let ct = (0.18, s / 2.);
-                            ui.avatar(ct.0, ct.1, r, rt, UserManager::opt_avatar(item.player_id, icon_user));
-                            item.btn.set(ui, Rect::new(ct.0 - r, ct.1 - r, r * 2., r * 2.));
-                            let mut rt = width - 0.04;
-                            if let Some(alt) = item.alt {
-                                let r = ui
-                                    .text(alt)
-                                    .pos(rt, s / 2.)
-                                    .anchor(1., 0.5)
-                                    .no_baseline()
-                                    .size(0.4)
-                                    .color(semi_white(0.6))
-                                    .draw_with_font(bold.as_mut());
-                                rt -= r.w + 0.01;
-                            } else {
-                                rt -= 0.01;
-                            }
-                            let r = ui
-                                .text(item.score)
-                                .pos(rt, s / 2.)
-                                .anchor(1., 0.5)
-                                .no_baseline()
-                                .size(0.6)
-                                .draw_with_font(pgr.as_mut());
-                            rt -= r.w + 0.03;
-                            let lt = 0.25;
-                            if let Some((name, color)) = UserManager::name_and_color(item.player_id) {
-                                ui.text(name)
-                                    .pos(lt, s / 2.)
-                                    .anchor(0., 0.5)
-                                    .no_baseline()
-                                    .max_width(rt - lt - 0.01)
-                                    .size(0.5)
-                                    .color(color)
-                                    .draw();
-                            }
-                        });
-                        ui.dy(s);
-                        h += s;
+    let pad = 0.03;
+    let width = w - pad;
+    ui.dy(0.01);
+    let r = ui.text(title).size(0.9).draw_using(&BOLD_FONT);
+    ui.dy(r.h + 0.05);
+    let sh = ui.top * 2. - r.h - 0.08;
+    let Some(iter) = iter else {
+        ui.loading(width / 2., sh / 2., rt, WHITE, ());
+        return;
+    };
+    let off = scroll.y_scroller.offset;
+    scroll.size((width, sh));
+    scroll.render(ui, |ui| {
+        render_release_to_refresh(ui, width / 2., off);
+        let s = 0.14;
+        let mut h = 0.;
+        ui.dx(0.02);
+        fader.reset();
+        let me = get_data().me.as_ref().map(|it| it.id);
+        fader.for_sub(|f| {
+            for item in iter {
+                f.render(ui, rt, |ui| {
+                    if me == Some(item.player_id) {
+                        ui.fill_path(&Rect::new(-0.02, 0., width, s).feather(-0.01).rounded(0.02), ui.background());
+                    }
+                    let r = s / 2. - 0.02;
+                    ui.text(format!("#{}", item.rank))
+                        .pos((0.18 - r) / 2., s / 2.)
+                        .anchor(0.5, 0.5)
+                        .no_baseline()
+                        .size(0.52)
+                        .draw_using(&PGR_FONT);
+                    let ct = (0.18, s / 2.);
+                    ui.avatar(ct.0, ct.1, r, rt, UserManager::opt_avatar(item.player_id, icon_user));
+                    item.btn.set(ui, Rect::new(ct.0 - r, ct.1 - r, r * 2., r * 2.));
+                    let mut rt = width - 0.04;
+                    if let Some(alt) = item.alt {
+                        let r = ui
+                            .text(alt)
+                            .pos(rt, s / 2.)
+                            .anchor(1., 0.5)
+                            .no_baseline()
+                            .size(0.4)
+                            .color(semi_white(0.6))
+                            .draw_using(&BOLD_FONT);
+                        rt -= r.w + 0.01;
+                    } else {
+                        rt -= 0.01;
+                    }
+                    let r = ui
+                        .text(item.score)
+                        .pos(rt, s / 2.)
+                        .anchor(1., 0.5)
+                        .no_baseline()
+                        .size(0.6)
+                        .draw_using(&PGR_FONT);
+                    rt -= r.w + 0.03;
+                    let lt = 0.25;
+                    if let Some((name, color)) = UserManager::name_and_color(item.player_id) {
+                        ui.text(name)
+                            .pos(lt, s / 2.)
+                            .anchor(0., 0.5)
+                            .no_baseline()
+                            .max_width(rt - lt - 0.01)
+                            .size(0.5)
+                            .color(color)
+                            .draw();
                     }
                 });
-            });
-            (width, h)
+                ui.dy(s);
+                h += s;
+            }
         });
+        (width, h)
     });
 }
 
