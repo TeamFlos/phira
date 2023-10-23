@@ -12,7 +12,7 @@ use macroquad::{
     prelude::*,
 };
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, collections::HashSet, thread::LocalKey, cell::RefCell};
+use std::{borrow::Cow, cell::RefCell, collections::HashSet, thread::LocalKey};
 use tracing::debug;
 
 #[must_use = "DrawText does nothing until you 'draw' it"]
@@ -125,7 +125,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
                             Text::new(&text[last..i])
                                 .with_scale(scale)
                                 .with_color(self.color)
-                                .with_font_id(FontId((!contain) as usize)),
+                                .with_font_id(FontId((!last_contain) as usize)),
                         );
                     }
                     last = i;
@@ -261,7 +261,7 @@ pub struct TextPainter {
 
 impl TextPainter {
     pub fn new(font: FontArc, fallback: Option<FontArc>) -> Self {
-        let valid_chars = font.codepoint_ids().map(|it| it.1).collect();
+        let valid_chars = font.codepoint_ids().map(|it| it.1).chain(" \n\t".chars()).collect();
 
         let mut fonts = vec![font];
         if let Some(fallback) = fallback {
