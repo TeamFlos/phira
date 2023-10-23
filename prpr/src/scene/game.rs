@@ -363,22 +363,31 @@ impl GameScene {
 
             let margin = 0.03;
 
-            self.chart.with_element(ui, res, UIElement::Score, None, |ui, c| {
-                ui.text(format!("{:07}", self.judge.score()))
-                    .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
-                    .anchor(1., 0.)
-                    .size(0.8)
-                    .color(c)
-                    .draw_using(&PGR_FONT);
-                if res.config.show_acc {
-                    ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
-                        .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
+            let unit_h = ui.text("0").measure_using(&PGR_FONT).h;
+
+            // score
+            let h = 0.07;
+            let score_top = top + eps * 2.2 - (1. - p) * 0.4;
+            let score = format!("{:07}", self.judge.score());
+            let ct = ui.text(&score).size(0.8).measure_using(&PGR_FONT).center();
+            self.chart
+                .with_element(ui, res, UIElement::Score, Some((-ct.x + 1. - margin, ct.y + score_top)), |ui, c| {
+                    ui.text(&score)
+                        .pos(1. - margin, score_top)
                         .anchor(1., 0.)
-                        .size(0.4)
-                        .color(Color { a: c.a * 0.7, ..c })
+                        .size(0.8)
+                        .color(c)
                         .draw_using(&PGR_FONT);
-                }
-            });
+                    if res.config.show_acc {
+                        ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
+                            .pos(1. - margin, score_top + h)
+                            .anchor(1., 0.)
+                            .size(0.4)
+                            .color(Color { a: c.a * 0.7, ..c })
+                            .draw_using(&PGR_FONT);
+                    }
+                });
+
             self.chart
                 .with_element(ui, res, UIElement::Pause, Some((pause_center.x, pause_center.y)), |ui, c| {
                     let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
@@ -387,49 +396,52 @@ impl GameScene {
                     ui.fill_rect(r, c);
                 });
             if self.judge.combo() >= 3 {
-                let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, None, |ui, c| {
-                    ui.text(self.judge.combo().to_string())
-                        .pos(0., top + eps * 2. - (1. - p) * 0.4)
-                        .anchor(0.5, 0.)
-                        .color(c)
-                        .draw_using(&PGR_FONT)
-                        .bottom()
-                });
-                self.chart.with_element(ui, res, UIElement::Combo, None, |ui, c| {
-                    ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
-                        .pos(0., btm + 0.01)
-                        .anchor(0.5, 0.)
-                        .size(0.4)
-                        .color(c)
-                        .draw_using(&PGR_FONT);
-                });
+                let combo_top = top + eps * 2. - (1. - p) * 0.4;
+                let btm = self
+                    .chart
+                    .with_element(ui, res, UIElement::ComboNumber, Some((0., combo_top + unit_h / 2.)), |ui, c| {
+                        ui.text(self.judge.combo().to_string())
+                            .pos(0., combo_top)
+                            .anchor(0.5, 0.)
+                            .color(c)
+                            .draw_using(&PGR_FONT)
+                            .bottom()
+                    });
+                let combo_top = btm + 0.01;
+                self.chart
+                    .with_element(ui, res, UIElement::Combo, Some((0., combo_top + unit_h * 0.2)), |ui, c| {
+                        ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                            .pos(0., combo_top)
+                            .anchor(0.5, 0.)
+                            .size(0.4)
+                            .color(c)
+                            .draw_using(&PGR_FONT);
+                    });
             }
             let lf = -1. + margin;
-            let bt = -top - eps * 2.8;
-            self.chart.with_element(ui, res, UIElement::Name, None, |ui, c| {
+            let bt = -top - eps * 2.8 + (1. - p) * 0.4;
+            let ct = ui.text(&res.info.name).measure().center();
+            self.chart.with_element(ui, res, UIElement::Name, Some((lf + ct.x, bt - ct.y)), |ui, c| {
                 ui.text(&res.info.name)
-                    .pos(lf, bt + (1. - p) * 0.4)
+                    .pos(lf, bt)
                     .anchor(0., 1.)
                     .size(0.5)
                     .color(c)
                     .max_width(0.8)
                     .draw();
             });
-            self.chart.with_element(ui, res, UIElement::Level, None, |ui, c| {
-                ui.text(&res.info.level)
-                    .pos(-lf, bt + (1. - p) * 0.4)
-                    .anchor(1., 1.)
-                    .size(0.5)
-                    .color(c)
-                    .draw();
-            });
+
+            let ct = ui.text(&res.info.level).measure().center();
+            self.chart
+                .with_element(ui, res, UIElement::Level, Some((-lf - ct.x, bt - ct.y)), |ui, c| {
+                    ui.text(&res.info.level).pos(-lf, bt).anchor(1., 1.).size(0.5).color(c).draw();
+                });
+
             let hw = 0.003;
             let height = eps * 1.2;
             let dest = 2. * res.time / res.track_length;
-            self.chart.with_element(ui, res, UIElement::Bar, Some((0., top + height / 2.)), |ui, c| {
-                ui.fill_rect(Rect::new(-1., top, dest, height), Color { a: c.a * 0.6, ..c });
-                ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), c);
-            });
+            ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
+            ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
         });
         Ok(())
     }
