@@ -14,7 +14,7 @@ chart-ranked = Ranked
 chart-special = Special
 chart-unstable = Unstable
 
-list-empty = ว่างปล่าว :v
+list-empty = ว่างเปล่า :v
 
 tos-and-policy = Terms of Service และ Privacy Policy
 tos-and-policy-desc = คุณต้องอ่านและยินยอม Terms of Service และ Privacy Policy ก่อนที่จะใช้บริการ Online ของ Phira โดย TeamFlos.
