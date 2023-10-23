@@ -49,8 +49,6 @@ about-content =
 
   Phira는 비상업적인 커뮤니티 중심의 리듬 게임으로, Phigros에서 영감을 받아 Rust로 개발되었습니다.
 
-  게임을 즐기신다면, Patreon(@PhiraGame) 또는 afdian.com(@Mivik)에서 지원해 주시기 바랍니다. 여러분의 지원이 우리에게 가장 큰 원동력이 됩니다!
-
   BiliBili 계정: @Phira官方
   QQ 길드: r48eajexth
 
