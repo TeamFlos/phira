@@ -1045,7 +1045,7 @@ impl SongScene {
                 const SUBTITLE_SIZE: f32 = 0.35;
                 const LEFT: f32 = 0.03;
                 const PAD: f32 = 0.01;
-                const SUB_MAX_WIDTH: f32 = 1.;
+                const SUB_MAX_WIDTH: f32 = 0.46;
                 if let Some(subtitle) = subtitle {
                     let r1 = ui.text(Cow::clone(&title)).size(TITLE_SIZE).measure();
                     let r2 = ui
@@ -1056,10 +1056,10 @@ impl SongScene {
                         .measure();
                     let h = r1.h + PAD + r2.h;
                     ui.text(subtitle)
-                        .pos(LEFT, (ITEM_HEIGHT + h) / 2.)
-                        .anchor(0., 1.)
+                        .pos(LEFT, (ITEM_HEIGHT + h) / 2. - r2.h)
                         .size(SUBTITLE_SIZE)
                         .max_width(SUB_MAX_WIDTH)
+                        .multiline()
                         .color(semi_white(0.6))
                         .draw();
                     ui.text(title).pos(LEFT, (ITEM_HEIGHT - h) / 2.).no_baseline().size(TITLE_SIZE).draw();
