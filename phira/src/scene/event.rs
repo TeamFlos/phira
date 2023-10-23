@@ -83,7 +83,6 @@ pub struct EventScene {
 impl EventScene {
     pub fn new(mut event: Event, illu: Illustration, icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Self {
         let id = event.id;
-        event.time_end = Utc::now() + chrono::Duration::days(2);
         Self {
             event,
             illu,
