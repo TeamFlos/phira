@@ -1,85 +1,124 @@
 
-load-preview-failed = ไม่สามารถโหลด PV เพลงได้
-load-charts-failed = ไม่สามารถโหลด Chart ได้
-no-chart-for-download = Chart นี้ไม่สามารถ Download ได้
+load-preview-failed = ไม่สามารถโหลด Preview เพลงได้
+load-charts-failed = ไม่สามารถโหลด Charts ได้
+no-chart-for-download = Chart ไม่สามารถ Download ได้
 
 load-chart-failed = ไม่สามารถโหลด Chart ได้
 
 dl-cancel = ยกเลิก
-dl-status-fetch = กำลังเรียกข้อมูล
+dl-status-fetch = กำลังโหลดข้อมูล
 dl-status-song = กำลัง Download เพลง
 dl-status-chart = กำลัง Download chart
 dl-status-extract = กำลังแตกไฟล์
-dl-status-illustration = กำลัง Download ภาพ
+dl-status-illustration = กำลัง Download รูปภาพ
 dl-status-assets = กำลัง Download assets
 dl-status-saving = กำลังบันทึก
 dl-failed = Download ล้มเหลว
-dl-success = Download เสร็จเรียบร้อย
+dl-success = Download เสร็จสิ้น
 
 guest = Guest
 
-warn-unrated = Chart นี้จะไม่มีการบันทึกข้อมูลใดๆทั้งสิ้น
-failed-to-play = ไม่สามารถเล่นในโหมด online ได้
+warn-unrated = การเล่นนี้จะไม่ถูกส่งขึ้น Server
+failed-to-play = ไม่สามารถเริ่มโหมด Online ได้
 play-cancel = ยกเลิก
-play-switch-to-offline = เปลี่ยนไปเป็น offline
-switched-to-offline = เปลี่ยนไปเป็น offline
+play-switch-to-offline = เปลี่ยนไปใช้โหมด Offline
+switched-to-offline = เปลี่ยนไปใช้โหลด Offline แล้ว
 
-delete = ลบ
-exercise = ฝึกเล่น
-offset = ปรับ offset
+delete = ลย
+rate = Rate
+exercise = ฝึก
+offset = ปรับ Offset
 
 edit-cancel = ยกเลิก
 edit-save = บันทึก
 edit-saving = กำลังบันทึก
-edit-load-file-failed = ไม่สามารถโหลด external file ได้
+edit-load-file-failed = ไม่สามารถโหลด External file ได้
 edit-save-failed = บันทึกล้มเหลว
-edit-saved = บันทึกเสร็จเรียบร้อย
-edit-preview-invalid = เวลา PV อยู่นอกขอบเขต
-edit-tags = แก้ไข Tag
+edit-saved = บันทึกเสร็จสิ้น
+edit-preview-invalid = เวลา Preview เกินขอบเขต
+edit-tags = แก้ไข Tags
+edit-downloaded = คุณไม่สามารถแก้ไข Chart ที่ Download มาได้
 
 edit-upload = อัพโหลด
-upload-login-first = กรุณา Login ก่อน
-upload-builtin = Built-in chart ไม่สามารถอัพโหลดได้
-upload-downloaded = Chart ที่ Download แล้วไม่สามารถอัพโหลดได้
-upload-rules = อัพโหลดกฎ
+edit-update = อัพเดท
+
+upload-login-first = กรุณา Login
+upload-builtin = Chart Built-in ไม่สามารถอัพโหลดได้
+upload-downloaded = Chart ที่ Download มาไม่สามารถอัพโหลดได้
+upload-rules = กฏในการอัพโหลด
 upload-rules-content =
-  ก่อนที่จะอัพโหลดนั้น, คุณต้องมั่นใจว่า:
-  1. Chart นั้นคุณต้องเป็นคนทำเอง, หรือการอัพโหลดนั้นต้องได้รับความยินยอมจาก Charter ก่อน. ถ้าเป็นในกรณีที่ 2, ใน Chart นั้นต้องมีบอกในหน้าแนะนำว่าอัพโหลดในฐานะของคนอัพโหลดเท่านั้น;
-  2. ถ้าคุณเป็นคนทำ Chart เอง, เราแนะนำให้ใช้ Avatar หรือ ID ที่เป็นที่รู้จัก, ถ้า Avatar ID ใน prpr นั้นแตกต่างจากที่ที่คุณอัพโหลดวีดีโอ Fanmade chart จากเว็บไซต์ที่คุณอัพโหลด (โดยเฉพาะ Bilibili), คำอธิบายเพิ่มเติมนั้นจำเป็นต้องมี;
-  3. ! การอัพโหลด Chart ของผู้อื่นโดยไม่ได้รับอนุญาตนั้นเป็นทำผิดกฎอันร้ายแรง, คุณอาจจะโดนแบนจากการอัพโหลด Chart อย่างถาวรถ้าคุณทำผิด;
-  4. Content ของ Chart (ไม่ว่าจะเป็น เพลง, ภาพ, ตัวหนังสือ, ฯลฯ) ต้องอยู่ในกฎหมายของผู้คนในประเทศจีน, และต้องไม่มีอะไรที่เป็นสิ่งผิดกฎหมาย หรือ มีข้อมูลแย่ๆอยู่.
+  ก่อนที่จะอัพโหลดคุณต่องบืนยันว่า:
+  1. Chart นี้คุณเป็นคนทำเอง. Collab chart ต้องได้รับการอนุมัติจาก Charter ผู้อื่นที้งหมดก่อน. ไม่งั้นคุณอาจโดนระงับการอัพโหลดภาวร
+  2. เราแนะนำให้ใช้ Avatar และ ID ที่เป็นที่รู้จักได้ง่ายและเป็นเอกลักษณ์ของคุณ. ถ้า Avatar หรือ ID ที่คุณใช้ใน Phira แตกต่างไปเล็กน้อยจาก Platform อื่นๆ (โดยเฉพาะ BiliBili) เราแนะนำให้ใส่คำอธิบายประกอบเพิ่มเติม และก็ กรุณาเพิ่มคำอธิบายในภาษาที่คุณใช้ด้วย (ถ้าไม่ใช่ zh-CH)
+  3. ของที่อยู่ในไฟล์ Chart (รวมถึง เพลง, รูปภาพ, ข้อความ, ฯลฯ) ต้องปฎิบัติตามกฎหมายของจีน ซึ่งไม่ควรมีอะไรที่ผิดกฎหมายของจีน
+  4. เราได้รับอนุญาตในการใช้ Content ที่ฉันใช้ในการโปรโมท โดยการใช้ Phira เป็นตัวกลาง. การใช้นอกจากนี้จำเป็นต้องขอการอนุมัติจากฉันก่อน
+  5. การตีความกฎนั้นจะขึ้นอยู่ TeamFlos เท่านั้น
 upload-cancel = ยกเลิก
 upload-confirm = ยืนยัน
 uploading = กำลังอัพโหลด
 upload-chart-failed = อัพโหลด Chart ล้มเหลว
-upload-success = อัพโหลดเสร็จเรียบร้อย, กรุณารอการรีวิวสักครู่!
+upload-success = อัพโหลดเสร็จสิ้น! กรุณารอให้ทีมงานตรวจสอบสักครู่!
 upload-failed = อัพโหลดล้มเหลว
 
 ldb = Leaderboard
-ldb-load-failed = ไม่สามารถโหลดข้อมูล leaderboard ได้
+ldb-load-failed = ไม่สามารถโหลด Leaderboard ได้
 ldb-no-rank = ไม่มีการเล่น
 ldb-score = Score
 ldb-std = Purity
 
 info-name = ชื่อ
 info-composer = ศิลปิน
-info-charter = ผู้ทำ Chart
-info-difficulty = ความยาก
+info-charter = Charter
+info-difficulty = ระดับความยาก
 info-desc = คำอธิบาย
+info-rating = Rating
+info-type = ประเภท
+info-tags = Tags
+
+reviewed = ตรวจสอบแล้ว
+unreviewed = ยังไม่ได้ตรวจสอบ
 
 review-approve = อนุมัติ
-review-deny = ไม่อนุมัติ
-review-del = ลบ
-review-approved = ได้รับการอนุมัติเรียบร้อย
+review-deny = ปฏิเสธ
+review-del = ลบออกจาก Online
+review-approved = อนุมัติแล้ว
 review-passed = ผ่าน
-review-denied = ไม่ผ่าน
-review-deleted = ลบเรียบร้อย
-review-action-failed = การ Review ล้มเหลว
-review-doing = กำลังอยู่ในขั้นตอน Review
-review-not-loaded = ข้อมูลยังโหลดไม่เสร็จ, กรุณารอสักครู่
-review-edit-tags = แก้ไข Tag
-review-edit-tags-failed = แก้ไขไม่สำเร็จ
-review-edit-tags-done = อัพเดทเรียบร้อย
+review-denied = ไม่อนุมัติ
+review-deleted = ลงเรียบร้อย
+review-action-failed = การดำเนินการตรวจสอบล้มเหลว
+review-doing = กำลังดำเนินการ
+review-not-loaded = ข้อมูลยังไม่ได้โหลด กรุณารอสักครู่
+review-edit-tags = แก้ไข Tags
+review-edit-tags-failed = แก้ไข Tags ล้มเหลว
+review-edit-tags-done = Tags อัพเดทแล้ว
 
+mods = Mods
 mods-autoplay = Autoplay
-mods-autoplay-sub = เล่นอัตโนมัติโดยจะไม่บันทึก Score
+mods-autoplay-sub = เปิดโหมด Autoplay แล้ว Score จะไม่ถูกอัพโหลด
+mods-flip-x = Flip X
+mods-flip-x-sub = กลับด้าน Chart ในแกน X
+mods-fade-out = Fade out
+mods-fade-out-sub = Note จะจางลงเมื่อเข้าใกล้ Line
+
+rate-failed = Rate ล้มเหลว
+rate-done = Rated เสร็จเรียบร้อย
+
+need-update = ต้องการอัพเดท
+need-update-info-only-content = ข้อมูลของ Chart ถูกอัพเดท. คุณต้องการอัพเดทหรือไม่?
+need-update-content = Chart ถูกอัพเดทแล้ว. คุณจำเป็นต้องทำการ Sync score ใน local ก่อนที่จะอัพโหลด Score. คุณต้องการ Sync เลยหรือไม่?
+
+request-failed = คำขอล้มเหลว
+
+stabilize = Stabilize
+stabilize-warn = User ทั่วไปสามารถขอ Stabilize charts ได้ 1 ครั้งต่อ 3 วัน. ถ้าคุณมี Chart ที่ Stabilize แล้ว เวลาจะลดเหลือ 1 วัน.
+stabilize-requested = คำขอ Stabilize ถูกส่งไปแล้ว
+stabilize-failed = Stabilize ล้มเหลว
+stabilize-approve = อนุมัติใน Special
+stabilize-approve-ranked = อนุมัติการ Stable
+stabilize-comment = Stable comment
+stabilize-commented = Comment แล้ว
+stabilize-deny = ปฏิเสธการ Stable
+stabilize-approved = อนุมัติแล้ว
+stabilize-approved-passed = ได้รับการอนุมัติแล้ว, Chart ได้ทำการ Stabilize เรียบร้อย
+stabilize-denied = ถูกปฏิเสธ
+stabilize-denied-passed = ถูกปฏิเสธ, Chart ได้ถูกปฏิเสธการ Stabilize
