@@ -3,6 +3,7 @@ prpr::tl_file!("rate");
 use crate::page::Fader;
 use macroquad::prelude::*;
 use prpr::{
+    core::BOLD_FONT,
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     ui::{DRectButton, Ui},
 };
@@ -179,7 +180,7 @@ impl RateDialog {
                         .text(if self.rate_upper.is_some() { tl!("filter") } else { tl!("rate") })
                         .pos(wr.x + 0.04, wr.y + 0.033)
                         .size(0.9)
-                        .draw();
+                        .draw_using(&BOLD_FONT);
                     let bh = 0.09;
                     ui.scope(|ui| {
                         ui.dy(r.bottom() + 0.04);
@@ -215,5 +216,7 @@ impl RateDialog {
                 });
             });
         }
+        // TODO magical. removing this line will make the title disappear.
+        ui.text("").draw_using(&BOLD_FONT);
     }
 }

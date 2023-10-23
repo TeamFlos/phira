@@ -15,7 +15,7 @@ use prpr::{
     ext::{poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, take_input},
-    ui::{DRectButton, Scroll, Slider, TextPainter, Ui},
+    ui::{DRectButton, Scroll, Slider, Ui}, core::BOLD_FONT,
 };
 use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
@@ -154,7 +154,7 @@ impl Page for SettingsPage {
                         SettingListType::Audio => self.list_audio.render(ui, r, t),
                         SettingListType::Chart => self.list_chart.render(ui, r, t),
                         SettingListType::Debug => self.list_debug.render(ui, r, t),
-                        SettingListType::About => render_settings(ui, r, &self.icon, &mut s.painter),
+                        SettingListType::About => render_settings(ui, r, &self.icon),
                     });
                 });
 
@@ -173,7 +173,7 @@ impl Page for SettingsPage {
     }
 }
 
-fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture, painter: &mut TextPainter) -> (f32, f32) {
+fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     r.x = 0.;
     r.y = 0.;
     let ow = r.w;
@@ -186,7 +186,7 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture, painter: &mut T
 
     let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
     let (first, text) = text.split_once('\n').unwrap();
-    let tr = ui.text(first).pos(ct.x, ir.bottom() + 0.03).anchor(0.5, 0.).size(0.6).draw_with_font(Some(painter));
+    let tr = ui.text(first).pos(ct.x, ir.bottom() + 0.03).anchor(0.5, 0.).size(0.6).draw_using(&BOLD_FONT);
 
     let r = ui
         .text(text.trim())

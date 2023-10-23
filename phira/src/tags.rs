@@ -3,6 +3,7 @@ prpr::tl_file!("tags");
 use crate::{client::Permissions, page::Fader};
 use macroquad::prelude::*;
 use prpr::{
+    core::BOLD_FONT,
     ext::{semi_black, RectExt},
     scene::{request_input, return_input, show_message, take_input},
     ui::{DRectButton, Scroll, Ui},
@@ -284,7 +285,7 @@ impl TagsDialog {
                         .text(if self.unwanted.is_some() { tl!("filter") } else { tl!("edit") })
                         .pos(wr.x + 0.04, wr.y + 0.033)
                         .size(0.9)
-                        .draw();
+                        .draw_using(&BOLD_FONT);
                     let mw = wr.w - 0.08;
                     let bh = 0.09;
                     ui.scope(|ui| {

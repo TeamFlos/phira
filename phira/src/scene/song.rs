@@ -21,7 +21,7 @@ use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::Tweenable,
+    core::{Tweenable, BOLD_FONT},
     ext::{poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
