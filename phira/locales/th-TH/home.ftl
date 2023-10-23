@@ -1,9 +1,9 @@
 
-play = เล่น
+play = Play
 event = Event
 respack = Skin
 
-not-opened = ยังใช้ไม่ได้ในขณะนี้
-not-logged-in = ยังไม่ได้ login
+not-opened = ยังไม่มีให้บริการ ณ ขณะนี้
+not-logged-in = ยังไม่ได้ Login
 
-failed-to-update = อัพเดทข้อมูลล้มเหลว
+failed-to-update = ไม่สามารถโหลดข้อมูล User ได้

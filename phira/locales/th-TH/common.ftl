@@ -1,6 +1,6 @@
 
-del-confirm = ต้องการจะลบใช่หรือไม่?
-del-confirm-content = เมื่อยืนยันแล้วจะไม่สามารถย้อนกับได้.
+del-confirm = ต้องการลบหรือไม่?
+del-confirm-content = หลังจากยืนยันแล้วจะไม่สามารถทำกลับได้.
 
 cancel = ยกเลิก
 confirm = ยืนยัน
@@ -14,4 +14,11 @@ chart-ranked = Ranked
 chart-special = Special
 chart-unstable = Unstable
 
-list-empty = ไม่มีข้อมูล
+list-empty = ว่างเปล่า :v
+
+tos-and-policy = Terms of Service และ Privacy Policy
+tos-and-policy-desc = คุณต้องอ่านและยินยอม Terms of Service และ Privacy Policy ก่อนที่จะใช้บริการ Online ของ Phira โดย TeamFlos.
+tos = Terms of Service
+policy = Privacy Policy
+
+open-in-web = เปิดบน Web
