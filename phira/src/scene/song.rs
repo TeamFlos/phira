@@ -7,7 +7,7 @@ use crate::{
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{thumbnail_path, ChartItem, Fader, Illustration, SFader},
+    page::{local_illustration, thumbnail_path, ChartItem, Fader, Illustration, SFader},
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -22,7 +22,7 @@ use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
     core::Tweenable,
-    ext::{poll_future, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
+    ext::{open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
     judge::{icon_index, Judge},
@@ -124,7 +124,7 @@ impl Downloading {
             .draw();
         let size = 0.7;
         let r = ui.text(tl!("dl-cancel")).pos(0., 0.12).anchor(0.5, 0.).size(size).measure().feather(0.02);
-        self.cancel_download_btn.render_text(ui, r, t, 1., tl!("dl-cancel"), 0.6, true);
+        self.cancel_download_btn.render_text(ui, r, t, tl!("dl-cancel"), 0.6, true);
     }
 
     pub fn check(&mut self) -> Result<Option<bool>> {
@@ -274,25 +274,22 @@ pub struct SongScene {
     uploader_btn: RectButton,
 
     sf: SFader,
+    fade_start: f32,
+
+    background: Arc<Mutex<Option<SafeTexture>>>,
+    tr_start: f32,
+
+    open_web_btn: DRectButton,
 }
 
 impl SongScene {
-    pub fn new(
-        mut chart: ChartItem,
-        local_illu: Option<Illustration>,
-        local_path: Option<String>,
-        icons: Arc<Icons>,
-        rank_icons: [SafeTexture; 8],
-        mods: Mods,
-    ) -> Self {
+    pub fn new(mut chart: ChartItem, local_path: Option<String>, icons: Arc<Icons>, rank_icons: [SafeTexture; 8], mods: Mods) -> Self {
         if let Some(path) = &local_path {
             if let Some(id) = path.strip_prefix("download/") {
                 chart.info.id = Some(id.parse().unwrap());
             }
         }
-        let illu = if let Some(illu) = local_illu {
-            illu
-        } else if let Some(id) = chart.info.id {
+        let illu = if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
                 notify: Arc::default(),
@@ -306,6 +303,10 @@ impl SongScene {
                 loaded: Arc::default(),
                 load_time: f32::NAN,
             }
+        } else if let Some(path) = &chart.local_path {
+            let illu = local_illustration(path.clone(), chart.illu.texture.1.clone(), true);
+            illu.notify.notify_one();
+            illu
         } else {
             chart.illu
         };
@@ -436,6 +437,12 @@ impl SongScene {
             uploader_btn: RectButton::new(),
 
             sf: SFader::new(),
+            fade_start: 0.,
+
+            tr_start: f32::NAN,
+            background: Arc::default(),
+
+            open_web_btn: DRectButton::new(),
         }
     }
 
@@ -634,7 +641,7 @@ impl SongScene {
     }
 
     fn launch(&mut self, mode: GameMode) -> Result<()> {
-        self.scene_task = Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None)?;
+        self.scene_task = Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None, Some(self.background.clone()))?;
         Ok(())
     }
 
@@ -645,6 +652,7 @@ impl SongScene {
         mods: Mods,
         mode: GameMode,
         client: Option<Arc<phira_mp_client::Client>>,
+        background_output: Option<Arc<Mutex<Option<SafeTexture>>>>,
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         #[cfg(feature = "closed")]
@@ -774,6 +782,10 @@ impl SongScene {
             };
             let chart_updated = info.chart_updated;
             config.mods = mods;
+            let preload = LoadingScene::load(fs.as_mut(), &info.illustration).await?;
+            if let Some(output) = background_output {
+                *output.lock().unwrap() = Some(preload.1.clone());
+            }
             LoadingScene::new(
                 mode,
                 info,
@@ -823,6 +835,7 @@ impl SongScene {
                     })
                 })),
                 update_fn,
+                Some(preload),
             )
             .await
             .map(|it| NextScene::Overlay(Box::new(it)))
@@ -870,6 +883,7 @@ impl SongScene {
                             if pos == 1 {
                                 CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
                             }
+                            false
                         })
                         .show();
                 }
@@ -903,9 +917,8 @@ impl SongScene {
         ui.dy(0.03);
         self.ldb_type_btn.render_text(
             ui,
-            Rect::new(width - 0.24, -0.01, 0.23, 0.09),
+            Rect::new(width - 0.24, 0.01, 0.23, 0.08),
             rt,
-            1.,
             if self.ldb_std { tl!("ldb-std") } else { tl!("ldb-score") },
             0.6,
             true,
@@ -953,10 +966,14 @@ impl SongScene {
                     ui.dy(dy);
                 }};
             }
+            let mw = width - pad * 3.;
+            let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
+            self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
+            dy!(r.h + 0.04);
             if let Some(uploader) = &self.info.uploader {
                 let c = 0.06;
                 let s = 0.05;
-                let r = ui.avatar(c, c, s, WHITE, rt, UserManager::opt_avatar(uploader.id, &self.icons.user));
+                let r = ui.avatar(c, c, s, rt, UserManager::opt_avatar(uploader.id, &self.icons.user));
                 self.uploader_btn.set(ui, Rect::new(c - s, c - s, s * 2., s * 2.));
                 if let Some((name, color)) = UserManager::name_and_color(uploader.id) {
                     ui.text(name)
@@ -970,7 +987,6 @@ impl SongScene {
                 }
                 dy!(0.14);
             }
-            let mw = width - pad * 3.;
             let mut item = |title: Cow<'_, str>, content: Cow<'_, str>| {
                 dy!(ui.text(title).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
                 dy!(ui.text(content).pos(pad, 0.).size(0.6).multiline().max_width(mw).draw().h + 0.03);
@@ -1065,17 +1081,18 @@ impl SongScene {
                 }
                 let on = self.mods.contains(flag);
                 let oh = rr.h;
-                let (r, path) = btn.build(ui, rt, rr);
-                let ct = r.center();
-                ui.fill_path(&path, if on { WHITE } else { ui.background() });
-                ui.text(if on { ttl!("switch-on") } else { ttl!("switch-off") })
-                    .pos(ct.x, ct.y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.5 * (1. - (1. - r.h / oh).powf(1.3)))
-                    .max_width(r.w)
-                    .color(if on { Color::new(0.3, 0.3, 0.3, 1.) } else { WHITE })
-                    .draw();
+                btn.build(ui, rt, rr, |ui, path| {
+                    let ct = rr.center();
+                    ui.fill_path(&path, if on { WHITE } else { ui.background() });
+                    ui.text(if on { ttl!("switch-on") } else { ttl!("switch-off") })
+                        .pos(ct.x, ct.y)
+                        .anchor(0.5, 0.5)
+                        .no_baseline()
+                        .size(0.5 * (1. - (1. - rr.h / oh).powf(1.3)))
+                        .max_width(rr.w)
+                        .color(if on { Color::new(0.3, 0.3, 0.3, 1.) } else { WHITE })
+                        .draw();
+                });
                 dy!(ITEM_HEIGHT);
                 index += 1;
             };
@@ -1133,6 +1150,7 @@ impl Scene for SongScene {
         let res = match res.downcast::<SimpleRecord>() {
             Err(res) => res,
             Ok(rec) => {
+                self.fade_start = tm.now() as f32 + FADE_IN_TIME;
                 if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
                     self.rate_dialog.enter(tm.real_time() as _);
                 }
@@ -1247,7 +1265,7 @@ impl Scene for SongScene {
                         }
                     }
                     SideContent::Leaderboard => {
-                        if self.ldb_type_btn.touch(touch, t) {
+                        if self.ldb_type_btn.touch(touch, rt) {
                             self.ldb_std ^= true;
                             self.ldb_scroll.y_scroller.offset = 0.;
                             self.load_ldb();
@@ -1277,6 +1295,10 @@ impl Scene for SongScene {
                                 t,
                                 ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
                             );
+                            return Ok(true);
+                        }
+                        if self.open_web_btn.touch(touch, rt) {
+                            open_url(&format!("https://phira.moe/chart/{}", self.info.id.unwrap()))?;
                             return Ok(true);
                         }
                     }
@@ -1465,6 +1487,7 @@ impl Scene for SongScene {
             if let Some(res) = poll_future(task.as_mut()) {
                 match res {
                     Err(err) => {
+                        self.tr_start = f32::NAN;
                         let error = format!("{err:?}");
                         Dialog::plain(tl!("failed-to-play"), error)
                             .buttons(vec![tl!("play-cancel").to_string(), tl!("play-switch-to-offline").to_string()])
@@ -1474,6 +1497,7 @@ impl Scene for SongScene {
                                     let _ = save_data();
                                     show_message(tl!("switched-to-offline")).ok();
                                 }
+                                false
                             })
                             .show();
                     }
@@ -1875,6 +1899,10 @@ impl Scene for SongScene {
                 self.scene_task = None;
             }
         }
+        if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() {
+            self.tr_start = rt;
+        }
+
         Ok(())
     }
 
@@ -1884,160 +1912,160 @@ impl Scene for SongScene {
         ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
 
-        let c = semi_white((t / FADE_IN_TIME).clamp(-1., 0.) + 1.);
-
         let r = ui.back_rect();
         self.back_btn.set(ui, r);
-        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit, c));
+        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
 
-        let r = ui
-            .text(&self.info.name)
-            .max_width(0.57 - r.right())
-            .size(1.2)
-            .pos(r.right() + 0.02, r.y)
-            .color(c)
-            .draw();
-        ui.text(&self.info.composer)
-            .size(0.5)
-            .pos(r.x + 0.02, r.bottom() + 0.03)
-            .color(Color { a: c.a * 0.8, ..c })
-            .draw();
-
-        // bottom bar
-        let s = 0.25;
-        let r = Rect::new(-0.94, ui.top - s - 0.06, s, s);
-        let icon = self.record.as_ref().map_or(0, |it| icon_index(it.score as _, it.full_combo));
-        ui.fill_rect(r, (*self.rank_icons[icon], r, ScaleType::Fit, c));
-        let score = self.record.as_ref().map(|it| it.score).unwrap_or_default();
-        let accuracy = self.record.as_ref().map(|it| it.accuracy).unwrap_or_default();
-        let r = ui
-            .text(format!("{score:07}"))
-            .pos(r.right() + 0.01, r.center().y)
-            .anchor(0., 1.)
-            .size(1.2)
-            .color(c)
-            .draw();
-        ui.text(format!("{:.2}%", accuracy * 100.))
-            .pos(r.x, r.bottom() + 0.01)
-            .anchor(0., 0.)
-            .size(0.7)
-            .color(semi_white(0.7 * c.a))
-            .draw();
-
-        if self.info.id.is_some() {
-            let h = 0.09;
-            let mut r = Rect::new(r.x, r.y - h, h, h);
-            ui.fill_rect(r, (*self.icons.ldb, r, ScaleType::Fit, c));
-            if let Some((rank, _)) = &self.ldb {
-                ui.text(if let Some(rank) = rank {
-                    format!("#{rank}")
-                } else {
-                    tl!("ldb-no-rank").into_owned()
-                })
-                .pos(r.right() + 0.01, r.center().y)
-                .anchor(0., 0.5)
-                .no_baseline()
-                .color(c)
-                .size(0.7)
+        ui.alpha::<Result<()>>(((t - self.fade_start) / FADE_IN_TIME).clamp(-1., 0.) + 1., |ui| {
+            let r = ui
+                .text(&self.info.name)
+                .max_width(0.57 - r.right())
+                .size(1.2)
+                .pos(r.right() + 0.02, r.y)
                 .draw();
-            } else {
-                ui.loading(
-                    r.right() + 0.04,
-                    r.center().y,
-                    t,
-                    c,
-                    LoadingParams {
-                        radius: 0.027,
-                        width: 0.007,
-                        ..Default::default()
-                    },
-                );
-            }
-            r.w += 0.13;
-            self.ldb_btn.set(ui, r);
-        }
+            ui.text(&self.info.composer)
+                .size(0.5)
+                .pos(r.x + 0.02, r.bottom() + 0.03)
+                .color(semi_white(0.8))
+                .draw();
 
-        // play button
-        let w = 0.26;
-        let pad = 0.08;
-        let r = Rect::new(1. - pad - w, ui.top - pad - w, w, w);
-        let (r, _) = self.play_btn.render_shadow(ui, r, t, c.a, |_| semi_white(0.3 * c.a));
-        let r = r.feather(-0.04);
-        ui.fill_rect(
-            r,
-            (
-                if self.local_path.is_some() {
-                    *self.icons.play
+            // bottom bar
+            let s = 0.25;
+            let r = Rect::new(-0.94, ui.top - s - 0.06, s, s);
+            let icon = self.record.as_ref().map_or(0, |it| icon_index(it.score as _, it.full_combo));
+            ui.fill_rect(r, (*self.rank_icons[icon], r, ScaleType::Fit));
+            let score = self.record.as_ref().map(|it| it.score).unwrap_or_default();
+            let accuracy = self.record.as_ref().map(|it| it.accuracy).unwrap_or_default();
+            let r = ui
+                .text(format!("{score:07}"))
+                .pos(r.right() + 0.01, r.center().y)
+                .anchor(0., 1.)
+                .size(1.2)
+                .draw();
+            ui.text(format!("{:.2}%", accuracy * 100.))
+                .pos(r.x, r.bottom() + 0.01)
+                .anchor(0., 0.)
+                .size(0.7)
+                .color(semi_white(0.7))
+                .draw();
+
+            if self.info.id.is_some() {
+                let h = 0.09;
+                let mut r = Rect::new(r.x, r.y - h, h, h);
+                ui.fill_rect(r, (*self.icons.ldb, r, ScaleType::Fit));
+                if let Some((rank, _)) = &self.ldb {
+                    ui.text(if let Some(rank) = rank {
+                        format!("#{rank}")
+                    } else {
+                        tl!("ldb-no-rank").into_owned()
+                    })
+                    .pos(r.right() + 0.01, r.center().y)
+                    .anchor(0., 0.5)
+                    .no_baseline()
+                    .size(0.7)
+                    .draw();
                 } else {
-                    *self.icons.download
-                },
-                r,
-                ScaleType::Fit,
-                c,
-            ),
-        );
-
-        ui.scope(|ui| {
-            ui.dx(1. - 0.03);
-            ui.dy(-ui.top + 0.03);
-            let s = 0.08;
-            let r = Rect::new(-s, 0., s, s);
-            let cc = semi_white(c.a * 0.4);
-            ui.fill_rect(r, (*self.icons.menu, r.feather(-0.02), ScaleType::Fit, if self.menu_options.is_empty() { cc } else { c }));
-            self.menu_btn.set(ui, r);
-            if self.need_show_menu {
-                self.need_show_menu = false;
-                self.menu.set_bottom(true);
-                self.menu.set_selected(usize::MAX);
-                let d = 0.28;
-                self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
-            }
-            ui.dx(-r.w - 0.03);
-            ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit, c));
-            self.info_btn.set(ui, r);
-            ui.dx(-r.w - 0.03);
-            ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
-            self.edit_btn.set(ui, r);
-            ui.dx(-r.w - 0.03);
-            ui.fill_rect(r, (*self.icons.r#mod, r, ScaleType::Fit, if self.local_path.is_some() { c } else { cc }));
-            self.mod_btn.set(ui, r);
-        });
-
-        if let Some(dl) = &mut self.downloading {
-            dl.render(ui, t);
-        }
-
-        let rt = tm.real_time() as f32;
-        if self.side_enter_time.is_finite() {
-            let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
-            let p = 1. - (1. - p).powi(3);
-            let p = if self.side_enter_time < 0. { 1. - p } else { p };
-            ui.fill_rect(ui.screen_rect(), semi_black(p * 0.6));
-            let w = self.side_content.width();
-            let lf = f32::tween(&1.04, &(1. - w), p);
-            ui.scope(|ui| {
-                ui.dx(lf);
-                ui.dy(-ui.top);
-                let r = Rect::new(-0.2, 0., 0.2 + w, ui.top * 2.);
-                ui.fill_rect(r, (Color::default(), (r.x, r.y), Color::new(0., 0., 0., p * 0.7), (r.right(), r.y)));
-
-                match self.side_content {
-                    SideContent::Edit => self.side_chart_info(ui, rt),
-                    SideContent::Leaderboard => {
-                        self.side_ldb(ui, rt);
-                        Ok(())
-                    }
-                    SideContent::Info => {
-                        self.side_info(ui, rt);
-                        Ok(())
-                    }
-                    SideContent::Mods => {
-                        self.side_mods(ui, rt);
-                        Ok(())
-                    }
+                    ui.loading(
+                        r.right() + 0.04,
+                        r.center().y,
+                        t,
+                        WHITE,
+                        LoadingParams {
+                            radius: 0.027,
+                            width: 0.007,
+                            ..Default::default()
+                        },
+                    );
                 }
-            })?;
-        }
+                r.w += 0.13;
+                self.ldb_btn.set(ui, r);
+            }
+
+            // play button
+            let w = 0.26;
+            let pad = 0.08;
+            let r = Rect::new(1. - pad - w, ui.top - pad - w, w, w);
+            self.play_btn.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, semi_white(0.3));
+                let r = r.feather(-0.04);
+                ui.fill_rect(
+                    r,
+                    (
+                        if self.local_path.is_some() {
+                            *self.icons.play
+                        } else {
+                            *self.icons.download
+                        },
+                        r,
+                        ScaleType::Fit,
+                    ),
+                );
+            });
+
+            ui.scope(|ui| {
+                ui.dx(1. - 0.03);
+                ui.dy(-ui.top + 0.03);
+                let s = 0.08;
+                let r = Rect::new(-s, 0., s, s);
+                let cc = semi_white(0.4);
+                ui.fill_rect(r, (*self.icons.menu, r.feather(-0.02), ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
+                self.menu_btn.set(ui, r);
+                if self.need_show_menu {
+                    self.need_show_menu = false;
+                    self.menu.set_bottom(true);
+                    self.menu.set_selected(usize::MAX);
+                    let d = 0.28;
+                    self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                }
+                ui.dx(-r.w - 0.03);
+                ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                self.info_btn.set(ui, r);
+                ui.dx(-r.w - 0.03);
+                ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
+                self.edit_btn.set(ui, r);
+                ui.dx(-r.w - 0.03);
+                ui.fill_rect(r, (*self.icons.r#mod, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
+                self.mod_btn.set(ui, r);
+            });
+
+            if let Some(dl) = &mut self.downloading {
+                dl.render(ui, t);
+            }
+
+            let rt = tm.real_time() as f32;
+            if self.side_enter_time.is_finite() {
+                let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
+                let p = 1. - (1. - p).powi(3);
+                let p = if self.side_enter_time < 0. { 1. - p } else { p };
+                ui.fill_rect(ui.screen_rect(), semi_black(p * 0.6));
+                let w = self.side_content.width();
+                let lf = f32::tween(&1.04, &(1. - w), p);
+                ui.scope(|ui| {
+                    ui.dx(lf);
+                    ui.dy(-ui.top);
+                    let r = Rect::new(-0.2, 0., 0.2 + w, ui.top * 2.);
+                    ui.fill_rect(r, (Color::default(), (r.x, r.y), Color::new(0., 0., 0., p * 0.7), (r.right(), r.y)));
+
+                    match self.side_content {
+                        SideContent::Edit => self.side_chart_info(ui, rt),
+                        SideContent::Leaderboard => {
+                            self.side_ldb(ui, rt);
+                            Ok(())
+                        }
+                        SideContent::Info => {
+                            self.side_info(ui, rt);
+                            Ok(())
+                        }
+                        SideContent::Mods => {
+                            self.side_mods(ui, rt);
+                            Ok(())
+                        }
+                    }
+                })?;
+            }
+
+            Ok(())
+        })?;
 
         self.menu.render(ui, t, 1.);
 
@@ -2057,19 +2085,36 @@ impl Scene for SongScene {
         self.tags.render(ui, rt);
         self.rate_dialog.render(ui, rt);
 
+        if !self.tr_start.is_nan() {
+            let p = ((rt - self.tr_start - 0.2) / 0.4).clamp(0., 1.);
+            if p >= 1. {
+                self.tr_start = f32::NAN;
+            }
+            let p = 1. - (1. - p).powi(3);
+            let mut r = ui.screen_rect();
+            r.y += r.h * (1. - p);
+            rect_shadow(r, 0.01, 0.5);
+            ui.fill_rect(r, (**self.background.lock().unwrap().as_ref().unwrap(), r));
+            ui.fill_rect(r, semi_black(0.3));
+        }
+
         self.sf.render(ui, t);
 
         Ok(())
     }
 
     fn next_scene(&mut self, tm: &mut TimeManager) -> NextScene {
+        if !self.tr_start.is_nan() {
+            return NextScene::None;
+        }
         if let Some(scene) = self.next_scene.take().or_else(|| self.sf.next_scene(tm.now() as _)) {
+            *self.background.lock().unwrap() = None;
             if let Some(music) = &mut self.preview {
                 let _ = music.pause();
             }
             scene
         } else {
-            NextScene::default()
+            NextScene::None
         }
     }
 }

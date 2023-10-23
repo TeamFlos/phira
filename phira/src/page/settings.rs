@@ -1,14 +1,21 @@
 prpr::tl_file!("settings");
 
 use super::{NextPage, OffsetPage, Page, SharedState};
-use crate::{get_data, get_data_mut, popup::ChooseButton, save_data, scene::BGM_VOLUME_UPDATED, sync_data};
+use crate::{
+    get_data, get_data_mut,
+    popup::ChooseButton,
+    save_data,
+    scene::BGM_VOLUME_UPDATED,
+    sync_data,
+    tabs::{Tabs, TitleFn},
+};
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{poll_future, semi_black, LocalTask, RectExt, SafeTexture, ScaleType},
+    ext::{poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, take_input},
-    ui::{DRectButton, Scroll, Slider, Ui},
+    ui::{DRectButton, Scroll, Slider, Ui}, core::BOLD_FONT,
 };
 use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
@@ -24,56 +31,48 @@ enum SettingListType {
 }
 
 pub struct SettingsPage {
-    btn_general: DRectButton,
-    btn_audio: DRectButton,
-    btn_chart: DRectButton,
-    btn_debug: DRectButton,
-    btn_about: DRectButton,
-    chosen: SettingListType,
-
     list_general: GeneralList,
     list_audio: AudioList,
     list_chart: ChartList,
     list_debug: DebugList,
 
+    tabs: Tabs<SettingListType>,
+
     scroll: Scroll,
     save_time: f32,
+
+    icon: SafeTexture,
 }
 
 impl SettingsPage {
     const SAVE_TIME: f32 = 0.5;
 
-    pub fn new(icon_lang: SafeTexture) -> Self {
+    pub fn new(icon: SafeTexture, icon_lang: SafeTexture) -> Self {
         Self {
-            btn_general: DRectButton::new(),
-            btn_audio: DRectButton::new(),
-            btn_chart: DRectButton::new(),
-            btn_debug: DRectButton::new(),
-            btn_about: DRectButton::new(),
-            chosen: SettingListType::General,
-
             list_general: GeneralList::new(icon_lang),
             list_audio: AudioList::new(),
             list_chart: ChartList::new(),
             list_debug: DebugList::new(),
 
+            tabs: Tabs::new([
+                (SettingListType::General, || tl!("general")),
+                (SettingListType::Audio, || tl!("audio")),
+                (SettingListType::Chart, || tl!("chart")),
+                (SettingListType::Debug, || tl!("debug")),
+                (SettingListType::About, || tl!("about")),
+            ] as [(SettingListType, TitleFn); 5]),
+
             scroll: Scroll::new(),
             save_time: f32::INFINITY,
-        }
-    }
 
-    #[inline]
-    fn switch_to_type(&mut self, ty: SettingListType) {
-        if self.chosen != ty {
-            self.chosen = ty;
-            self.scroll.y_scroller.offset = 0.;
+            icon,
         }
     }
 }
 
 impl Page for SettingsPage {
     fn label(&self) -> Cow<'static, str> {
-        "SETTINGS".into()
+        tl!("label")
     }
 
     fn exit(&mut self) -> Result<()> {
@@ -86,7 +85,7 @@ impl Page for SettingsPage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
-        if match self.chosen {
+        if match self.tabs.selected() {
             SettingListType::General => self.list_general.top_touch(touch, t),
             SettingListType::Audio => self.list_audio.top_touch(touch, t),
             SettingListType::Chart => self.list_chart.top_touch(touch, t),
@@ -96,30 +95,14 @@ impl Page for SettingsPage {
             return Ok(true);
         }
 
-        if self.btn_general.touch(touch, t) {
-            self.switch_to_type(SettingListType::General);
+        if self.tabs.touch(touch, s.rt) {
             return Ok(true);
         }
-        if self.btn_audio.touch(touch, t) {
-            self.switch_to_type(SettingListType::Audio);
-            return Ok(true);
-        }
-        if self.btn_chart.touch(touch, t) {
-            self.switch_to_type(SettingListType::Chart);
-            return Ok(true);
-        }
-        if self.btn_debug.touch(touch, t) {
-            self.switch_to_type(SettingListType::Debug);
-            return Ok(true);
-        }
-        if self.btn_about.touch(touch, t) {
-            self.switch_to_type(SettingListType::About);
-            return Ok(true);
-        }
+
         if self.scroll.touch(touch, t) {
             return Ok(true);
         }
-        if let Some(p) = match self.chosen {
+        if let Some(p) = match self.tabs.selected() {
             SettingListType::General => self.list_general.touch(touch, t)?,
             SettingListType::Audio => self.list_audio.touch(touch, t)?,
             SettingListType::Chart => self.list_chart.touch(touch, t)?,
@@ -138,7 +121,7 @@ impl Page for SettingsPage {
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
         self.scroll.update(t);
-        if match self.chosen {
+        if match self.tabs.selected() {
             SettingListType::General => self.list_general.update(t)?,
             SettingListType::Audio => self.list_audio.update(t)?,
             SettingListType::Chart => self.list_chart.update(t)?,
@@ -156,65 +139,68 @@ impl Page for SettingsPage {
 
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
         let t = s.t;
-        s.render_fader(ui, |ui, c| {
-            ui.tab_rects(
-                c,
-                t,
-                [
-                    (&mut self.btn_general, tl!("general"), SettingListType::General),
-                    (&mut self.btn_audio, tl!("audio"), SettingListType::Audio),
-                    (&mut self.btn_chart, tl!("chart"), SettingListType::Chart),
-                    (&mut self.btn_debug, tl!("debug"), SettingListType::Debug),
-                    (&mut self.btn_about, tl!("about"), SettingListType::About),
-                ]
-                .into_iter()
-                .map(|(btn, text, ty)| (btn, text, ty == self.chosen)),
-            );
-        });
-        let r = ui.content_rect();
-        s.fader.render(ui, t, |ui, c| {
-            let path = r.rounded(0.02);
-            ui.fill_path(&path, semi_black(0.4 * c.a));
-            let r = r.feather(-0.01);
-            self.scroll.size((r.w, r.h));
-            ui.scope(|ui| {
-                ui.dx(r.x);
-                ui.dy(r.y);
-                self.scroll.render(ui, |ui| match self.chosen {
-                    SettingListType::General => self.list_general.render(ui, r, t, c),
-                    SettingListType::Audio => self.list_audio.render(ui, r, t, c),
-                    SettingListType::Chart => self.list_chart.render(ui, r, t, c),
-                    SettingListType::Debug => self.list_debug.render(ui, r, t, c),
-                    SettingListType::About => {
-                        let pad = 0.04;
-                        (
-                            r.w,
-                            ui.text(tl!("about-content", "version" => env!("CARGO_PKG_VERSION")))
-                                .pos(pad, pad)
-                                .size(0.55)
-                                .multiline()
-                                .max_width(r.w - pad * 2.)
-                                .color(c)
-                                .draw()
-                                .bottom()
-                                + 0.03,
-                        )
-                    }
+        let rt = s.rt;
+
+        s.fader.render(ui, s.t, |ui| {
+            let r = ui.content_rect();
+            self.tabs.render(ui, rt, r, |ui, item| {
+                let r = r.feather(-0.01);
+                self.scroll.size((r.w, r.h));
+                ui.scope(|ui| {
+                    ui.dx(r.x);
+                    ui.dy(r.y);
+                    self.scroll.render(ui, |ui| match item {
+                        SettingListType::General => self.list_general.render(ui, r, t),
+                        SettingListType::Audio => self.list_audio.render(ui, r, t),
+                        SettingListType::Chart => self.list_chart.render(ui, r, t),
+                        SettingListType::Debug => self.list_debug.render(ui, r, t),
+                        SettingListType::About => render_settings(ui, r, &self.icon),
+                    });
                 });
-            });
-        });
+
+                Ok(())
+            })
+        })?;
+
         Ok(())
     }
 
     fn next_page(&mut self) -> NextPage {
-        if matches!(self.chosen, SettingListType::Audio) {
+        if matches!(self.tabs.selected(), SettingListType::Audio) {
             return self.list_audio.next_page().unwrap_or_default();
         }
         NextPage::None
     }
 }
 
-fn render_title<'a>(ui: &mut Ui, c: Color, title: impl Into<Cow<'a, str>>, subtitle: Option<Cow<'a, str>>) -> f32 {
+fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
+    r.x = 0.;
+    r.y = 0.;
+    let ow = r.w;
+    let r = r.feather(-0.02);
+
+    let ct = r.center();
+    let s = 0.1;
+    let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
+    ui.fill_path(&ir.rounded(0.02), (**icon, ir));
+
+    let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
+    let (first, text) = text.split_once('\n').unwrap();
+    let tr = ui.text(first).pos(ct.x, ir.bottom() + 0.03).anchor(0.5, 0.).size(0.6).draw_using(&BOLD_FONT);
+
+    let r = ui
+        .text(text.trim())
+        .pos(r.x, tr.bottom() + 0.06)
+        .size(0.55)
+        .multiline()
+        .max_width(r.w)
+        .h_center()
+        .draw();
+
+    (ow, r.bottom() + 0.03)
+}
+
+fn render_title<'a>(ui: &mut Ui, title: impl Into<Cow<'a, str>>, subtitle: Option<Cow<'a, str>>) -> f32 {
     const TITLE_SIZE: f32 = 0.6;
     const SUBTITLE_SIZE: f32 = 0.35;
     const LEFT: f32 = 0.06;
@@ -236,7 +222,7 @@ fn render_title<'a>(ui: &mut Ui, c: Color, title: impl Into<Cow<'a, str>>, subti
             .anchor(0., 1.)
             .size(SUBTITLE_SIZE)
             .max_width(SUB_MAX_WIDTH)
-            .color(Color { a: c.a * 0.6, ..c })
+            .color(semi_white(0.6))
             .draw()
             .right();
         let r2 = ui
@@ -244,7 +230,6 @@ fn render_title<'a>(ui: &mut Ui, c: Color, title: impl Into<Cow<'a, str>>, subti
             .pos(LEFT, (ITEM_HEIGHT - h) / 2.)
             .no_baseline()
             .size(TITLE_SIZE)
-            .color(c)
             .draw()
             .right();
         r1.max(r2)
@@ -254,15 +239,14 @@ fn render_title<'a>(ui: &mut Ui, c: Color, title: impl Into<Cow<'a, str>>, subti
             .anchor(0., 0.5)
             .no_baseline()
             .size(TITLE_SIZE)
-            .color(c)
             .draw()
             .right()
     }
 }
 
 #[inline]
-fn render_switch(ui: &mut Ui, r: Rect, t: f32, c: Color, btn: &mut DRectButton, on: bool) {
-    btn.render_text(ui, r, t, c.a, if on { ttl!("switch-on") } else { ttl!("switch-off") }, 0.5, on);
+fn render_switch(ui: &mut Ui, r: Rect, t: f32, btn: &mut DRectButton, on: bool) {
+    btn.render_text(ui, r, t, if on { ttl!("switch-on") } else { ttl!("switch-off") }, 0.5, on);
 }
 
 #[inline]
@@ -365,7 +349,7 @@ impl GeneralList {
         Ok(false)
     }
 
-    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32, c: Color) -> (f32, f32) {
+    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) -> (f32, f32) {
         let w = r.w;
         let mut h = 0.;
         macro_rules! item {
@@ -380,33 +364,33 @@ impl GeneralList {
         let data = get_data();
         let config = &data.config;
         item! {
-            let rt = render_title(ui, c, tl!("item-lang"), None);
+            let rt = render_title(ui, tl!("item-lang"), None);
             let w = 0.06;
             let r = Rect::new(rt + 0.01, (ITEM_HEIGHT - w) / 2., w, w);
-            ui.fill_rect(r, (*self.icon_lang, r, ScaleType::Fit, c));
-            self.lang_btn.render(ui, rr, t, c.a);
+            ui.fill_rect(r, (*self.icon_lang, r));
+            self.lang_btn.render(ui, rr, t);
         }
         item! {
-            render_title(ui, c, tl!("item-offline"), Some(tl!("item-offline-sub")));
-            render_switch(ui, rr, t, c, &mut self.offline_btn, config.offline_mode);
+            render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
+            render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
         }
         item! {
-            render_title(ui, c, tl!("item-mp"), Some(tl!("item-mp-sub")));
-            render_switch(ui, rr, t, c, &mut self.mp_btn, config.mp_enabled);
+            render_title(ui, tl!("item-mp"), Some(tl!("item-mp-sub")));
+            render_switch(ui, rr, t, &mut self.mp_btn, config.mp_enabled);
         }
         item! {
-            render_title(ui, c, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
-            self.mp_addr_btn.render_text(ui, rr, t, c.a, &config.mp_address, 0.4, false);
+            render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
+            self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
         }
         item! {
-            render_title(ui, c, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
-            render_switch(ui, rr, t, c, &mut self.lowq_btn, config.sample_count == 1);
+            render_title(ui, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
+            render_switch(ui, rr, t, &mut self.lowq_btn, config.sample_count == 1);
         }
         item! {
-            render_title(ui, c, tl!("item-insecure"), Some(tl!("item-insecure-sub")));
-            render_switch(ui, rr, t, c, &mut self.insecure_btn, data.accept_invalid_cert);
+            render_title(ui, tl!("item-insecure"), Some(tl!("item-insecure-sub")));
+            render_switch(ui, rr, t, &mut self.insecure_btn, data.accept_invalid_cert);
         }
-        self.lang_btn.render_top(ui, t, c.a);
+        self.lang_btn.render_top(ui, t, 1.);
         (w, h)
     }
 }
@@ -482,7 +466,7 @@ impl AudioList {
         Ok(false)
     }
 
-    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32, c: Color) -> (f32, f32) {
+    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) -> (f32, f32) {
         let w = r.w;
         let mut h = 0.;
         macro_rules! item {
@@ -497,24 +481,24 @@ impl AudioList {
         let data = get_data();
         let config = &data.config;
         item! {
-            render_title(ui, c, tl!("item-adjust"), Some(tl!("item-adjust-sub")));
-            render_switch(ui, rr, t, c, &mut self.adjust_btn, config.adjust_time);
+            render_title(ui, tl!("item-adjust"), Some(tl!("item-adjust-sub")));
+            render_switch(ui, rr, t, &mut self.adjust_btn, config.adjust_time);
         }
         item! {
-            render_title(ui, c, tl!("item-music"), None);
-            self.music_slider.render(ui, rr, t,c, config.volume_music, format!("{:.2}", config.volume_music));
+            render_title(ui, tl!("item-music"), None);
+            self.music_slider.render(ui, rr, t, config.volume_music, format!("{:.2}", config.volume_music));
         }
         item! {
-            render_title(ui, c, tl!("item-sfx"), None);
-            self.sfx_slider.render(ui, rr, t, c, config.volume_sfx, format!("{:.2}", config.volume_sfx));
+            render_title(ui, tl!("item-sfx"), None);
+            self.sfx_slider.render(ui, rr, t, config.volume_sfx, format!("{:.2}", config.volume_sfx));
         }
         item! {
-            render_title(ui, c, tl!("item-bgm"), None);
-            self.bgm_slider.render(ui, rr, t, c, config.volume_bgm, format!("{:.2}", config.volume_bgm));
+            render_title(ui, tl!("item-bgm"), None);
+            self.bgm_slider.render(ui, rr, t, config.volume_bgm, format!("{:.2}", config.volume_bgm));
         }
         item! {
-            render_title(ui, c, tl!("item-cali"), None);
-            self.cali_btn.render_text(ui, rr, t, c.a, format!("{:.0}ms", config.offset * 1000.), 0.5, true);
+            render_title(ui, tl!("item-cali"), None);
+            self.cali_btn.render_text(ui, rr, t, format!("{:.0}ms", config.offset * 1000.), 0.5, true);
         }
         (w, h)
     }
@@ -581,7 +565,7 @@ impl ChartList {
         Ok(false)
     }
 
-    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32, c: Color) -> (f32, f32) {
+    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) -> (f32, f32) {
         let w = r.w;
         let mut h = 0.;
         macro_rules! item {
@@ -596,28 +580,28 @@ impl ChartList {
         let data = get_data();
         let config = &data.config;
         item! {
-            render_title(ui, c, tl!("item-show-acc"), None);
-            render_switch(ui, rr, t, c, &mut self.show_acc_btn, config.show_acc);
+            render_title(ui, tl!("item-show-acc"), None);
+            render_switch(ui, rr, t, &mut self.show_acc_btn, config.show_acc);
         }
         item! {
-            render_title(ui, c, tl!("item-dc-pause"), None);
-            render_switch(ui, rr, t, c, &mut self.dc_pause_btn, config.double_click_to_pause);
+            render_title(ui, tl!("item-dc-pause"), None);
+            render_switch(ui, rr, t, &mut self.dc_pause_btn, config.double_click_to_pause);
         }
         item! {
-            render_title(ui, c, tl!("item-dhint"), Some(tl!("item-dhint-sub")));
-            render_switch(ui, rr, t, c, &mut self.dhint_btn, config.double_hint);
+            render_title(ui, tl!("item-dhint"), Some(tl!("item-dhint-sub")));
+            render_switch(ui, rr, t, &mut self.dhint_btn, config.double_hint);
         }
         item! {
-            render_title(ui, c, tl!("item-opt"), Some(tl!("item-opt-sub")));
-            render_switch(ui, rr, t, c, &mut self.opt_btn, config.aggressive);
+            render_title(ui, tl!("item-opt"), Some(tl!("item-opt-sub")));
+            render_switch(ui, rr, t, &mut self.opt_btn, config.aggressive);
         }
         item! {
-            render_title(ui, c, tl!("item-speed"), None);
-            self.speed_slider.render(ui, rr, t,c, config.speed, format!("{:.2}", config.speed));
+            render_title(ui, tl!("item-speed"), None);
+            self.speed_slider.render(ui, rr, t, config.speed, format!("{:.2}", config.speed));
         }
         item! {
-            render_title(ui, c, tl!("item-note-size"), None);
-            self.size_slider.render(ui, rr, t,c, config.note_scale, format!("{:.3}", config.note_scale));
+            render_title(ui, tl!("item-note-size"), None);
+            self.size_slider.render(ui, rr, t, config.note_scale, format!("{:.3}", config.note_scale));
         }
         (w, h)
     }
@@ -658,7 +642,7 @@ impl DebugList {
         Ok(false)
     }
 
-    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32, c: Color) -> (f32, f32) {
+    pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) -> (f32, f32) {
         let w = r.w;
         let mut h = 0.;
         macro_rules! item {
@@ -673,12 +657,12 @@ impl DebugList {
         let data = get_data();
         let config = &data.config;
         item! {
-            render_title(ui, c, tl!("item-chart-debug"), Some(tl!("item-chart-debug-sub")));
-            render_switch(ui, rr, t, c, &mut self.chart_debug_btn, config.chart_debug);
+            render_title(ui, tl!("item-chart-debug"), Some(tl!("item-chart-debug-sub")));
+            render_switch(ui, rr, t, &mut self.chart_debug_btn, config.chart_debug);
         }
         item! {
-            render_title(ui, c, tl!("item-touch-debug"), Some(tl!("item-touch-debug-sub")));
-            render_switch(ui, rr, t, c, &mut self.touch_debug_btn, config.touch_debug);
+            render_title(ui, tl!("item-touch-debug"), Some(tl!("item-touch-debug-sub")));
+            render_switch(ui, rr, t, &mut self.touch_debug_btn, config.touch_debug);
         }
         (w, h)
     }

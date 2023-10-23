@@ -1,6 +1,6 @@
 
 default = Mặc định
-load-failed = Khong thể tải gói
+load-failed = Không thể tải gói
 
 info = Thông tin gói
 info-content =
@@ -8,5 +8,5 @@ info-content =
   Tác giả: { $author }
   Mô tả: { $desc }
 
-cant-delete-builtin = Không thể xóa respack có sẵn
+cant-delete-builtin = Không thể xóa gói có sẵn
 deleted = Đã xoá

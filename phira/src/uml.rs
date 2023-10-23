@@ -3,7 +3,7 @@ mod parse;
 
 pub use parse::parse_uml;
 
-use self::parse::constant;
+use self::parse::{constant, ButtonState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView},
     client::{recv_raw, Client, File},
@@ -14,13 +14,21 @@ use image::DynamicImage;
 use macroquad::prelude::*;
 use parse::{Expr, VarRef};
 use prpr::{
-    ext::{semi_black, semi_white, SafeTexture, ScaleType},
+    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::NextScene,
     task::Task,
-    ui::Ui,
+    ui::{RectButton, Ui},
 };
 use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, sync::Arc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    fmt::Debug,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
+};
 use tracing::warn;
 
 #[derive(Debug)]
@@ -69,10 +77,10 @@ impl<'de> Deserialize<'de> for WrappedColor {
 pub trait Element {
     fn id(&self) -> Option<&str>;
     fn on_result(&self, _t: f32, _delete: bool) {}
-    fn touch(&self, _touch: &Touch, _uml: &Uml) -> Result<bool> {
+    fn touch(&self, _touch: &Touch, _uml: &Uml, _action: &mut Option<String>) -> Result<bool> {
         Ok(false)
     }
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var>;
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var>;
     fn render_top(&self, _ui: &mut Ui, _uml: &Uml) -> Result<()> {
         Ok(())
     }
@@ -88,8 +96,8 @@ pub struct TextConfig {
     size: Expr,
     x: Expr,
     y: Expr,
-    ax: f32,
-    ay: f32,
+    ax: Expr,
+    ay: Expr,
     ml: bool,
     mw: Option<Expr>,
     bl: bool,
@@ -103,8 +111,8 @@ impl Default for TextConfig {
             size: constant(1.0),
             x: constant(0.),
             y: constant(0.),
-            ax: 0.,
-            ay: 0.,
+            ax: constant(0.),
+            ay: constant(0.),
             ml: false,
             mw: None,
             bl: true,
@@ -130,14 +138,14 @@ impl Element for Text {
         self.config.id.as_deref()
     }
 
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
         let c = &self.config;
         let mut text = ui
             .text(&self.text)
             .pos(c.x.eval(uml)?.float()?, c.y.eval(uml)?.float()?)
-            .anchor(c.ax, c.ay)
+            .anchor(c.ax.eval(uml)?.float()?, c.ay.eval(uml)?.float()?)
             .size(c.size.eval(uml)?.float()?)
-            .color(Color { a: c.c.0.a * alpha, ..c.c.0 });
+            .color(c.c.0);
         if c.ml {
             text = text.multiline();
         }
@@ -147,7 +155,11 @@ impl Element for Text {
         if !c.bl {
             text = text.no_baseline();
         }
-        Ok(Var::Rect(text.draw()))
+        Ok(Var::Rect(match c.id.as_deref() {
+            Some("pgr") => prpr::core::PGR_FONT.with(|it| text.draw_with_font(it.borrow_mut().as_mut())),
+            Some("bold") => prpr::core::BOLD_FONT.with(|it| text.draw_with_font(it.borrow_mut().as_mut())),
+            _ => text.draw(),
+        }))
     }
 }
 
@@ -186,7 +198,7 @@ impl Element for Image {
         self.config.id.as_deref()
     }
 
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
         let c = &self.config;
         let mut guard = self.task.borrow_mut();
         if let Some(task) = guard.as_mut() {
@@ -203,7 +215,7 @@ impl Element for Image {
         }
         let r = c.r.eval(uml)?.rect()?;
         if let Some(tex) = self.tex.borrow().as_ref() {
-            ui.fill_rect(r, (**tex, r, c.t, Color { a: c.c.0.a * alpha, ..c.c.0 }));
+            ui.fill_rect(r, (**tex, r, c.t, c.c.0));
         }
         Ok(Var::Rect(r))
     }
@@ -216,7 +228,8 @@ impl<'de> Deserialize<'de> for I32 {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Self(f32::deserialize(deserializer)?.round() as i32))
+        use serde::de::Error;
+        Ok(Self(String::deserialize(deserializer)?.parse().map_err(D::Error::custom)?))
     }
 }
 
@@ -224,8 +237,8 @@ fn default_row_num() -> I32 {
     I32(4)
 }
 
-fn default_chart_height() -> f32 {
-    0.3
+fn default_chart_height() -> Expr {
+    constant(0.3)
 }
 
 #[derive(Debug, Deserialize)]
@@ -237,7 +250,7 @@ pub struct CollectionConfig {
     #[serde(default = "default_row_num")]
     rn: I32,
     #[serde(default = "default_chart_height")]
-    rh: f32,
+    rh: Expr,
     r: Expr,
 }
 
@@ -256,7 +269,6 @@ impl Collection {
         let cid = config.cid;
         let mut charts_view = ChartsView::new(icons, rank_icons);
         charts_view.row_num = config.rn.0 as _;
-        charts_view.row_height = config.rh;
         Self {
             config,
             state: RefCell::new(CollectionState {
@@ -276,11 +288,11 @@ impl Element for Collection {
         self.state.borrow_mut().charts_view.on_result(t, delete)
     }
 
-    fn touch(&self, touch: &Touch, uml: &Uml) -> Result<bool> {
+    fn touch(&self, touch: &Touch, uml: &Uml, _action: &mut Option<String>) -> Result<bool> {
         self.state.borrow_mut().charts_view.touch(touch, uml.t, uml.rt)
     }
 
-    fn render(&self, ui: &mut Ui, uml: &Uml, alpha: f32) -> Result<Var> {
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
         let mut state = self.state.borrow_mut();
         if let Some(task) = &mut state.task {
             if let Some(res) = task.take() {
@@ -302,8 +314,9 @@ impl Element for Collection {
         let t = uml.t;
         let r = c.r.eval(uml)?.rect()?;
 
+        state.charts_view.row_height = self.config.rh.eval(uml)?.float()?;
         state.charts_view.update(t)?;
-        state.charts_view.render(ui, r, alpha, t);
+        state.charts_view.render(ui, r, t);
 
         Ok(Var::Float(0.))
     }
@@ -315,6 +328,104 @@ impl Element for Collection {
 
     fn next_scene(&self) -> Option<NextScene> {
         self.state.borrow_mut().charts_view.next_scene()
+    }
+}
+
+fn default_radius() -> Expr {
+    constant(0.)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RectConfig {
+    #[serde(default)]
+    id: Option<String>,
+    r: Expr,
+    #[serde(default)]
+    c: WrappedColor,
+    #[serde(default = "default_radius")]
+    rad: Expr,
+}
+
+pub struct RectElement {
+    config: RectConfig,
+}
+
+impl RectElement {
+    pub fn new(config: RectConfig) -> Self {
+        Self { config }
+    }
+}
+
+impl Element for RectElement {
+    fn id(&self) -> Option<&str> {
+        self.config.id.as_deref()
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let c = &self.config;
+        let r = c.r.eval(uml)?.rect()?;
+        let rad = c.rad.eval(uml)?.float()?;
+        if rad > 1e-5 {
+            ui.fill_path(&r.rounded(rad), c.c.0);
+        } else {
+            ui.fill_rect(r, c.c.0);
+        }
+        Ok(Var::Rect(r))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ButtonConfig {
+    #[serde(default)]
+    id: Option<String>,
+    r: Expr,
+    action: Option<String>,
+}
+
+pub struct ButtonElement {
+    config: ButtonConfig,
+    btn: RefCell<RectButton>,
+    last_touched: Cell<f32>,
+    count: AtomicU32,
+}
+
+impl ButtonElement {
+    pub fn new(config: ButtonConfig) -> Self {
+        Self {
+            config,
+            btn: RefCell::default(),
+            last_touched: Cell::new(-1.),
+            count: AtomicU32::new(0),
+        }
+    }
+}
+
+impl Element for ButtonElement {
+    fn id(&self) -> Option<&str> {
+        self.config.id.as_deref()
+    }
+
+    fn touch(&self, touch: &Touch, uml: &Uml, action: &mut Option<String>) -> Result<bool> {
+        if self.btn.borrow_mut().touch(touch) {
+            *action = self.config.action.clone();
+            self.last_touched.set(uml.t);
+            self.count.fetch_add(1, Ordering::SeqCst);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let r = self.config.r.eval(uml)?.rect()?;
+        let mut btn = self.btn.borrow_mut();
+        btn.set(ui, r);
+        Ok(Var::ButtonState(ButtonState {
+            last: self.last_touched.get(),
+            cnt: self.count.load(Ordering::SeqCst),
+            touching: btn.touching(),
+        }))
     }
 }
 
@@ -334,7 +445,7 @@ impl Element for Assign {
         Some(&self.id)
     }
 
-    fn render(&self, _ui: &mut Ui, uml: &Uml, _alpha: f32) -> Result<Var> {
+    fn render(&self, _ui: &mut Ui, uml: &Uml) -> Result<Var> {
         self.value.eval(uml)
     }
 }
@@ -342,21 +453,22 @@ impl Element for Assign {
 #[derive(Clone, Copy)]
 pub enum Var {
     Rect(Rect),
+    ButtonState(ButtonState),
     Float(f32),
 }
 
 impl Var {
     pub fn float(self) -> Result<f32> {
         match self {
-            Self::Rect(_) => bail!("expected float"),
             Self::Float(f) => Ok(f),
+            _ => bail!("expected float"),
         }
     }
 
     pub fn rect(self) -> Result<Rect> {
         match self {
-            Self::Float(_) => bail!("expected rect"),
             Self::Rect(r) => Ok(r),
+            _ => bail!("expected rect"),
         }
     }
 }
@@ -365,70 +477,97 @@ pub struct Uml {
     elements: Vec<Box<dyn Element>>,
 
     vars: Vec<Var>,
+    persistent_vars: Vec<Var>,
     var_map: HashMap<String, usize>,
 
     t: f32,
     rt: f32,
+
+    first_time: bool,
 }
 
 impl Default for Uml {
     fn default() -> Self {
-        Self::new(Vec::new())
+        Self::new(Vec::new(), &[]).unwrap()
     }
 }
 
 impl Uml {
-    pub fn new(elements: Vec<Box<dyn Element>>) -> Self {
-        Self {
+    pub fn new(elements: Vec<Box<dyn Element>>, global_defs: &[(String, Expr)]) -> Result<Self> {
+        let mut res = Self {
             elements,
 
             vars: Vec::new(),
+            persistent_vars: Vec::new(),
             var_map: HashMap::new(),
 
             t: 0.,
             rt: 0.,
+
+            first_time: true,
+        };
+        res.init(global_defs);
+        Ok(res)
+    }
+
+    fn init(&mut self, global_defs: &[(String, Expr)]) {
+        for (name, initial) in global_defs {
+            self.var_map.insert(name.clone(), !self.persistent_vars.len());
+            self.persistent_vars.push(initial.eval(self).unwrap());
         }
     }
 
     pub(crate) fn get_var(&self, rf: &VarRef) -> Result<&Var> {
-        Ok(&self.vars[rf.id(self)?])
+        let id = rf.id(self)?;
+        Ok(if id & 0x8000 != 0 { &self.persistent_vars[!id] } else { &self.vars[id] })
     }
 
-    pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32) -> Result<bool> {
+    pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32, action: &mut Option<String>) -> Result<bool> {
         self.t = t;
         self.rt = rt;
         for element in &self.elements {
-            if element.touch(touch, self)? {
+            if element.touch(touch, self, action)? {
                 return Ok(true);
             }
         }
         Ok(false)
     }
 
-    pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, alpha: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
-        let first_time = self.var_map.is_empty();
+    fn set_var(first_time: bool, vars: &mut Vec<Var>, persistent_vars: &mut [Var], var_map: &mut HashMap<String, usize>, name: &str, value: Var) {
+        match var_map.get(name) {
+            Some(x) if x & 0x8000 != 0 => {
+                if std::mem::discriminant(&persistent_vars[!x]) != std::mem::discriminant(&value) {
+                    warn!("type mismatch: {name}");
+                } else {
+                    persistent_vars[!x] = value;
+                }
+            }
+            _ => {
+                if first_time {
+                    var_map.insert(name.to_owned(), vars.len());
+                }
+                vars.push(value);
+            }
+        }
+    }
+
+    pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
         self.vars.clear();
         for (name, val) in vars {
-            if first_time {
-                self.var_map.insert(name.to_string(), self.vars.len());
-            }
-            self.vars.push(Var::Float(*val));
+            Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, name, Var::Float(*val));
         }
         let mut right = 0f32;
         let mut bottom = 0f32;
         self.t = t;
         self.rt = rt;
         for elem in &self.elements {
-            let r = elem.render(ui, self, alpha)?;
+            let r = elem.render(ui, self)?;
             if let Var::Rect(r) = &r {
                 right = right.max(r.right());
                 bottom = bottom.max(r.bottom());
             }
             if let Some(id) = elem.id() {
-                if first_time {
-                    self.var_map.insert(id.to_owned(), self.vars.len());
-                }
-                self.vars.push(r);
+                Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, id, r);
             }
         }
         if let Some(Var::Float(w)) = self.var_map.get("$w").map(|it| &self.vars[*it]) {
@@ -437,6 +576,8 @@ impl Uml {
         if let Some(Var::Float(h)) = self.var_map.get("$h").map(|it| &self.vars[*it]) {
             bottom = *h;
         }
+        self.first_time = false;
+
         Ok((right, bottom))
     }
 

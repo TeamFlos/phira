@@ -15,3 +15,10 @@ chart-special = Special
 chart-unstable = Unstable
 
 list-empty = Nothing here
+
+tos-and-policy = Terms of Service and Privacy Policy
+tos-and-policy-desc = You must read and agree to our Terms of Service and Privacy Policy before using Phira online services provided by TeamFlos.
+tos = Terms of Service
+policy = Privacy Policy
+
+open-in-web = Open in Web

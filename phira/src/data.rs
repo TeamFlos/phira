@@ -72,6 +72,7 @@ pub struct Data {
     pub respacks: Vec<String>,
     pub respack_id: usize,
     pub accept_invalid_cert: bool,
+    pub read_tos_and_policy: bool,
 }
 
 impl Data {

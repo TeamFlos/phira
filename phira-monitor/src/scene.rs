@@ -7,10 +7,9 @@ use phira_mp_client::Client;
 use phira_mp_common::{JudgeEvent, Message, RoomId, RoomState, TouchFrame, UserInfo};
 use prpr::{
     core::{BadNote, Chart, ParticleEmitter, Resource, Tweenable, Vector},
-    ext::{poll_future, semi_black, semi_white, LocalTask, RectExt},
+    ext::{poll_future, semi_white, LocalTask, RectExt},
     info::ChartInfo,
     judge::{Judge, JudgeStatus},
-    particle::Emitter,
     scene::{show_error, GameScene, Scene},
     task::Task,
     time::TimeManager,
@@ -18,7 +17,7 @@ use prpr::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, VecDeque},
     fs::File,
     path::Path,
     sync::Arc,
@@ -336,6 +335,9 @@ pub struct MainScene {
 
     players: Vec<PlayerView>,
     start_playing_time: f32,
+
+    scores: HashMap<String, (u32, f32, bool)>,
+    game_end: bool,
 }
 
 impl MainScene {
@@ -360,6 +362,9 @@ impl MainScene {
 
             players: Vec::new(),
             start_playing_time: f32::NAN,
+
+            scores: HashMap::new(),
+            game_end: false,
         })
     }
 
@@ -470,6 +475,7 @@ impl Scene for MainScene {
                     Ok((scene, players)) => {
                         self.game_scene = Some(scene);
                         self.players = players;
+                        self.players.sort_by(|x, y| x.name.cmp(&y.name));
                     }
                 }
                 self.scene_task = None;
@@ -489,6 +495,20 @@ impl Scene for MainScene {
                     }
                     Message::StartPlaying => {
                         self.start_playing_time = t;
+                        self.scores.clear();
+                        self.game_end = false;
+                    }
+                    Message::Played {
+                        user,
+                        score,
+                        accuracy,
+                        full_combo,
+                    } => {
+                        info!("{user} played: {score} {accuracy} {full_combo}");
+                        self.scores.insert(client.user_name(user), (score as _, accuracy, full_combo));
+                    }
+                    Message::GameEnd => {
+                        self.game_end = true;
                     }
                     _ => {
                         info!("{msg:?}");
@@ -533,12 +553,11 @@ impl Scene for MainScene {
             return Ok(());
         };
 
-        let bottom_height = 0.2;
+        let width = 2.;
 
-        let r = Rect::new(-1. + 0.007, ui.top - bottom_height + 0.007, 1., bottom_height - 0.014);
+        /* let pad = 0.01;
+        let r = Rect::new(width - 1., -ui.top, 2. - width, ui.top * 2.).feather(-pad);
         ui.fill_rect(r, semi_black(0.4));
-
-        let pad = 0.01;
         let r = r.feather(-pad);
         let mut pos = r.bottom();
         for (index, msg) in self.messages.iter().enumerate().rev() {
@@ -548,23 +567,38 @@ impl Scene for MainScene {
             }
             let r = ui.text(msg).pos(r.x, pos).anchor(0., 1.).multiline().max_width(r.w).size(0.34).draw();
             pos = r.y - pad;
-        }
+        }*/
 
-        let r = Rect::new(-1., -ui.top, 1.7, ui.top * 2. - bottom_height);
+        let r = Rect::new(-1., -ui.top, width, ui.top * 2.);
         ui.fill_rect(r, semi_white(0.4));
 
         match client.blocking_room_state().unwrap() {
             RoomState::SelectChart(_) => {
                 self.game_scene = None;
                 let ct = r.center();
-                let r = ui.text("选曲中").pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(1.6).draw();
+                let tr = ui.text("选曲中").pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(1.6).draw();
                 if let Some((id, name)) = &self.selected_chart {
                     ui.text(format!("{name} (#{id})"))
-                        .pos(ct.x, r.bottom() + 0.03)
+                        .pos(ct.x, tr.bottom() + 0.03)
                         .anchor(0.5, 0.)
                         .size(0.56)
                         .draw();
                 }
+                let r = ui.text("上一局成绩").pos(r.x + 0.01, r.y + 0.01).size(0.6).draw();
+                ui.scope(|ui| {
+                    let s = 0.5;
+                    ui.dx(r.x + 0.06);
+                    ui.dy(r.bottom() + 0.02);
+                    let w = 0.24;
+                    for (user, (score, accuracy, full_combo)) in self.scores.iter() {
+                        let r = ui.text(user).max_width(w - 0.02).size(s).draw();
+                        ui.text(format!("{score} ({:.2}%){}", accuracy * 100., if *full_combo { " 全连" } else { "" }))
+                            .pos(w, 0.)
+                            .size(s)
+                            .draw();
+                        ui.dy(r.h + 0.01);
+                    }
+                });
             }
             _ => {
                 let (row_count, col_count) = if self.players.len() > 2 {

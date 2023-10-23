@@ -1,4 +1,6 @@
 
+label = LIBRARY
+
 local = Local
 popular = Popular
 

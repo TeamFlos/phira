@@ -351,7 +351,6 @@ pub struct Resource {
     pub background: SafeTexture,
     pub illustration: SafeTexture,
     pub icons: [SafeTexture; 8],
-    pub challenge_icons: [SafeTexture; 6],
     pub res_pack: ResourcePack,
     pub player: SafeTexture,
     pub icon_back: SafeTexture,
@@ -396,26 +395,6 @@ impl Resource {
             "rank/V.png",
             "rank/FC.png",
             "rank/phi.png"
-        ])
-    }
-
-    pub async fn load_challenge_icons() -> Result<[SafeTexture; 6]> {
-        macro_rules! loads {
-            ($($path:literal),*) => {
-                [$(loads!(@detail $path)),*]
-            };
-
-            (@detail $path:literal) => {
-                Texture2D::from_image(&load_image($path).await?).into()
-            };
-        }
-        Ok(loads![
-            "rank/white.png",
-            "rank/green.png",
-            "rank/blue.png",
-            "rank/red.png",
-            "rank/golden.png",
-            "rank/rainbow.png"
         ])
     }
 
@@ -477,13 +456,12 @@ impl Resource {
             background,
             illustration,
             icons: Self::load_icons().await?,
-            challenge_icons: Self::load_challenge_icons().await?,
             res_pack,
             player: if let Some(player) = player { player } else { load_tex!("player.jpg") },
             icon_back: load_tex!("back.png"),
-            icon_retry: load_tex!("retry.png"),
+            icon_retry: load_tex!("retry.png").with_mipmap(),
             icon_resume: load_tex!("resume.png"),
-            icon_proceed: load_tex!("proceed.png"),
+            icon_proceed: load_tex!("proceed.png").with_mipmap(),
 
             emitter,
 

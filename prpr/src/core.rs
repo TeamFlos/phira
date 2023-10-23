@@ -29,7 +29,7 @@ mod object;
 pub use object::{CtrlObject, Object};
 
 mod render;
-pub use render::{copy_fbo, MSRenderTarget};
+pub use render::{copy_fbo, internal_id, MSRenderTarget};
 
 mod resource;
 pub use resource::{NoteStyle, ParticleEmitter, ResPackInfo, Resource, ResourcePack, DPI_VALUE};
@@ -42,6 +42,14 @@ pub use tween::{easing_from, BezierTween, ClampedTween, StaticTween, TweenFuncti
 
 mod video;
 pub use video::Video;
+
+use std::cell::RefCell;
+use crate::ui::TextPainter;
+
+thread_local! {
+    pub static PGR_FONT: RefCell<Option<TextPainter>> = RefCell::default();
+    pub static BOLD_FONT: RefCell<Option<TextPainter>> = RefCell::default();
+}
 
 pub fn init_assets() {
     if let Ok(mut exe) = std::env::current_exe() {

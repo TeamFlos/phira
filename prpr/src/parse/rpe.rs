@@ -6,7 +6,7 @@ use crate::{
         Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, JudgeLine, JudgeLineCache,
         JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
     },
-    ext::NotNanExt,
+    ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
     judge::JudgeStatus,
 };
@@ -443,12 +443,12 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
             }
         } else {
             JudgeLineKind::Texture(
-                image::load_from_memory(
+                SafeTexture::from(image::load_from_memory(
                     &fs.load_file(&rpe.texture)
                         .await
                         .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
-                )?
-                .into(),
+                )?)
+                .with_mipmap(),
                 rpe.texture.clone(),
             )
         },

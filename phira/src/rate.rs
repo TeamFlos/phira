@@ -3,6 +3,7 @@ prpr::tl_file!("rate");
 use crate::page::Fader;
 use macroquad::prelude::*;
 use prpr::{
+    core::BOLD_FONT,
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     ui::{DRectButton, Ui},
 };
@@ -34,13 +35,13 @@ impl Rate {
         }
     }
 
-    pub fn render(&mut self, ui: &mut Ui, c: Color, icon_star: &SafeTexture) -> Rect {
+    pub fn render(&mut self, ui: &mut Ui, icon_star: &SafeTexture) -> Rect {
         let wr = Ui::dialog_rect();
         ui.scope(|ui| {
             ui.dx(wr.center().x);
             let s = 0.1;
             let pad = 0.03;
-            let cc = semi_white(c.a * 0.5);
+            let cc = semi_white(0.5);
             let tw = s * 2.5 + pad * 2.;
             self.touch_rect = ui.rect_to_global(Rect::new(-tw, s / 2., tw * 2., s));
             if let Some(x) = self.touch_x {
@@ -60,12 +61,12 @@ impl Rate {
                 let pos = (i as f32 - 2.) * (pad + s);
                 let r = Rect::new(pos, s / 2., 0., 0.).feather(s / 2.);
                 if self.score >= (i + 1) * 2 {
-                    ui.fill_rect(r, (**icon_star, r, ScaleType::Fit, c));
+                    ui.fill_rect(r, (**icon_star, r, ScaleType::Fit));
                 } else {
                     ui.fill_rect(r, (**icon_star, r, ScaleType::Fit, cc));
                     if self.score == i * 2 + 1 {
                         let hr = Rect { w: r.w / 2., ..r };
-                        ui.fill_rect(hr, (**icon_star, r, ScaleType::Fit, c));
+                        ui.fill_rect(hr, (**icon_star, r, ScaleType::Fit));
                     }
                 }
             }
@@ -173,46 +174,31 @@ impl RateDialog {
             ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
             let wr = self.dialog_rect();
             self.fader.for_sub(|f| {
-                f.render(ui, t, |ui, c| {
-                    ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
+                f.render(ui, t, |ui| {
+                    ui.fill_path(&wr.rounded(0.02), ui.background());
                     let r = ui
                         .text(if self.rate_upper.is_some() { tl!("filter") } else { tl!("rate") })
                         .pos(wr.x + 0.04, wr.y + 0.033)
                         .size(0.9)
-                        .color(c)
-                        .draw();
+                        .draw_using(&BOLD_FONT);
                     let bh = 0.09;
                     ui.scope(|ui| {
                         ui.dy(r.bottom() + 0.04);
                         if self.rate_upper.is_some() {
-                            let h = ui
-                                .text(tl!("lower-bound"))
-                                .pos(wr.center().x, 0.)
-                                .anchor(0.5, 0.)
-                                .size(0.5)
-                                .color(c)
-                                .draw()
-                                .h;
+                            let h = ui.text(tl!("lower-bound")).pos(wr.center().x, 0.).anchor(0.5, 0.).size(0.5).draw().h;
                             ui.dy(h + 0.02);
                         } else {
                             ui.dy(0.03);
                         }
-                        let h = self.rate.render(ui, c, &self.icon_star).h;
+                        let h = self.rate.render(ui, &self.icon_star).h;
                         if let Some(upper) = &mut self.rate_upper {
                             upper.score = upper.score.max(self.rate.score);
                         }
                         ui.dy(h + 0.03);
                         if let Some(upper) = &mut self.rate_upper {
-                            let h = ui
-                                .text(tl!("upper-bound"))
-                                .pos(wr.center().x, 0.)
-                                .anchor(0.5, 0.)
-                                .size(0.5)
-                                .color(c)
-                                .draw()
-                                .h;
+                            let h = ui.text(tl!("upper-bound")).pos(wr.center().x, 0.).anchor(0.5, 0.).size(0.5).draw().h;
                             ui.dy(h + 0.02);
-                            upper.render(ui, c, &self.icon_star);
+                            upper.render(ui, &self.icon_star);
                             self.rate.score = self.rate.score.min(upper.score);
                         }
                     });
@@ -220,15 +206,17 @@ impl RateDialog {
                     if self.rate_upper.is_none() {
                         let bw = (wr.w - pad * 3.) / 2.;
                         let mut r = Rect::new(wr.x + pad, wr.bottom() - 0.02 - bh, bw, bh);
-                        self.btn_cancel.render_text(ui, r, t, c.a, tl!("cancel"), 0.5, true);
+                        self.btn_cancel.render_text(ui, r, t, tl!("cancel"), 0.5, true);
                         r.x += bw + pad;
-                        self.btn_confirm.render_text(ui, r, t, c.a, tl!("confirm"), 0.5, true);
+                        self.btn_confirm.render_text(ui, r, t, tl!("confirm"), 0.5, true);
                     } else {
                         let r = Rect::new(wr.x, wr.bottom() - 0.02 - bh, wr.w, bh).nonuniform_feather(-pad, 0.);
-                        self.btn_tags.render_text(ui, r, t, c.a, tl!("filter-by-tags"), 0.5, true);
+                        self.btn_tags.render_text(ui, r, t, tl!("filter-by-tags"), 0.5, true);
                     }
                 });
             });
         }
+        // TODO magical. removing this line will make the title disappear.
+        ui.text("").draw_using(&BOLD_FONT);
     }
 }

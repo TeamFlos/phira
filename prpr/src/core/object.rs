@@ -65,8 +65,9 @@ impl Object {
     }
 
     #[inline]
-    pub fn now_scale(&self) -> Matrix {
-        Matrix::identity().append_nonuniform_scaling(&self.scale.now_with_def(1.0, 1.0))
+    pub fn now_scale(&self, ct: Vector) -> Matrix {
+        let scale = self.scale.now_with_def(1.0, 1.0);
+        Matrix::new_translation(&-ct).append_nonuniform_scaling(&scale).append_translation(&ct)
     }
 }
 

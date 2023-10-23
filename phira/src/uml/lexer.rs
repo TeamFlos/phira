@@ -9,6 +9,9 @@ pub enum Token {
     #[regex(r#""[^"]*""#, quoted)]
     Quoted(String),
 
+    #[token("global")]
+    Global,
+
     #[regex("[@a-zA-Z$_][a-zA-Z0-9-$_]*", |lex| lex.slice().to_owned())]
     Ident(String),
 

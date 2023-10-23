@@ -337,14 +337,14 @@ pub fn thread_as_future<R: Send + 'static>(f: impl FnOnce() -> R + Send + 'stati
     DummyFuture(arc)
 }
 
-pub fn spawn_task<R: Send + 'static>(future: impl Future<Output = R> + Send + 'static) -> impl Future<Output = anyhow::Result<R>> {
+pub async fn spawn_task<R: Send + 'static>(f: impl FnOnce() -> Result<R> + Send + 'static) -> Result<R> {
     #[cfg(target_arch = "wasm32")]
     {
-        async move { Ok(future.await) }
+        f()
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        async move { Ok(tokio::spawn(future).await?) }
+        Ok(tokio::task::spawn_blocking(f).await??)
     }
 }
 
@@ -507,6 +507,39 @@ pub fn parse_time(s: &str) -> Option<f32> {
         res += hrs.parse::<u32>().ok()? as f32 * 3600.;
     }
     Some(res)
+}
+
+pub fn open_url(url: &str) -> Result<()> {
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "android")] {
+            unsafe {
+                let env = miniquad::native::attach_jni_env();
+                let ctx = ndk_context::android_context().context();
+                let class = (**env).GetObjectClass.unwrap()(env, ctx);
+                let method =
+                    (**env).GetMethodID.unwrap()(env, class, b"openUrl\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                let url = std::ffi::CString::new(url.to_owned()).unwrap();
+                (**env).CallVoidMethod.unwrap()(
+                    env,
+                    ctx,
+                    method,
+                    (**env).NewStringUTF.unwrap()(env, url.as_ptr()),
+                );
+            }
+        } else if #[cfg(target_os = "ios")] {
+            unsafe {
+                use crate::objc::*;
+
+                let application: ObjcId = msg_send![class!(UIApplication), sharedApplication];
+                let url: ObjcId = msg_send![class!(NSURL), URLWithString: str_to_ns(url)];
+                let _: () = msg_send![application, openURL: url];
+            }
+        } else {
+            open::that(url)?;
+        }
+    }
+
+    Ok(())
 }
 
 mod shader {

@@ -264,7 +264,7 @@ pub fn request_file(id: impl Into<String>) {
                         let tp: ObjcId = msg_send![tp_cls, typeWithFilenameExtension: str_to_ns(e)];
                         std::mem::transmute::<_, ShareId<NSObject>>(ShareId::from_ptr(tp))
                     };
-                    let types = NSArray::from_slice(&[ext("zip"), ext("pez"), ext("jpg"), ext("png"), ext("jpeg")]);
+                    let types = NSArray::from_slice(&[ext("zip"), ext("pez"), ext("jpg"), ext("png"), ext("jpeg"), ext("json"), ext("mp3"), ext("ogg")]);
                     let types: ObjcId = std::mem::transmute(types);
                     msg_send![picker, initForOpeningContentTypes: types]
                 } else {
@@ -285,7 +285,7 @@ pub fn request_file(id: impl Into<String>) {
                     completion: 0 as ObjcId
                 ];
             }
-        } else {
+        } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }
     }
@@ -347,7 +347,7 @@ pub struct Main {
     paused: bool,
     last_update_time: f64,
     should_exit: bool,
-    pub toplevel: bool,
+    pub top_level: bool,
     touches: Option<Vec<Touch>>,
     pub viewport: Option<(i32, i32, i32, i32)>,
 }
@@ -372,7 +372,7 @@ impl Main {
             paused: false,
             last_update_time,
             should_exit: false,
-            toplevel: true,
+            top_level: true,
             touches: None,
             viewport: None,
         })
@@ -474,7 +474,8 @@ impl Main {
                 dialog.update(self.last_update_time as _);
             }
         });
-        self.scenes.last_mut().unwrap().update(&mut self.tm)
+        self.scenes.last_mut().unwrap().update(&mut self.tm)?;
+        Ok(())
     }
 
     pub fn render(&mut self, painter: &mut TextPainter) -> Result<()> {
@@ -484,7 +485,7 @@ impl Main {
         let mut ui = Ui::new(painter, self.viewport);
         ui.set_touches(self.touches.take().unwrap());
         ui.scope(|ui| self.scenes.last_mut().unwrap().render(&mut self.tm, ui))?;
-        if self.toplevel {
+        if self.top_level {
             push_camera_state();
             set_camera(&ui.camera());
             let mut gl = unsafe { get_internal_gl() };
