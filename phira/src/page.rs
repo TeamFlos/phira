@@ -52,18 +52,39 @@ pub fn thumbnail_path(path: &str) -> Result<PathBuf> {
     Ok(format!("{}/{}", dir::cache_image_local()?, path.replace('/', "_")).into())
 }
 
-pub fn illustration_task(notify: Arc<Notify>, path: String) -> Task<Result<(DynamicImage, Option<DynamicImage>)>> {
+pub fn illustration_task(notify: Arc<Notify>, path: String, full: bool) -> Task<Result<(DynamicImage, Option<DynamicImage>)>> {
     Task::new(async move {
         notify.notified().await;
         let mut fs = fs_from_path(&path)?;
         let info = fs::load_info(fs.deref_mut()).await?;
+        let mut img = None;
         let thumbnail = Images::local_or_else(thumbnail_path(&path)?, async {
             let image = image::load_from_memory(&fs.load_file(&info.illustration).await?)?;
-            Ok(Images::thumbnail(&image))
+            let thumbnail = Images::thumbnail(&image);
+            img = Some(image);
+            Ok(thumbnail)
         })
         .await?;
-        Ok((thumbnail, None))
+        if full {
+            if img.is_none() {
+                img = Some(image::load_from_memory(&fs.load_file(&info.illustration).await?)?);
+            }
+        } else {
+            img = None;
+        }
+        Ok((thumbnail, img))
     })
+}
+
+pub fn local_illustration(path: String, def: SafeTexture, full: bool) -> Illustration {
+    let notify = Arc::new(Notify::new());
+    Illustration {
+        texture: (def.clone(), def),
+        notify: Arc::clone(&notify),
+        task: Some(illustration_task(notify, path, full)),
+        loaded: Arc::default(),
+        load_time: f32::NAN,
+    }
 }
 
 pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
@@ -74,16 +95,7 @@ pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
         .map(|it| ChartItem {
             info: it.info.clone(),
             local_path: Some(it.local_path.clone()),
-            illu: {
-                let notify = Arc::new(Notify::new());
-                Illustration {
-                    texture: (tex.clone(), tex.clone()),
-                    notify: Arc::clone(&notify),
-                    task: Some(illustration_task(notify, it.local_path.clone())),
-                    loaded: Arc::default(),
-                    load_time: f32::NAN,
-                }
-            },
+            illu: local_illustration(it.local_path.clone(), tex.clone(), false),
         })
         .collect();
     order.0.apply(&mut res);
