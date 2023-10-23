@@ -8,7 +8,7 @@ use crate::{
     icons::Icons,
     popup::Popup,
     rate::RateDialog,
-    scene::{ChartOrder, ORDERS},
+    scene::{check_read_tos_and_policy, ChartOrder, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
 };
@@ -146,6 +146,9 @@ impl LibraryPage {
     }
 
     pub fn load_online(&mut self) {
+        if !check_read_tos_and_policy() {
+            return;
+        }
         if get_data().config.offline_mode {
             show_message(tl!("offline-mode")).error();
             return;

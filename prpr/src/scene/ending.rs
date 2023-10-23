@@ -200,6 +200,7 @@ impl Scene for EndingScene {
                                 if pos == 1 {
                                     RE_UPLOAD.with(|it| *it.borrow_mut() = true);
                                 }
+                                false
                             })
                             .show();
                     }

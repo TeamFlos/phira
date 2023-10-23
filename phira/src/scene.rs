@@ -15,12 +15,12 @@ pub use song::{Downloading, SongScene, RECORD_ID};
 mod profile;
 pub use profile::ProfileScene;
 
-use crate::{client::UserManager, data::LocalChart, dir, get_data, page::Fader};
+use crate::{client::UserManager, data::LocalChart, dir, get_data, get_data_mut, page::Fader, save_data};
 use anyhow::{bail, Context, Result};
 use prpr::{
     config::Mods,
     core::{BOLD_FONT, PGR_FONT},
-    ext::{semi_white, unzip_into, RectExt, SafeTexture},
+    ext::{open_url, semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
@@ -56,8 +56,44 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
             if id == 1 {
                 res.store(true, Ordering::SeqCst);
             }
+            false
         })
         .show();
+}
+
+pub fn check_read_tos_and_policy() -> bool {
+    if get_data().read_tos_and_policy {
+        return true;
+    }
+
+    let mut done = 0;
+    Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc"))
+        .buttons(vec![ttl!("cancel").into_owned(), ttl!("tos").into_owned(), ttl!("policy").into_owned()])
+        .listener(move |pos| {
+            match pos {
+                1 => {
+                    open_url("https://phira.moe/terms-of-use").unwrap();
+                    done |= 1;
+                }
+                2 => {
+                    open_url("https://phira.moe/privacy-policy").unwrap();
+                    done |= 2;
+                }
+                _ => {
+                    return false;
+                }
+            }
+            if done == 3 {
+                get_data_mut().read_tos_and_policy = true;
+                let _ = save_data();
+                false
+            } else {
+                true
+            }
+        })
+        .show();
+
+    false
 }
 
 #[inline]
