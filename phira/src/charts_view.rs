@@ -154,11 +154,12 @@ impl ChartsView {
     }
 
     pub fn on_result(&mut self, t: f32, delete: bool) {
-        let transit = self.transit.as_mut().unwrap();
-        transit.start_time = t;
-        transit.back = true;
-        transit.done = false;
-        transit.delete = delete;
+        if let Some(transit) = &mut self.transit {
+            transit.start_time = t;
+            transit.back = true;
+            transit.done = false;
+            transit.delete = delete;
+        }
     }
 
     pub fn need_update(&self) -> bool {
