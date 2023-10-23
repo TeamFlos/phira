@@ -33,8 +33,8 @@ lock-room = { $current ->
   *[other] ล็อคห้อง
 }
 cycle-room = { $current ->
-  [true] โหมดวน
-  *[other] โหมดธรรมดา
+  [true] โหมด วน
+  *[other] โหมด ธรรมดา
 }
 
 ready = พร้อม
@@ -51,7 +51,7 @@ cycle-room-failed = ไม่สามารถเปลี่ยนโหมด
 
 chat-placeholder = ลองพูดอะไรสักอย่าง…
 chat-send = ส่ง
-chat-empty = ข้อความว่างเปล่า
+chat-empty = ว่างเปล่า :v
 chat-sent = ส่งเรียบร้อย
 chat-send-failed = ไม่สามารถส่งข้อความได้
 
