@@ -21,7 +21,7 @@ use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::{Tweenable, BOLD_FONT},
+    core::Tweenable,
     ext::{poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
@@ -879,6 +879,7 @@ impl SongScene {
                             if pos == 1 {
                                 CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
                             }
+                            false
                         })
                         .show();
                 }
@@ -1485,6 +1486,7 @@ impl Scene for SongScene {
                                     let _ = save_data();
                                     show_message(tl!("switched-to-offline")).ok();
                                 }
+                                false
                             })
                             .show();
                     }

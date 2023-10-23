@@ -4,7 +4,7 @@ use crate::{
     client::{Client, LoginParams, User, UserManager},
     get_data_mut,
     page::Fader,
-    save_data,
+    save_data, scene::check_read_tos_and_policy,
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -163,12 +163,18 @@ impl Login {
                 return true;
             }
             if self.btn_reg.touch(touch, t) {
+                if !check_read_tos_and_policy() {
+                    return true;
+                }
                 if let Some(error) = self.register() {
                     show_message(error).error();
                 }
                 return true;
             }
             if self.btn_login.touch(touch, t) {
+                if !check_read_tos_and_policy() {
+                    return true;
+                }
                 let email = self.t_email.clone();
                 let pwd = self.t_pwd.clone();
                 self.start("login", async move {

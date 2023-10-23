@@ -13,7 +13,9 @@ pub struct Dialog {
     title: String,
     message: String,
     buttons: Vec<String>,
-    listener: Option<Box<dyn FnMut(i32)>>, // -1 for cancel
+    listener: Option<Box<dyn FnMut(i32) -> bool>>, // -1 for cancel
+
+    h: Option<f32>,
 
     scroll: Scroll,
     window_rect: Option<Rect>,
@@ -27,6 +29,8 @@ impl Default for Dialog {
             message: String::new(),
             buttons: vec![tl!("ok").to_string()],
             listener: None,
+
+            h: None,
 
             scroll: Scroll::new(),
             window_rect: None,
@@ -62,6 +66,7 @@ impl Dialog {
                     unsafe { get_internal_gl() }.quad_context.clipboard_set(&error);
                     show_message(tl!("error-copied")).ok();
                 }
+                false
             })),
 
             rect_buttons: vec![DRectButton::new(); 2],
@@ -85,7 +90,7 @@ impl Dialog {
         self
     }
 
-    pub fn listener(mut self, f: impl FnMut(i32) + 'static) -> Self {
+    pub fn listener(mut self, f: impl FnMut(i32) -> bool + 'static) -> Self {
         self.listener = Some(Box::new(f));
         self
     }
@@ -99,10 +104,12 @@ impl Dialog {
         let mut exit = false;
         for (index, btn) in self.rect_buttons.iter_mut().enumerate() {
             if btn.touch(touch, t) {
-                if let Some(listener) = self.listener.as_mut() {
-                    listener(index as i32);
-                }
                 exit = true;
+                if let Some(listener) = self.listener.as_mut() {
+                    if listener(index as i32) {
+                        exit = false;
+                    }
+                }
             }
         }
         if exit {
@@ -115,7 +122,9 @@ impl Dialog {
             true
         } else {
             if let Some(listener) = self.listener.as_mut() {
-                listener(-1);
+                if listener(-1) {
+                    return true;
+                }
             }
             false
         }
@@ -127,15 +136,32 @@ impl Dialog {
 
     pub fn render(&mut self, ui: &mut Ui, t: f32) {
         ui.fill_rect(ui.screen_rect(), Color::new(0., 0., 0., 0.6));
-        let mut wr = Rect::new(0., 0., 2. * WIDTH_RADIO, ui.top * 2. * HEIGHT_RATIO);
+
+        let mh = ui.top * 2. * HEIGHT_RATIO;
+        let s = 0.02;
+        let pad = 0.02;
+        let bh = 0.09;
+
+        if self.h.is_none() {
+            self.h = Some(
+                (ui.text(&self.message)
+                    .size(0.5)
+                    .max_width(2. * WIDTH_RADIO - pad * 3.)
+                    .multiline()
+                    .measure()
+                    .h
+                    + ui.text(&self.title).size(0.95).no_baseline().measure().h
+                    + bh
+                    + 0.22)
+                    .min(mh),
+            );
+        }
+        let mut wr = Rect::new(0., 0., 2. * WIDTH_RADIO, self.h.unwrap());
         wr.x = -wr.w / 2.;
         wr.y = -wr.h / 2.;
         self.window_rect = Some(ui.rect_to_global(wr));
         ui.fill_path(&wr.rounded(0.01), ui.background());
 
-        let s = 0.02;
-        let pad = 0.02;
-        let bh = 0.09;
         ui.scope(|ui| {
             let s = 0.01;
             let pad = 0.02;
@@ -163,7 +189,7 @@ impl Dialog {
                 let r = ui
                     .text(&self.message)
                     .pos(pad, 0.)
-                    .size(0.43)
+                    .size(0.5)
                     .max_width(wr.w - pad * 3.)
                     .multiline()
                     .draw();
