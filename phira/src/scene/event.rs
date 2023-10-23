@@ -226,6 +226,9 @@ impl Scene for EventScene {
         if self.uml.touch(touch, t, rt, &mut action)? {
             if let Some(action) = action {
                 match action.as_str() {
+                    "exit" => {
+                        self.next_scene = Some(NextScene::Pop);
+                    }
                     "join" => {
                         self.join_or(rt);
                     }
