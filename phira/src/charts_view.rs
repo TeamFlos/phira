@@ -196,7 +196,6 @@ impl ChartsView {
                         let download_path = chart.info.id.map(|it| format!("download/{it}"));
                         let scene = SongScene::new(
                             chart.clone(),
-                            None,
                             if let Some(path) = &chart.local_path {
                                 Some(path.clone())
                             } else {

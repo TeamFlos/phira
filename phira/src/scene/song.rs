@@ -7,7 +7,7 @@ use crate::{
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{thumbnail_path, ChartItem, Fader, Illustration, SFader},
+    page::{local_illustration, thumbnail_path, ChartItem, Fader, Illustration, SFader},
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -281,22 +281,13 @@ pub struct SongScene {
 }
 
 impl SongScene {
-    pub fn new(
-        mut chart: ChartItem,
-        local_illu: Option<Illustration>,
-        local_path: Option<String>,
-        icons: Arc<Icons>,
-        rank_icons: [SafeTexture; 8],
-        mods: Mods,
-    ) -> Self {
+    pub fn new(mut chart: ChartItem, local_path: Option<String>, icons: Arc<Icons>, rank_icons: [SafeTexture; 8], mods: Mods) -> Self {
         if let Some(path) = &local_path {
             if let Some(id) = path.strip_prefix("download/") {
                 chart.info.id = Some(id.parse().unwrap());
             }
         }
-        let illu = if let Some(illu) = local_illu {
-            illu
-        } else if let Some(id) = chart.info.id {
+        let illu = if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
                 notify: Arc::default(),
@@ -310,6 +301,10 @@ impl SongScene {
                 loaded: Arc::default(),
                 load_time: f32::NAN,
             }
+        } else if let Some(path) = &chart.local_path {
+            let illu = local_illustration(path.clone(), chart.illu.texture.1.clone(), true);
+            illu.notify.notify_one();
+            illu
         } else {
             chart.illu
         };
