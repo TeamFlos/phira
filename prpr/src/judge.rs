@@ -210,7 +210,7 @@ impl JudgeInner {
 }
 
 #[cfg(feature = "closed")]
-mod inner;
+pub mod inner;
 #[cfg(feature = "closed")]
 use inner::*;
 

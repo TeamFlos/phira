@@ -11,15 +11,15 @@ use super::{
 use crate::{
     bin::{BinaryReader, BinaryWriter},
     config::{Config, Mods},
-    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector},
-    ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture},
+    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, PGR_FONT},
+    ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
     judge::Judge,
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
-    ui::{RectButton, Ui},
+    ui::{RectButton, TextPainter, Ui},
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
@@ -32,7 +32,7 @@ use std::{
     cell::RefCell,
     fs::File,
     io::{Cursor, ErrorKind},
-    ops::{DerefMut, Range},
+    ops::{Deref, DerefMut, Range},
     path::PathBuf,
     process::{Command, Stdio},
     rc::Rc,
@@ -143,9 +143,6 @@ pub struct GameScene {
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
 
-    theme_color: Color,
-    use_black: bool,
-
     pub touch_points: Vec<(f32, f32)>,
 }
 
@@ -227,9 +224,6 @@ impl GameScene {
         illustration: SafeTexture,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
-
-        theme_color: Color,
-        use_black: bool,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -298,9 +292,6 @@ impl GameScene {
             upload_fn,
             update_fn,
 
-            theme_color,
-            use_black,
-
             touch_points: Vec::new(),
         })
     }
@@ -337,7 +328,6 @@ impl GameScene {
                 1. - (t / (AFTER_TIME + 0.3)).min(1.).powi(2)
             }
         };
-        let c = Color::new(1., 1., 1., self.res.alpha);
         let res = &mut self.res;
         let eps = 2e-2 / res.aspect_ratio;
         let top = -1. / res.aspect_ratio;
@@ -366,95 +356,92 @@ impl GameScene {
                 tm.pause();
             }
         }
-        if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
-            ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
-        }
+        ui.alpha(res.alpha, |ui| {
+            if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
+                ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
+            }
 
-        let margin = 0.03;
+            let margin = 0.03;
 
-        self.chart.with_element(ui, res, UIElement::Score, |ui, color, scale| {
-            ui.text(format!("{:07}", self.judge.score()))
-                .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4)
-                .anchor(1., 0.)
-                .size(0.8)
-                .color(Color { a: color.a * c.a, ..color })
-                .scale(scale)
-                .draw();
-        });
-        if res.config.show_acc {
-            ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
-                .pos(1. - margin, top + eps * 2.2 - (1. - p) * 0.4 + 0.07)
-                .anchor(1., 0.)
-                .size(0.4)
-                .color(semi_white(0.7))
-                .draw();
-        }
-        self.chart.with_element(ui, res, UIElement::Pause, |ui, color, scale| {
-            let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
-            let ct = pause_center.coords;
-            let c = Color { a: color.a * c.a, ..color };
-            ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
-                ui.fill_rect(r, c);
-                r.x += pause_w * 2.;
-                ui.fill_rect(r, c);
-            });
-        });
-        if self.judge.combo() >= 3 {
-            let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, |ui, color, scale| {
-                ui.text(self.judge.combo().to_string())
-                    .pos(0., top + eps * 2. - (1. - p) * 0.4)
-                    .anchor(0.5, 0.)
-                    .color(Color { a: color.a * c.a, ..color })
-                    .scale(scale)
-                    .draw()
-                    .bottom()
-            });
-            self.chart.with_element(ui, res, UIElement::Combo, |ui, color, scale| {
-                ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
-                    .pos(0., btm + 0.01)
-                    .anchor(0.5, 0.)
-                    .size(0.4)
-                    .color(Color { a: color.a * c.a, ..color })
-                    .scale(scale)
+            let unit_h = ui.text("0").measure_using(&PGR_FONT).h;
+
+            // score
+            let h = 0.07;
+            let score_top = top + eps * 2.2 - (1. - p) * 0.4;
+            let score = format!("{:07}", self.judge.score());
+            let ct = ui.text(&score).size(0.8).measure_using(&PGR_FONT).center();
+            self.chart
+                .with_element(ui, res, UIElement::Score, Some((-ct.x + 1. - margin, ct.y + score_top)), |ui, c| {
+                    ui.text(&score)
+                        .pos(1. - margin, score_top)
+                        .anchor(1., 0.)
+                        .size(0.8)
+                        .color(c)
+                        .draw_using(&PGR_FONT);
+                    if res.config.show_acc {
+                        ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
+                            .pos(1. - margin, score_top + h)
+                            .anchor(1., 0.)
+                            .size(0.4)
+                            .color(Color { a: c.a * 0.7, ..c })
+                            .draw_using(&PGR_FONT);
+                    }
+                });
+
+            self.chart
+                .with_element(ui, res, UIElement::Pause, Some((pause_center.x, pause_center.y)), |ui, c| {
+                    let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
+                    ui.fill_rect(r, c);
+                    r.x += pause_w * 2.;
+                    ui.fill_rect(r, c);
+                });
+            if self.judge.combo() >= 3 {
+                let combo_top = top + eps * 2. - (1. - p) * 0.4;
+                let btm = self
+                    .chart
+                    .with_element(ui, res, UIElement::ComboNumber, Some((0., combo_top + unit_h / 2.)), |ui, c| {
+                        ui.text(self.judge.combo().to_string())
+                            .pos(0., combo_top)
+                            .anchor(0.5, 0.)
+                            .color(c)
+                            .draw_using(&PGR_FONT)
+                            .bottom()
+                    });
+                let combo_top = btm + 0.01;
+                self.chart
+                    .with_element(ui, res, UIElement::Combo, Some((0., combo_top + unit_h * 0.2)), |ui, c| {
+                        ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                            .pos(0., combo_top)
+                            .anchor(0.5, 0.)
+                            .size(0.4)
+                            .color(c)
+                            .draw_using(&PGR_FONT);
+                    });
+            }
+            let lf = -1. + margin;
+            let bt = -top - eps * 2.8 + (1. - p) * 0.4;
+            let ct = ui.text(&res.info.name).measure().center();
+            self.chart.with_element(ui, res, UIElement::Name, Some((lf + ct.x, bt - ct.y)), |ui, c| {
+                ui.text(&res.info.name)
+                    .pos(lf, bt)
+                    .anchor(0., 1.)
+                    .size(0.5)
+                    .color(c)
+                    .max_width(0.8)
                     .draw();
             });
-        }
-        let lf = -1. + margin;
-        let bt = -top - eps * 2.8;
-        self.chart.with_element(ui, res, UIElement::Name, |ui, color, scale| {
-            ui.text(&res.info.name)
-                .pos(lf, bt + (1. - p) * 0.4)
-                .anchor(0., 1.)
-                .size(0.5)
-                .color(Color { a: color.a * c.a, ..color })
-                .scale(scale)
-                .max_width(0.8)
-                .draw();
-        });
-        self.chart.with_element(ui, res, UIElement::Level, |ui, color, scale| {
-            ui.text(&res.info.level)
-                .pos(-lf, bt + (1. - p) * 0.4)
-                .anchor(1., 1.)
-                .size(0.5)
-                .color(Color { a: color.a * c.a, ..color })
-                .scale(scale)
-                .draw();
-        });
-        let hw = 0.003;
-        let height = eps * 1.2;
-        let dest = 2. * res.time / res.track_length;
-        self.chart.with_element(ui, res, UIElement::Bar, |ui, color, scale| {
-            let ct = Vector::new(0., top + height / 2.);
-            ui.with(scale.prepend_translation(&-ct).append_translation(&ct), |ui| {
-                ui.fill_rect(
-                    Rect::new(-1., top, dest, height),
-                    Color {
-                        a: color.a * c.a * 0.6,
-                        ..color
-                    },
-                );
-                ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), Color { a: color.a * c.a, ..color });
-            });
+
+            let ct = ui.text(&res.info.level).measure().center();
+            self.chart
+                .with_element(ui, res, UIElement::Level, Some((-lf - ct.x, bt - ct.y)), |ui, c| {
+                    ui.text(&res.info.level).pos(-lf, bt).anchor(1., 1.).size(0.5).color(c).draw();
+                });
+
+            let hw = 0.003;
+            let height = eps * 1.2;
+            let dest = 2. * res.time / res.track_length;
+            ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
+            ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
         });
         Ok(())
     }
@@ -479,16 +466,8 @@ impl GameScene {
                     ..Default::default()
                 },
             );
-            draw_texture_ex(
-                *res.icon_retry,
-                -s,
-                -s + o,
-                if no_retry { semi_white(res.alpha * 0.6) } else { c },
-                DrawTextureParams {
-                    dest_size: Some(vec2(s * 2., s * 2.)),
-                    ..Default::default()
-                },
-            );
+            let r = Rect::new(0., o, 0., 0.).feather(s);
+            ui.fill_rect(r, (*res.icon_retry, r.feather(0.02), ScaleType::Fit, if no_retry { semi_white(res.alpha * 0.6) } else { c }));
             draw_texture_ex(
                 *res.icon_resume,
                 s + w,
@@ -882,15 +861,12 @@ impl Scene for GameScene {
                             self.res.icon_proceed.clone(),
                             self.res.info.clone(),
                             self.judge.result(),
-                            self.res.challenge_icons[self.res.config.challenge_color.clone() as usize].clone(),
                             &self.res.config,
                             self.res.res_pack.ending.clone(),
                             self.upload_fn.as_ref().map(Arc::clone),
                             self.player.as_ref().map(|it| it.rks),
                             record_data,
                             record,
-                            self.theme_color,
-                            self.use_black,
                         )?))),
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
@@ -1078,7 +1054,6 @@ impl Scene for GameScene {
             push_camera_state();
             set_camera(&Camera2D {
                 zoom: vec2(1., asp),
-                viewport: chart_target_vp,
                 ..Default::default()
             });
             for e in &self.effects {

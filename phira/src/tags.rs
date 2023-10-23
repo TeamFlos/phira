@@ -3,6 +3,7 @@ prpr::tl_file!("tags");
 use crate::{client::Permissions, page::Fader};
 use macroquad::prelude::*;
 use prpr::{
+    core::BOLD_FONT,
     ext::{semi_black, RectExt},
     scene::{request_input, return_input, show_message, take_input},
     ui::{DRectButton, Scroll, Ui},
@@ -75,7 +76,7 @@ impl Tags {
         false
     }
 
-    pub fn render(&mut self, ui: &mut Ui, mw: f32, t: f32, alpha: f32) -> f32 {
+    pub fn render(&mut self, ui: &mut Ui, mw: f32, t: f32) -> f32 {
         let row_height = 0.1;
         let tmw = 0.3;
         let sz = 0.5;
@@ -90,7 +91,7 @@ impl Tags {
                 x = 0.;
                 h += row_height;
             }
-            btn.render_text(ui, Rect::new(x, h, w + (margin + pad) * 2., row_height).feather(-pad), t, alpha, text, sz, true);
+            btn.render_text(ui, Rect::new(x, h, w + (margin + pad) * 2., row_height).feather(-pad), t, text, sz, true);
             x += w + (margin + pad) * 2.;
         };
         for (tag, btn) in self.tags.iter().zip(self.btns.iter_mut()) {
@@ -278,14 +279,13 @@ impl TagsDialog {
             ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
             let wr = self.dialog_rect();
             self.fader.for_sub(|f| {
-                f.render(ui, t, |ui, c| {
-                    ui.fill_path(&wr.rounded(0.02), Color { a: c.a, ..ui.background() });
+                f.render(ui, t, |ui| {
+                    ui.fill_path(&wr.rounded(0.02), ui.background());
                     let r = ui
                         .text(if self.unwanted.is_some() { tl!("filter") } else { tl!("edit") })
                         .pos(wr.x + 0.04, wr.y + 0.033)
                         .size(0.9)
-                        .color(c)
-                        .draw();
+                        .draw_using(&BOLD_FONT);
                     let mw = wr.w - 0.08;
                     let bh = 0.09;
                     ui.scope(|ui| {
@@ -297,7 +297,7 @@ impl TagsDialog {
                             let bw = mw / DIVISION_TAGS.len() as f32;
                             let mut r = Rect::new(pad / 2., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
                             for (div, btn) in DIVISION_TAGS.iter().zip(&mut self.div_btns) {
-                                btn.render_text(ui, r, t, c.a, tl!(*div), 0.5, self.division == *div);
+                                btn.render_text(ui, r, t, tl!(*div), 0.5, self.division == *div);
                                 r.x += bw;
                             }
                             let mut h = bh + 0.01;
@@ -313,7 +313,7 @@ impl TagsDialog {
                                 let bw = mw / row.len() as f32;
                                 let mut r = Rect::new(pad / 2., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
                                 for (btn, text, on) in row.into_iter() {
-                                    btn.render_text(ui, r, t, c.a, tl!(text), 0.5, on);
+                                    btn.render_text(ui, r, t, tl!(text), 0.5, on);
                                     r.x += bw;
                                 }
                                 let dh = bh + 0.01;
@@ -321,20 +321,20 @@ impl TagsDialog {
                                 ui.dy(dh);
                             }
                             if self.unwanted.is_some() {
-                                let th = ui.text(tl!("wanted")).size(0.5).color(c).draw().h + 0.01;
+                                let th = ui.text(tl!("wanted")).size(0.5).draw().h + 0.01;
                                 ui.dy(th);
                                 h += th;
                             }
-                            let th = self.tags.render(ui, mw, t, c.a);
+                            let th = self.tags.render(ui, mw, t);
                             ui.dy(th);
                             h += th;
                             if let Some(unwanted) = &mut self.unwanted {
                                 ui.dy(0.02);
                                 h += 0.02;
-                                let th = ui.text(tl!("unwanted")).size(0.5).color(c).draw().h + 0.01;
+                                let th = ui.text(tl!("unwanted")).size(0.5).draw().h + 0.01;
                                 ui.dy(th);
                                 h += th;
-                                h += unwanted.render(ui, mw, t, c.a);
+                                h += unwanted.render(ui, mw, t);
                             }
                             (mw, h)
                         });
@@ -343,12 +343,12 @@ impl TagsDialog {
                     if self.unwanted.is_none() {
                         let bw = (wr.w - pad * 3.) / 2.;
                         let mut r = Rect::new(wr.x + pad, wr.bottom() - 0.02 - bh, bw, bh);
-                        self.btn_cancel.render_text(ui, r, t, c.a, tl!("cancel"), 0.5, true);
+                        self.btn_cancel.render_text(ui, r, t, tl!("cancel"), 0.5, true);
                         r.x += bw + pad;
-                        self.btn_confirm.render_text(ui, r, t, c.a, tl!("confirm"), 0.5, true);
+                        self.btn_confirm.render_text(ui, r, t, tl!("confirm"), 0.5, true);
                     } else {
                         let r = Rect::new(wr.x, wr.bottom() - 0.02 - bh, wr.w, bh).nonuniform_feather(-pad, 0.);
-                        self.btn_rating.render_text(ui, r, t, c.a, tl!("filter-by-rating"), 0.5, true);
+                        self.btn_rating.render_text(ui, r, t, tl!("filter-by-rating"), 0.5, true);
                     }
                 });
             });

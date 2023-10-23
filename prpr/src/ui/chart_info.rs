@@ -1,7 +1,7 @@
 crate::tl_file!("chart_info");
 
 use super::Ui;
-use crate::{ext::parse_time, info::ChartInfo, scene::show_message};
+use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message};
 use anyhow::Result;
 use std::{borrow::Cow, collections::HashMap};
 
@@ -63,7 +63,8 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 ui.dy(dy);
             }};
         }
-        let r = ui.text(tl!("edit-chart")).size(0.8).draw();
+        dy!(0.01);
+        let r = ui.text(tl!("edit-chart")).size(0.9).draw_using(&BOLD_FONT);
         dy!(r.h + 0.04);
         let rt = 0.22;
         ui.dx(rt);

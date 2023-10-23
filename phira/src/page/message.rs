@@ -1,5 +1,7 @@
 prpr::tl_file!("message");
 
+use std::borrow::Cow;
+
 use super::{Page, SharedState};
 use crate::{
     client::{recv_raw, Client, Message},
@@ -54,8 +56,8 @@ impl MessagePage {
 }
 
 impl Page for MessagePage {
-    fn label(&self) -> std::borrow::Cow<'static, str> {
-        "MESSAGE".into()
+    fn label(&self) -> Cow<'static, str> {
+        tl!("label")
     }
 
     fn enter(&mut self, _s: &mut SharedState) -> Result<()> {
@@ -126,20 +128,14 @@ impl Page for MessagePage {
         cr.x += d;
         cr.w -= d;
         let r = Rect::new(-0.92, cr.y, 0.47, cr.h);
-        s.render_fader(ui, |ui, c| {
-            ui.fill_path(&r.rounded(0.02), semi_black(c.a * 0.4));
+        s.render_fader(ui, |ui| {
+            ui.fill_path(&r.rounded(0.005), semi_black(0.4));
             let ct = r.center();
             let pad = 0.014;
             self.btns_scroll.size((r.w, r.h - pad));
             if let Some(msgs) = &mut self.msgs {
                 if msgs.is_empty() {
-                    ui.text(tl!("no-msg"))
-                        .pos(ct.x, ct.y)
-                        .anchor(0.5, 0.5)
-                        .no_baseline()
-                        .size(0.8)
-                        .color(c)
-                        .draw();
+                    ui.text(tl!("no-msg")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(0.8).draw();
                 } else {
                     ui.scope(|ui| {
                         ui.dx(r.x);
@@ -149,7 +145,7 @@ impl Page for MessagePage {
                             let mut h = 0.;
                             let r = Rect::new(pad, 0., r.w - pad * 2., 0.09);
                             for (index, item) in msgs.iter_mut().enumerate() {
-                                item.1.render_text_left(ui, r, t, c.a, &item.0.title, 0.5, Some(index) == self.index);
+                                item.1.render_text_left(ui, r, t, 1., &item.0.title, 0.5, Some(index) == self.index);
                                 ui.dy(r.h + pad);
                                 h += r.h + pad;
                             }
@@ -160,12 +156,12 @@ impl Page for MessagePage {
                 }
             }
             if self.load_task.is_some() {
-                ui.fill_path(&r.rounded(0.02), semi_white(c.a * 0.3));
-                ui.loading(ct.x, ct.y, t, c, ());
+                ui.fill_path(&r.rounded(0.005), semi_white(0.3));
+                ui.loading(ct.x, ct.y, t, WHITE, ());
             }
         });
-        s.render_fader(ui, |ui, c| {
-            ui.fill_path(&cr.rounded(0.02), semi_black(c.a * 0.4));
+        s.render_fader(ui, |ui| {
+            ui.fill_path(&cr.rounded(0.005), semi_black(0.4));
             let pad = 0.03;
             ui.dx(cr.x + pad + 0.01);
             ui.dy(cr.y + pad);
@@ -179,20 +175,20 @@ impl Page for MessagePage {
                         h += e;
                     }};
                 }
-                dy!(ui.text(&msg.title).size(0.9).color(c).multiline().max_width(mw).draw().h + 0.017);
+                dy!(ui.text(&msg.title).size(0.9).multiline().max_width(mw).draw().h + 0.017);
                 let th = ui.text(
                     tl!("subtitle", "author" => msg.author.as_str(), "time" => msg.time.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()),
                 )
                 .pos(0.01, 0.)
                 .size(0.4)
-                .color(semi_white(c.a * 0.7))
+                .color(semi_white( 0.7))
                 .draw().h;
                 dy!(th + 0.016);
-                ui.fill_rect(Rect::new(0., 0., mw, 0.006), semi_white(c.a * 0.8));
+                ui.fill_rect(Rect::new(0., 0., mw, 0.006), semi_white(0.8));
                 dy!(0.015);
                 self.scroll.size((mw, cr.h - h - pad));
                 self.scroll.render(ui, |ui| {
-                    let r = ui.text(&msg.content).size(0.46).multiline().max_width(mw).color(c).draw();
+                    let r = ui.text(&msg.content).size(0.46).multiline().max_width(mw).draw();
                     (mw, r.h + 0.04)
                 });
             }

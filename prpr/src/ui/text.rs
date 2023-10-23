@@ -4,15 +4,15 @@ use crate::{
     ext::get_viewport,
 };
 use glyph_brush::{
-    ab_glyph::{Font, FontArc, Glyph, ScaleFont},
-    BrushAction, BrushError, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, Layout, Section, SectionGlyph, Text,
+    ab_glyph::{Font, FontArc, ScaleFont},
+    BrushAction, BrushError, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, SectionGlyph, Text,
 };
 use macroquad::{
     miniquad::{Texture, TextureParams},
     prelude::*,
 };
 use once_cell::sync::Lazy;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashSet, thread::LocalKey, cell::RefCell};
 use tracing::debug;
 
 #[must_use = "DrawText does nothing until you 'draw' it"]
@@ -27,6 +27,7 @@ pub struct DrawText<'a, 's, 'ui> {
     baseline: bool,
     multiline: bool,
     scale: Matrix,
+    h_align: HorizontalAlign,
 }
 
 impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
@@ -42,7 +43,13 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             baseline: true,
             multiline: false,
             scale: Matrix::identity(),
+            h_align: HorizontalAlign::Left,
         }
+    }
+
+    pub fn h_center(mut self) -> Self {
+        self.h_align = HorizontalAlign::Center;
+        self
     }
 
     pub fn size(mut self, size: f32) -> Self {
@@ -89,44 +96,111 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         0.04 * self.size * w as f32
     }
 
-    fn measure_inner<'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, Rect) {
+    fn bounds(&self, (x, y, w, h): (f32, f32, f32, f32)) -> Rect {
+        let vp = get_viewport();
+        let s = 2. / vp.2 as f32;
+        let mut rect = Rect::new(self.pos.0 - x * s, self.pos.1 - y * s, w * s, h * s);
+        rect.x -= rect.w * self.anchor.0;
+        rect.y -= rect.h * self.anchor.1;
+        rect
+    }
+
+    fn measure_inner<'this, 'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, (f32, f32, f32, f32)) {
+        use glyph_brush::ab_glyph;
         let vp = get_viewport();
         let scale = self.get_scale(vp.2);
-        let mut section = Section::new().add_text(Text::new(text).with_scale(scale).with_color(self.color));
+
+        let default_text_painter = &mut self.ui.text_painter;
+        let painter = painter.as_deref_mut().unwrap_or(default_text_painter);
+
+        let mut section = Section::new().with_layout(Layout::default().h_align(self.h_align));
+        if painter.brush.fonts().len() > 1 {
+            let mut last = 0;
+            let mut last_contain = false;
+            for (i, c) in text.char_indices() {
+                let contain = painter.valid_chars.contains(&c);
+                if last_contain != contain {
+                    if last != i {
+                        section = section.add_text(
+                            Text::new(&text[last..i])
+                                .with_scale(scale)
+                                .with_color(self.color)
+                                .with_font_id(FontId((!contain) as usize)),
+                        );
+                    }
+                    last = i;
+                    last_contain = contain;
+                }
+            }
+            if last != text.len() {
+                section = section.add_text(
+                    Text::new(&text[last..])
+                        .with_scale(scale)
+                        .with_color(self.color)
+                        .with_font_id(FontId((!last_contain) as usize)),
+                );
+            }
+        } else {
+            section = section.add_text(Text::new(text).with_scale(scale).with_color(self.color));
+        }
+
         let s = 2. / vp.2 as f32;
         if let Some(max_width) = self.max_width {
             section = section.with_bounds((max_width / s, f32::INFINITY));
         }
+        let font = painter.brush.fonts()[0].as_scaled(scale);
+        let line_height = if self.baseline { font.ascent() } else { font.height() };
+
         if !self.multiline {
-            section = section.with_layout(Layout::default_single_line());
-        }
-        macro_rules! painter {
-            ($t:expr) => {
-                if let Some(painter) = painter.as_mut() {
-                    $t(painter)
-                } else {
-                    let painter = &mut self.ui.text_painter;
-                    $t(painter)
-                }
+            let bounds = section.bounds;
+            let bounds = ab_glyph::Rect {
+                min: ab_glyph::Point { x: 0., y: 0. },
+                max: ab_glyph::Point { x: bounds.0, y: bounds.1 },
             };
+            section.bounds.0 = f32::INFINITY;
+            let glyphs: Vec<_> = painter.brush.glyphs(section.clone()).cloned().collect();
+            let Some(last) = glyphs.last() else {
+                return (section, (0., 0., 0., line_height));
+            };
+            let end = |glyph: &SectionGlyph| glyph.glyph.position.x + painter.brush.fonts()[glyph.font_id].as_scaled(scale).h_advance(glyph.glyph.id);
+            if end(last) <= bounds.max.x {
+                return (section, (0., 0., end(last), line_height));
+            }
+            let font = painter.brush.fonts()[0].as_scaled(scale);
+            let id = font.glyph_id('…');
+            let w = font.h_advance(id);
+            if w > bounds.max.x {
+                return (section, (0., 0., 0., line_height));
+            }
+            let index = glyphs.partition_point(|it| end(it) <= bounds.max.x - w);
+            let st = if index == 0 { 0. } else { end(&glyphs[index - 1]) };
+            let byte_index = if index == 0 { 0 } else { glyphs[index - 1].byte_index };
+            return (
+                section.with_text(vec![
+                    Text::new(&text[..byte_index]).with_scale(scale).with_color(self.color),
+                    Text::new("…").with_scale(scale).with_color(self.color),
+                ]),
+                (0., 0., st + w, line_height),
+            );
         }
-        let bound = painter!(|p: &mut TextPainter| p.brush.glyph_bounds(&section).unwrap_or_default());
+        let bound = painter.brush.glyph_bounds(&section).unwrap_or_default();
         let mut height = bound.height();
-        height += text.chars().take_while(|it| *it == '\n').count() as f32 * painter!(|p: &mut TextPainter| p.line_gap(scale)) * 3.;
+        height += text.chars().take_while(|it| *it == '\n').count() as f32 * painter.line_gap(scale) * 3.;
         if self.baseline {
-            height += painter!(|p: &mut TextPainter| p.brush.fonts()[0].as_scaled(scale).descent());
+            height += painter.brush.fonts()[0].as_scaled(scale).descent();
         }
-        let mut rect = Rect::new(self.pos.0, self.pos.1, bound.width() * s, height * s);
-        rect.x -= rect.w * self.anchor.0;
-        rect.y -= rect.h * self.anchor.1;
-        (section, rect)
+        (section, (bound.min.x, bound.min.y, bound.width(), height))
     }
 
     pub fn measure_with_font(&mut self, mut painter: Option<&mut TextPainter>) -> Rect {
         let text = self.text.take().unwrap();
-        let (_, rect) = self.measure_inner(&text, &mut painter);
+        let (_, bound) = self.measure_inner(&text, &mut painter);
         self.text = Some(text);
-        rect
+        self.bounds(bound)
+    }
+
+    pub fn measure_using(&mut self, font: &'static LocalKey<RefCell<Option<TextPainter>>>) -> Rect {
+        font.with(|it| self.measure_with_font(it.borrow_mut().as_mut()))
     }
 
     #[inline]
@@ -134,76 +208,37 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         self.measure_with_font(None)
     }
 
-    fn paint_on(painter: &mut TextPainter, mut section: Section, scale: f32, ml: bool) {
-        use glyph_brush::ab_glyph::{Point, Rect};
-        if ml {
-            painter.brush.queue(section);
-            return;
-        }
-        let extras = section.text.iter().map(|it| it.extra).collect();
-        let bounds = section.bounds;
-        let bounds = Rect {
-            min: Point { x: 0., y: 0. },
-            max: Point { x: bounds.0, y: bounds.1 },
-        };
-        section.bounds.0 = f32::INFINITY;
-        let mut glyphs: Vec<_> = painter.brush.glyphs(section).cloned().collect();
-        let Some(last) = glyphs.last() else { return };
-        let end = |glyph: &SectionGlyph| glyph.glyph.position.x + painter.brush.fonts()[glyph.font_id].as_scaled(scale).h_advance(glyph.glyph.id);
-        if end(last) <= bounds.max.x {
-            painter.brush.queue_pre_positioned(glyphs, extras, bounds);
-            return;
-        }
-        const C: char = '…';
-        let font = painter.brush.fonts()[0].as_scaled(scale);
-        let id = font.glyph_id(C);
-        let w = font.h_advance(id);
-        if w > bounds.max.x {
-            return;
-        }
-        let index = glyphs.partition_point(|it| end(it) <= bounds.max.x - w);
-        let y = last.glyph.position.y;
-        let st = if index == 0 { 0. } else { end(&glyphs[index - 1]) };
-        glyphs.truncate(index);
-        glyphs.push(SectionGlyph {
-            section_index: 0,
-            byte_index: index,
-            glyph: Glyph {
-                id,
-                position: Point { x: st, y },
-                scale: scale.into(),
-            },
-            font_id: FontId(0),
-        });
-        painter.brush.queue_pre_positioned(glyphs, extras, bounds);
-    }
-
-    pub fn draw_with_font(mut self, mut painter: Option<&mut TextPainter>) -> Rect {
+    pub fn draw_with_font(&mut self, mut painter: Option<&mut TextPainter>) -> Rect {
         let text = std::mem::take(&mut self.text).unwrap();
-        let (section, rect) = self.measure_inner(&text, &mut painter);
+        let (section, bound) = self.measure_inner(&text, &mut painter);
+        let rect = self.bounds(bound);
         let vp = get_viewport();
         let s = vp.2 as f32 / 2.;
-        let scale = self.get_scale(vp.2);
         if let Some(painter) = &mut painter {
-            Self::paint_on(painter, section, scale, self.multiline);
+            painter.brush.queue(section);
         } else {
-            Self::paint_on(self.ui.text_painter, section, scale, self.multiline);
+            self.ui.text_painter.brush.queue(section);
         }
         self.ui
             .with((Matrix::new_scaling(1. / s) * self.scale).append_translation(&Vector::new(rect.x, rect.y)), |ui| {
                 ui.apply(|ui| {
                     if let Some(painter) = painter {
-                        painter.submit();
+                        painter.submit(ui.alpha);
                     } else {
-                        ui.text_painter.submit();
+                        ui.text_painter.submit(ui.alpha);
                     }
                 });
             });
+        self.text = Some(text);
         rect
     }
 
+    pub fn draw_using(&mut self, font: &'static LocalKey<RefCell<Option<TextPainter>>>) -> Rect {
+        font.with(|it| self.draw_with_font(it.borrow_mut().as_mut()))
+    }
+
     #[inline]
-    pub fn draw(self) -> Rect {
+    pub fn draw(&mut self) -> Rect {
         self.draw_with_font(None)
     }
 }
@@ -220,11 +255,19 @@ pub struct TextPainter {
     cache_texture: Texture2D,
     data_buffer: Vec<u8>,
     vertices_buffer: Vec<Vertex>,
+
+    valid_chars: HashSet<char>,
 }
 
 impl TextPainter {
-    pub fn new(font: FontArc) -> Self {
-        let mut brush = GlyphBrushBuilder::using_font(font).build();
+    pub fn new(font: FontArc, fallback: Option<FontArc>) -> Self {
+        let valid_chars = font.codepoint_ids().map(|it| it.1).collect();
+
+        let mut fonts = vec![font];
+        if let Some(fallback) = fallback {
+            fonts.push(fallback);
+        }
+        let mut brush = GlyphBrushBuilder::using_fonts(fonts).build();
         let dim = *TEXTURE_DIM;
         brush.resize_texture(dim, dim);
         // TODO optimize
@@ -234,6 +277,8 @@ impl TextPainter {
             cache_texture,
             data_buffer: Vec::new(),
             vertices_buffer: Vec::new(),
+
+            valid_chars,
         }
     }
 
@@ -255,7 +300,7 @@ impl TextPainter {
         self.brush.fonts()[0].as_scaled(scale).line_gap()
     }
 
-    fn submit(&mut self) {
+    fn submit(&mut self, alpha: f32) {
         let mut flushed = false;
         loop {
             match self.brush.process_queued(
@@ -286,7 +331,8 @@ impl TextPainter {
                 |vertex| {
                     let pos = &vertex.pixel_coords;
                     let uv = &vertex.tex_coords;
-                    let color = vertex.extra.color.into();
+                    let mut color: Color = vertex.extra.color.into();
+                    color.a *= alpha;
                     [
                         Vertex::new(pos.min.x, pos.min.y, 0., uv.min.x, uv.min.y, color),
                         Vertex::new(pos.max.x, pos.min.y, 0., uv.max.x, uv.min.y, color),

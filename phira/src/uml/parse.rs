@@ -1,4 +1,4 @@
-use super::{lexer::Token, Assign, Collection, Element, Image, Text, Uml, Var};
+use super::{lexer::Token, Assign, ButtonElement, Collection, Element, Image, RectElement, Text, Uml, Var};
 use crate::icons::Icons;
 use anyhow::Result;
 use logos::Logos;
@@ -8,7 +8,6 @@ use serde::{
     de::{value::MapDeserializer, DeserializeOwned, Visitor},
     Deserialize,
 };
-use serde_json::Number;
 use std::{cell::Cell, collections::HashMap, fmt::Display, iter::Peekable, sync::Arc};
 use tap::Tap;
 
@@ -38,9 +37,6 @@ fn take_config<T: DeserializeOwned>(lexer: &mut Lexer) -> Result<T, String> {
             take(lexer, Token::Colon)?;
             let value = match lexer.peek() {
                 Some(Ok(Token::Quoted(s))) => serde_json::Value::String(s.to_owned()).tap(|_| {
-                    lexer.next();
-                }),
-                Some(Ok(Token::Number(num))) => serde_json::Value::Number(Number::from_f64(*num as _).unwrap()).tap(|_| {
                     lexer.next();
                 }),
                 Some(Ok(Token::Bool(val))) => serde_json::Value::Bool(*val).tap(|_| {
@@ -75,7 +71,7 @@ macro_rules! bail {
 }
 
 pub struct VarRef {
-    id: String,
+    pub id: String,
     resolved: Cell<Option<usize>>,
 }
 
@@ -125,8 +121,26 @@ impl BinOp {
 
 type Function = Box<dyn Fn(&[Var]) -> Result<Var>>;
 
+#[derive(Debug, Clone, Copy)]
+pub struct ButtonState {
+    pub last: f32,
+    pub cnt: u32,
+    pub touching: bool,
+}
+
+impl Default for ButtonState {
+    fn default() -> Self {
+        Self {
+            last: -1.0,
+            cnt: 0,
+            touching: false,
+        }
+    }
+}
+
 pub enum RawExpr {
     Literal(f32),
+    ButtonState(ButtonState),
     Rect([Expr; 4]),
     Var(VarRef),
     VarSub(VarRef, String),
@@ -138,6 +152,7 @@ impl Display for RawExpr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Literal(val) => val.fmt(f),
+            Self::ButtonState(_) => write!(f, "@btn"),
             Self::Rect([x, y, w, h]) => write!(f, "[{x}, {y}, {w}, {h}]"),
             Self::Var(rf) => rf.fmt(f),
             Self::VarSub(rf, field) => {
@@ -171,13 +186,13 @@ impl RawExpr {
     pub fn eval(&self, uml: &Uml) -> Result<Var> {
         Ok(match self {
             Self::Literal(val) => Var::Float(*val),
+            Self::ButtonState(state) => Var::ButtonState(*state),
             Self::Rect([x, y, w, h]) => {
                 Var::Rect(Rect::new(x.eval(uml)?.float()?, y.eval(uml)?.float()?, w.eval(uml)?.float()?, h.eval(uml)?.float()?))
             }
             Self::Var(rf) => *uml.get_var(rf)?,
-            Self::VarSub(rf, field) => {
-                let r = uml.get_var(rf)?.rect()?;
-                Var::Float(match field.as_str() {
+            Self::VarSub(rf, field) => match uml.get_var(rf)? {
+                Var::Rect(r) => Var::Float(match field.as_str() {
                     "x" | "l" => r.x,
                     "y" | "t" => r.y,
                     "w" => r.w,
@@ -185,8 +200,15 @@ impl RawExpr {
                     "r" => r.right(),
                     "b" => r.bottom(),
                     _ => anyhow::bail!("unknown field: {field}"),
-                })
-            }
+                }),
+                Var::ButtonState(s) => Var::Float(match field.as_str() {
+                    "l" | "last" => s.last,
+                    "c" | "cnt" | "count" => s.cnt as _,
+                    "t" | "touching" => s.touching as u32 as _,
+                    _ => anyhow::bail!("unknown field: {field}"),
+                }),
+                Var::Float(_) => anyhow::bail!("cannot access float"),
+            },
             Self::BinOp(x, y, op) => {
                 let x = x.eval(uml)?;
                 let y = y.eval(uml)?.float()?;
@@ -202,6 +224,7 @@ impl RawExpr {
                         BinOp::Mul => x * y,
                         BinOp::Div => x / y,
                     }),
+                    _ => anyhow::bail!("invalid op on ButtonState"),
                 }
             }
             Self::Func(_, func, inner) => {
@@ -258,6 +281,7 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                     "atan2" => ("atan2", wrap2(f32::atan2)),
                     "ln" => ("ln", wrap(f32::ln)),
                     "sig" => ("sig", wrap(f32::signum)),
+                    "step" => ("step", wrap2(|x, y| if x < y { 0.0 } else { 1.0 })),
                     "max" => (
                         "max",
                         Box::new(|args: &[Var]| {
@@ -426,6 +450,8 @@ pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &m
         "p" => Box::new(Text::new(take_config(lexer)?, take_text(lexer)?)),
         "img" => Box::new(Image::new(take_config(lexer)?)),
         "col" => Box::new(Collection::new(Arc::clone(icons), rank_icons.clone(), take_config(lexer)?)),
+        "r" => Box::new(RectElement::new(take_config(lexer)?)),
+        "btn" => Box::new(ButtonElement::new(take_config(lexer)?)),
         "let" => {
             let Some(Ok(Token::Ident(id))) = lexer.next() else {
                 bail!("expected variable name");
@@ -437,11 +463,42 @@ pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &m
     }))
 }
 
+pub enum TopLevel {
+    Element(Box<dyn Element>),
+    GlobalDef(String, Expr),
+}
+
+pub fn take_top_level(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &mut Lexer) -> Result<Option<TopLevel>, String> {
+    let Some(nxt) = lexer.peek() else { return Ok(None) };
+    Ok(match nxt {
+        Ok(Token::Global) => {
+            lexer.next();
+            let Some(Ok(Token::Ident(id))) = lexer.next() else {
+                bail!("expected variable name");
+            };
+            take(lexer, Token::Assign)?;
+            if let Some(Ok(Token::Ident(ident))) = lexer.peek() {
+                if ident == "@btn" {
+                    lexer.next();
+                    return Ok(Some(TopLevel::GlobalDef(id, Box::new(RawExpr::ButtonState(ButtonState::default())))));
+                }
+            }
+            Some(TopLevel::GlobalDef(id, take_expr(lexer)?))
+        }
+        Ok(_) => take_element(icons, rank_icons, lexer)?.map(TopLevel::Element),
+        Err(err) => return Err(err.to_string()),
+    })
+}
+
 pub fn parse_uml(s: &str, icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8]) -> Result<Uml, String> {
     let mut lexer = Token::lexer(s).peekable();
     let mut elements = Vec::new();
-    while let Some(element) = take_element(icons, rank_icons, &mut lexer)? {
-        elements.push(element);
+    let mut global_defs = Vec::new();
+    while let Some(top) = take_top_level(icons, rank_icons, &mut lexer)? {
+        match top {
+            TopLevel::Element(el) => elements.push(el),
+            TopLevel::GlobalDef(id, expr) => global_defs.push((id, expr)),
+        }
     }
-    Ok(Uml::new(elements))
+    Uml::new(elements, &global_defs).map_err(|it| it.to_string())
 }

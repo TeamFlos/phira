@@ -2,8 +2,8 @@
 edit-chart = Sửa biểu đồ
 level-displayed = Cấp độ
 chart-name = Tên
-author = Charter
-composer = Nhà s.nhạc
+author = Nhà B.đồ
+composer = Nhà S.nhạc
 illustrator = M.hoạ bởi
 diff = Độ khó
 preview-time = Nghe trước

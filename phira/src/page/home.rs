@@ -1,6 +1,6 @@
 prpr::tl_file!("home");
 
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
     save_data,
     scene::ProfileScene,
     sync_data,
+    threed::ThreeD,
 };
 use ::rand::{random, thread_rng, Rng};
 use anyhow::Result;
@@ -21,9 +22,10 @@ use prpr::{
     info::ChartInfo,
     scene::{show_error, NextScene},
     task::Task,
-    ui::{button_hit_large, rounded_rect, DRectButton, Ui},
+    ui::{button_hit_large, clip_rounded_rect, DRectButton, Ui},
 };
 use serde::Deserialize;
+use tap::Tap;
 use tracing::warn;
 
 const BOARD_SWITCH_TIME: f32 = 4.;
@@ -57,11 +59,16 @@ pub struct HomePage {
 
     has_new_task: Option<Task<Result<bool>>>,
     has_new: bool,
+
+    btn_play_3d: ThreeD,
+    btn_other_3d: ThreeD,
 }
 
 impl HomePage {
     pub async fn new() -> Result<Self> {
         let character = SafeTexture::from(load_texture("char.png").await?).with_mipmap();
+        #[cfg(feature = "closed")]
+        let character = SafeTexture::from(image::load_from_memory(&crate::load_res("res/xi").await)?).with_mipmap();
         let update_task = if get_data().config.offline_mode {
             None
         } else if let Some(u) = &get_data().me {
@@ -83,8 +90,8 @@ impl HomePage {
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
             btn_respack: DRectButton::new().with_elevation(0.002).no_sound(),
-            btn_msg: DRectButton::new().with_radius(0.03).with_delta(-0.003).with_elevation(0.002),
-            btn_settings: DRectButton::new().with_radius(0.03).with_delta(-0.003).with_elevation(0.002),
+            btn_msg: DRectButton::new().with_radius(0.008).with_delta(-0.003).with_elevation(0.002),
+            btn_settings: DRectButton::new().with_radius(0.008).with_delta(-0.003).with_elevation(0.002),
             btn_user: DRectButton::new().with_delta(-0.003),
 
             next_page: None,
@@ -104,6 +111,13 @@ impl HomePage {
 
             has_new_task: None,
             has_new: false,
+
+            btn_play_3d: ThreeD::new(),
+            btn_other_3d: ThreeD::new().tap_mut(|it| {
+                it.anchor = vec2(0.2, -0.2);
+                it.angle = 0.14;
+                it.sync();
+            }),
         })
     }
 }
@@ -126,7 +140,7 @@ impl HomePage {
 }
 
 impl Page for HomePage {
-    fn label(&self) -> std::borrow::Cow<'static, str> {
+    fn label(&self) -> Cow<'static, str> {
         "PHIRA".into()
     }
 
@@ -147,6 +161,7 @@ impl Page for HomePage {
         if self.login.touch(touch, s.t) {
             return Ok(true);
         }
+        self.btn_play_3d.touch(touch, t);
         if self.btn_play.touch(touch, t) {
             button_hit_large();
             self.next_page = Some(NextPage::Overlay(Box::new(LibraryPage::new(Arc::clone(&self.icons), s.icons.clone())?)));
@@ -171,7 +186,7 @@ impl Page for HomePage {
             return Ok(true);
         }
         if self.btn_settings.touch(touch, t) {
-            self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.lang.clone()))));
+            self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.icon.clone(), self.icons.lang.clone()))));
             return Ok(true);
         }
         if self.btn_user.touch(touch, t) {
@@ -270,118 +285,130 @@ impl Page for HomePage {
         let t = s.t;
         let pad = 0.04;
 
-        s.render_fader(ui, |ui, c| {
-            let r = Rect::new(-1., -ui.top + 0.1, 1., 1.7);
-            ui.fill_rect(r, (*self.character, r, ScaleType::CropCenter, c));
+        s.render_fader(ui, |ui| {
+            let r = Rect::new(-1., -ui.top + 0.12, 1., 1.7);
+            ui.fill_rect(r, (*self.character, r));
         });
 
         // play button
-        let top = s.render_fader(ui, |ui, c| {
-            let r = Rect::new(0., -0.28, 0.8, 0.43);
+        let r = Rect::new(0., -0.33, 0.83, 0.45);
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.push_model_matrix(self.btn_play_3d.now(ui, r, t));
+        let top = s.render_fader(ui, |ui| {
             let top = r.bottom() + 0.02;
-            let (r, path) = self.btn_play.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
-            if let Some(cur) = &self.board_tex {
-                let p = (t - self.board_last_time) / BOARD_TRANSIT_TIME;
-                if p > 1. {
-                    self.board_tex_last = None;
-                    ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, c));
-                } else if let Some(last) = &self.board_tex_last {
-                    let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
-                    let p = 1. - (1. - p).powi(3);
-                    let p = if self.board_dir { 1. - p } else { p };
-                    let rad = self.btn_play.config.radius;
-                    rounded_rect(ui, r, rad, |ui| {
-                        let mut nr = r;
-                        nr.h = r.h * (1. - p);
-                        ui.fill_rect(nr, (**last, nr, ScaleType::CropCenter, c));
+            let rad = self.btn_play.config.radius;
+            self.btn_play.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, semi_black(0.4));
+                if let Some(cur) = &self.board_tex {
+                    let p = (t - self.board_last_time) / BOARD_TRANSIT_TIME;
+                    if p > 1. {
+                        self.board_tex_last = None;
+                        ui.fill_path(&path, (**cur, r));
+                    } else if let Some(last) = &self.board_tex_last {
+                        let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
+                        let p = 1. - (1. - p).powi(3);
+                        let p = if self.board_dir { 1. - p } else { p };
+                        clip_rounded_rect(ui, r, rad, |ui| {
+                            let mut nr = r;
+                            nr.h = r.h * (1. - p);
+                            ui.fill_rect(nr, (**last, nr));
 
-                        nr.h = r.h * p;
-                        nr.y = r.bottom() - nr.h;
-                        ui.fill_rect(nr, (**cur, nr, ScaleType::CropCenter, c));
-                    });
-                } else {
-                    ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p * c.a)));
+                            nr.h = r.h * p;
+                            nr.y = r.bottom() - nr.h;
+                            ui.fill_rect(nr, (**cur, nr));
+                        });
+                    } else {
+                        ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p)));
+                    }
                 }
-            }
-            ui.fill_path(&path, (semi_black(0.7 * c.a), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
-            ui.text(tl!("play")).pos(r.x + pad, r.y + pad).color(c).draw();
-            let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
-            ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6 * c.a)));
-            top
+                ui.fill_path(&path, (semi_black(0.7), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
+                ui.text(tl!("play")).pos(r.x + pad, r.y + pad).draw();
+                let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
+                ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6)));
+            });
+            top + 0.03
         });
+        unsafe { get_internal_gl() }.flush();
+        gl.pop_model_matrix();
 
-        let text_and_icon = |ui: &mut Ui, r: Rect, btn: &mut DRectButton, text, icon, c: Color| {
+        let text_and_icon = |s: &mut SharedState, ui: &mut Ui, r: Rect, btn: &mut DRectButton, text, icon| {
             let ow = r.w;
-            let (r, _) = btn.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
-            let ir = Rect::new(r.x + 0.02, r.bottom() - 0.08, 0.14, 0.14);
-            ui.text(text).pos(r.x + 0.026, r.y + 0.026).size(0.7 * r.w / ow).color(c).draw();
-            ui.fill_rect(
-                {
-                    let mut ir = ir;
-                    ir.h = ir.h.min(r.bottom() - ir.y);
-                    ir
-                },
-                (icon, ir, ScaleType::Fit, semi_white(0.4 * c.a)),
-            );
+            s.render_fader(ui, |ui| {
+                btn.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let ir = Rect::new(r.x + 0.02, r.bottom() - 0.08, 0.14, 0.14);
+                    ui.text(text).pos(r.x + 0.026, r.y + 0.026).size(0.7 * r.w / ow).draw();
+                    ui.fill_rect(
+                        {
+                            let mut ir = ir;
+                            ir.h = ir.h.min(r.bottom() - ir.y);
+                            ir
+                        },
+                        (icon, ir, ScaleType::Fit, semi_white(0.4)),
+                    );
+                });
+            });
         };
 
-        let r = s.render_fader(ui, |ui, c| {
-            let r = Rect::new(0., top, 0.38, 0.23);
-            text_and_icon(ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal, c);
-            r
-        });
+        gl.push_model_matrix(self.btn_other_3d.now(ui, Rect::new(0., top - 0.4, 0.83, 0.23), t));
 
-        let r = s.render_fader(ui, |ui, c| {
-            let r = Rect::new(r.right() + 0.02, top, 0.27, 0.23);
-            text_and_icon(ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack, c);
-            r
-        });
+        let r = Rect::new(0., top, 0.38, 0.23);
+        text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal);
+
+        let r = Rect::new(r.right() + 0.02, top, 0.29, 0.23);
+        text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack);
 
         let lf = r.right() + 0.02;
 
-        s.render_fader(ui, |ui, c| {
+        s.render_fader(ui, |ui| {
             let r = Rect::new(lf, top, 0.11, 0.11);
-            let (r, _) = self.btn_msg.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
-            let r = r.feather(-0.01);
-            ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit, c));
-            if self.has_new {
-                let pad = 0.007;
-                ui.fill_circle(r.right() - pad, r.y + pad, 0.01, Color { a: c.a, ..RED });
-            }
+            self.btn_msg.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, semi_black(0.4));
+                let r = r.feather(-0.01);
+                ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
+                if self.has_new {
+                    let pad = 0.007;
+                    ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
+                }
+            });
 
             let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
-            let (r, _) = self.btn_settings.render_shadow(ui, r, t, c.a, |_| semi_black(0.4 * c.a));
-            let r = r.feather(0.004);
-            ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit, c));
+            self.btn_settings.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, semi_black(0.4));
+                let r = r.feather(0.004);
+                ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
+            });
         });
 
+        gl.pop_model_matrix();
+
         s.fader.roll_back();
-        s.render_fader(ui, |ui, c| {
+        s.render_fader(ui, |ui| {
             let rad = 0.05;
-            let ct = (0.9, -ui.top + 0.1);
+            let ct = (0.92, -ui.top + 0.08);
             self.btn_user.config.radius = rad;
             let r = Rect::new(ct.0, ct.1, 0., 0.).feather(rad);
-            let (r, _) = self.btn_user.build(ui, t, r);
-            ui.avatar(
-                ct.0,
-                ct.1,
-                r.w / 2.,
-                c,
-                t,
-                get_data()
-                    .me
-                    .as_ref()
-                    .map(|user| UserManager::opt_avatar(user.id, &self.icons.user))
-                    .unwrap_or(Err(self.icons.user.clone())),
-            );
+            self.btn_user.build(ui, t, r, |ui, _| {
+                ui.avatar(
+                    ct.0,
+                    ct.1,
+                    r.w / 2.,
+                    t,
+                    get_data()
+                        .me
+                        .as_ref()
+                        .map(|user| UserManager::opt_avatar(user.id, &self.icons.user))
+                        .unwrap_or(Err(self.icons.user.clone())),
+                );
+            });
             let rt = ct.0 - rad - 0.02;
             if let Some(me) = &get_data().me {
-                ui.text(&me.name).pos(rt, r.center().y + 0.002).anchor(1., 1.).size(0.6).color(c).draw();
+                ui.text(&me.name).pos(rt, r.center().y + 0.002).anchor(1., 1.).size(0.6).draw();
                 ui.text(format!("RKS {:.2}", me.rks))
                     .pos(rt, r.center().y + 0.008)
                     .anchor(1., 0.)
                     .size(0.4)
-                    .color(Color { a: c.a * 0.6, ..c })
+                    .color(semi_white(0.6))
                     .draw();
             } else {
                 ui.text(tl!("not-logged-in"))
@@ -389,7 +416,6 @@ impl Page for HomePage {
                     .anchor(1., 0.5)
                     .no_baseline()
                     .size(0.6)
-                    .color(c)
                     .draw();
             }
         });

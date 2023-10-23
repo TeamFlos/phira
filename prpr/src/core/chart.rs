@@ -56,16 +56,16 @@ impl Chart {
     }
 
     #[inline]
-    pub fn with_element<R>(&self, ui: &mut Ui, res: &Resource, element: UIElement, f: impl FnOnce(&mut Ui, Color, Matrix) -> R) -> R {
+    pub fn with_element<R>(&self, ui: &mut Ui, res: &Resource, element: UIElement, ct: Option<(f32, f32)>, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
         if let Some(id) = self.attach_ui[element as usize - 1] {
             let obj = &self.lines[id].object;
             let mut tr = obj.now_translation(res);
             tr.y = -tr.y;
-            let mut color = self.lines[id].color.now_opt().unwrap_or(WHITE);
-            color.a *= obj.now_alpha().max(0.);
-            ui.with(obj.now_rotation().append_translation(&tr), |ui| f(ui, color, obj.now_scale()))
+            let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
+            let scale = obj.now_scale(ct.map_or_else(|| Vector::default(), |(x, y)| Vector::new(x, y)));
+            ui.with(obj.now_rotation().append_translation(&tr) * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
         } else {
-            f(ui, WHITE, Matrix::identity())
+            f(ui, WHITE)
         }
     }
 

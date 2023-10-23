@@ -3,13 +3,14 @@ crate::tl_file!("ending");
 use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{
     config::Config,
-    ext::{create_audio_manger, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    core::{BOLD_FONT, PGR_FONT},
+    ext::{create_audio_manger, rect_shadow, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
-    judge::PlayResult,
+    judge::{icon_index, PlayResult},
     scene::show_message,
     task::Task,
     time::TimeManager,
-    ui::{rounded_rect, rounded_rect_shadow, DRectButton, Dialog, MessageHandle, ShadowConfig, Ui},
+    ui::{clip_sector, DRectButton, Dialog, MessageHandle, Ui},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -40,8 +41,6 @@ pub struct EndingScene {
     result: PlayResult,
     player_name: String,
     player_rks: Option<f32>,
-    challenge_texture: SafeTexture,
-    challenge_rank: u32,
     autoplay: bool,
     speed: f32,
     next: u8, // 0 -> none, 1 -> pop, 2 -> exit
@@ -56,8 +55,7 @@ pub struct EndingScene {
     btn_retry: DRectButton,
     btn_proceed: DRectButton,
 
-    theme_color: Color,
-    use_black: bool,
+    tr_start: f32,
 }
 
 impl EndingScene {
@@ -70,15 +68,12 @@ impl EndingScene {
         icon_proceed: SafeTexture,
         info: ChartInfo,
         result: PlayResult,
-        challenge_texture: SafeTexture,
         config: &Config,
         bgm: AudioClip,
         upload_fn: Option<UploadFn>,
         player_rks: Option<f32>,
         record_data: Option<Vec<u8>>,
         record: Option<SimpleRecord>,
-        theme_color: Color,
-        use_black: bool,
     ) -> Result<Self> {
         let mut audio = create_audio_manger(config)?;
         let bgm = audio.create_music(
@@ -118,8 +113,6 @@ impl EndingScene {
             result,
             player_name: config.player_name.clone(),
             player_rks,
-            challenge_texture,
-            challenge_rank: config.challenge_rank,
             autoplay: config.autoplay(),
             speed: config.speed,
             next: 0,
@@ -132,8 +125,7 @@ impl EndingScene {
             btn_retry: DRectButton::new(),
             btn_proceed: DRectButton::new(),
 
-            theme_color,
-            use_black,
+            tr_start: f32::NAN,
         })
     }
 }
@@ -168,6 +160,7 @@ impl Scene for EndingScene {
             if self.upload_task.is_some() {
                 show_message(tl!("still-uploading"));
             } else {
+                self.tr_start = t;
                 self.next = 1;
             }
             return Ok(true);
@@ -176,6 +169,7 @@ impl Scene for EndingScene {
             if self.upload_task.is_some() {
                 show_message(tl!("still-uploading"));
             } else {
+                self.tr_start = t;
                 self.next = 2;
             }
             return Ok(true);
@@ -206,6 +200,7 @@ impl Scene for EndingScene {
                                 if pos == 1 {
                                     RE_UPLOAD.with(|it| *it.borrow_mut() = true);
                                 }
+                                false
                             })
                             .show();
                     }
@@ -225,8 +220,8 @@ impl Scene for EndingScene {
         let asp = -cam.zoom.y;
         let top = 1. / asp;
         let t = tm.now() as f32;
-        let res = &self.result;
         cam.render_target = self.target;
+        let sr = ui.screen_rect();
         set_camera(&cam);
         draw_background(*self.background);
 
@@ -234,167 +229,325 @@ impl Scene for EndingScene {
             ((t - l) / (r - l)).clamp(0., 1.)
         }
 
-        let radius = 0.03;
+        let ct = vec2(-0.55, 1.2);
+        let start = vec2(1.25, 0.9) - ct;
+        let end = vec2(-0.15, -0.7) - ct;
+        let angle_start = start.y.atan2(start.x) * 0.4;
+        let angle_end = end.y.atan2(end.x);
+        let center_angle = 1.8;
 
-        let ep = 1. - (1. - ran(t, 0.9, 1.9)).powi(3);
+        let p = ran(t, 0.1, 1.8);
+        let p = 1. - (1. - p).powi(3);
+        let sector_start = p * (angle_end - angle_start - center_angle) + angle_start;
+        let project_y = ct.y + (1. - ct.x) * (sector_start + center_angle).sin();
 
-        let mut r = Rect::default().nonuniform_feather(0.45 + 0.2 * ep, top * 0.7);
-        let p = 1. - (1. - ran(t, 0.1, 0.7)).powi(3);
-        r.y += 0.3 * (1. - p);
-        let gr = r;
-        rounded_rect_shadow(
-            ui,
-            r,
-            &ShadowConfig {
-                radius,
-                base: p,
-                ..Default::default()
-            },
-        );
+        let pf = ran(t, 2., 2.4);
 
-        let ir = Rect {
-            x: r.x + r.w * 0.2,
-            w: r.w * 0.8,
-            ..r
-        };
-        rounded_rect(ui, r, radius, |ui| {
-            ui.fill_rect(r, (*self.illustration, r, ScaleType::CropCenter, semi_white(p)));
-            ui.fill_rect(r, semi_black(0.3 * ep));
-            ui.fill_rect(ir, Color { a: ep, ..self.theme_color });
+        if project_y < top {
+            let c = ui.background();
+            let y = -top + 0.12;
+            let br = Rect::new(-1., y, 2., 0.34);
+            ui.fill_rect(br, (c, (-1., y), Color { a: 0.1, ..c }, (1., y + 0.3)));
+
+            let res = &self.result;
+
+            let y = y - 0.07;
+            ui.fill_rect(Rect::new(-1., y, 2., 0.07), Color { a: 0.3, ..c });
+            let r = ui
+                .text(&self.info.name)
+                .pos(-0.53 + (1.2 - y) / 1.9 * 0.4, y + 0.012)
+                .color(semi_white(0.6))
+                .max_width(0.8)
+                .size(0.56)
+                .draw();
+            ui.text(&self.info.level)
+                .pos(0.97, r.y)
+                .anchor(1., 0.)
+                .size(0.56)
+                .color(semi_white(0.7))
+                .draw();
+
+            let icon = &self.icons[icon_index(res.score, res.max_combo == res.num_of_notes)];
+            let p = ran(t, 1.7, 2.4).powi(2);
+            let r = Rect::new(0.75, br.center().y, 0., 0.).feather(0.13 + (1. - p) * 0.05);
+            ui.fill_rect(r, (**icon, r, ScaleType::Fit, semi_white(p)));
+
+            let y = y + 0.16;
+            let lf = -0.48 + (1.2 - y) / 1.9 * 0.4;
+            let mut x = lf;
+            let p = ran(t, 0.9, 2.6);
+            let mut digits = Vec::with_capacity(7);
+            let mut s = res.score;
+            for _ in 0..7 {
+                digits.push(s % 10);
+                s /= 10;
+            }
+            digits.reverse();
+            let s = 1.5;
+            let sr = ui.text("0").size(s).measure_using(&PGR_FONT);
+            let h = sr.h;
+            ui.scissor(Rect::new(-1., y, 2., h + 0.01), |ui| {
+                for (i, d) in digits.into_iter().enumerate() {
+                    let p = (p * (1. + (0.16 * (6 - i) as f32).powi(2))).min(1.);
+                    let p = 1. - (1. - p).powi(3);
+                    let mut p = d as f32 + (1. - p) * 7.;
+                    if p > 10. {
+                        p -= 10.;
+                    }
+                    let up = p as u32;
+                    let dw = (up + 1) % 10;
+                    let o = -h * (p - up as f32);
+                    ui.text(up.to_string())
+                        .pos(x + sr.w / 2., y + o)
+                        .anchor(0.5, 0.)
+                        .size(s)
+                        .draw_using(&PGR_FONT);
+                    ui.text(dw.to_string())
+                        .pos(x + sr.w / 2., y + h + o)
+                        .anchor(0.5, 0.)
+                        .size(s)
+                        .draw_using(&PGR_FONT);
+                    x += sr.w;
+                }
+            });
+
+            if let Some(s) = &self.update_state {
+                if !s.best {
+                    ui.text(format!("{}  {:+07}", tl!("new-best"), s.improvement))
+                        .pos(x - 0.01, y - 0.016)
+                        .anchor(1., 1.)
+                        .color(semi_white(pf))
+                        .size(0.5)
+                        .draw_using(&BOLD_FONT);
+                }
+            }
+
+            let cl = semi_white(0.6);
+            let ct = semi_white(0.8);
+            let cs = semi_white(0.4);
+            let s = 0.5;
+
+            let r = ui
+                .text(tl!("accuracy"))
+                .pos(lf - 0.017, y + h + 0.03)
+                .color(cl)
+                .size(s)
+                .draw_using(&BOLD_FONT);
+            let r = ui
+                .text(format!("{:.2}%", res.accuracy * 100.))
+                .pos(r.right() + 0.02, r.y)
+                .color(ct)
+                .size(s)
+                .draw_using(&BOLD_FONT);
+
+            let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
+
+            let r = ui.text(tl!("error")).pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
+            ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
+                .pos(r.right() + 0.02, r.y)
+                .size(s)
+                .color(ct)
+                .draw_using(&BOLD_FONT);
+
+            let mut y = -top + 0.4 + ui.top * 0.3;
+            let tp = y;
+            let mut x = -0.26 + (1.2 - y) / 1.9 * 0.4;
+            let lf = x;
+            let s = 0.64;
+            for (title, num) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().zip(res.counts) {
+                ui.text(title)
+                    .pos(x, y)
+                    .anchor(1., 0.)
+                    .color(semi_white(0.6))
+                    .size(s)
+                    .draw_using(&BOLD_FONT);
+                let r = ui.text(num.to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT);
+                let dy = r.h + 0.03;
+                y += dy;
+                x -= dy / 1.9 * 0.4;
+            }
+
+            let p = ran(t, 0.8, 1.8);
+            let p = 1. - (1. - p).powi(3);
+            let mut y = tp + 0.07;
+            let mut x = lf + 0.44;
+            let r = ui
+                .text(tl!("max-combo"))
+                .pos(x, y)
+                .anchor(1., 0.)
+                .color(semi_white(0.6))
+                .size(s)
+                .draw_using(&BOLD_FONT);
+            let mut r = Rect::new(r.right() + 0.03, r.y + 0.004, 0.45, r.h);
+            ui.fill_rect(r, semi_black(0.4));
+            let ct = r.center();
+            let combo = (res.max_combo as f32 * p).round() as u32;
+            let text = format!("{combo} / {}", res.num_of_notes);
+            ui.text(&text)
+                .pos(ct.x, ct.y)
+                .anchor(0.5, 0.5)
+                .no_baseline()
+                .size(0.4)
+                .draw_using(&BOLD_FONT);
+            r.w *= combo as f32 / res.num_of_notes as f32;
+            ui.fill_rect(r, WHITE);
+            ui.scissor(r, |ui| {
+                ui.text(text)
+                    .pos(ct.x, ct.y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.4)
+                    .color(BLACK)
+                    .draw_using(&BOLD_FONT);
+            });
+
+            let dy = r.h + 0.03;
+            y += dy;
+            x -= dy / 1.9 * 0.4;
+
+            let r = ui
+                .text(tl!("rks-delta"))
+                .pos(x, y)
+                .anchor(1., 0.)
+                .color(semi_white(0.6))
+                .size(s)
+                .draw_using(&BOLD_FONT);
+            let text = if let Some((state, now)) = self.update_state.as_ref().zip(self.player_rks) {
+                let delta = state.new_rks - now;
+                format!("{:+.2}", delta)
+            } else {
+                "-".to_owned()
+            };
+            ui.text(text).pos(r.right() + 0.03, y).size(s).draw_using(&BOLD_FONT);
+
+            let mut r = Rect::new(0.96, ui.top - 0.04, 0.25, 0.1);
+            r.x -= r.w;
+            r.y -= r.h;
+            self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, Color::from_hex(0x3f51b5));
+                let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
+                ui.fill_rect(ir, (*self.icon_proceed, ir));
+                ui.text(tl!("proceed"))
+                    .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.44)
+                    .draw_using(&BOLD_FONT);
+            });
+
+            r.x -= r.w + 0.02;
+            self.btn_retry.render_shadow(ui, r, t, |ui, path| {
+                ui.fill_path(&path, Color::from_hex(0x78909c));
+                let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
+                ui.fill_rect(ir, (*self.icon_retry, ir));
+                ui.text(tl!("retry"))
+                    .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.44)
+                    .draw_using(&BOLD_FONT);
+            });
+
+            let spd = if (self.speed - 1.).abs() <= 1e-4 {
+                String::new()
+            } else {
+                format!("{:.2}x", self.speed)
+            };
+            let text = if self.autoplay {
+                format!("AUTOPLAY {spd}")
+            } else if !self.rated {
+                format!("UNRATED {spd}")
+            } else {
+                String::new()
+            };
+            let text = text.trim();
+            if !text.is_empty() {
+                let ty = br.bottom();
+                let x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
+                let h = 0.04;
+                let mut text = ui
+                    .text(text)
+                    .pos(x + 0.02, ty - h / 2.)
+                    .anchor(0., 0.5)
+                    .no_baseline()
+                    .color(semi_black(0.6))
+                    .size(0.5);
+                let tr = text.measure_using(&BOLD_FONT);
+                let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
+                let mut b = text.ui.builder(WHITE);
+                b.add(-1., tr.y);
+                b.add(r.right(), tr.y);
+                b.add(r.right() - tr.h / 1.9 * 0.4, tr.bottom());
+                b.add(-1., tr.bottom());
+                b.triangle(0, 1, 2);
+                b.triangle(0, 2, 3);
+                b.commit();
+
+                text.draw_using(&BOLD_FONT);
+            }
+        }
+        clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
+            ui.fill_rect(sr, (*self.illustration, sr));
+        });
+        let sector_start = (p * 1.4 - 0.3).max(0.) * (angle_end - angle_start - center_angle) + angle_start;
+        clip_sector(ui, ct, sector_start, sector_start + center_angle * 0.5, |ui| {
+            ui.fill_rect(sr, (*self.illustration, sr.feather(0.15)));
         });
 
-        let (main, sub) = Ui::main_sub_colors(self.use_black, ep);
-
-        ui.text(&self.info.level)
-            .pos(r.x + 0.02, r.bottom() - 0.02)
-            .anchor(0., 1.)
-            .size(0.5)
-            .color(semi_white(ep))
-            .draw();
-
-        let lf = ir.x + 0.04;
-        ui.text(&self.info.name)
-            .pos(lf, r.y + 0.09)
-            .anchor(0., 1.)
-            .size(0.7)
-            .color(main)
-            .max_width(ir.right() - lf - 0.02)
-            .draw();
-        let r = ui
-            .text(format!("{:07}", res.score))
-            .pos(lf + 0.02, r.y + 0.12)
-            .size(1.2)
-            .color(main)
-            .draw();
-        let sr = ui
-            .text(format!("{:.2}%", res.accuracy * 100.))
-            .pos(r.right() + 0.03, r.bottom())
-            .anchor(0., 1.)
-            .size(0.8)
-            .color(sub)
-            .draw();
-        ui.scissor(Some(gr));
-        ui.text(format!("(±{}ms)", (res.std * 1000.).round() as i32))
-            .pos(sr.right() + 0.02, sr.bottom())
-            .anchor(0., 1.)
+        ui.alpha(pf, |ui| {
+            let s = 0.05;
+            let pad = 0.02;
+            let mw = 0.4;
+            let w = s * 2. + pad + ui.text(&self.player_name).size(0.6).measure().w.min(mw) + 0.02;
+            let r = Rect::new(-0.96, -top + 0.04, w, s * 2.);
+            ui.fill_path(&r.feather(0.01).rounded(s + 0.01), semi_black(0.6));
+            ui.fill_rect(Rect::new(r.x, r.y + s + 0.003, r.w + 0.01, 0.).nonuniform_feather(-0.01, 0.002), WHITE);
+            ui.avatar(r.x + s, r.y + s, s, t, Ok(Some(self.player.clone())));
+            let lf = r.x + s * 2. + pad;
+            ui.text(&self.player_name)
+                .pos(lf, r.y + s - 0.007)
+                .anchor(0., 1.)
+                .max_width(mw)
+                .size(0.6)
+                .draw();
+            ui.text(if let Some(state) = &self.update_state {
+                format!("{:.2}", state.new_rks)
+            } else if let Some(rks) = &self.player_rks {
+                format!("{rks:.2}")
+            } else {
+                String::new()
+            })
+            .pos(lf, r.y + s + 0.008)
             .size(0.4)
-            .color(sub)
+            .color(semi_white(0.6))
             .draw();
-        ui.scissor(None);
+        });
 
-        let spd = if (self.speed - 1.).abs() <= 1e-4 {
-            String::new()
-        } else {
-            format!(" {:.2}x", self.speed)
-        };
-        let text = if self.autoplay {
-            format!("PHIRA[AUTOPLAY] {spd}")
-        } else if !self.rated {
-            format!("PHIRA[UNRATED] {spd}")
-        } else if let Some(state) = &self.update_state {
-            format!(
-                "PHIRA {spd}  {}",
-                if state.best {
-                    format!("NEW BEST +{:07}", state.improvement)
-                } else {
-                    String::new()
-                }
-            )
-        } else {
-            "Uploading…".to_owned()
-        };
-        ui.text(text).pos(r.x, r.bottom() + 0.03).size(0.4).color(main).draw();
-
-        let mut y = r.y + 0.16;
-        let lf = r.x + 0.036;
-        for (num, text) in res.counts.iter().zip(["Perfect", "Good", "Bad", "Miss"]) {
-            ui.text(text).pos(lf, y).no_baseline().size(0.33).color(sub).draw();
-            y += 0.025;
-            ui.text(num.to_string())
-                .pos(lf + 0.01, y)
-                .anchor(0., 0.)
-                .no_baseline()
-                .size(0.5)
-                .color(main)
-                .draw();
-            y += 0.044;
+        if !self.tr_start.is_nan() {
+            let p = ((t - self.tr_start) / 0.5).min(1.);
+            if p >= 1. {
+                self.tr_start = f32::NAN;
+            }
+            let p = 1. - (1. - p).powi(3);
+            let mut r = sr;
+            r.y -= r.h * (1. - p);
+            rect_shadow(r, 0.01, 0.5);
+            let (tex, alpha) = if self.next == 1 {
+                (&self.background, 0.3)
+            } else {
+                (&self.illustration, 0.55)
+            };
+            ui.fill_rect(r, (**tex, r));
+            ui.fill_rect(r, semi_black(alpha));
         }
-
-        let mut y = r.y + 0.16;
-        let lf = r.x + 0.38;
-        for (num, text) in [(res.max_combo, "Max Combo"), (res.early, "Early"), (res.late, "Late")] {
-            ui.text(text).pos(lf, y).no_baseline().size(0.33).color(sub).draw();
-            y += 0.025;
-            ui.text(num.to_string())
-                .pos(lf + 0.01, y)
-                .anchor(0., 0.)
-                .no_baseline()
-                .size(0.5)
-                .color(main)
-                .draw();
-            y += 0.044;
-        }
-
-        let ct = (0.91, -ui.top + 0.09);
-        let rad = 0.05;
-        ui.avatar(ct.0, ct.1, rad, semi_white(p), t, Ok(Some(self.player.clone())));
-        let rt = ct.0 - rad - 0.02;
-        ui.text(&self.player_name)
-            .pos(rt, ct.1 + 0.002)
-            .anchor(1., 1.)
-            .size(0.6)
-            .color(semi_white(p))
-            .draw();
-        ui.text(if let Some(state) = &self.update_state {
-            format!("{:.2}", state.new_rks)
-        } else if let Some(rks) = &self.player_rks {
-            format!("{rks:.2}")
-        } else {
-            String::new()
-        })
-        .pos(rt, ct.1 + 0.008)
-        .anchor(1., 0.)
-        .size(0.4)
-        .color(semi_white(p * 0.6))
-        .draw();
-
-        let s = 0.14;
-        let c = Color { a: ep, ..main };
-        let mut r = Rect::new(ir.right() - s - 0.04, ir.bottom() - s - 0.04, s, s);
-
-        let (cr, _) = self.btn_proceed.render_shadow(ui, r, t, ep, |_| semi_white(0.3 * ep));
-        let cr = cr.feather(-0.02);
-        ui.fill_rect(cr, (*self.icon_proceed, cr, ScaleType::Fit, c));
-
-        r.x -= r.w + 0.03;
-        let (cr, _) = self.btn_retry.render_shadow(ui, r, t, ep, |_| semi_white(0.3 * ep));
-        let cr = cr.feather(-0.02);
-        ui.fill_rect(cr, (*self.icon_retry, cr, ScaleType::Fit, c));
 
         Ok(())
     }
 
     fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
+        if !self.tr_start.is_nan() {
+            return NextScene::None;
+        }
         if self.next != 0 {
             let _ = self.bgm.pause();
         }

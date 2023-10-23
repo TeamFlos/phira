@@ -469,6 +469,7 @@ impl MPPanel {
                         Mods::default(),
                         GameMode::NoRetry,
                         self.client.as_ref().map(Arc::clone),
+                        None,
                     )?;
                 }
             } else {
@@ -661,7 +662,7 @@ impl MPPanel {
                 if self.client.is_none() {
                     let ct = r.center();
                     self.connect_btn
-                        .render_text(ui, Rect::new(ct.x, ct.y, 0., 0.).nonuniform_feather(0.14, 0.06), t, 1., mtl!("connect"), 0.5, true);
+                        .render_text(ui, Rect::new(ct.x, ct.y, 0., 0.).nonuniform_feather(0.14, 0.06), t, mtl!("connect"), 0.5, true);
                 } else {
                     self.render_main(tm, ui, r);
                 }
@@ -724,9 +725,9 @@ impl MPPanel {
             let lw = 0.16;
             let h = 0.09;
             let br = Rect::new(r.x, r.bottom() - h, mr.w - lw - 0.02, h);
-            self.chat_btn.render_input(ui, br, t, 1., &self.chat_text, mtl!("chat-placeholder"), 0.5);
+            self.chat_btn.render_input(ui, br, t, &self.chat_text, mtl!("chat-placeholder"), 0.5);
             let br = Rect::new(mr.right() - lw, br.y, lw, br.h);
-            self.chat_send_btn.render_text(ui, br, t, 1., mtl!("chat-send"), 0.5, true);
+            self.chat_send_btn.render_text(ui, br, t, mtl!("chat-send"), 0.5, true);
         }
 
         let mut br = Rect::new(mr.right() + 0.02, mr.y, r.right() - mr.right() - 0.02, 0.1);
@@ -757,41 +758,41 @@ impl MPPanel {
             btns.push((&mut self.disconnect_btn, mtl!("disconnect").into_owned()));
         }
         for (btn, text) in btns {
-            btn.render_text(ui, br, t, 1., text, 0.5, true);
+            btn.render_text(ui, br, t, text, 0.5, true);
             br.y += br.h + 0.02;
         }
 
         let p = self.user_list_p.now(t);
         if p > 1e-4 {
-            let c = semi_white(p);
             ui.abs_scope(|ui| {
-                let users: Vec<_> = client.blocking_state().unwrap().users.values().cloned().collect();
-                let n = users.len();
-                let rn = (n + 1) / 2;
-                ui.fill_rect(ui.screen_rect(), semi_black(p * 0.4));
+                ui.alpha(p, |ui| {
+                    let users: Vec<_> = client.blocking_state().unwrap().users.values().cloned().collect();
+                    let n = users.len();
+                    let rn = (n + 1) / 2;
+                    ui.fill_rect(ui.screen_rect(), semi_black(p * 0.4));
 
-                let mut iter = users.into_iter();
+                    let mut iter = users.into_iter();
 
-                let h = 0.14;
-                let w = 0.6;
-                let pad = 0.03;
-                ui.dy(-(rn as f32 * (h + pad) - pad) / 2.);
-                for i in 0..rn {
-                    let cn = (n - i * 2).min(2);
-                    let o = -(cn as f32 * (w + pad) - pad) / 2.;
-                    for j in 0..cn {
-                        let r = Rect::new(j as f32 * w + o, i as f32 * h, w, h);
-                        let Some(user) =  iter.next() else { unreachable!() };
-                        ui.avatar(r.x + 0.07, r.center().y, 0.05, c, t, UserManager::opt_avatar(user.id, &self.icon_user));
-                        ui.text(user.name)
-                            .pos(r.x + 0.14, r.center().y)
-                            .anchor(0., 0.5)
-                            .no_baseline()
-                            .size(0.7)
-                            .color(c)
-                            .draw();
+                    let h = 0.14;
+                    let w = 0.6;
+                    let pad = 0.03;
+                    ui.dy(-(rn as f32 * (h + pad) - pad) / 2.);
+                    for i in 0..rn {
+                        let cn = (n - i * 2).min(2);
+                        let o = -(cn as f32 * (w + pad) - pad) / 2.;
+                        for j in 0..cn {
+                            let r = Rect::new(j as f32 * w + o, i as f32 * h, w, h);
+                            let Some(user) =  iter.next() else { unreachable!() };
+                            ui.avatar(r.x + 0.07, r.center().y, 0.05, t, UserManager::opt_avatar(user.id, &self.icon_user));
+                            ui.text(user.name)
+                                .pos(r.x + 0.14, r.center().y)
+                                .anchor(0., 0.5)
+                                .no_baseline()
+                                .size(0.7)
+                                .draw();
+                        }
                     }
-                }
+                });
             });
         }
     }
