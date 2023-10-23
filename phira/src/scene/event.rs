@@ -377,7 +377,17 @@ impl Scene for EventScene {
                     ui.loading(1., pad + 0.05, t, WHITE, ());
                     (2., ui.top * 2. + (pad + 0.05) * 2.)
                 } else {
-                    let h = match self.uml.render(ui, t, rt, &[("t", t), ("o", o), ("top", ui.top)]) {
+                    let h = match self.uml.render(
+                        ui,
+                        t,
+                        rt,
+                        &[
+                            ("t", t),
+                            ("o", o),
+                            ("top", ui.top),
+                            ("joined", self.status.as_ref().map_or(-1., |it| it.joined as u32 as f32)),
+                        ],
+                    ) {
                         Ok((_, h)) => h,
                         Err(e) => {
                             eprintln!("{e:?}");
