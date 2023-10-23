@@ -10,6 +10,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
+    core::BOLD_FONT,
     ext::{semi_black, semi_white, RectExt},
     scene::{request_input, request_password, return_input, show_error, show_message, take_input},
     task::Task,
@@ -263,7 +264,7 @@ impl Login {
                         }) * wr.h;
                         ui.dy(p);
 
-                        let r = ui.text(tl!("register")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).draw();
+                        let r = ui.text(tl!("register")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).draw_using(&BOLD_FONT);
                         let pad = 0.035;
                         let mut r = Rect::new(wr.x + pad, r.bottom() + 0.05, wr.w - pad * 2., 0.1);
                         self.input_reg_email.render_input(ui, r, t, &self.t_reg_email, tl!("email"), 0.62);
@@ -280,7 +281,7 @@ impl Login {
                         self.btn_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
 
                         ui.dy(wr.h);
-                        let r = ui.text(tl!("login")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).draw();
+                        let r = ui.text(tl!("login")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).draw_using(&BOLD_FONT);
                         let r = ui
                             .text(tl!("login-sub"))
                             .pos(r.x + 0.006, r.bottom() + 0.032)
@@ -291,8 +292,7 @@ impl Login {
                         let mut r = Rect::new(wr.x + pad, r.bottom() + 0.06, wr.w - pad * 2., 0.1);
                         self.input_email.render_input(ui, r, t, &self.t_email, tl!("email"), 0.62);
                         r.y += r.h + 0.04;
-                        self.input_pwd
-                            .render_input(ui, r, t, "*".repeat(self.t_pwd.len()), tl!("password"), 0.62);
+                        self.input_pwd.render_input(ui, r, t, "*".repeat(self.t_pwd.len()), tl!("password"), 0.62);
 
                         let h = 0.09;
                         let pad = 0.05;

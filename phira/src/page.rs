@@ -285,9 +285,9 @@ impl Fader {
         }
     }
 
-    pub fn render_title(&mut self, ui: &mut Ui, painter: &mut TextPainter, t: f32, s: &str) {
+    pub fn render_title(&mut self, ui: &mut Ui, t: f32, s: &str) {
         let tp = ui.back_rect().center().y;
-        let h = ui.text("L").size(1.2).no_baseline().measure_with_font(Some(painter)).h;
+        let h = ui.text("L").size(1.2).no_baseline().measure_using(&BOLD_FONT).h;
         ui.scissor(Rect::new(-1., tp - h / 2., 2., h), |ui| {
             let p = self.progress_scaled(t, 1.6);
             let tp = tp + h * p - h / 2.;
@@ -302,7 +302,7 @@ impl Fader {
                     .anchor(0., 0.)
                     .size(1.2)
                     .color(WHITE)
-                    .draw_with_font(Some(painter))
+                    .draw_using(&BOLD_FONT)
                     .w
                     + 0.012;
             }
@@ -312,7 +312,7 @@ impl Fader {
                     .anchor(0., 1.)
                     .color(semi_white(0.4))
                     .size(0.5)
-                    .draw_with_font(Some(painter));
+                    .draw_using(&BOLD_FONT);
             }
         });
     }
@@ -376,7 +376,6 @@ pub struct SharedState {
     pub t: f32,
     pub rt: f32,
     pub fader: Fader,
-    pub painter: TextPainter,
     pub charts_local: Vec<ChartItem>,
 
     pub icons: [SafeTexture; 8],
@@ -385,13 +384,11 @@ pub struct SharedState {
 impl SharedState {
     pub async fn new(fallback: FontArc) -> Result<Self> {
         let font = FontArc::try_from_vec(load_file("bold.ttf").await?)?;
-        let painter = TextPainter::new(font.clone(), Some(fallback));
-        BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font, None)));
+        BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font, Some(fallback))));
         Ok(Self {
             t: 0.,
             rt: 0.,
             fader: Fader::new(),
-            painter,
             charts_local: Vec::new(),
 
             icons: Resource::load_icons().await?,

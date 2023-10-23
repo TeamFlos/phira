@@ -388,10 +388,10 @@ impl Scene for MainScene {
         if s.fader.transiting() {
             let pos = self.pages.len() - 2;
             s.fader.reset();
-            s.fader.render_title(ui, &mut s.painter, s.t, &self.pages[pos].label());
+            s.fader.render_title(ui, s.t, &self.pages[pos].label());
         }
         s.fader
-            .for_sub(|f| f.render_title(ui, &mut s.painter, s.t, &self.pages.last().unwrap().label()));
+            .for_sub(|f| f.render_title(ui, s.t, &self.pages.last().unwrap().label()));
 
         // 2. page
         if s.fader.transiting() {
