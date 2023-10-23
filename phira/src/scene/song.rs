@@ -22,7 +22,7 @@ use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
     core::Tweenable,
-    ext::{poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
+    ext::{open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     fs,
     info::ChartInfo,
     judge::{icon_index, Judge},
@@ -278,6 +278,8 @@ pub struct SongScene {
 
     background: Arc<Mutex<Option<SafeTexture>>>,
     tr_start: f32,
+
+    open_web_btn: DRectButton,
 }
 
 impl SongScene {
@@ -439,6 +441,8 @@ impl SongScene {
 
             tr_start: f32::NAN,
             background: Arc::default(),
+
+            open_web_btn: DRectButton::new(),
         }
     }
 
@@ -962,6 +966,10 @@ impl SongScene {
                     ui.dy(dy);
                 }};
             }
+            let mw = width - pad * 3.;
+            let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
+            self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
+            dy!(r.h + 0.04);
             if let Some(uploader) = &self.info.uploader {
                 let c = 0.06;
                 let s = 0.05;
@@ -979,7 +987,6 @@ impl SongScene {
                 }
                 dy!(0.14);
             }
-            let mw = width - pad * 3.;
             let mut item = |title: Cow<'_, str>, content: Cow<'_, str>| {
                 dy!(ui.text(title).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
                 dy!(ui.text(content).pos(pad, 0.).size(0.6).multiline().max_width(mw).draw().h + 0.03);
@@ -1288,6 +1295,10 @@ impl Scene for SongScene {
                                 t,
                                 ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
                             );
+                            return Ok(true);
+                        }
+                        if self.open_web_btn.touch(touch, rt) {
+                            open_url(&format!("https://phira.moe/chart/{}", self.info.id.unwrap()))?;
                             return Ok(true);
                         }
                     }

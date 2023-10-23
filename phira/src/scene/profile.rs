@@ -12,7 +12,7 @@ use anyhow::Result;
 use chrono::Local;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
+    ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
@@ -44,6 +44,7 @@ pub struct ProfileScene {
     icon_user: SafeTexture,
 
     btn_back: RectButton,
+    btn_open_web: DRectButton,
     btn_logout: DRectButton,
     btn_delete: DRectButton,
 
@@ -81,6 +82,7 @@ impl ProfileScene {
             icon_user,
 
             btn_back: RectButton::new(),
+            btn_open_web: DRectButton::new(),
             btn_logout: DRectButton::new(),
             btn_delete: DRectButton::new(),
 
@@ -247,6 +249,10 @@ impl Scene for ProfileScene {
             self.sf.next(t, NextScene::Pop);
             return Ok(true);
         }
+        if self.btn_open_web.touch(touch, t) {
+            open_url(&format!("https://phira.moe/user/{}", self.id))?;
+            return Ok(true);
+        }
         if self.btn_logout.touch(touch, t) {
             anti_addiction_action("exit", None);
             get_data_mut().me = None;
@@ -349,12 +355,14 @@ impl Scene for ProfileScene {
                 .size(0.4)
                 .color(semi_white(0.6))
                 .draw();
+            let hw = 0.2;
+            let mut r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
+            self.btn_open_web.render_text(ui, r, t, ttl!("open-in-web"), 0.6, true);
+            r.y += r.h + 0.02;
             if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
-                let hw = 0.2;
-                let mut r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
-                self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, false);
+                self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                 r.y += r.h + 0.02;
-                self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, false);
+                self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
             }
         } else {
             ui.loading(r.center().x, (r.y + r.bottom().min(ui.top)) / 2., t, WHITE, ());
