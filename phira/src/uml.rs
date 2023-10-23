@@ -3,7 +3,7 @@ mod parse;
 
 pub use parse::parse_uml;
 
-use self::parse::constant;
+use self::parse::{constant, ButtonState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView},
     client::{recv_raw, Client, File},
@@ -24,7 +24,10 @@ use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     fmt::Debug,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 use tracing::warn;
 
@@ -385,6 +388,7 @@ pub struct ButtonElement {
     config: ButtonConfig,
     btn: RefCell<RectButton>,
     last_touched: Cell<f32>,
+    count: AtomicU32,
 }
 
 impl ButtonElement {
@@ -393,6 +397,7 @@ impl ButtonElement {
             config,
             btn: RefCell::default(),
             last_touched: Cell::new(-1.),
+            count: AtomicU32::new(0),
         }
     }
 }
@@ -406,6 +411,7 @@ impl Element for ButtonElement {
         if self.btn.borrow_mut().touch(touch) {
             *action = self.config.action.clone();
             self.last_touched.set(uml.t);
+            self.count.fetch_add(1, Ordering::SeqCst);
             return Ok(true);
         }
         Ok(false)
@@ -413,8 +419,13 @@ impl Element for ButtonElement {
 
     fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
         let r = self.config.r.eval(uml)?.rect()?;
-        self.btn.borrow_mut().set(ui, r);
-        Ok(Var::Float(self.last_touched.get()))
+        let mut btn = self.btn.borrow_mut();
+        btn.set(ui, r);
+        Ok(Var::ButtonState(ButtonState {
+            last: self.last_touched.get(),
+            cnt: self.count.load(Ordering::SeqCst),
+            touching: btn.touching(),
+        }))
     }
 }
 
@@ -442,21 +453,22 @@ impl Element for Assign {
 #[derive(Clone, Copy)]
 pub enum Var {
     Rect(Rect),
+    ButtonState(ButtonState),
     Float(f32),
 }
 
 impl Var {
     pub fn float(self) -> Result<f32> {
         match self {
-            Self::Rect(_) => bail!("expected float"),
             Self::Float(f) => Ok(f),
+            _ => bail!("expected float"),
         }
     }
 
     pub fn rect(self) -> Result<Rect> {
         match self {
-            Self::Float(_) => bail!("expected rect"),
             Self::Rect(r) => Ok(r),
+            _ => bail!("expected rect"),
         }
     }
 }
@@ -465,33 +477,49 @@ pub struct Uml {
     elements: Vec<Box<dyn Element>>,
 
     vars: Vec<Var>,
+    persistent_vars: Vec<Var>,
     var_map: HashMap<String, usize>,
 
     t: f32,
     rt: f32,
+
+    first_time: bool,
 }
 
 impl Default for Uml {
     fn default() -> Self {
-        Self::new(Vec::new())
+        Self::new(Vec::new(), &[]).unwrap()
     }
 }
 
 impl Uml {
-    pub fn new(elements: Vec<Box<dyn Element>>) -> Self {
-        Self {
+    pub fn new(elements: Vec<Box<dyn Element>>, global_defs: &[(String, Expr)]) -> Result<Self> {
+        let mut res = Self {
             elements,
 
             vars: Vec::new(),
+            persistent_vars: Vec::new(),
             var_map: HashMap::new(),
 
             t: 0.,
             rt: 0.,
+
+            first_time: true,
+        };
+        res.init(global_defs);
+        Ok(res)
+    }
+
+    fn init(&mut self, global_defs: &[(String, Expr)]) {
+        for (name, initial) in global_defs {
+            self.var_map.insert(name.clone(), !self.persistent_vars.len());
+            self.persistent_vars.push(initial.eval(self).unwrap());
         }
     }
 
     pub(crate) fn get_var(&self, rf: &VarRef) -> Result<&Var> {
-        Ok(&self.vars[rf.id(self)?])
+        let id = rf.id(self)?;
+        Ok(if id & 0x8000 != 0 { &self.persistent_vars[!id] } else { &self.vars[id] })
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32, action: &mut Option<String>) -> Result<bool> {
@@ -505,14 +533,28 @@ impl Uml {
         Ok(false)
     }
 
+    fn set_var(first_time: bool, vars: &mut Vec<Var>, persistent_vars: &mut [Var], var_map: &mut HashMap<String, usize>, name: &str, value: Var) {
+        match var_map.get(name) {
+            Some(x) if x & 0x8000 != 0 => {
+                if std::mem::discriminant(&persistent_vars[!x]) != std::mem::discriminant(&value) {
+                    warn!("type mismatch: {name}");
+                } else {
+                    persistent_vars[!x] = value;
+                }
+            }
+            _ => {
+                if first_time {
+                    var_map.insert(name.to_owned(), vars.len());
+                }
+                vars.push(value);
+            }
+        }
+    }
+
     pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
-        let first_time = self.var_map.is_empty();
         self.vars.clear();
         for (name, val) in vars {
-            if first_time {
-                self.var_map.insert(name.to_string(), self.vars.len());
-            }
-            self.vars.push(Var::Float(*val));
+            Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, name, Var::Float(*val));
         }
         let mut right = 0f32;
         let mut bottom = 0f32;
@@ -525,10 +567,7 @@ impl Uml {
                 bottom = bottom.max(r.bottom());
             }
             if let Some(id) = elem.id() {
-                if first_time {
-                    self.var_map.insert(id.to_owned(), self.vars.len());
-                }
-                self.vars.push(r);
+                Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, id, r);
             }
         }
         if let Some(Var::Float(w)) = self.var_map.get("$w").map(|it| &self.vars[*it]) {
@@ -537,6 +576,8 @@ impl Uml {
         if let Some(Var::Float(h)) = self.var_map.get("$h").map(|it| &self.vars[*it]) {
             bottom = *h;
         }
+        self.first_time = false;
+
         Ok((right, bottom))
     }
 
