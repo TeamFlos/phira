@@ -42,6 +42,7 @@ edit-downloaded = You can't edit downloaded chart
 edit-upload = Upload
 edit-update = Update
 
+upload-not-saved = You haven't saved the chart, do you want to save it now?
 upload-login-first = Please login first
 upload-builtin = Built-in beatmaps cannot be uploaded
 upload-downloaded = Downloaded beatmaps cannot be uploaded
@@ -53,8 +54,6 @@ upload-rules-content =
   3. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information
   4. I authorize the use of the content I provide for public promotion by Phira. Any other use requires my additional permission
   5. The final interpretation rights of this rule belong to TeamFlos
-upload-cancel = Cancel
-upload-confirm = Confirm
 uploading = Uploading
 upload-chart-failed = Failed to upload beatmap
 upload-success = Uploaded successfully, please wait for review!

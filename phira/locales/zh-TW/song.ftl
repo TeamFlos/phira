@@ -52,8 +52,6 @@ upload-rules-content =
   3. 譜面內容（包括音樂、插圖、文字等）須符合中華人民共和國其他法律與法規，不得違法或包含不良信息
   4. 上傳者上傳即同意譜面可用於 Phira 的公開宣傳，其他方式利用仍需譜師許可
   5. 本須知最終解釋權歸 TeamFlos 所有
-upload-cancel = 再想想
-upload-confirm = 確認上傳
 uploading = 上傳中...
 upload-chart-failed = 上傳譜面失敗
 upload-success = 上傳成功，請等待審核！

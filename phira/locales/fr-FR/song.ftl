@@ -52,8 +52,6 @@ upload-rules-content =
   2. Si vous avez créé la partition, il est recommandé d'utiliser un avatar et un identifiant hautement reconnaissables ; Si l'avatar et l'identifiant que vous utilisez sur prpr sont assez différents de la plate-forme de publication de vidéos de partition (en particulier, Bilibili), des annotations supplémentaires sont nécessaires ;
   3. /!\ Il est interdit d'envoyer la partition sans le consentement de l'auteur, sinon vous risquez la peine d'une interdiction permanente d'envoi ;
   4. Le contenu de la partition (y compris la musique, les illustrations, le texte, etc.) doit être conforme aux autres lois et réglementations de la République populaire de Chine, et ne doit pas violer la loi ou contenir de mauvaises informations.
-upload-cancel = Annuler
-upload-confirm = Confirmer
 uploading = Envoi
 upload-chart-failed = Échec de l'envoi de la partition
 upload-success = Envoyée avec succès, veuillez attendre l'examen !

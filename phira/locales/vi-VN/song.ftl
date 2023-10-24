@@ -53,8 +53,6 @@ upload-rules-content =
     3. Nội dung của beatmap (bao gồm âm nhạc, hình minh họa, văn bản, v.v.) phải tuân thủ các quy định pháp luật khác của Cộng hòa Nhân dân Trung Hoa và không được vi phạm pháp luật hoặc chứa thông tin xấu
     4. Tôi ủy quyền sử dụng nội dung tôi cung cấp cho việc quảng bá công khai bởi Phira. Mọi việc sử dụng khác đòi hỏi sự cho phép bổ sung của tôi.
     5. Quyền giải thích cuối cùng của quy định này thuộc về TeamFlos
-upload-cancel = Hủy bỏ
-upload-confirm = Chấp nhận
 uploading = Đang tải lên...
 upload-chart-failed = T.lên biểu đồ thất bại
 upload-success = Đã t.lên, chờ xét duyệt!

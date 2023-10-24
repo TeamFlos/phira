@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[repr(u8)]
 #[serde(rename_all = "lowercase")]
 pub enum ChartFormat {
@@ -11,7 +11,7 @@ pub enum ChartFormat {
     Pbc,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
 pub struct ChartInfo {

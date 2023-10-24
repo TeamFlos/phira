@@ -11,6 +11,7 @@ pub struct ChartInfoEdit {
     pub chart: Option<String>,
     pub music: Option<String>,
     pub illustration: Option<String>,
+    pub updated: bool,
 }
 
 impl ChartInfoEdit {
@@ -20,6 +21,7 @@ impl ChartInfoEdit {
             chart: None,
             music: None,
             illustration: None,
+            updated: false,
         }
     }
 
@@ -70,20 +72,24 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         ui.dx(rt);
         let len = width - rt - 0.04;
         let info = &mut edit.info;
-        let r = ui.input(tl!("chart-name"), &mut info.name, len);
+        let r = ui.input(tl!("chart-name"), &mut info.name, (len, &mut edit.updated));
         dy!(r.h + s);
-        let r = ui.input(tl!("author"), &mut info.charter, len);
+        let r = ui.input(tl!("author"), &mut info.charter, (len, &mut edit.updated));
         dy!(r.h + s);
-        let r = ui.input(tl!("composer"), &mut info.composer, len);
+        let r = ui.input(tl!("composer"), &mut info.composer, (len, &mut edit.updated));
         dy!(r.h + s);
-        let r = ui.input(tl!("illustrator"), &mut info.illustrator, len);
+        let r = ui.input(tl!("illustrator"), &mut info.illustrator, (len, &mut edit.updated));
         dy!(r.h + s + 0.02);
 
-        let r = ui.input(tl!("level-displayed"), &mut info.level, len);
+        let r = ui.input(tl!("level-displayed"), &mut info.level, (len, &mut edit.updated));
         dy!(r.h + s);
 
         ui.dx(-rt);
+        let last = info.difficulty;
         let r = ui.slider(tl!("diff"), 0.0..20.0, 0.1, &mut info.difficulty, Some(width - 0.2));
+        if (info.difficulty - last).abs() > 1e-4 {
+            edit.updated = true;
+        }
         dy!(r.h + s + 0.01);
         ui.dx(rt);
 
@@ -92,6 +98,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         let r = ui.input(tl!("preview-time"), &mut string, (len, &mut changed));
         dy!(r.h + s);
         if changed {
+            edit.updated = true;
             match || -> Result<(f32, f32), Cow<'static, str>> {
                 let (st, en) = string.split_once(['-', '—']).ok_or_else(|| tl!("illegal-input"))?;
                 let st = parse_time(st.trim()).ok_or_else(|| tl!("invalid time"))?;
@@ -123,6 +130,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         let r = ui.input(tl!("offset"), &mut string, (len, &mut changed));
         dy!(r.h + s);
         if changed {
+            edit.updated = true;
             match string.parse::<f32>() {
                 Err(_) => {
                     show_message(tl!("illegal-input")).error();
@@ -138,6 +146,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         let r = ui.input(tl!("aspect-ratio"), &mut string, (len, &mut changed));
         dy!(r.h + s);
         if changed {
+            edit.updated = true;
             match || -> Result<f32> {
                 if let Some((w, h)) = string.split_once([':', '：']) {
                     Ok(w.trim().parse::<f32>()? / h.trim().parse::<f32>()?)
@@ -163,7 +172,11 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         }));
 
         ui.dx(-rt);
+        let last = info.background_dim;
         let r = ui.slider(tl!("dim"), 0.0..1.0, 0.05, &mut info.background_dim, Some(width - 0.2));
+        if (info.background_dim - last).abs() > 1e-4 {
+            edit.updated = true;
+        }
         dy!(r.h + s + 0.01);
         ui.dx(rt);
 
@@ -186,12 +199,15 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 match id.as_str() {
                     "chart" => {
                         edit.chart = Some(file);
+                        edit.updated = true;
                     }
                     "music" => {
                         edit.music = Some(file);
+                        edit.updated = true;
                     }
                     "illustration" => {
                         edit.illustration = Some(file);
+                        edit.updated = true;
                     }
                     _ => return_file(id, file),
                 }
@@ -199,12 +215,12 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         }
 
         let mut string = info.tip.clone().unwrap_or_default();
-        let r = ui.input(tl!("tip"), &mut string, len);
+        let r = ui.input(tl!("tip"), &mut string, (len, &mut edit.updated));
 
         dy!(r.h + s);
         info.tip = if string.is_empty() { None } else { Some(string) };
 
-        ui.input(tl!("intro"), &mut info.intro, len);
+        ui.input(tl!("intro"), &mut info.intro, (len, &mut edit.updated));
         ui.dx(-0.02);
     });
     (width, sy)

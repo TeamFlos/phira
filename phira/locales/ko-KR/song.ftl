@@ -53,8 +53,6 @@ upload-rules-content =
   3. 비트맵의 내용(음악, 일러스트, 텍스트 등)은 중화인민공화국의 다른 법률과 규정을 준수여야 하며, 법을 위반하거나 부적절한 정보를 포함해서는 안 됩니다.
   4. Phira에서 제공한 콘텐츠를 대중 홍보에 사용할 수 있도록 허가합니다. 다른 용도로 사용하려면 추가 허가가 필요합니다.
   5. 이 규칙의 최종 해석 권한은 TeamFlos에게 속합니다.
-upload-cancel = 취소
-upload-confirm = 확인
 uploading = 업로드 중
 upload-chart-failed = 비트맵 업로드 실패
 upload-success = 업로드 성공, 검토를 기다려주세요!
