@@ -61,6 +61,7 @@ uploading = 上传中…
 upload-chart-failed = 上传谱面失败
 upload-success = 上传成功，请等待审核！
 upload-failed = 上传失败
+upload-confirm-clear-ldb = 由于当前谱面文件和远端谱面文件不同，上传谱面后将清空该谱面的排行榜，确定要继续吗？
 
 ldb = 排行榜
 ldb-load-failed = 加载排行榜失败
