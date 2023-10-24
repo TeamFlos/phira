@@ -38,6 +38,10 @@ edit-saved = Saved
 edit-preview-invalid = Preview time out of bounds
 edit-tags = Edit tags
 edit-downloaded = You can't edit downloaded chart
+edit-overwrite = Overwrite
+edit-overwrite-confirm = Are you sure to overwrite this chart with the imported one? (This will only sync to online platform after clicking "Update")
+edit-overwrite-success = Overwritten
+edit-overwrite-failed = Failed to overwrite
 
 edit-upload = Upload
 edit-update = Update

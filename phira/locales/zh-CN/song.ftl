@@ -38,6 +38,10 @@ edit-saved = 保存成功
 edit-preview-invalid = 预览时间超出范围
 edit-tags = 编辑标签
 edit-downloaded = 你不能编辑下载的谱面
+edit-overwrite = 覆盖
+edit-overwrite-confirm = 你确定要使用外部的谱面覆盖当前的谱面吗？（只有在点击“更新”后才会同步到在线平台）
+edit-overwrite-success = 已覆盖
+edit-overwrite-failed = 覆盖失败
 
 edit-upload = 上传
 edit-update = 更新

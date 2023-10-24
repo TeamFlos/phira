@@ -1,6 +1,6 @@
 prpr::tl_file!("song");
 
-use super::{confirm_delete, confirm_dialog, fs_from_path, render_ldb, LdbDisplayItem, ProfileScene};
+use super::{confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene};
 use crate::{
     charts_view::NEED_UPDATE,
     client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
@@ -22,13 +22,16 @@ use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
     core::Tweenable,
-    ext::{open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
-    fs,
+    ext::{
+        open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType,
+        BLACK_TEXTURE,
+    },
+    fs::{self},
     info::ChartInfo,
     judge::{icon_index, Judge},
     scene::{
-        request_input, return_input, show_error, show_message, take_input, BasicPlayer, GameMode, LoadingScene, LocalSceneTask, NextScene,
-        RecordUpdateState, Scene, SimpleRecord, UpdateFn,
+        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
+        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn,
     },
     task::Task,
     time::TimeManager,
@@ -57,10 +60,14 @@ use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 
+// Things that need to be reloaded for chart info updates
+type LocalTuple = (ChartInfo, AudioClip, Illustration);
+
 const FADE_IN_TIME: f32 = 0.3;
 const EDIT_TRANSIT: f32 = 0.32;
 
 static UPLOAD_NOT_SAVED: AtomicBool = AtomicBool::new(false);
+static CONFIRM_OVERWRITE: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
 pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 
@@ -100,6 +107,21 @@ fn with_effects((mut frames, sample_rate): (Vec<Frame>, u32), range: Option<(f32
     Ok(AudioClip::from_raw(frames, sample_rate))
 }
 
+async fn load_local_tuple(local_path: &str, def_illu: SafeTexture, info: ChartInfo) -> Result<LocalTuple> {
+    let dir = prpr::dir::Dir::new(format!("{}/{local_path}", dir::charts()?))?;
+    let bytes = dir.read(&info.music)?;
+    let (frames, sample_rate) = AudioClip::decode(bytes)?;
+    let length = frames.len() as f32 / sample_rate as f32;
+    if info.preview_end.unwrap_or(info.preview_start + 1.) > length {
+        tl!(bail "edit-preview-invalid");
+    }
+    let preview = with_effects((frames, sample_rate), Some((info.preview_start, info.preview_end.unwrap_or(info.preview_start + 15.))))?;
+    let illu = local_illustration(local_path.to_owned(), def_illu, true);
+    illu.notify.notify_one();
+
+    Ok((info, preview, illu))
+}
+
 pub struct Downloading {
     info: BriefChartInfo,
     local_path: Option<String>,
@@ -107,7 +129,7 @@ pub struct Downloading {
     cancel_download_btn: DRectButton,
     status: Arc<Mutex<Cow<'static, str>>>,
     prog: Arc<Mutex<Option<f32>>>,
-    task: Task<Result<LocalChart>>,
+    task: Task<Result<(LocalChart, LocalTuple)>>,
 }
 
 impl Downloading {
@@ -128,7 +150,7 @@ impl Downloading {
         self.cancel_download_btn.render_text(ui, r, t, tl!("dl-cancel"), 0.6, true);
     }
 
-    pub fn check(&mut self) -> Result<Option<bool>> {
+    pub fn check(&mut self) -> Result<Option<Option<LocalTuple>>> {
         if let Some(res) = self.task.take() {
             match res {
                 Err(err) => {
@@ -138,9 +160,9 @@ impl Downloading {
                         std::fs::remove_dir_all(path)?;
                     }
                     show_error(err.context(tl!("dl-failed")));
-                    Ok(Some(false))
+                    Ok(Some(None))
                 }
-                Ok(chart) => {
+                Ok((chart, tuple)) => {
                     self.info = chart.info.clone();
                     if let Some(local_path) = &self.local_path {
                         // update
@@ -152,7 +174,7 @@ impl Downloading {
                     }
                     save_data()?;
                     show_message(tl!("dl-success")).ok();
-                    Ok(Some(true))
+                    Ok(Some(Some(tuple)))
                 }
             }
         } else {
@@ -239,7 +261,7 @@ pub struct SongScene {
     side_content: SideContent,
     side_enter_time: f32,
 
-    save_task: Option<Task<Result<(ChartInfo, AudioClip)>>>,
+    save_task: Option<Task<Result<LocalTuple>>>,
     upload_task: Option<Task<Result<BriefChartInfo>>>,
 
     ldb: Option<(Option<u32>, Vec<LdbItem>)>,
@@ -281,6 +303,10 @@ pub struct SongScene {
     tr_start: f32,
 
     open_web_btn: DRectButton,
+
+    // Imported chart for overwriting
+    overwrite_from: Option<String>,
+    overwrite_task: Option<Task<Result<LocalTuple>>>,
 }
 
 impl SongScene {
@@ -290,7 +316,11 @@ impl SongScene {
                 chart.info.id = Some(id.parse().unwrap());
             }
         }
-        let illu = if let Some(id) = chart.info.id {
+        let illu = if let Some(path) = &chart.local_path {
+            let illu = local_illustration(path.clone(), chart.illu.texture.1.clone(), true);
+            illu.notify.notify_one();
+            illu
+        } else if let Some(id) = chart.info.id {
             Illustration {
                 texture: chart.illu.texture.clone(),
                 notify: Arc::default(),
@@ -304,10 +334,6 @@ impl SongScene {
                 loaded: Arc::default(),
                 load_time: f32::NAN,
             }
-        } else if let Some(path) = &chart.local_path {
-            let illu = local_illustration(path.clone(), chart.illu.texture.1.clone(), true);
-            illu.notify.notify_one();
-            illu
         } else {
             chart.illu
         };
@@ -444,6 +470,9 @@ impl SongScene {
             background: Arc::default(),
 
             open_web_btn: DRectButton::new(),
+
+            overwrite_from: None,
+            overwrite_task: None,
         }
     }
 
@@ -543,12 +572,17 @@ impl SongScene {
                     }
                     tokio::fs::rename(path, to_path).await?;
 
-                    Ok(LocalChart {
-                        info: entity.to_info(),
-                        local_path,
-                        record: None,
-                        mods: Mods::default(),
-                    })
+                    let tuple = load_local_tuple(&local_path, BLACK_TEXTURE.clone(), info).await?;
+
+                    Ok((
+                        LocalChart {
+                            info: entity.to_info(),
+                            local_path,
+                            record: None,
+                            mods: Mods::default(),
+                        },
+                        tuple,
+                    ))
                 }
             }),
         })
@@ -854,6 +888,7 @@ impl SongScene {
         let width = self.side_content.width() - pad;
 
         let is_owner = self.is_owner();
+        let online = self.info.id.is_some();
         let vpad = 0.02;
         let hpad = 0.01;
         let dx = width / if is_owner { 3. } else { 2. };
@@ -915,15 +950,16 @@ impl SongScene {
             let (w, mut h) = render_chart_info(ui, self.info_edit.as_mut().unwrap(), width);
             h += 0.06;
             ui.dy(h);
-            let mut r = Rect::new(0.04, 0., 0.2, 0.07);
+            let mut r = Rect::new(0.04, 0., 0.23, 0.07);
             if ui.button("edit_tags", r, tl!("edit-tags")) {
                 self.tags.set(self.info_edit.as_ref().unwrap().info.tags.clone());
                 self.tags.enter(rt);
             }
-            r.x += r.w + 0.01;
-            if ui.button("edit_tags", r, tl!("edit-tags")) {
-                self.tags.set(self.info_edit.as_ref().unwrap().info.tags.clone());
-                self.tags.enter(rt);
+            if is_owner && online {
+                r.x += r.w + 0.01;
+                if ui.button("overwrite", r, tl!("edit-overwrite")) {
+                    request_file("overwrite");
+                }
             }
             (w, h + 0.1)
         });
@@ -1128,27 +1164,17 @@ impl SongScene {
         let path = self.local_path.clone().unwrap();
         let edit = edit.clone();
         let is_owner = self.is_owner();
+        let def_illu = self.illu.texture.1.clone();
         self.save_task = Some(Task::new(async move {
             let dir = prpr::dir::Dir::new(format!("{}/{path}", dir::charts()?))?;
             let patches = edit.to_patches().await.with_context(|| tl!("edit-load-file-failed"))?;
             if !is_owner && patches.contains_key(&info.chart) {
                 bail!(tl!("edit-downloaded"));
             }
-            let bytes = if let Some(bytes) = patches.get(&info.music) {
-                bytes.clone()
-            } else {
-                dir.read(&info.music)?
-            };
-            let (frames, sample_rate) = AudioClip::decode(bytes)?;
-            let length = frames.len() as f32 / sample_rate as f32;
-            if info.preview_end.unwrap_or(info.preview_start + 1.) > length {
-                tl!(bail "edit-preview-invalid");
-            }
-            let preview = with_effects((frames, sample_rate), Some((info.preview_start, info.preview_end.unwrap_or(info.preview_start + 15.))))?;
             for (name, bytes) in patches.into_iter() {
                 dir.create(name)?.write_all(&bytes)?;
             }
-            Ok((info, preview))
+            load_local_tuple(&path, def_illu, info).await
         }));
     }
 
@@ -1157,9 +1183,22 @@ impl SongScene {
     }
 
     fn global_update_chart_info(local_path: &str, info: BriefChartInfo) -> Result<()> {
+        let _ = std::fs::remove_file(thumbnail_path(local_path)?);
         get_data_mut().charts[get_data().find_chart_by_path(local_path).unwrap()].info = info;
         NEED_UPDATE.store(true, Ordering::Relaxed);
         save_data()?;
+        Ok(())
+    }
+
+    fn load_tuple(&mut self, (info, preview, illu): LocalTuple) -> Result<()> {
+        if let Some(preview) = &mut self.preview {
+            preview.pause()?;
+        }
+        self.preview = Some(create_music(preview)?);
+        self.info = info.into();
+        self.illu = illu;
+        self.update_chart_info()?;
+
         Ok(())
     }
 }
@@ -1241,6 +1280,7 @@ impl Scene for SongScene {
             || self.review_task.is_some()
             || self.edit_tags_task.is_some()
             || self.rate_task.is_some()
+            || self.overwrite_task.is_some()
         {
             return Ok(true);
         }
@@ -1499,10 +1539,13 @@ impl Scene for SongScene {
             }
         }
         if let Some(dl) = &mut self.downloading {
-            if dl.check()?.is_some() {
+            if let Some(tuple) = dl.check()? {
                 self.local_path = dl.local_path.take();
-                self.update_menu();
                 self.downloading = None;
+                if let Some(tuple) = tuple {
+                    self.load_tuple(tuple)?;
+                }
+                self.update_menu();
             }
         }
         if let Some(task) = &mut self.scene_task {
@@ -1645,14 +1688,9 @@ impl Scene for SongScene {
                     Err(err) => {
                         show_error(err.context(tl!("edit-save-failed")));
                     }
-                    Ok((info, preview)) => {
-                        if let Some(preview) = &mut self.preview {
-                            preview.pause()?;
-                        }
+                    Ok(tuple) => {
                         self.info_edit.as_mut().unwrap().updated = false;
-                        self.preview = Some(create_music(preview)?);
-                        self.info = info.into();
-                        self.update_chart_info()?;
+                        self.load_tuple(tuple)?;
                         show_message(tl!("edit-saved")).duration(1.).ok();
                     }
                 }
@@ -1844,6 +1882,62 @@ impl Scene for SongScene {
                     }));
                 }
                 _ => return_input(id, text),
+            }
+        }
+        if let Some((id, file)) = take_file() {
+            if id == "overwrite" {
+                self.overwrite_from = Some(file);
+                CONFIRM_OVERWRITE.store(false, Ordering::SeqCst);
+                Dialog::simple(tl!("edit-overwrite-confirm"))
+                    .buttons(vec![ttl!("cancel").to_string(), ttl!("confirm").to_string()])
+                    .listener(move |pos| {
+                        if pos == 1 {
+                            CONFIRM_OVERWRITE.store(true, Ordering::SeqCst);
+                        }
+                        false
+                    })
+                    .show();
+            } else {
+                return_file(id, file);
+            }
+        }
+        if CONFIRM_OVERWRITE.load(Ordering::SeqCst) {
+            CONFIRM_OVERWRITE.store(false, Ordering::SeqCst);
+            let path = self.overwrite_from.take().unwrap();
+            let local_path = self.local_path.clone().unwrap();
+            let def_illu = self.illu.texture.1.clone();
+            let chart_id = self.info.id.unwrap();
+            self.overwrite_task = Some(Task::new(async move {
+                let (dir, id) = gen_custom_dir()?;
+                if let Err(err) = import_chart_to(&dir, id, path).await {
+                    std::fs::remove_dir_all(dir)?;
+                    return Err(err);
+                }
+                let mut fs = prpr::fs::fs_from_file(&dir)?;
+                let mut info = prpr::fs::load_info(fs.as_mut()).await?;
+                drop(fs);
+                info.id = Some(chart_id);
+                serde_yaml::to_writer(File::create(dir.join("info.yml"))?, &info)?;
+
+                let to_path = format!("{}/{}/", dir::charts()?, local_path);
+                std::fs::remove_dir_all(&to_path)?;
+                std::fs::rename(&dir, &to_path)?;
+
+                load_local_tuple(&local_path, def_illu, info).await
+            }));
+        }
+        if let Some(task) = &mut self.overwrite_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("edit-overwrite-failed")));
+                    }
+                    Ok(tuple) => {
+                        self.load_tuple(tuple)?;
+                        show_message(tl!("edit-overwrite-success")).ok();
+                    }
+                }
+                self.overwrite_task = None;
             }
         }
         if let Some(task) = &mut self.review_task {
@@ -2101,7 +2195,7 @@ impl Scene for SongScene {
         if self.review_task.is_some() {
             ui.full_loading(tl!("review-doing"), t);
         }
-        if self.edit_tags_task.is_some() || self.rate_task.is_some() {
+        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() {
             ui.full_loading("", t);
         }
         let rt = tm.real_time() as f32;

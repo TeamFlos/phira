@@ -542,7 +542,7 @@ impl MPPanel {
         }
         if let Some(dl) = &mut self.downloading {
             if let Some(res) = dl.check()? {
-                if res {
+                if res.is_some() {
                     self.post_download();
                 }
                 self.downloading = None;
