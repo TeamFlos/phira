@@ -17,7 +17,7 @@ use prpr::{
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, RectButton, Ui, UI_AUDIO, FontArc},
+    ui::{button_hit, FontArc, RectButton, Ui, UI_AUDIO},
 };
 use sasa::{AudioClip, Music};
 use std::{
@@ -376,7 +376,7 @@ impl Scene for MainScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
 
-        STRIPE_MATERIAL.set_uniform("time", tm.real_time() as f32);
+        STRIPE_MATERIAL.set_uniform("time", ((tm.real_time() as f64 * 0.25) % (std::f64::consts::PI * 2.)) as f32);
         gl_use_material(*STRIPE_MATERIAL);
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
         gl_use_default_material();
@@ -390,8 +390,7 @@ impl Scene for MainScene {
             s.fader.reset();
             s.fader.render_title(ui, s.t, &self.pages[pos].label());
         }
-        s.fader
-            .for_sub(|f| f.render_title(ui, s.t, &self.pages.last().unwrap().label()));
+        s.fader.for_sub(|f| f.render_title(ui, s.t, &self.pages.last().unwrap().label()));
 
         // 2. page
         if s.fader.transiting() {
@@ -489,7 +488,7 @@ void main() {
 }"#;
 
     pub const FRAGMENT: &str = r#"#version 100
-precision mediump float;
+precision highp float;
 
 varying lowp vec4 color;
 varying lowp vec2 pos0;
@@ -500,7 +499,7 @@ uniform float time;
 
 void main() {
     float angle = 0.66;
-    float w = sin(angle) * pos0.y + cos(angle) * pos0.x - time * 0.025;
+    float w = sin(angle) * pos0.y + cos(angle) * pos0.x - time;
     float t = mod(w, 0.02);
     float p = step(t, 0.012) * 0.07;
     gl_FragColor = texture2D(Texture, uv);
