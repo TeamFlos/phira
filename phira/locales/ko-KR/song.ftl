@@ -44,7 +44,6 @@ edit-update = 업데이트
 
 upload-login-first = 로그인이 필요합니다.
 upload-builtin = 기본 비트맵은 업로드할 수 없습니다.
-upload-downloaded = 다운로드된 비트맵은 업로드할 수 없습니다.
 upload-rules = 업로드 규칙
 upload-rules-content =
   업로드하기 전에 다음을 확인해야 합니다:

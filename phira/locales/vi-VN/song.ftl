@@ -44,7 +44,6 @@ edit-update = Cập Nhật
 
 upload-login-first = Hãy đăng nhập trước
 upload-builtin = Không thể tải lên biểu đồ tích hợp
-upload-downloaded = Biểu đồ đã tải không thể tải lên
 upload-rules = Quy tắc tải lên
 upload-rules-content =
   Trước khi tải lên. Bạn cần xác nhận rằng:

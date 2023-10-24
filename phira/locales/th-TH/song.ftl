@@ -44,7 +44,6 @@ edit-update = อัพเดท
 
 upload-login-first = กรุณา Login
 upload-builtin = Chart Built-in ไม่สามารถอัพโหลดได้
-upload-downloaded = Chart ที่ Download มาไม่สามารถอัพโหลดได้
 upload-rules = กฏในการอัพโหลด
 upload-rules-content =
   ก่อนที่จะอัพโหลดคุณต่องบืนยันว่า:

@@ -44,7 +44,6 @@ edit-update = Mettre à jour
 
 upload-login-first = Connectez-vous d'abord, s'il vous plaît
 upload-builtin = Les partitions intégrées ne peuvent pas être envoyées
-upload-downloaded = Les partitions téléchargées ne peuvent pas être envoyées
 upload-rules = À lire avant d'envoyer votre contenu
 upload-rules-content =
   Avant d'envoyer, vous devez confirmer que :
