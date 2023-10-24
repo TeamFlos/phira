@@ -1031,9 +1031,11 @@ impl SongScene {
                 }};
             }
             let mw = width - pad * 3.;
-            let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
-            self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
-            dy!(r.h + 0.04);
+            if self.info.id.is_some() {
+                let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
+                self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
+                dy!(r.h + 0.04);
+            }
             if let Some(uploader) = &self.info.uploader {
                 let c = 0.06;
                 let s = 0.05;
