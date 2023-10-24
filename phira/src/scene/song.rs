@@ -41,6 +41,7 @@ use reqwest::Method;
 use sasa::{AudioClip, Frame, Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::{
     any::Any,
     borrow::Cow,
@@ -66,6 +67,7 @@ type LocalTuple = (ChartInfo, AudioClip, Illustration);
 const FADE_IN_TIME: f32 = 0.3;
 const EDIT_TRANSIT: f32 = 0.32;
 
+static CONFIRM_CKSUM: AtomicBool = AtomicBool::new(false);
 static UPLOAD_NOT_SAVED: AtomicBool = AtomicBool::new(false);
 static CONFIRM_OVERWRITE: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
@@ -307,6 +309,9 @@ pub struct SongScene {
     // Imported chart for overwriting
     overwrite_from: Option<String>,
     overwrite_task: Option<Task<Result<LocalTuple>>>,
+
+    update_cksum_passed: Option<bool>,
+    update_cksum_task: Option<Task<Result<bool>>>,
 }
 
 impl SongScene {
@@ -473,6 +478,9 @@ impl SongScene {
 
             overwrite_from: None,
             overwrite_task: None,
+
+            update_cksum_passed: None,
+            update_cksum_task: None,
         }
     }
 
@@ -806,7 +814,7 @@ impl SongScene {
                 .me
                 .as_ref()
                 .map(|it| it.name.clone())
-                .unwrap_or_else(|| tl!("guest").to_string());
+                .unwrap_or_else(|| tl!("guest").into_owned());
             config.res_pack_path = {
                 let id = get_data().respack_id;
                 if id == 0 {
@@ -909,7 +917,7 @@ impl SongScene {
             ) {
                 if self.info_edit.as_ref().unwrap().updated && !UPLOAD_NOT_SAVED.load(Ordering::SeqCst) {
                     Dialog::simple(tl!("upload-not-saved"))
-                        .buttons(vec![ttl!("cancel").to_string(), ttl!("confirm").to_string()])
+                        .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
                         .listener(|pos| {
                             if pos == 1 {
                                 UPLOAD_NOT_SAVED.store(true, Ordering::SeqCst);
@@ -924,8 +932,9 @@ impl SongScene {
                     } else if path.starts_with(':') {
                         show_message(tl!("upload-builtin"));
                     } else {
+                        self.update_cksum_passed = None;
                         Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
-                            .buttons(vec![ttl!("cancel").to_string(), ttl!("confirm").to_string()])
+                            .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
                             .listener(|pos| {
                                 if pos == 1 {
                                     CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
@@ -1281,6 +1290,7 @@ impl Scene for SongScene {
             || self.edit_tags_task.is_some()
             || self.rate_task.is_some()
             || self.overwrite_task.is_some()
+            || self.update_cksum_task.is_some()
         {
             return Ok(true);
         }
@@ -1555,7 +1565,7 @@ impl Scene for SongScene {
                         self.tr_start = f32::NAN;
                         let error = format!("{err:?}");
                         Dialog::plain(tl!("failed-to-play"), error)
-                            .buttons(vec![tl!("play-cancel").to_string(), tl!("play-switch-to-offline").to_string()])
+                            .buttons(vec![tl!("play-cancel").into_owned(), tl!("play-switch-to-offline").into_owned()])
                             .listener(move |pos| {
                                 if pos == 1 {
                                     get_data_mut().config.offline_mode = true;
@@ -1732,6 +1742,55 @@ impl Scene for SongScene {
             }
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
+            let local_path = self.local_path.clone().unwrap();
+            let id = self.info.id.clone();
+            self.update_cksum_task = Some(Task::new(async move {
+                if let Some(id) = id {
+                    use hex::ToHex;
+                    let mut fs = fs_from_path(&local_path)?;
+                    let info = prpr::fs::load_info(fs.as_mut()).await?;
+                    let chart = fs.load_file(&info.chart).await?;
+                    let cksum: String = Sha256::digest(&chart).encode_hex();
+                    #[derive(Deserialize)]
+                    struct VerifyR {
+                        ok: bool,
+                    }
+                    let resp: VerifyR = recv_raw(Client::get(format!("/chart/{id}/verify-cksum?checksum={cksum}")))
+                        .await?
+                        .json()
+                        .await?;
+                    Ok(resp.ok)
+                } else {
+                    Ok(true)
+                }
+            }));
+        }
+        if let Some(task) = &mut self.update_cksum_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("upload-failed")));
+                    }
+                    Ok(ok) => {
+                        if ok {
+                            CONFIRM_CKSUM.store(true, Ordering::Relaxed);
+                        } else {
+                            Dialog::simple(tl!("upload-confirm-clear-ldb"))
+                                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                                .listener(move |pos| {
+                                    if pos == 1 {
+                                        CONFIRM_CKSUM.store(true, Ordering::Relaxed);
+                                    }
+                                    false
+                                })
+                                .show();
+                        }
+                    }
+                }
+                self.update_cksum_task = None;
+            }
+        }
+        if CONFIRM_CKSUM.fetch_and(false, Ordering::Relaxed) {
             let path = self.local_path.clone().unwrap();
             let info = self.info.clone();
             self.upload_task = Some(Task::new(async move {
@@ -1889,7 +1948,7 @@ impl Scene for SongScene {
                 self.overwrite_from = Some(file);
                 CONFIRM_OVERWRITE.store(false, Ordering::SeqCst);
                 Dialog::simple(tl!("edit-overwrite-confirm"))
-                    .buttons(vec![ttl!("cancel").to_string(), ttl!("confirm").to_string()])
+                    .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
                     .listener(move |pos| {
                         if pos == 1 {
                             CONFIRM_OVERWRITE.store(true, Ordering::SeqCst);
@@ -1901,14 +1960,14 @@ impl Scene for SongScene {
                 return_file(id, file);
             }
         }
-        if CONFIRM_OVERWRITE.load(Ordering::SeqCst) {
-            CONFIRM_OVERWRITE.store(false, Ordering::SeqCst);
+        if CONFIRM_OVERWRITE.fetch_and(false, Ordering::Relaxed) {
             let path = self.overwrite_from.take().unwrap();
             let local_path = self.local_path.clone().unwrap();
             let def_illu = self.illu.texture.1.clone();
             let chart_id = self.info.id.unwrap();
             self.overwrite_task = Some(Task::new(async move {
                 let (dir, id) = gen_custom_dir()?;
+                let to_path = format!("{}/{}/", dir::charts()?, local_path);
                 if let Err(err) = import_chart_to(&dir, id, path).await {
                     std::fs::remove_dir_all(dir)?;
                     return Err(err);
@@ -1919,7 +1978,6 @@ impl Scene for SongScene {
                 info.id = Some(chart_id);
                 serde_yaml::to_writer(File::create(dir.join("info.yml"))?, &info)?;
 
-                let to_path = format!("{}/{}/", dir::charts()?, local_path);
                 std::fs::remove_dir_all(&to_path)?;
                 std::fs::rename(&dir, &to_path)?;
 
@@ -2195,7 +2253,7 @@ impl Scene for SongScene {
         if self.review_task.is_some() {
             ui.full_loading(tl!("review-doing"), t);
         }
-        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() {
+        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() || self.update_cksum_task.is_some() {
             ui.full_loading("", t);
         }
         let rt = tm.real_time() as f32;

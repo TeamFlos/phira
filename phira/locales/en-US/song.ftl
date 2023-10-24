@@ -62,6 +62,7 @@ uploading = Uploading
 upload-chart-failed = Failed to upload beatmap
 upload-success = Uploaded successfully, please wait for review!
 upload-failed = Upload failed
+upload-confirm-clear-ldb = Since the current chart file is different from the remote chart file, the leaderboard of this chart will be cleared after uploading, are you sure to continue?
 
 ldb = Leaderboard
 ldb-load-failed = Failed to load leaderboard
