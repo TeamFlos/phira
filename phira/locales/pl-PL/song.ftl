@@ -49,8 +49,6 @@ upload-rules-content =
   2. Jeśli beatmapa jest stworzona przez ciebie, zalecane jest używanie rozpoznawalnego awataru i ID; Jeśli awatar ID, który używasz w phira się różni od tego na platformie (szczególnie Bilibili), dodatkowe uwagi są wymagane;
   3. ! Zabronione jest łamanie zasad i przesyłanie beatmapy bez zgody autora, inaczej możesz dostać stały zakaz na przesyłanie beatmap;
   4. Kontent beatmapy (w tym muzyka, ilustracje, tekst, itp.) musi stosować się do przepisów w Chinach, i nie może naruszać prawa lub zawierać złych informacji.
-upload-cancel = Anuluj
-upload-confirm = Potwierdź
 uploading = Przesyłanie
 upload-chart-failed = Nie przesłano beatmapy
 upload-success = Przesłano pomyślnie, poczekaj na przegląd!

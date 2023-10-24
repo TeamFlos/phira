@@ -42,6 +42,7 @@ edit-downloaded = 你不能编辑下载的谱面
 edit-upload = 上传
 edit-update = 更新
 
+upload-not-saved = 你还没有保存谱面，确定要继续上传吗？
 upload-login-first = 请先登录
 upload-builtin = 不能上传内置谱面
 upload-rules = 上传须知
@@ -52,8 +53,6 @@ upload-rules-content =
   3. 谱面内容（包括音乐、插图、文字等）须符合中华人民共和国其他法律法规，不得违法或包含不良信息
   4. 上传者上传即同意谱面可用于 Phira 的公开宣传，其他方式利用仍需谱师许可
   5. 本须知最终解释权归 TeamFlos 所有
-upload-cancel = 再想想
-upload-confirm = 确认上传
 uploading = 上传中…
 upload-chart-failed = 上传谱面失败
 upload-success = 上传成功，请等待审核！

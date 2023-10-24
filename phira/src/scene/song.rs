@@ -60,6 +60,7 @@ use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 const FADE_IN_TIME: f32 = 0.3;
 const EDIT_TRANSIT: f32 = 0.32;
 
+static UPLOAD_NOT_SAVED: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
 pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 
@@ -871,21 +872,33 @@ impl SongScene {
                     tl!("edit-update")
                 },
             ) {
-                let path = self.local_path.as_ref().unwrap();
-                if get_data().me.is_none() {
-                    show_message(tl!("upload-login-first"));
-                } else if path.starts_with(':') {
-                    show_message(tl!("upload-builtin"));
-                } else {
-                    Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
-                        .buttons(vec![tl!("upload-cancel").to_string(), tl!("upload-confirm").to_string()])
+                if self.info_edit.as_ref().unwrap().updated && !UPLOAD_NOT_SAVED.load(Ordering::SeqCst) {
+                    Dialog::simple(tl!("upload-not-saved"))
+                        .buttons(vec![ttl!("cancel").to_string(), ttl!("confirm").to_string()])
                         .listener(|pos| {
                             if pos == 1 {
-                                CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
+                                UPLOAD_NOT_SAVED.store(true, Ordering::SeqCst);
                             }
                             false
                         })
                         .show();
+                } else {
+                    let path = self.local_path.as_ref().unwrap();
+                    if get_data().me.is_none() {
+                        show_message(tl!("upload-login-first"));
+                    } else if path.starts_with(':') {
+                        show_message(tl!("upload-builtin"));
+                    } else {
+                        Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
+                            .buttons(vec![ttl!("cancel").to_string(), ttl!("confirm").to_string()])
+                            .listener(|pos| {
+                                if pos == 1 {
+                                    CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
+                                }
+                                false
+                            })
+                            .show();
+                    }
                 }
             }
         }
@@ -902,7 +915,13 @@ impl SongScene {
             let (w, mut h) = render_chart_info(ui, self.info_edit.as_mut().unwrap(), width);
             h += 0.06;
             ui.dy(h);
-            if ui.button("edit_tags", Rect::new(0.04, 0., 0.2, 0.07), tl!("edit-tags")) {
+            let mut r = Rect::new(0.04, 0., 0.2, 0.07);
+            if ui.button("edit_tags", r, tl!("edit-tags")) {
+                self.tags.set(self.info_edit.as_ref().unwrap().info.tags.clone());
+                self.tags.enter(rt);
+            }
+            r.x += r.w + 0.01;
+            if ui.button("edit_tags", r, tl!("edit-tags")) {
                 self.tags.set(self.info_edit.as_ref().unwrap().info.tags.clone());
                 self.tags.enter(rt);
             }
@@ -1341,6 +1360,7 @@ impl Scene for SongScene {
                 button_hit();
                 let mut info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
                 info.id = self.info.id;
+                UPLOAD_NOT_SAVED.store(false, Ordering::SeqCst);
                 self.info_edit = Some(ChartInfoEdit::new(info));
                 self.side_content = SideContent::Edit;
                 self.side_enter_time = tm.real_time() as _;
@@ -1382,7 +1402,9 @@ impl Scene for SongScene {
             let mut tags = self.tags.tags.tags().to_vec();
             tags.push(self.tags.division.to_owned());
             if !self.side_enter_time.is_infinite() && matches!(self.side_content, SideContent::Edit) {
-                self.info_edit.as_mut().unwrap().info.tags = tags;
+                let edit = self.info_edit.as_mut().unwrap();
+                edit.info.tags = tags;
+                edit.updated = true;
             } else {
                 let id = self.info.id.unwrap();
                 self.entity.as_mut().unwrap().tags = tags.clone();
@@ -1627,6 +1649,7 @@ impl Scene for SongScene {
                         if let Some(preview) = &mut self.preview {
                             preview.pause()?;
                         }
+                        self.info_edit.as_mut().unwrap().updated = false;
                         self.preview = Some(create_music(preview)?);
                         self.info = info.into();
                         self.update_chart_info()?;
