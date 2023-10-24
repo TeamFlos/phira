@@ -44,7 +44,6 @@ edit-update = Update
 
 upload-login-first = Mohon log in terlebih dahulu.
 upload-builtin = Chart bawaan tidak bisa diupload.
-upload-downloaded = Chart yang didownload tidak bisa diupload.
 upload-rules = Aturan mengupload chart
 upload-rules-content =
   Sebelum mengupload, anda harus mengkonfirmasi bahwa:

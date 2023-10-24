@@ -41,7 +41,6 @@ edit-update = Aktualizuj
 
 upload-login-first = Musisz się zalogować
 upload-builtin = Wbudowane beatmapy nie mogą być przesyłane
-upload-downloaded = Pobrane beatmapy nie mogą być przesyłane
 upload-rules = Prześlij zasady
 upload-rules-content =
   Przed przesyłaniem, musisz potwierdzić, że:

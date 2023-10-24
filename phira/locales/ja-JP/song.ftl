@@ -39,7 +39,6 @@ edit-preview-invalid = Preview time out of bounds
 edit-upload = Upload
 upload-login-first = Please login first
 upload-builtin = Built-in beatmaps cannot be uploaded
-upload-downloaded = Downloaded beatmaps cannot be uploaded
 upload-rules = Upload rules
 upload-rules-content =
   Before uploading, you need to confirm that:

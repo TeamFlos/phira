@@ -49,7 +49,6 @@ edit-update = Update
 upload-not-saved = You haven't saved the chart, do you want to save it now?
 upload-login-first = Please login first
 upload-builtin = Built-in beatmaps cannot be uploaded
-upload-downloaded = Downloaded beatmaps cannot be uploaded
 upload-rules = Upload rules
 upload-rules-content =
   Before uploading, you need to confirm that:
