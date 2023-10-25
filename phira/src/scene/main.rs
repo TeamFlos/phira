@@ -376,7 +376,7 @@ impl Scene for MainScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
 
-        STRIPE_MATERIAL.set_uniform("time", ((tm.real_time() as f64 * 0.25) % (std::f64::consts::PI * 2.)) as f32);
+        STRIPE_MATERIAL.set_uniform("time", ((tm.real_time() as f64 * 0.025) % (std::f64::consts::PI * 2.)) as f32);
         gl_use_material(*STRIPE_MATERIAL);
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
         gl_use_default_material();
