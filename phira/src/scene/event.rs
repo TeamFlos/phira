@@ -97,7 +97,12 @@ impl EventScene {
             uml_task: if DEBUG_MODE {
                 None
             } else {
-                Some(Task::new(async move { Ok(recv_raw(Client::get(format!("/event/{id}/uml"))).await?.text().await?) }))
+                Some(Task::new(async move {
+                    Ok(recv_raw(Client::get(format!("/event/{id}/uml")).query(&[("version", env!("CARGO_PKG_VERSION"))]))
+                        .await?
+                        .text()
+                        .await?)
+                }))
             },
             uml: Uml::default(),
             last_modified: SystemTime::now(),
