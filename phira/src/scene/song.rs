@@ -62,7 +62,7 @@ use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 
 // Things that need to be reloaded for chart info updates
-type LocalTuple = (ChartInfo, AudioClip, Illustration);
+type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
 
 const FADE_IN_TIME: f32 = 0.3;
 const EDIT_TRANSIT: f32 = 0.32;
@@ -121,7 +121,7 @@ async fn load_local_tuple(local_path: &str, def_illu: SafeTexture, info: ChartIn
     let illu = local_illustration(local_path.to_owned(), def_illu, true);
     illu.notify.notify_one();
 
-    Ok((info, preview, illu))
+    Ok((local_path.to_owned(), info, preview, illu))
 }
 
 pub struct Downloading {
@@ -1201,7 +1201,8 @@ impl SongScene {
         Ok(())
     }
 
-    fn load_tuple(&mut self, (info, preview, illu): LocalTuple) -> Result<()> {
+    fn load_tuple(&mut self, (local_path, info, preview, illu): LocalTuple) -> Result<()> {
+        self.local_path = Some(local_path);
         if let Some(preview) = &mut self.preview {
             preview.pause()?;
         }
