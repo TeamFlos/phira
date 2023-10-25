@@ -73,6 +73,7 @@ pub struct Data {
     pub respack_id: usize,
     pub accept_invalid_cert: bool,
     pub read_tos_and_policy: bool,
+    pub ignored_version: Option<semver::Version>,
 }
 
 impl Data {
