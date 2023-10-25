@@ -21,7 +21,7 @@ use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::Tweenable,
+    core::{Tweenable, BOLD_FONT},
     ext::{
         open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType,
         BLACK_TEXTURE,
@@ -1102,7 +1102,7 @@ impl SongScene {
                     ui.dy(dy);
                 }};
             }
-            dy!(ui.text(tl!("mods")).size(0.8).draw().h + 0.02);
+            dy!(ui.text(tl!("mods")).size(0.9).draw_using(&BOLD_FONT).h + 0.02);
             let rh = ITEM_HEIGHT * 3. / 5.;
             let rr = Rect::new(width - 0.24, (ITEM_HEIGHT - rh) / 2., 0.2, rh);
             let mut index = 0;
