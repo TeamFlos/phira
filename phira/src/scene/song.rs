@@ -1967,6 +1967,7 @@ impl Scene for SongScene {
             let local_path = self.local_path.clone().unwrap();
             let def_illu = self.illu.texture.1.clone();
             let chart_id = self.info.id.unwrap();
+            let owner = self.info.uploader.as_ref().unwrap().id;
             self.overwrite_task = Some(Task::new(async move {
                 let (dir, id) = gen_custom_dir()?;
                 let to_path = format!("{}/{}/", dir::charts()?, local_path);
@@ -1978,6 +1979,7 @@ impl Scene for SongScene {
                 let mut info = prpr::fs::load_info(fs.as_mut()).await?;
                 drop(fs);
                 info.id = Some(chart_id);
+                info.uploader = Some(owner);
                 serde_yaml::to_writer(File::create(dir.join("info.yml"))?, &info)?;
 
                 std::fs::remove_dir_all(&to_path)?;
