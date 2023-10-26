@@ -38,10 +38,15 @@ edit-saved = Enregistré
 edit-preview-invalid = Temps d'aperçu hors limites
 edit-tags = Modifier les étiquettes
 edit-downloaded = Vous ne pouvez pas modifier la partition téléchargée
+edit-overwrite = Écraser
+edit-overwrite-confirm = Êtes-vous sûr(e) d'écraser cette partition par celle importée ? (Cela ne sera synchronisée avec la plateforme en ligne qu'après avoir cliqué sur "Mettre à jour")
+edit-overwrite-success = Écrasée
+edit-overwrite-failed = Échec de l'écrasement
 
 edit-upload = Envoyer
 edit-update = Mettre à jour
 
+upload-not-saved = Vous n'avez pas enregistré la partition, souhaitez-vous l'enregistrer maintenant ?
 upload-login-first = Connectez-vous d'abord, s'il vous plaît
 upload-builtin = Les partitions intégrées ne peuvent pas être envoyées
 upload-rules = À lire avant d'envoyer votre contenu
@@ -51,10 +56,12 @@ upload-rules-content =
   2. Si vous avez créé la partition, il est recommandé d'utiliser un avatar et un identifiant hautement reconnaissables ; Si l'avatar et l'identifiant que vous utilisez sur prpr sont assez différents de la plate-forme de publication de vidéos de partition (en particulier, Bilibili), des annotations supplémentaires sont nécessaires ;
   3. /!\ Il est interdit d'envoyer la partition sans le consentement de l'auteur, sinon vous risquez la peine d'une interdiction permanente d'envoi ;
   4. Le contenu de la partition (y compris la musique, les illustrations, le texte, etc.) doit être conforme aux autres lois et réglementations de la République populaire de Chine, et ne doit pas violer la loi ou contenir de mauvaises informations.
+  5. Les droits finaux d'interprétation de cette règle appartiennent à TeamFlos.
 uploading = Envoi
 upload-chart-failed = Échec de l'envoi de la partition
 upload-success = Envoyée avec succès, veuillez attendre l'examen !
 upload-failed = Échec de l'envoi
+upload-confirm-clear-ldb = Étant donné que le fichier actuel de partition est différent de celui cloud, le classement de cette partition sera effacé après le téléchargement. Êtes-vous sûr(e) de continuer ?
 
 ldb = Classement
 ldb-load-failed = Échec du chargement du classement
@@ -70,6 +77,9 @@ info-desc = Description
 info-rating = Note
 info-type = Type
 info-tags = Étiquettes
+
+reviewed = Reviewed
+unreviewed = Unreviewed
 
 review-approve = Approuver
 review-deny = Refuser

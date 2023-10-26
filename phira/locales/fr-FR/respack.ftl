@@ -1,4 +1,6 @@
 
+label = TEXTURES
+
 default = Défaut
 load-failed = Échec du chargement des textures
 
