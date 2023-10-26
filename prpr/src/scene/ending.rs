@@ -458,7 +458,7 @@ impl Scene for EndingScene {
             } else if !self.rated {
                 format!("UNRATED {spd}")
             } else {
-                String::new()
+                spd
             };
             let text = text.trim();
             if !text.is_empty() {
