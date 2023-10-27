@@ -1,6 +1,6 @@
 crate::tl_file!("dialog");
 
-use super::{DRectButton, Scroll, Ui};
+use super::{DRectButton, RectButton, Scroll, Ui};
 use crate::{core::BOLD_FONT, ext::RectExt, scene::show_message};
 use anyhow::Error;
 use macroquad::prelude::*;
@@ -13,7 +13,9 @@ pub struct Dialog {
     title: String,
     message: String,
     buttons: Vec<String>,
-    listener: Option<Box<dyn FnMut(i32) -> bool>>, // -1 for cancel
+    listener: Option<Box<dyn FnMut(i32) -> bool>>, // -1 for cancel, -2 for text
+
+    text_btn: RectButton,
 
     h: Option<f32>,
 
@@ -29,6 +31,8 @@ impl Default for Dialog {
             message: String::new(),
             buttons: vec![tl!("ok").to_string()],
             listener: None,
+
+            text_btn: RectButton::new(),
 
             h: None,
 
@@ -104,17 +108,24 @@ impl Dialog {
         let mut exit = false;
         for (index, btn) in self.rect_buttons.iter_mut().enumerate() {
             if btn.touch(touch, t) {
-                exit = true;
                 if let Some(listener) = self.listener.as_mut() {
-                    if listener(index as i32) {
-                        exit = false;
+                    if !listener(index as i32) {
+                        exit = true;
                     }
+                }
+            }
+        }
+        if self.text_btn.touch(touch) {
+            if let Some(listener) = self.listener.as_mut() {
+                if !listener(-2) {
+                    exit = true;
                 }
             }
         }
         if exit {
             return false;
         }
+
         if self
             .window_rect
             .map_or(true, |rect| rect.contains(touch.position) || touch.phase != TouchPhase::Started)
@@ -193,6 +204,7 @@ impl Dialog {
                     .max_width(wr.w - pad * 3.)
                     .multiline()
                     .draw();
+                self.text_btn.set(ui, r);
                 (r.w, r.h + 0.04)
             });
         });
