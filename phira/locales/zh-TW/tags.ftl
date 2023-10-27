@@ -8,7 +8,7 @@ wanted = 想包含的標籤
 unwanted = 不想包含的標籤
 
 cancel = 取消
-confirm = 確認
+confirm = 確定
 
 filter-by-rating = 按評分篩選
 
