@@ -15,6 +15,5 @@ uploading-avatar = 頭像上傳中...
 load-record-failed = 載入遊玩紀錄失敗
 
 last-login = 上次登入於：{ $time }
-
 badge-admin = 管理員
 badge-sponsor = 贊助者
