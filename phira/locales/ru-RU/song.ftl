@@ -38,10 +38,15 @@ edit-saved = Сохранено
 edit-preview-invalid = Время превью установленно неправильно
 edit-tags = Изменить теги
 edit-downloaded = Вы не можете редактировать загруженные чарты
+edit-overwrite = Перезапись
+edit-overwrite-confirm = Вы уверены что хотите перезаписать чарт и заменить на локальный? (Чарт синхронизируется с чартом на платформе только после назатия кнопки "Обновить")
+edit-overwrite-success = Успешная перезапись
+edit-overwrite-failed = Ошибка перезаписи
 
 edit-upload = Выложить
 edit-update = Обновить
 
+upload-not-saved = Чарт не сохранëн, хотите сохранить его сейчас?
 upload-login-first = Сначала войдите, что бы выложить чарт
 upload-builtin = Встроенные чарты нельзя выложить
 upload-rules = Правила
