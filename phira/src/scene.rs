@@ -66,30 +66,21 @@ pub fn check_read_tos_and_policy() -> bool {
         return true;
     }
 
-    let mut done = 0;
     Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc"))
-        .buttons(vec![ttl!("cancel").into_owned(), ttl!("tos").into_owned(), ttl!("policy").into_owned()])
-        .listener(move |pos| {
-            match pos {
-                1 => {
-                    open_url("https://phira.moe/terms-of-use").unwrap();
-                    done |= 1;
-                }
-                2 => {
-                    open_url("https://phira.moe/privacy-policy").unwrap();
-                    done |= 2;
-                }
-                _ => {
-                    return false;
-                }
+        .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
+        .listener(move |pos| match pos {
+            -2 => {
+                open_url("https://phira.moe/terms-of-use").unwrap();
+                true
             }
-            if done == 3 {
+            -1 => true,
+            0 => false,
+            1 => {
                 get_data_mut().read_tos_and_policy = true;
                 let _ = save_data();
                 false
-            } else {
-                true
             }
+            _ => unreachable!(),
         })
         .show();
 
