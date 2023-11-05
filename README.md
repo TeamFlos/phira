@@ -1,27 +1,23 @@
 # Phira
 
-❌ ~~[Testflight](https://testflight.apple.com/join/3GJawgKP)~~ (No longer available, please use ipa instead)
+![Phira](https://files-cf.phira.cn/github-showcase.png)
 
-👉 [ipa file](https://github.com/F-Unction/phira_ipa/releases)
+[中文版本](./README-zh_CN.md)
 
-👉 [ResPack](https://prprblog.kevin2106.top/)
+## Download
 
-## Want to Contribute? 想帮一点忙?
+- [GitHub Release](https://github.com/TeamFlos/phira/releases): For Android, Windows and Linux
+- [616.sb mirror](https://616.sb/#phira): Android only
+- [.ipa Release](https://github.com/F-Unction/phira_ipa/releases): For iOS
 
-Send an email to [contact@phira.cn](mailto://contact@phira.cn) to tell us about you. Currently we are looking for **Rust** Programmers *with rhythm/music game experience*.
+## Contribution
 
-向 [contact@phira.cn](mailto://contact@phira.cn) 发邮件介绍你自己, 现在急需掌握 **Rust** 且 *有音乐/节奏游戏经验* 的开发者加入
+Issues & pull requests are welcome! Also check these good first [issues](https://github.com/TeamFlos/phira/issues?q=label%3A%22good+first+issue%22) and [pull requests](https://github.com/TeamFlos/phira/issues?q=label%3A%22good+first+issue%22).
 
-## Issues 反馈
-
-Check these first 先看看这些
-
-https://github.com/TeamFlos/phira/issues?q=label%3A%22good+first+issue%22
-
-https://github.com/TeamFlos/phira/pulls?q=label%3A%22good+first+issue%22
+If you want to talk with us in depth, email [contact@phira.cn](mailto://contact@phira.cn). Currently we are looking for **Rust** Programmers *with rhythm/music game experience*.
 
 ## Translation
 
-If you want to add your language to Phira, please check [this](https://github.com/TeamFlos/phira/pull/201#issuecomment-1783356944) out
+If you want to add your language to Phira, please check [this](https://github.com/TeamFlos/phira/pull/201#issuecomment-1783356944) out.
 
-Be free to create issues if there's any problem with the current translation
+Be free to create issues if there's any problem with the current translation.

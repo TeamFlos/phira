@@ -21,7 +21,7 @@ impl<T: Tweenable> Anim<T> {
             from: init.clone(),
             to: init,
             start_time: f32::NEG_INFINITY,
-            end_time: 1.,
+            end_time: 1e-3,
             interpolator: StaticTween::get_rc(easing_from(prpr::core::TweenMajor::Cubic, prpr::core::TweenMinor::Out)),
         }
     }
