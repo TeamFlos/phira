@@ -385,9 +385,32 @@ impl Scene for EndingScene {
                 .size(s)
                 .draw_using(&BOLD_FONT);
             let mut r = Rect::new(r.right() + 0.03, r.y + 0.004, 0.45, r.h);
-            ui.fill_rect(r, semi_black(0.4));
+            let draw_par = |ui: &mut Ui, r: Rect, p: f32, c: Color| {
+                let sl = 1.9 / 0.4;
+                let w = p * r.w;
+                let d = r.h / sl;
+                let mut b = ui.builder(c);
+                b.add(r.x, r.bottom());
+                if w < d {
+                    b.add(r.x + w, r.bottom());
+                    b.add(r.x + w, r.bottom() - w * sl);
+                    b.triangle(0, 1, 2);
+                } else {
+                    b.add(r.x + d, r.y);
+                    b.add(r.x + w, r.y);
+                    b.add(r.x + w.min(r.w - d), r.bottom());
+                    b.triangle(0, 1, 2);
+                    b.triangle(0, 2, 3);
+                    if w + d > r.right() {
+                        b.add(r.x + w, r.y + (r.w - w) * sl);
+                        b.triangle(2, 3, 4);
+                    }
+                }
+                b.commit();
+            };
+            draw_par(ui, r, 1., semi_black(0.4));
             let ct = r.center();
-            let combo = (res.max_combo as f32 * p).round() as u32;
+            let combo = (res.num_of_notes as f32 * p).round() as u32;
             let text = format!("{combo} / {}", res.num_of_notes);
             ui.text(&text)
                 .pos(ct.x, ct.y)
@@ -395,8 +418,9 @@ impl Scene for EndingScene {
                 .no_baseline()
                 .size(0.4)
                 .draw_using(&BOLD_FONT);
-            r.w *= combo as f32 / res.num_of_notes as f32;
-            ui.fill_rect(r, WHITE);
+            let p = combo as f32 / res.num_of_notes as f32;
+            draw_par(ui, r, p, WHITE);
+            r.w *= p;
             ui.scissor(r, |ui| {
                 ui.text(text)
                     .pos(ct.x, ct.y)
