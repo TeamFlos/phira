@@ -38,6 +38,8 @@ pub struct ProfileScene {
     user: Option<Arc<User>>,
     user_badges: Vec<String>,
 
+    pf_scroll: Scroll,
+
     background: SafeTexture,
 
     icon_back: SafeTexture,
@@ -75,6 +77,8 @@ impl ProfileScene {
             id,
             user: None,
             user_badges: Vec::new(),
+
+            pf_scroll: Scroll::new(),
 
             background: TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap()),
 
@@ -146,6 +150,7 @@ impl Scene for ProfileScene {
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         let t = tm.now() as f32;
 
+        self.pf_scroll.update(t);
         self.scroll.update(t);
 
         if let Some(task) = &mut self.load_task {
@@ -244,6 +249,9 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         let t = tm.now() as f32;
+        if self.pf_scroll.touch(touch, t) {
+            return Ok(true);
+        }
         if self.btn_back.touch(touch) {
             button_hit();
             self.sf.next(t, NextScene::Pop);
@@ -312,58 +320,70 @@ impl Scene for ProfileScene {
         ui.fill_path(&r.rounded(radius), ui.background());
 
         if let Some(user) = &self.user {
-            let pad = 0.02;
-            let mw = r.w - pad * 2.;
-            let cx = r.center().x;
-            let radius = 0.12;
-            let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icon_user));
-            self.avatar_btn.set(ui, r);
-            let r = ui
-                .text(&user.name)
-                .size(0.74)
-                .pos(cx, r.bottom() + 0.03)
-                .anchor(0.5, 0.)
-                .max_width(mw)
-                .color(user.name_color())
-                .draw();
-            let r = ui
-                .text(format!("RKS {:.2}", user.rks))
-                .size(0.5)
-                .pos(cx, r.bottom() + 0.01)
-                .anchor(0.5, 0.)
-                .draw();
-            let mut r = ui
-                .text(user.bio.as_deref().unwrap_or(""))
-                .pos(cx, r.bottom() + 0.01)
-                .anchor(0.5, 0.)
-                .multiline()
-                .max_width(mw)
-                .size(0.4)
-                .draw();
-            if !self.user_badges.is_empty() {
-                r = ui
-                    .text(self.user_badges.join(" "))
-                    .pos(cx, r.bottom() + 0.01)
-                    .anchor(0.5, 0.)
-                    .size(0.5)
-                    .draw();
-            }
-            let r = ui
-                .text(tl!("last-login", "time" => user.last_login.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()))
-                .pos(cx, r.bottom() + 0.01)
-                .anchor(0.5, 0.)
-                .size(0.4)
-                .color(semi_white(0.6))
-                .draw();
-            let hw = 0.2;
-            let mut r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
-            self.btn_open_web.render_text(ui, r, t, ttl!("open-in-web"), 0.6, true);
-            r.y += r.h + 0.02;
-            if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
-                self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
-                r.y += r.h + 0.02;
-                self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
-            }
+            ui.scope(|ui| {
+                ui.dx(r.x);
+                ui.dy(r.y);
+                self.pf_scroll.size((r.w, ui.top - r.y));
+                self.pf_scroll.render(ui, |ui| {
+                    ui.dx(-r.x);
+                    ui.dy(-r.y);
+                    let ow = r.w;
+                    let oy = r.y;
+                    let pad = 0.02;
+                    let mw = r.w - pad * 2.;
+                    let cx = r.center().x;
+                    let radius = 0.12;
+                    let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icon_user));
+                    self.avatar_btn.set(ui, r);
+                    let r = ui
+                        .text(&user.name)
+                        .size(0.74)
+                        .pos(cx, r.bottom() + 0.03)
+                        .anchor(0.5, 0.)
+                        .max_width(mw)
+                        .color(user.name_color())
+                        .draw();
+                    let r = ui
+                        .text(format!("RKS {:.2}", user.rks))
+                        .size(0.5)
+                        .pos(cx, r.bottom() + 0.01)
+                        .anchor(0.5, 0.)
+                        .draw();
+                    let mut r = ui
+                        .text(user.bio.as_deref().unwrap_or(""))
+                        .pos(cx, r.bottom() + 0.01)
+                        .anchor(0.5, 0.)
+                        .multiline()
+                        .max_width(mw)
+                        .size(0.4)
+                        .draw();
+                    if !self.user_badges.is_empty() {
+                        r = ui
+                            .text(self.user_badges.join(" "))
+                            .pos(cx, r.bottom() + 0.01)
+                            .anchor(0.5, 0.)
+                            .size(0.5)
+                            .draw();
+                    }
+                    let r = ui
+                        .text(tl!("last-login", "time" => user.last_login.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()))
+                        .pos(cx, r.bottom() + 0.01)
+                        .anchor(0.5, 0.)
+                        .size(0.4)
+                        .color(semi_white(0.6))
+                        .draw();
+                    let hw = 0.2;
+                    let mut r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
+                    self.btn_open_web.render_text(ui, r, t, ttl!("open-in-web"), 0.6, true);
+                    r.y += r.h + 0.02;
+                    if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
+                        self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
+                        r.y += r.h + 0.02;
+                        self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
+                    }
+                    (ow, r.bottom() - oy + 0.04)
+                });
+            });
         } else {
             ui.loading(r.center().x, (r.y + r.bottom().min(ui.top)) / 2., t, WHITE, ());
         }
