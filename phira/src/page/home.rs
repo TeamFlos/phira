@@ -331,7 +331,7 @@ impl Page for HomePage {
             }
             return Ok(true);
         }
-        if self.char_btn.touch(touch) {
+        if self.char_btn.touch(touch) && false {
             if !self.char_screen_p.transiting(t) {
                 self.char_screen_p.goto(if self.char_screen_p.now(t) > 0.5 { 0. } else { 1. }, t, 0.5);
             }
