@@ -66,16 +66,22 @@ pub fn check_read_tos_and_policy() -> bool {
         return true;
     }
 
+    let mut opened = false;
     Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc"))
         .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
         .listener(move |pos| match pos {
             -2 => {
+                opened = true;
                 open_url("https://phira.moe/terms-of-use").unwrap();
                 true
             }
             -1 => true,
             0 => false,
             1 => {
+                if !opened {
+                    open_url("https://phira.moe/terms-of-use").unwrap();
+                    return true;
+                }
                 get_data_mut().read_tos_and_policy = true;
                 let _ = save_data();
                 false
