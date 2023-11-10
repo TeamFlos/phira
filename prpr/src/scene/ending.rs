@@ -369,8 +369,8 @@ impl Scene for EndingScene {
 
             let p = ran(t, 0.8, 1.8);
             let p = 1. - (1. - p).powi(3);
-            let mut y = tp + 0.07;
-            let mut x = lf + 0.44;
+            let mut y = tp;
+            let mut x = lf + 0.4;
             let r = ui
                 .text(tl!("max-combo"))
                 .pos(x, y)
