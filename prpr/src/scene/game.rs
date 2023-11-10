@@ -865,6 +865,7 @@ impl Scene for GameScene {
                             self.res.res_pack.ending.clone(),
                             self.upload_fn.as_ref().map(Arc::clone),
                             self.player.as_ref().map(|it| it.rks),
+                            self.player.as_ref().map_or(0, |it| it.historic_best),
                             record_data,
                             record,
                         )?))),

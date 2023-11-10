@@ -684,7 +684,15 @@ impl SongScene {
     }
 
     fn launch(&mut self, mode: GameMode) -> Result<()> {
-        self.scene_task = Self::global_launch(self.info.id, self.local_path.as_ref().unwrap(), self.mods, mode, None, Some(self.background.clone()))?;
+        self.scene_task = Self::global_launch(
+            self.info.id,
+            self.local_path.as_ref().unwrap(),
+            self.mods,
+            mode,
+            None,
+            Some(self.background.clone()),
+            self.record.clone(),
+        )?;
         Ok(())
     }
 
@@ -696,6 +704,7 @@ impl SongScene {
         mode: GameMode,
         client: Option<Arc<phira_mp_client::Client>>,
         background_output: Option<Arc<Mutex<Option<SafeTexture>>>>,
+        record: Option<SimpleRecord>,
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         #[cfg(feature = "closed")]
@@ -838,6 +847,7 @@ impl SongScene {
                     avatar: UserManager::get_avatar(it.id).flatten(),
                     id: it.id,
                     rks: it.rks,
+                    historic_best: record.map_or(0, |it| it.score as u32),
                 }),
                 Some(Arc::new(move |data| {
                     Task::new(async move {
@@ -873,7 +883,7 @@ impl SongScene {
                             best: resp.new_best,
                             improvement: resp.improvement,
                             gain_exp: resp.exp_delta as f32,
-                            new_rks: resp.new_rks,
+                            new_rks: Some(resp.new_rks),
                         })
                     })
                 })),
