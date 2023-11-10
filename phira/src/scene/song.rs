@@ -1185,6 +1185,7 @@ impl SongScene {
             for (name, bytes) in patches.into_iter() {
                 dir.create(name)?.write_all(&bytes)?;
             }
+            let _ = std::fs::remove_file(thumbnail_path(&path)?);
             load_local_tuple(&path, def_illu, info).await
         }));
     }
