@@ -470,6 +470,7 @@ impl MPPanel {
                         GameMode::NoRetry,
                         self.client.as_ref().map(Arc::clone),
                         None,
+                        None,
                     )?;
                 }
             } else {

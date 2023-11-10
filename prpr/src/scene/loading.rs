@@ -29,6 +29,7 @@ pub struct BasicPlayer {
     pub avatar: Option<SafeTexture>,
     pub id: i32,
     pub rks: f32,
+    pub historic_best: u32,
 }
 
 pub struct LoadingScene {
