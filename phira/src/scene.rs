@@ -79,6 +79,7 @@ pub fn check_read_tos_and_policy() -> bool {
             0 => false,
             1 => {
                 if !opened {
+                    opened = true;
                     open_url("https://phira.moe/terms-of-use").unwrap();
                     return true;
                 }
