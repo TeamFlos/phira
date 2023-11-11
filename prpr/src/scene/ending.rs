@@ -376,7 +376,7 @@ impl Scene for EndingScene {
             let p = ran(t, 0.8, 1.8);
             let p = 1. - (1. - p).powi(3);
             let mut y = tp;
-            let mut x = lf + 0.4;
+            let mut x = lf + 0.42;
             let r = ui
                 .text(tl!("max-combo"))
                 .pos(x, y)
@@ -410,7 +410,7 @@ impl Scene for EndingScene {
             };
             draw_par(ui, r, 1., semi_black(0.4));
             let ct = r.center();
-            let combo = (res.num_of_notes as f32 * p).round() as u32;
+            let combo = (res.max_combo as f32 * p).round() as u32;
             let text = format!("{combo} / {}", res.num_of_notes);
             ui.text(&text)
                 .pos(ct.x, ct.y)
