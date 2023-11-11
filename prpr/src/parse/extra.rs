@@ -184,6 +184,7 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
         );
     }
     let mut videos = Vec::new();
+    #[cfg(feature = "video")]
     for video in ext.videos {
         videos.push(
             Video::new(
@@ -197,6 +198,10 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
             )
             .with_context(|| ptl!("video-load-failed", "path" => video.path))?,
         );
+    }
+    #[cfg(not(feature = "video"))]
+    if !ext.videos.is_empty() {
+        tracing::warn!("video is disabled in this build");
     }
     Ok(ChartExtra {
         effects,

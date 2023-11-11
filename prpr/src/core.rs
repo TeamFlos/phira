@@ -40,7 +40,9 @@ pub use smooth::Smooth;
 mod tween;
 pub use tween::{easing_from, BezierTween, ClampedTween, StaticTween, TweenFunction, TweenId, TweenMajor, TweenMinor, Tweenable, TWEEN_FUNCTIONS};
 
+#[cfg(feature = "video")]
 mod video;
+#[cfg(feature = "video")]
 pub use video::Video;
 
 use std::cell::RefCell;
