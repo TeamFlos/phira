@@ -8,7 +8,8 @@
 
 - [GitHub Release](https://github.com/TeamFlos/phira/releases): For Android, Windows and Linux
 - [616.sb mirror](https://616.sb/#phira): Android only
-- [.ipa Release](https://github.com/F-Unction/phira_ipa/releases): For iOS
+- [App Store](https://apps.apple.com/us/app/phira/id6447435864): For iOS
+- ~~[.ipa Release](https://github.com/F-Unction/phira_ipa/releases): For iOS~~
 
 ## Contribution
 
