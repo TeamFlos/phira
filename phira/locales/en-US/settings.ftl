@@ -33,6 +33,8 @@ item-dhint = Highlight simul. notes
 item-dhint-sub = Notes that touch line simultaneously will be highlighted
 item-opt = Aggressive optimization
 item-opt-sub = Improves performance, but can cause incorrect behavior
+item-esc-or-space = Key to pause
+item-esc-or-space-sub = Use spacebar or the Esc key to pause (Keyboard users only)
 item-speed = Speed
 item-note-size = Note size
 
@@ -42,6 +44,11 @@ item-touch-debug = Touch debug mode
 item-touch-debug-sub = Display touch points
 
 load-cali-failed = Failed to load audio
+
+esc = Esc
+space = Spacebar
+esc-and-space = Both Esc and Spacebar
+none = None
 
 about-content =
   Phira v{ $version }

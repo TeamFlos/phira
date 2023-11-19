@@ -33,6 +33,8 @@ item-dhint = 双押提示
 item-dhint-sub = 同时触线的音符将会被高亮
 item-opt = 激进优化
 item-opt-sub = 采用激进的优化策略，提升性能但可能导致部分谱面显示出错
+item-esc-or-space = 暂停键
+item-esc-or-space-sub = 选用空格键还是Esc键暂停（仅限键盘用户）
 item-speed = 速度
 item-note-size = 音符大小
 
@@ -42,6 +44,11 @@ item-touch-debug = 触摸调试
 item-touch-debug-sub = 游玩过程中显示触摸点
 
 load-cali-failed = 加载音频失败
+
+esc = Esc
+space = 空格键
+esc-and-space = Esc和空格键
+none = 无
 
 about-content =
   Phira v{ $version }
