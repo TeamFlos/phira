@@ -22,3 +22,7 @@ If you want to talk with us in depth, email [contact@phira.cn](mailto://contact@
 If you want to add your language to Phira, please check [this](https://github.com/TeamFlos/phira/pull/201#issuecomment-1783356944) out.
 
 Be free to create issues if there's any problem with the current translation.
+
+## Star History
+
+[![Stargazers over time](https://starchart.cc/TeamFlos/phira.svg)](https://starchart.cc/TeamFlos/phira)
