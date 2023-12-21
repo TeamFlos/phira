@@ -1,17 +1,17 @@
 
-login = Login
+login = ログイン
 login-sub = ログインしてアクティブオンラインコミュニティに参加する
-back-login = Back to Login
-register = Register
+back-login = ログインに戻る
+register = 登録
 
-email = Email address
-username = Usernam
-password = Password
+email = メールアドレス
+username = ユーザー名
+password = パスワード
 
-name-length-req = 名前は4〜20以内にしてください
+name-length-req = 名前は4〜20字以内にしてください
 name-has-illegal-char = ユーザー名に不正な文字が含まれています
-pwd-length-req = パスワードは6〜26の間にしてください
-illegal-email = 違法な電子メール
+pwd-length-req = パスワードは6〜26字以内にしてください
+illegal-email = 無効なメールアドレスです
 
 action-success = { $action ->
   [login] ログインに成功しました
