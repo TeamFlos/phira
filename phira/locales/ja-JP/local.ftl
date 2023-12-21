@@ -1,5 +1,5 @@
 
-label = Local
+label = ローカル
 
 import-failed = インポートに失敗しました
 import-success = 正常にインポートされました
