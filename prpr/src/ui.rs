@@ -525,7 +525,7 @@ pub struct Ui<'a> {
 
     pub text_painter: &'a mut TextPainter,
 
-    transform: Matrix,
+    pub transform: Matrix,
     scissor: Option<(i32, i32, i32, i32)>,
     touches: Option<Vec<Touch>>,
 
@@ -586,7 +586,7 @@ impl<'a> Ui<'a> {
     }
 
     pub fn builder<T: IntoShading>(&self, shading: T) -> VertexBuilder<T::Target> {
-        VertexBuilder::new(self.get_matrix(), shading.into_shading(), self.alpha)
+        VertexBuilder::new(self.transform, shading.into_shading(), self.alpha)
     }
 
     pub fn fill_rect(&mut self, rect: Rect, shading: impl IntoShading) {
@@ -608,7 +608,7 @@ impl<'a> Ui<'a> {
 
     fn draw_lyon<T: Shading>(&mut self, shading: T, f: impl FnOnce(&mut Self, ShadedConstructor<T>)) {
         self.set_tolerance();
-        let shaded = ShadedConstructor(self.get_matrix(), shading.into_shading(), self.alpha);
+        let shaded = ShadedConstructor(self.transform, shading.into_shading(), self.alpha);
         let tex = shaded.1.texture();
         f(self, shaded);
         self.emit_lyon(tex);
@@ -653,10 +653,6 @@ impl<'a> Ui<'a> {
         gl.texture(texture);
         gl.draw_mode(DrawMode::Triangles);
         gl.geometry(&std::mem::take(&mut self.vertex_buffers.vertices), &std::mem::take(&mut self.vertex_buffers.indices));
-    }
-
-    pub fn get_matrix(&self) -> Matrix {
-        self.transform
     }
 
     pub fn screen_rect(&self) -> Rect {
@@ -810,24 +806,24 @@ impl<'a> Ui<'a> {
                     if entry.take() == Some(touch.id) {
                         res = true;
                         false
-                } else {
-                    true
+                    } else {
+                        true
+                    }
                 }
             }
+        });
+        if res {
+            return true;
         }
-    });
-    if res {
-        return true;
+        if !any && exists {
+            *entry = None;
+        }
+        false
     }
-    if !any && exists {
-        *entry = None;
-    }
-    false
-}
 
-pub fn accent(&self) -> Color {
-    Color::from_hex(0xff2196f3)
-}
+    pub fn accent(&self) -> Color {
+        Color::from_hex(0xff2196f3)
+    }
 
     pub fn background(&self) -> Color {
         Color::from_hex(0xff2a323c)
