@@ -21,7 +21,7 @@ use prpr::{
 use serde::Deserialize;
 use std::{any::Any, sync::Arc, time::SystemTime};
 
-const DEBUG_MODE: bool = true;
+const DEBUG_MODE: bool = false;
 const LDB_WIDTH: f32 = 0.94;
 const TRANSIT_TIME: f32 = 0.4;
 
