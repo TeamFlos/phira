@@ -1,7 +1,5 @@
 prpr::tl_file!("home");
 
-use std::{borrow::Cow, sync::Arc};
-
 use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
     anim::Anim,
@@ -29,6 +27,7 @@ use prpr::{
     ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, RectButton, Ui},
 };
 use serde::Deserialize;
+use std::{borrow::Cow, sync::Arc};
 use tap::Tap;
 use tracing::{info, warn};
 
@@ -604,7 +603,12 @@ impl Page for HomePage {
                     r.w -= 0.01;
 
                     let r = r.feather(-0.03);
-                    ui.text(&self.character.intro).pos(r.x, r.y).max_width(r.w).multiline().size(0.4).draw();
+                    ui.text(&self.character.intro)
+                        .pos(r.x, r.y)
+                        .max_width(r.w)
+                        .multiline()
+                        .size(self.character.intro_size.unwrap_or(0.4))
+                        .draw();
                 });
 
                 let r = Rect::new(r.x, r.y, 0.4, 0.12);
@@ -614,12 +618,11 @@ impl Page for HomePage {
                         .text(&self.character.name)
                         .pos(r.x + (1. - cp) * 0.12 + 0.01, r.center().y)
                         .anchor(0., 0.5)
-                        .no_baseline()
-                        .size(1.4)
+                        .size(self.character.name_size.unwrap_or(1.4))
                         .draw_using(&BOLD_FONT);
                     let mut t = ui
                         .text(format!("DESIGNED BY {}", self.character.designer))
-                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() - 0.01)
+                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() + 0.01)
                         .anchor(0., 1.)
                         .size(0.34)
                         .color(semi_white(0.6));
