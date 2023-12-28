@@ -1,6 +1,9 @@
 prpr::tl_file!("home");
 
-use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
+use super::{
+    load_font_with_cksum, set_bold_font, EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState,
+    BOLD_FONT_CKSUM,
+};
 use crate::{
     anim::Anim,
     client::{recv_raw, Character, Client, LoginParams, User, UserManager},
@@ -13,7 +16,7 @@ use crate::{
     threed::ThreeD,
 };
 use ::rand::{random, thread_rng, Rng};
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use chrono::NaiveDate;
 use image::DynamicImage;
 use macroquad::prelude::*;
@@ -24,8 +27,9 @@ use prpr::{
     l10n::LANG_IDENTS,
     scene::{show_error, NextScene},
     task::Task,
-    ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, RectButton, Ui},
+    ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, FontArc, RectButton, Ui},
 };
+use reqwest::StatusCode;
 use serde::Deserialize;
 use std::{borrow::Cow, sync::Arc};
 use tap::Tap;
@@ -71,6 +75,7 @@ pub struct HomePage {
     has_new: bool,
 
     check_update_task: Option<Task<Result<Option<Version>>>>,
+    check_bold_font_update_task: Option<Task<Result<Option<(FontArc, String)>>>>,
 
     btn_play_3d: ThreeD,
     btn_other_3d: ThreeD,
@@ -145,6 +150,30 @@ impl HomePage {
                     .json()
                     .await?)
             })),
+            check_bold_font_update_task: {
+                let cksum = BOLD_FONT_CKSUM.with(|it| it.borrow().clone());
+                Some(Task::new(async move {
+                    let resp = Client::get("/font-bold").query(&[("cksum", cksum)]).send().await?;
+                    if resp.status() == StatusCode::NOT_MODIFIED {
+                        info!("bold font not modified");
+                        return Ok(None);
+                    }
+                    if !resp.status().is_success() {
+                        let status = resp.status().as_str().to_owned();
+                        let text = resp.text().await.context("failed to receive text")?;
+                        if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
+                            if let Some(detail) = what["detail"].as_str() {
+                                bail!("request failed ({status}): {detail}");
+                            }
+                        }
+                        bail!("request failed ({status}): {text}");
+                    }
+                    info!("downloading new bold font");
+                    let bytes = resp.bytes().await?;
+                    std::fs::write(dir::bold_font_path()?, &bytes).context("failed to save font")?;
+                    Ok(Some(load_font_with_cksum(bytes.to_vec())?))
+                }))
+            },
 
             btn_play_3d: ThreeD::new(),
             btn_other_3d: ThreeD::new().tap_mut(|it| {
@@ -399,7 +428,7 @@ impl Page for HomePage {
             let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
             self.char_last_user_id = current_user;
             self.char_fetch_task =
-                Some(Task::new(async move { Ok(recv_raw(Client::get(&format!("/me/char?locale={locale}"))).await?.json().await?) }));
+                Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
         }
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {
@@ -512,6 +541,21 @@ impl Page for HomePage {
                     _ => {}
                 }
                 self.check_update_task = None;
+            }
+        }
+        if let Some(task) = &mut self.check_bold_font_update_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!("fail to check bold font update {:?}", err);
+                    }
+                    Ok(None) => {}
+                    Ok(Some(parsed)) => {
+                        info!(cksum = parsed.1, "new bold font");
+                        set_bold_font(parsed);
+                    }
+                }
+                self.check_bold_font_update_task = None;
             }
         }
         if let Some(task) = &mut self.char_illu_task {

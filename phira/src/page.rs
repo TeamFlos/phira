@@ -42,6 +42,7 @@ use prpr::{
 use std::{
     any::Any,
     borrow::Cow,
+    cell::RefCell,
     ops::DerefMut,
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -381,10 +382,40 @@ pub struct SharedState {
     pub icons: [SafeTexture; 8],
 }
 
+thread_local! {
+    static FALLBACK: RefCell<Option<FontArc>> = RefCell::default();
+    pub static BOLD_FONT_CKSUM: RefCell<Option<String>> = RefCell::default();
+}
+
+fn sha256(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    format!("{:x}", hasher.finalize())
+}
+fn load_font_with_cksum(data: Vec<u8>) -> Result<(FontArc, String)> {
+    let cksum = sha256(&data);
+    Ok((FontArc::try_from_vec(data)?, cksum))
+}
+
+fn set_bold_font((font, cksum): (FontArc, String)) {
+    BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font, FALLBACK.with(|it| it.borrow().clone()))));
+    BOLD_FONT_CKSUM.with(move |it| *it.borrow_mut() = Some(cksum));
+}
+
 impl SharedState {
     pub async fn new(fallback: FontArc) -> Result<Self> {
-        let font = FontArc::try_from_vec(load_file("bold.ttf").await?)?;
-        BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font, Some(fallback))));
+        FALLBACK.with(|it| *it.borrow_mut() = Some(fallback));
+        let path: PathBuf = dir::bold_font_path()?.into();
+        let mut font = None;
+        if path.exists() {
+            font = std::fs::read(&path).ok().and_then(|it| load_font_with_cksum(it).ok());
+        }
+        let loaded = match font {
+            Some(it) => it,
+            None => load_font_with_cksum(load_file("bold.ttf").await?)?,
+        };
+        set_bold_font(loaded);
         Ok(Self {
             t: 0.,
             rt: 0.,
