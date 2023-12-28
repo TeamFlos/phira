@@ -14,3 +14,5 @@ update-desc =
   描述：{ $desc }
 update-ignore = 忽略该版本
 update-go = 更新
+
+change-char = * 可在官网 https://phira.moe 更换角色

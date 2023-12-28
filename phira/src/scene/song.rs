@@ -744,7 +744,7 @@ impl SongScene {
                             if let Some(res) = task.take() {
                                 match res {
                                     Err(err) => {
-                                        warn!("failed to reconnect: {:?}", err);
+                                        warn!(?err, "failed to reconnect");
                                     }
                                     Ok(new) => {
                                         warn!("reconnected!");
@@ -1599,7 +1599,7 @@ impl Scene for SongScene {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
-                        warn!("failed to fetch best record: {:?}", err);
+                        warn!(?err, "failed to fetch best record");
                     }
                     Ok(rec) => {
                         self.update_record(rec)?;
@@ -2074,7 +2074,7 @@ impl Scene for SongScene {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
-                        warn!("failed to fetch my rating status: {:?}", err);
+                        warn!(?err, "failed to fetch my rating status");
                     }
                     Ok(score) => {
                         self.rate_dialog.rate.score = score;

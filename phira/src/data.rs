@@ -1,5 +1,5 @@
 use crate::{
-    client::{Ptr, User},
+    client::{Ptr, User, Character},
     dir,
 };
 use anyhow::Result;
@@ -74,6 +74,7 @@ pub struct Data {
     pub accept_invalid_cert: bool,
     pub read_tos_and_policy: bool,
     pub ignored_version: Option<semver::Version>,
+    pub character: Option<Character>,
 }
 
 impl Data {

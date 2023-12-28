@@ -5,7 +5,7 @@ use std::{borrow::Cow, sync::Arc};
 use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
 use crate::{
     anim::Anim,
-    client::{recv_raw, Client, LoginParams, User, UserManager},
+    client::{recv_raw, Character, Client, LoginParams, User, UserManager},
     dir, get_data, get_data_mut,
     icons::Icons,
     login::Login,
@@ -20,15 +20,17 @@ use chrono::NaiveDate;
 use image::DynamicImage;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    core::BOLD_FONT,
+    ext::{open_url, screen_aspect, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
+    l10n::LANG_IDENTS,
     scene::{show_error, NextScene},
     task::Task,
     ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, RectButton, Ui},
 };
 use serde::Deserialize;
 use tap::Tap;
-use tracing::warn;
+use tracing::{info, warn};
 
 const BOARD_SWITCH_TIME: f32 = 4.;
 const BOARD_TRANSIT_TIME: f32 = 1.2;
@@ -74,19 +76,22 @@ pub struct HomePage {
     btn_play_3d: ThreeD,
     btn_other_3d: ThreeD,
 
-    character: SafeTexture,
+    character: Character,
+    char_appear_p: Anim<f32>,
+    char_last_illu: Option<String>,
+    char_last_user_id: Option<i32>,
+    char_fetch_task: Option<Task<Result<Character>>>,
+    char_illu: Option<SafeTexture>,
+    char_illu_task: Option<Task<Result<DynamicImage>>>,
     // progress of character screen
     char_screen_p: Anim<f32>,
     char_btn: RectButton,
+    char_text_start: f32,
+    char_cached_size: f32,
 }
 
 impl HomePage {
     pub async fn new() -> Result<Self> {
-        #[cfg(not(feature = "closed"))]
-        let character = SafeTexture::from(load_texture("char.png").await?).with_mipmap();
-        #[cfg(feature = "closed")]
-        let character = SafeTexture::from(image::load_from_memory(&crate::load_res("res/xi").await)?).with_mipmap();
-
         let update_task = if get_data().config.offline_mode {
             None
         } else if let Some(u) = &get_data().me {
@@ -107,8 +112,7 @@ impl HomePage {
             _ => "none".to_owned(),
         };
 
-        Ok(Self {
-            character,
+        let mut res = Self {
             icons: Arc::new(Icons::new().await?),
 
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
@@ -150,13 +154,54 @@ impl HomePage {
                 it.sync();
             }),
 
+            character: get_data().character.clone().unwrap_or_default(),
+            char_appear_p: Anim::new(0.),
+            char_last_illu: None,
+            char_last_user_id: None,
+            char_fetch_task: None,
+            char_illu: None,
+            char_illu_task: None,
             char_screen_p: Anim::new(0.),
             char_btn: RectButton::new(),
-        })
+            char_text_start: 0.,
+            char_cached_size: 0.,
+        };
+        res.load_char_illu();
+
+        Ok(res)
     }
 }
 
 impl HomePage {
+    fn load_char_illu(&mut self) {
+        let key = if self.character.illust == "@" {
+            format!("@{}", self.character.id)
+        } else {
+            self.character.illust.clone()
+        };
+        if self.char_last_illu.as_ref() == Some(&key) {
+            return;
+        }
+        self.char_last_illu = Some(key);
+
+        self.char_appear_p.set(0.);
+
+        #[cfg(feature = "closed")]
+        if self.character.illust == "@" {
+            let id = self.character.id.clone();
+            self.char_illu_task =
+                Some(Task::new(
+                    async move { Ok(image::load_from_memory(&crate::inner::resolve_data(load_file(&format!("res/{id}.char")).await?))?) },
+                ));
+        } else {
+            let file = crate::page::File {
+                url: self.character.illust.clone(),
+            };
+            self.char_illu_task =
+                Some(Task::new(async move { Ok(image::load_from_memory(&crate::inner::resolve_data(file.fetch().await?.to_vec()))?) }));
+        }
+    }
+
     fn fetch_has_new(&mut self) {
         let time = get_data().message_check_time.unwrap_or_default();
         self.has_new_task = Some(Task::new(async move {
@@ -289,6 +334,7 @@ impl Page for HomePage {
             return Ok(true);
         }
         let t = s.t;
+        let rt = s.rt;
         if self.login.touch(touch, s.t) {
             return Ok(true);
         }
@@ -331,9 +377,15 @@ impl Page for HomePage {
             }
             return Ok(true);
         }
-        if self.char_btn.touch(touch) && false {
-            if !self.char_screen_p.transiting(t) {
-                self.char_screen_p.goto(if self.char_screen_p.now(t) > 0.5 { 0. } else { 1. }, t, 0.5);
+        if self.char_btn.touch(touch) {
+            if !self.char_screen_p.transiting(rt) {
+                let to = if self.char_screen_p.now(rt) < 0.5 {
+                    self.char_text_start = rt;
+                    1.
+                } else {
+                    0.
+                };
+                self.char_screen_p.goto(to, rt, 0.5);
             }
             return Ok(true);
         }
@@ -343,6 +395,13 @@ impl Page for HomePage {
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
         self.login.update(t)?;
+        let current_user = Some(get_data().me.as_ref().map_or(-1, |it| it.id));
+        if self.char_last_user_id != current_user {
+            let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
+            self.char_last_user_id = current_user;
+            self.char_fetch_task =
+                Some(Task::new(async move { Ok(recv_raw(Client::get(&format!("/me/char?locale={locale}"))).await?.json().await?) }));
+        }
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {
                 match res {
@@ -391,7 +450,7 @@ impl Page for HomePage {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
-                        warn!("failed to load illustration for board: {:?}", err);
+                        warn!(?err, "failed to load illustration for board");
                     }
                     Ok(image) => {
                         if let Some(image) = image {
@@ -456,17 +515,121 @@ impl Page for HomePage {
                 self.check_update_task = None;
             }
         }
+        if let Some(task) = &mut self.char_illu_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!(?err, "fail to load char illu");
+                    }
+                    Ok(image) => {
+                        self.char_appear_p.goto(1., t, 0.5);
+                        let tex: SafeTexture = image.into();
+                        self.char_illu = Some(tex);
+                    }
+                }
+                self.char_illu_task = None;
+            }
+        }
+        if let Some(task) = &mut self.char_fetch_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!(?err, "fail to load char");
+                    }
+                    Ok(char) => {
+                        info!(?char, "char loaded");
+                        self.character = char;
+                        get_data_mut().character = Some(self.character.clone());
+                        let _ = save_data();
+                        self.char_cached_size = 0.;
+                        self.load_char_illu();
+                    }
+                }
+                self.char_fetch_task = None;
+            }
+        }
+
         Ok(())
     }
 
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+        let rt = s.rt;
 
-        let cp = self.char_screen_p.now(t);
+        let cp = self.char_screen_p.now(rt);
         s.render_fader(ui, |ui| {
-            let r = Rect::new(-1. + 0.2 * cp, -ui.top + 0.12, 1., 1.7);
-            ui.fill_rect(r, (*self.character, r));
+            let r = Rect::new(-1. + 0.14 * cp, -ui.top + 0.12, 1., 1.7);
+            if let Some(illu) = &self.char_illu {
+                let p = self.char_appear_p.now(t);
+                let r = Rect::new(r.x, r.y + (1. - p) * 0.05, r.w, r.h);
+                ui.fill_rect(r, (**illu, r, ScaleType::CropCenter, semi_white(p)));
+            }
             self.char_btn.set(ui, r);
+
+            if cp > 1e-5 {
+                let height = 0.8 - ((screen_aspect() - 16. / 9.) * 0.2).min(0.2);
+                let r = Rect::new(0.16, (-height - height * cp) / 4., 0.6, height);
+                let mat = ThreeD::build(vec2(0., 0.), r, 0.12);
+                let gl = unsafe { get_internal_gl() }.quad_gl;
+                gl.push_model_matrix(mat);
+
+                ui.alpha(cp, |ui| {
+                    let mut r = Rect::new(r.x, r.y + 0.14, r.w, r.h - 0.14);
+                    ui.fill_rect(r, semi_black(0.3));
+                    ui.fill_rect(Rect::new(r.x, r.y, 0.01, r.h), WHITE);
+                    ui.text(tl!("change-char")).pos(r.x + 0.01, r.bottom() + 0.01).size(0.3).draw();
+                    let pad = 0.01;
+
+                    let mut t = ui
+                        .text(self.character.name_en())
+                        .pos(r.right() - pad, r.bottom() - pad)
+                        .anchor(1., 1.)
+                        .color(semi_white(0.2));
+                    if self.char_cached_size < 1e-6 {
+                        let mut initial = 2.;
+                        loop {
+                            t = t.size(initial);
+                            if t.measure().w < r.w * 0.7 {
+                                break;
+                            }
+                            initial *= 0.95;
+                        }
+                        self.char_cached_size = initial;
+                    } else {
+                        t = t.size(self.char_cached_size);
+                    }
+                    t.draw();
+
+                    r.x += 0.01;
+                    r.w -= 0.01;
+
+                    let r = r.feather(-0.03);
+                    ui.text(&self.character.intro).pos(r.x, r.y).max_width(r.w).multiline().size(0.4).draw();
+                });
+
+                let r = Rect::new(r.x, r.y, 0.4, 0.12);
+
+                ui.alpha(cp, |ui| {
+                    let r = ui
+                        .text(&self.character.name)
+                        .pos(r.x + (1. - cp) * 0.12 + 0.01, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(1.4)
+                        .draw_using(&BOLD_FONT);
+                    let mut t = ui
+                        .text(format!("DESIGNED BY {}", self.character.designer))
+                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() - 0.01)
+                        .anchor(0., 1.)
+                        .size(0.34)
+                        .color(semi_white(0.6));
+                    let r = t.measure();
+                    t.ui.fill_rect(r.feather(0.01), semi_black(0.2));
+                    t.draw();
+                });
+
+                gl.pop_model_matrix();
+            }
         });
 
         ui.alpha(1. - cp, |ui| {

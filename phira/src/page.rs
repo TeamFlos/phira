@@ -140,7 +140,7 @@ impl Illustration {
             if let Some(illu) = task.take() {
                 match illu {
                     Err(err) => {
-                        warn!("failed to load illustration: {:?}", err);
+                        warn!(?err, "failed to load illustration");
                     }
                     Ok(illu) => {
                         self.texture = Images::into_texture(illu);

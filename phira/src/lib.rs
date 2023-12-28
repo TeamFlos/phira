@@ -282,7 +282,7 @@ fn show_and_exit(msg: &str) {
 pub extern "C" fn quad_main() {
     macroquad::Window::from_config(build_conf(), async {
         if let Err(err) = the_main().await {
-            error!("Error: {:?}", err);
+            error!(?err, "global error");
         }
     });
 }

@@ -32,16 +32,8 @@ impl ThreeD {
         }
     }
 
-    pub fn now(&mut self, ui: &mut Ui, rect: Rect, t: f32) -> Mat4 {
-        self.inner.set(ui, rect);
-
-        let ct = rect.center();
-
-        if !self.inner.touching() {
-            self.center.goto(self.anchor, t, Self::DURATION);
-        }
-
-        let mut delta = self.center.now(t) - ct;
+    pub fn build(ct: Vec2, r: Rect, angle: f32) -> Mat4 {
+        let mut delta = ct - r.center();
         let length = delta.length();
         let eps = 1e-4;
         if length > eps {
@@ -49,12 +41,22 @@ impl ThreeD {
             Mat4::from_translation(vec3(ct.x, ct.y, 0.))
                 * Mat4::perspective_infinite_rh(std::f32::consts::FRAC_PI_2, 1., 1.)
                 * Mat4::from_rotation_translation(
-                    Quat::from_axis_angle(vec3(-delta.y, delta.x, 0.), ((1. - (1. - length).powi(3)) / 0.6).min(1.) * self.angle),
+                    Quat::from_axis_angle(vec3(-delta.y, delta.x, 0.), ((1. - (1. - length).powi(3)) / 0.6).min(1.) * angle),
                     vec3(0., 0., -1.),
                 )
                 * Mat4::from_translation(vec3(-ct.x, -ct.y, 0.))
         } else {
             Mat4::IDENTITY
         }
+    }
+
+    pub fn now(&mut self, ui: &mut Ui, rect: Rect, t: f32) -> Mat4 {
+        self.inner.set(ui, rect);
+
+        if !self.inner.touching() {
+            self.center.goto(self.anchor, t, Self::DURATION);
+        }
+
+        Self::build(self.center.now(t), rect, self.angle)
     }
 }

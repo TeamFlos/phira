@@ -225,3 +225,47 @@ impl File {
         }
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Character {
+    pub id: String,
+    pub name: String,
+    pub intro: String,
+    pub illust: String,
+    pub designer: String,
+
+    #[serde(skip)]
+    name_en: Option<String>,
+}
+impl Default for Character {
+    fn default() -> Self {
+        Self {
+            id: "shee".to_owned(),
+            name: ttl!("main-character-name").into_owned(),
+            intro: ttl!("main-character-intro").into_owned(),
+            illust: "@".to_owned(),
+            designer: "清水QR".to_owned(),
+
+            name_en: None,
+        }
+    }
+}
+impl Character {
+    pub fn name_en(&mut self) -> &str {
+        if self.name_en.is_none() {
+            let words = self.id.split('_');
+            let mut name_en = String::new();
+            for word in words {
+                let (first, rest) = word.split_at(1);
+                name_en.push_str(&first.to_uppercase());
+                name_en.push_str(rest);
+                name_en.push(' ');
+            }
+            if !name_en.is_empty() {
+                name_en.pop();
+            }
+            self.name_en = Some(name_en);
+        }
+        self.name_en.as_ref().unwrap()
+    }
+}

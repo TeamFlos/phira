@@ -208,7 +208,7 @@ impl Element for Image {
                 match res {
                     Ok(val) => *self.tex.borrow_mut() = Some(val.into()),
                     Err(err) => {
-                        warn!("failed to load image ({}): {:?}", c.url.url, err);
+                        warn!(url = c.url.url, ?err, "failed to load image");
                     }
                 }
                 drop(guard);
@@ -300,7 +300,7 @@ impl Element for Collection {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
-                        warn!("failed to fetch collection: {:?}", err);
+                        warn!(?err, "failed to fetch collection");
                     }
                     Ok(col) => {
                         state
