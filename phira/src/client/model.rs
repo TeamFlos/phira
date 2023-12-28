@@ -239,6 +239,9 @@ pub struct Character {
     #[serde(default)]
     pub intro_size: Option<f32>,
 
+    #[serde(default)]
+    pub baseline: bool,
+
     #[serde(skip)]
     name_en: Option<String>,
 }
@@ -253,6 +256,8 @@ impl Default for Character {
 
             name_size: None,
             intro_size: None,
+
+            baseline: false,
 
             name_en: None,
         }

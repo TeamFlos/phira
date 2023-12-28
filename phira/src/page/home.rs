@@ -622,7 +622,7 @@ impl Page for HomePage {
                         .draw_using(&BOLD_FONT);
                     let mut t = ui
                         .text(format!("DESIGNED BY {}", self.character.designer))
-                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() + 0.01)
+                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() + if self.character.baseline { 0. } else { 0.01 })
                         .anchor(0., 1.)
                         .size(0.34)
                         .color(semi_white(0.6));
