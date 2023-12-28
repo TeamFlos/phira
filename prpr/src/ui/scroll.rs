@@ -305,7 +305,7 @@ impl Scroll {
     }
 
     pub fn render(&mut self, ui: &mut Ui, content: impl FnOnce(&mut Ui) -> (f32, f32)) {
-        self.matrix = Some(ui.get_matrix().try_inverse().unwrap());
+        self.matrix = Some(ui.transform.try_inverse().unwrap());
         let s = ui.scissor(Rect::new(0., 0., self.size.0, self.size.1), |ui| {
             ui.with(Translation2::new(-self.x_scroller.offset, -self.y_scroller.offset).to_homogeneous(), content)
         });

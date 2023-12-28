@@ -12,7 +12,10 @@ pub enum Token {
     #[token("global")]
     Global,
 
-    #[regex("[@a-zA-Z$_][a-zA-Z0-9-$_]*", |lex| lex.slice().to_owned())]
+    #[token("#>if-no-v2")]
+    IfNoV2,
+
+    #[regex("(#>)?[@a-zA-Z$_][a-zA-Z0-9-$_]*", |lex| lex.slice().to_owned())]
     Ident(String),
 
     #[regex("-?[0-9]*[.]?[0-9]+(?:[eE][+-]?[0-9]+)?", |lex| lex.slice().parse().ok())]
@@ -21,7 +24,7 @@ pub enum Token {
     #[regex("true|false", |lex| lex.slice() == "true")]
     Bool(bool),
 
-    #[regex("#[^\n]+", |_| logos::Skip)]
+    #[regex("#([^>][^\n]*)?", |_| logos::Skip)]
     Comment,
 
     #[token("(")]

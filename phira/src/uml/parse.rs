@@ -1,4 +1,4 @@
-use super::{lexer::Token, Assign, ButtonElement, Collection, Element, Image, RectElement, Text, Uml, Var};
+use super::{lexer::Token, Alpha, Assign, ButtonElement, Collection, Element, Image, Mat, Pop, RectElement, Rotation, Text, Translation, Uml, Var};
 use crate::icons::Icons;
 use anyhow::Result;
 use logos::Logos;
@@ -108,6 +108,12 @@ pub enum BinOp {
     Sub,
     Mul,
     Div,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Eq,
+    Neq,
 }
 
 impl BinOp {
@@ -115,6 +121,8 @@ impl BinOp {
         match self {
             Self::Mul | Self::Div => 1,
             Self::Add | Self::Sub => 2,
+            Self::Lt | Self::Le | Self::Gt | Self::Ge => 3,
+            Self::Eq | Self::Neq => 4,
         }
     }
 }
@@ -163,10 +171,16 @@ impl Display for RawExpr {
                     f,
                     "({x} {} {y})",
                     match op {
-                        BinOp::Add => '+',
-                        BinOp::Sub => '-',
-                        BinOp::Mul => '*',
-                        BinOp::Div => '/',
+                        BinOp::Add => "+",
+                        BinOp::Sub => "-",
+                        BinOp::Mul => "*",
+                        BinOp::Div => "/",
+                        BinOp::Lt => "<",
+                        BinOp::Le => "<=",
+                        BinOp::Gt => ">",
+                        BinOp::Ge => ">=",
+                        BinOp::Eq => "==",
+                        BinOp::Neq => "!=",
                     }
                 )
             }
@@ -199,6 +213,8 @@ impl RawExpr {
                     "h" => r.h,
                     "r" => r.right(),
                     "b" => r.bottom(),
+                    "cx" => r.center().x,
+                    "cy" => r.center().y,
                     _ => anyhow::bail!("unknown field: {field}"),
                 }),
                 Var::ButtonState(s) => Var::Float(match field.as_str() {
@@ -223,6 +239,12 @@ impl RawExpr {
                         BinOp::Sub => x - y,
                         BinOp::Mul => x * y,
                         BinOp::Div => x / y,
+                        BinOp::Lt => (x < y) as u32 as _,
+                        BinOp::Le => (x <= y) as u32 as _,
+                        BinOp::Gt => (x > y) as u32 as _,
+                        BinOp::Ge => (x >= y) as u32 as _,
+                        BinOp::Eq => (x == y) as u32 as _,
+                        BinOp::Neq => (x != y) as u32 as _,
                     }),
                     _ => anyhow::bail!("invalid op on ButtonState"),
                 }
@@ -282,6 +304,9 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                     "ln" => ("ln", wrap(f32::ln)),
                     "sig" => ("sig", wrap(f32::signum)),
                     "step" => ("step", wrap2(|x, y| if x < y { 0.0 } else { 1.0 })),
+                    "floor" => ("floor", wrap(f32::floor)),
+                    "ceil" => ("ceil", wrap(f32::ceil)),
+                    "round" => ("round", wrap(f32::round)),
                     "max" => (
                         "max",
                         Box::new(|args: &[Var]| {
@@ -459,6 +484,11 @@ pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &m
             take(lexer, Token::Assign)?;
             Box::new(Assign::new(id, take_expr(lexer)?))
         }
+        "#>rot" => Box::new(Rotation::new(take_config(lexer)?)),
+        "#>tr" => Box::new(Translation::new(take_config(lexer)?)),
+        "#>alpha" => Box::new(Alpha::new(take_config(lexer)?)),
+        "#>mat" => Box::new(Mat::new(take_config(lexer)?)),
+        "#>pop" => Box::new(Pop),
         _ => bail!("unknown element type: {}", ty),
     }))
 }
@@ -484,6 +514,11 @@ pub fn take_top_level(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: 
                 }
             }
             Some(TopLevel::GlobalDef(id, take_expr(lexer)?))
+        }
+        Ok(Token::IfNoV2) => {
+            lexer.next();
+            take_top_level(icons, rank_icons, lexer)?;
+            return take_top_level(icons, rank_icons, lexer);
         }
         Ok(_) => take_element(icons, rank_icons, lexer)?.map(TopLevel::Element),
         Err(err) => return Err(err.to_string()),

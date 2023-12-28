@@ -12,8 +12,10 @@ use crate::{
 use anyhow::{bail, Result};
 use image::DynamicImage;
 use macroquad::prelude::*;
+use nalgebra::Vector2;
 use parse::{Expr, VarRef};
 use prpr::{
+    core::Matrix,
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::NextScene,
     task::Task,
@@ -450,11 +452,194 @@ impl Element for Assign {
     }
 }
 
+fn default_zero() -> Expr {
+    constant(0.)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RotationConfig {
+    #[serde(default = "default_zero")]
+    angle: Expr,
+    #[serde(default = "default_zero")]
+    cx: Expr,
+    #[serde(default = "default_zero")]
+    cy: Expr,
+}
+pub struct Rotation {
+    config: RotationConfig,
+}
+impl Rotation {
+    pub fn new(config: RotationConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Rotation {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let angle = self.config.angle.eval(uml)?.float()?;
+        let cx = self.config.cx.eval(uml)?.float()?;
+        let cy = self.config.cy.eval(uml)?.float()?;
+        let ct = Vector2::new(cx, cy);
+        let mat = Matrix::new_translation(&ct) * Matrix::new_rotation(angle);
+        let mat = mat.prepend_translation(&-ct);
+        uml.push(ui, StackLayer::Mat(mat));
+        Ok(Var::default())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslationConfig {
+    #[serde(default = "default_zero")]
+    dx: Expr,
+    #[serde(default = "default_zero")]
+    dy: Expr,
+}
+pub struct Translation {
+    config: TranslationConfig,
+}
+impl Translation {
+    pub fn new(config: TranslationConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Translation {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let dx = self.config.dx.eval(uml)?.float()?;
+        let dy = self.config.dy.eval(uml)?.float()?;
+        uml.push(ui, StackLayer::Mat(Matrix::new_translation(&Vector2::new(dx, dy))));
+        Ok(Var::default())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlphaConfig {
+    #[serde(default = "default_zero")]
+    a: Expr,
+}
+pub struct Alpha {
+    config: AlphaConfig,
+}
+impl Alpha {
+    pub fn new(config: AlphaConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Alpha {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let alpha = self.config.a.eval(uml)?.float()?;
+        uml.push(ui, StackLayer::Alpha(alpha));
+        Ok(Var::default())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatConfig {
+    #[serde(default = "default_zero")]
+    x00: Expr,
+    #[serde(default = "default_zero")]
+    x01: Expr,
+    #[serde(default = "default_zero")]
+    x02: Expr,
+    #[serde(default = "default_zero")]
+    x03: Expr,
+    #[serde(default = "default_zero")]
+    x10: Expr,
+    #[serde(default = "default_zero")]
+    x11: Expr,
+    #[serde(default = "default_zero")]
+    x12: Expr,
+    #[serde(default = "default_zero")]
+    x13: Expr,
+    #[serde(default = "default_zero")]
+    x20: Expr,
+    #[serde(default = "default_zero")]
+    x21: Expr,
+    #[serde(default = "default_zero")]
+    x22: Expr,
+    #[serde(default = "default_zero")]
+    x23: Expr,
+    #[serde(default = "default_zero")]
+    x30: Expr,
+    #[serde(default = "default_zero")]
+    x31: Expr,
+    #[serde(default = "default_zero")]
+    x32: Expr,
+    #[serde(default = "default_zero")]
+    x33: Expr,
+}
+pub struct Mat {
+    config: MatConfig,
+}
+impl Mat {
+    pub fn new(config: MatConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Mat {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let x00 = self.config.x00.eval(uml)?.float()?;
+        let x01 = self.config.x01.eval(uml)?.float()?;
+        let x02 = self.config.x02.eval(uml)?.float()?;
+        let x03 = self.config.x03.eval(uml)?.float()?;
+        let x10 = self.config.x10.eval(uml)?.float()?;
+        let x11 = self.config.x11.eval(uml)?.float()?;
+        let x12 = self.config.x12.eval(uml)?.float()?;
+        let x13 = self.config.x13.eval(uml)?.float()?;
+        let x20 = self.config.x20.eval(uml)?.float()?;
+        let x21 = self.config.x21.eval(uml)?.float()?;
+        let x22 = self.config.x22.eval(uml)?.float()?;
+        let x23 = self.config.x23.eval(uml)?.float()?;
+        let x30 = self.config.x30.eval(uml)?.float()?;
+        let x31 = self.config.x31.eval(uml)?.float()?;
+        let x32 = self.config.x32.eval(uml)?.float()?;
+        let x33 = self.config.x33.eval(uml)?.float()?;
+        let mat = Matrix::from_column_slice(&[x00, x10, x20, x30, x01, x11, x21, x31, x02, x12, x22, x32, x03, x13, x23, x33]);
+        uml.push(ui, StackLayer::Mat(mat));
+        Ok(Var::default())
+    }
+}
+
+pub struct Pop;
+impl Element for Pop {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        uml.pop(ui);
+        Ok(Var::default())
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum Var {
     Rect(Rect),
     ButtonState(ButtonState),
     Float(f32),
+}
+impl Default for Var {
+    fn default() -> Self {
+        Self::Float(0.)
+    }
 }
 
 impl Var {
@@ -473,12 +658,18 @@ impl Var {
     }
 }
 
+enum StackLayer {
+    Mat(Matrix),
+    Alpha(f32),
+}
 pub struct Uml {
     elements: Vec<Box<dyn Element>>,
 
     vars: Vec<Var>,
     persistent_vars: Vec<Var>,
     var_map: HashMap<String, usize>,
+
+    stack: RefCell<Vec<StackLayer>>,
 
     t: f32,
     rt: f32,
@@ -501,6 +692,8 @@ impl Uml {
             persistent_vars: Vec::new(),
             var_map: HashMap::new(),
 
+            stack: RefCell::new(Vec::new()),
+
             t: 0.,
             rt: 0.,
 
@@ -514,6 +707,26 @@ impl Uml {
         for (name, initial) in global_defs {
             self.var_map.insert(name.clone(), !self.persistent_vars.len());
             self.persistent_vars.push(initial.eval(self).unwrap());
+        }
+    }
+
+    fn push(&self, ui: &mut Ui, layer: StackLayer) {
+        match layer {
+            StackLayer::Mat(mat) => {
+                self.stack.borrow_mut().push(StackLayer::Mat(ui.transform));
+                ui.transform *= mat;
+            }
+            StackLayer::Alpha(alpha) => {
+                self.stack.borrow_mut().push(StackLayer::Alpha(ui.alpha));
+                ui.alpha *= alpha;
+            }
+        }
+    }
+    fn pop(&self, ui: &mut Ui) {
+        match self.stack.borrow_mut().pop() {
+            Some(StackLayer::Mat(mat)) => ui.transform = mat,
+            Some(StackLayer::Alpha(alpha)) => ui.alpha = alpha,
+            None => {}
         }
     }
 
@@ -553,23 +766,27 @@ impl Uml {
 
     pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
         self.vars.clear();
-        for (name, val) in vars {
+        for (name, val) in vars.iter().chain(std::iter::once(&("version", 2.))) {
             Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, name, Var::Float(*val));
         }
         let mut right = 0f32;
         let mut bottom = 0f32;
         self.t = t;
         self.rt = rt;
-        for elem in &self.elements {
-            let r = elem.render(ui, self)?;
-            if let Var::Rect(r) = &r {
-                right = right.max(r.right());
-                bottom = bottom.max(r.bottom());
+        ui.scope::<Result<()>>(|ui| {
+            for elem in &self.elements {
+                let r = elem.render(ui, self)?;
+                if let Var::Rect(r) = &r {
+                    right = right.max(r.right());
+                    bottom = bottom.max(r.bottom());
+                }
+                if let Some(id) = elem.id() {
+                    Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, id, r);
+                }
             }
-            if let Some(id) = elem.id() {
-                Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, id, r);
-            }
-        }
+
+            Ok(())
+        })?;
         if let Some(Var::Float(w)) = self.var_map.get("$w").map(|it| &self.vars[*it]) {
             right = *w;
         }

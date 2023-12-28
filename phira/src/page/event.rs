@@ -175,16 +175,16 @@ impl Page for EventPage {
                             item.illu.notify();
                             let ca = item.illu.alpha(t);
                             let r = ui.screen_rect().nonuniform_feather(-0.24, -0.144);
-                            ui.alpha(ca, |ui| {
-                                item.btn.render_shadow(ui, r, t, |ui, path| {
+                            item.btn.render_shadow(ui, r, t, |ui, path| {
+                                ui.alpha(ca, |ui| {
                                     ui.fill_path(&path, item.illu.shading(r.feather(ILLU_FEATHER), t));
                                     ui.fill_path(&path, semi_black(0.4 * if item.illu.task.is_some() { 1. } else { ca }));
-                                    ui.text(&item.event.name)
-                                        .pos(r.x + Self::LB_PAD, r.bottom() - Self::LB_PAD)
-                                        .anchor(0., 1.)
-                                        .size(1.3)
-                                        .draw();
                                 });
+                                ui.text(&item.event.name)
+                                    .pos(r.x + Self::LB_PAD, r.bottom() - Self::LB_PAD)
+                                    .anchor(0., 1.)
+                                    .size(1.3)
+                                    .draw();
                             });
                             if index == self.index {
                                 self.tr_from = ui.rect_to_global(r);
