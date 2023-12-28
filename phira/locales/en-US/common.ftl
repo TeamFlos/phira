@@ -22,3 +22,6 @@ tos-deny = Deny
 tos-accept = Accept
 
 open-in-web = Open in Web
+
+main-character-name = Shee
+main-character-intro = TODO

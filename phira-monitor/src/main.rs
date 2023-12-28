@@ -92,7 +92,7 @@ async fn the_main() -> Result<()> {
             Ok(())
         }();
         if let Err(err) = res {
-            warn!("uncaught error: {:?}", err);
+            warn!(?err, "uncaught error");
             show_error(err);
         }
         if main.should_exit() {
