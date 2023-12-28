@@ -337,7 +337,7 @@ impl Page for HomePage {
         if self.login.touch(touch, s.t) {
             return Ok(true);
         }
-        if self.char_screen_p.now(t) < 1e-3 {
+        if self.char_screen_p.now(t) < 1e-2 {
             self.btn_play_3d.touch(touch, t);
             if self.btn_play.touch(touch, t) {
                 button_hit_large();
