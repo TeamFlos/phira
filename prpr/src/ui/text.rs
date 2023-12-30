@@ -1,6 +1,6 @@
 use super::Ui;
 use crate::{
-    core::{Matrix, Vector},
+    core::{Matrix, Point, Vector},
     ext::get_viewport,
 };
 use glyph_brush::{
@@ -221,13 +221,11 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         }
         self.ui
             .with((Matrix::new_scaling(1. / s) * self.scale).append_translation(&Vector::new(rect.x, rect.y)), |ui| {
-                ui.apply(|ui| {
-                    if let Some(painter) = painter {
-                        painter.submit(ui.alpha);
-                    } else {
-                        ui.text_painter.submit(ui.alpha);
-                    }
-                });
+                if let Some(painter) = painter {
+                    painter.submit(ui.transform, ui.alpha);
+                } else {
+                    ui.text_painter.submit(ui.transform, ui.alpha);
+                }
             });
         self.text = Some(text);
         rect
@@ -300,7 +298,7 @@ impl TextPainter {
         self.brush.fonts()[0].as_scaled(scale).line_gap()
     }
 
-    fn submit(&mut self, alpha: f32) {
+    fn submit(&mut self, tr: Matrix, alpha: f32) {
         let mut flushed = false;
         loop {
             match self.brush.process_queued(
@@ -333,11 +331,13 @@ impl TextPainter {
                     let uv = &vertex.tex_coords;
                     let mut color: Color = vertex.extra.color.into();
                     color.a *= alpha;
+                    let min = tr.transform_point(&Point::new(pos.min.x, pos.min.y));
+                    let max = tr.transform_point(&Point::new(pos.max.x, pos.max.y));
                     [
-                        Vertex::new(pos.min.x, pos.min.y, 0., uv.min.x, uv.min.y, color),
-                        Vertex::new(pos.max.x, pos.min.y, 0., uv.max.x, uv.min.y, color),
-                        Vertex::new(pos.min.x, pos.max.y, 0., uv.min.x, uv.max.y, color),
-                        Vertex::new(pos.max.x, pos.max.y, 0., uv.max.x, uv.max.y, color),
+                        Vertex::new(min.x, min.y, 0., uv.min.x, uv.min.y, color),
+                        Vertex::new(max.x, min.y, 0., uv.max.x, uv.min.y, color),
+                        Vertex::new(min.x, max.y, 0., uv.min.x, uv.max.y, color),
+                        Vertex::new(max.x, max.y, 0., uv.max.x, uv.max.y, color),
                     ]
                 },
             ) {

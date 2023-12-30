@@ -27,7 +27,7 @@ use prpr::{
     l10n::LANG_IDENTS,
     scene::{show_error, NextScene},
     task::Task,
-    ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, FontArc, RectButton, Ui},
+    ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, FontArc, RectButton, Scroll, Ui},
 };
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -92,6 +92,7 @@ pub struct HomePage {
     char_btn: RectButton,
     char_text_start: f32,
     char_cached_size: f32,
+    char_scroll: Scroll,
 }
 
 impl HomePage {
@@ -193,6 +194,7 @@ impl HomePage {
             char_btn: RectButton::new(),
             char_text_start: 0.,
             char_cached_size: 0.,
+            char_scroll: Scroll::new().use_clip(),
         };
         res.load_char_illu();
 
@@ -395,6 +397,8 @@ impl Page for HomePage {
                 self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.icon.clone(), self.icons.lang.clone()))));
                 return Ok(true);
             }
+        } else if self.char_scroll.touch(touch, t) {
+            return Ok(true);
         }
         if self.btn_user.touch(touch, t) {
             if let Some(me) = &get_data().me {
@@ -424,6 +428,7 @@ impl Page for HomePage {
         let t = s.t;
         self.login.update(t)?;
         let current_user = Some(get_data().me.as_ref().map_or(-1, |it| it.id));
+        self.char_scroll.update(t);
         if self.char_last_user_id != current_user {
             let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
             self.char_last_user_id = current_user;
@@ -646,13 +651,18 @@ impl Page for HomePage {
                     r.x += 0.01;
                     r.w -= 0.01;
 
-                    let r = r.feather(-0.03);
-                    ui.text(&self.character.intro)
-                        .pos(r.x, r.y)
-                        .max_width(r.w)
-                        .multiline()
-                        .size(self.character.intro_size.unwrap_or(0.4))
-                        .draw();
+                    self.char_scroll.size((r.w, r.h));
+                    ui.scope(|ui| {
+                        ui.dx(r.x);
+                        ui.dy(r.y);
+                        let ow = r.w;
+                        self.char_scroll.render(ui, |ui| {
+                            let r = Rect::new(0., 0., r.w, r.h);
+                            let r = r.feather(-0.03);
+                            let r = ui.text(&self.character.intro).pos(r.x, r.y).max_width(r.w).multiline().size(0.4).draw();
+                            (ow, r.h + 0.1)
+                        });
+                    });
                 });
 
                 let r = Rect::new(r.x, r.y, 0.4, 0.12);
@@ -664,15 +674,20 @@ impl Page for HomePage {
                         .anchor(0., 0.5)
                         .size(self.character.name_size.unwrap_or(1.4))
                         .draw_using(&BOLD_FONT);
-                    let mut t = ui
-                        .text(format!("DESIGNED BY {}", self.character.designer))
-                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() + if self.character.baseline { 0. } else { 0.01 })
+
+                    let off = if self.character.baseline { 0. } else { 0.01 };
+                    ui.text(format!("Artist: {}", self.character.artist))
+                        .pos(r.right() + (1. - cp) * 0.1 + 0.02, r.bottom() + off - 0.03)
                         .anchor(0., 1.)
                         .size(0.34)
-                        .color(semi_white(0.6));
-                    let r = t.measure();
-                    t.ui.fill_rect(r.feather(0.01), semi_black(0.2));
-                    t.draw();
+                        .color(semi_white(0.7))
+                        .draw();
+                    ui.text(format!("Designer: {}", self.character.designer))
+                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() + off)
+                        .anchor(0., 1.)
+                        .size(0.34)
+                        .color(semi_white(0.7))
+                        .draw();
                 });
 
                 gl.pop_model_matrix();
