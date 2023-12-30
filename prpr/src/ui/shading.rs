@@ -44,8 +44,8 @@ impl Shading for TextureShading {
         let (_, tr, dr) = self.texture;
         let ux = (p.x - dr.x) / dr.w;
         let uy = (p.y - dr.y) / dr.h;
-        let ux = ux.clamp(0., 1.);
-        let uy = uy.clamp(0., 1.);
+        // let ux = ux.clamp(0., 1.);
+        // let uy = uy.clamp(0., 1.);
         Vertex::new(
             t.x,
             t.y,
