@@ -567,7 +567,7 @@ impl Page for HomePage {
                     Ok(image) => {
                         self.char_appear_p.goto(1., t, 0.5);
                         let tex: SafeTexture = image.into();
-                        self.char_illu = Some(tex);
+                        self.char_illu = Some(tex.with_mipmap());
                     }
                 }
                 self.char_illu_task = None;
@@ -605,7 +605,7 @@ impl Page for HomePage {
             if let Some(illu) = &self.char_illu {
                 let p = self.char_appear_p.now(t);
                 let r = Rect::new(r.x, r.y + (1. - p) * 0.05, r.w, r.h);
-                ui.fill_rect(r, (**illu, r, ScaleType::CropCenter, semi_white(p)));
+                ui.fill_rect(ui.screen_rect(), (**illu, r, ScaleType::CropCenter, semi_white(p)));
             }
             self.char_btn.set(ui, r);
 
