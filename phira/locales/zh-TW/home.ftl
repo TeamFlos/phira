@@ -15,4 +15,4 @@ update-desc =
 update-ignore = 忽略該版本
 update-go = 更新
 
-change-char = * 可在官網 https://phira.moe 更換角色
+change-char = 更換角色
