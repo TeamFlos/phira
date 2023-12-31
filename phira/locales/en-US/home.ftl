@@ -15,4 +15,4 @@ update-desc =
 update-ignore = Ignore this update
 update-go = Update
 
-change-char = * You can change character at https://phira.moe
+change-char = Change Character

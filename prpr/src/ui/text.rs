@@ -221,11 +221,20 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         }
         self.ui
             .with((Matrix::new_scaling(1. / s) * self.scale).append_translation(&Vector::new(rect.x, rect.y)), |ui| {
+                /* ui.apply(|ui| {
+                    let tr = Matrix::identity();
+                    if let Some(painter) = painter {
+                        painter.submit(tr, ui.alpha);
+                    } else {
+                        ui.text_painter.submit(tr, ui.alpha);
+                    }
+                }); */
                 if let Some(painter) = painter {
                     painter.submit(ui.transform, ui.alpha);
                 } else {
                     ui.text_painter.submit(ui.transform, ui.alpha);
                 }
+                unsafe { get_internal_gl() }.flush();
             });
         self.text = Some(text);
         rect
@@ -248,11 +257,27 @@ static TEXTURE_DIM: Lazy<u32> = Lazy::new(|| unsafe {
     (size as u32).min(2048)
 });
 
+#[derive(Clone)]
+struct MyVertex {
+    pos: (f32, f32),
+    uv: (f32, f32),
+    color: Color,
+}
+impl MyVertex {
+    pub fn new(x: f32, y: f32, u: f32, v: f32, color: Color) -> Self {
+        Self {
+            pos: (x, y),
+            uv: (u, v),
+            color,
+        }
+    }
+}
+
 pub struct TextPainter {
-    brush: GlyphBrush<[Vertex; 4]>,
+    brush: GlyphBrush<[MyVertex; 4]>,
     cache_texture: Texture2D,
     data_buffer: Vec<u8>,
-    vertices_buffer: Vec<Vertex>,
+    vertices_buffer: Vec<MyVertex>,
 
     valid_chars: HashSet<char>,
 }
@@ -331,13 +356,11 @@ impl TextPainter {
                     let uv = &vertex.tex_coords;
                     let mut color: Color = vertex.extra.color.into();
                     color.a *= alpha;
-                    let min = tr.transform_point(&Point::new(pos.min.x, pos.min.y));
-                    let max = tr.transform_point(&Point::new(pos.max.x, pos.max.y));
                     [
-                        Vertex::new(min.x, min.y, 0., uv.min.x, uv.min.y, color),
-                        Vertex::new(max.x, min.y, 0., uv.max.x, uv.min.y, color),
-                        Vertex::new(min.x, max.y, 0., uv.min.x, uv.max.y, color),
-                        Vertex::new(max.x, max.y, 0., uv.max.x, uv.max.y, color),
+                        MyVertex::new(pos.min.x, pos.min.y, uv.min.x, uv.min.y, color),
+                        MyVertex::new(pos.max.x, pos.min.y, uv.max.x, uv.min.y, color),
+                        MyVertex::new(pos.min.x, pos.max.y, uv.min.x, uv.max.y, color),
+                        MyVertex::new(pos.max.x, pos.max.y, uv.max.x, uv.max.y, color),
                     ]
                 },
             ) {
@@ -353,22 +376,33 @@ impl TextPainter {
                 Ok(BrushAction::Draw(vertices)) => {
                     self.vertices_buffer.clear();
                     self.vertices_buffer.extend(vertices.into_iter().flatten());
-                    self.redraw();
+                    self.redraw(tr);
                     break;
                 }
                 Ok(BrushAction::ReDraw) => {
-                    self.redraw();
+                    self.redraw(tr);
                     break;
                 }
             }
         }
     }
 
-    fn redraw(&self) {
+    fn transform(&self, vertex: &MyVertex, tr: Matrix) -> Vertex {
+        let pos = tr.transform_point(&Point::new(vertex.pos.0, vertex.pos.1));
+        Vertex::new(pos.x, pos.y, 0., vertex.uv.0, vertex.uv.1, vertex.color)
+    }
+
+    fn redraw(&self, tr: Matrix) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
         gl.texture(Some(self.cache_texture));
         for vertices in self.vertices_buffer.chunks_exact(4) {
-            gl.geometry(vertices, &[0, 2, 3, 0, 1, 3]);
+            let vertices = [
+                self.transform(&vertices[0], tr),
+                self.transform(&vertices[1], tr),
+                self.transform(&vertices[2], tr),
+                self.transform(&vertices[3], tr),
+            ];
+            gl.geometry(&vertices, &[0, 2, 3, 0, 1, 3]);
         }
     }
 }
