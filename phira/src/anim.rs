@@ -4,8 +4,8 @@ use std::rc::Rc;
 pub struct Anim<T: Tweenable> {
     pub from: T,
     pub to: T,
-    start_time: f32,
-    end_time: f32,
+    pub start_time: f32,
+    pub end_time: f32,
     pub interpolator: Rc<dyn TweenFunction>,
 }
 

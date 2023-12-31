@@ -506,10 +506,14 @@ impl Page for LibraryPage {
                 self.next_page_btn.render_text(ui, r.feather(ft), t, next_page, 0.5, false);
             });
         }
-        self.tabs.selected_mut().view.render_top(ui, t);
         self.order_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
         self.rating.render(ui, t);
+        Ok(())
+    }
+
+    fn render_top(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
+        self.tabs.selected_mut().view.render_top(ui, s.t);
         Ok(())
     }
 

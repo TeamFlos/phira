@@ -464,6 +464,9 @@ pub trait Page {
     fn update(&mut self, s: &mut SharedState) -> Result<()>;
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool>;
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()>;
+    fn render_top(&mut self, _ui: &mut Ui, _s: &mut SharedState) -> Result<()> {
+        Ok(())
+    }
     fn pause(&mut self) -> Result<()> {
         Ok(())
     }

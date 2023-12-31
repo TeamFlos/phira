@@ -241,6 +241,9 @@ pub struct Character {
     #[serde(default)]
     pub baseline: bool,
 
+    #[serde(default)]
+    pub illu_adjust: (f32, f32, f32, f32),
+
     #[serde(skip)]
     name_en: Option<String>,
 }
@@ -257,6 +260,8 @@ impl Default for Character {
             name_size: None,
 
             baseline: false,
+
+            illu_adjust: (0., 0., 0., 0.),
 
             name_en: None,
         }
