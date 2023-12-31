@@ -9,7 +9,7 @@ use super::{
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
-    bin::{BinaryReader, BinaryWriter},
+    bin::BinaryReader,
     config::{Config, Mods},
     core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, PGR_FONT},
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
