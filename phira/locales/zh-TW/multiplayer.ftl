@@ -6,7 +6,7 @@ connect-must-login = 登入後才能進入多人遊戲
 connect-success = 連線成功
 connect-failed = 連線失敗
 connect-authenticate-failed = 身分驗證失敗
-reconnect = 斷線重連中……
+reconnect = 斷線重連中...
 
 create-room = 創建房間
 create-room-success = 房間已創建
