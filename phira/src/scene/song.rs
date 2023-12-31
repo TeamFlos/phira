@@ -15,6 +15,7 @@ use crate::{
 };
 use ::rand::{thread_rng, Rng};
 use anyhow::{anyhow, bail, Context, Result};
+use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use macroquad::prelude::*;
@@ -879,7 +880,7 @@ impl SongScene {
                             "/play/upload",
                             &Req {
                                 chart: id.unwrap(),
-                                token: base64::encode(data),
+                                token: STANDARD.encode(data),
                                 chart_updated,
                             },
                         ))

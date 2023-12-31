@@ -168,7 +168,6 @@ impl Page for CollectionPage {
                         ui.fill_rect(r, semi_black(0.2));
                         if self.transit_id.as_ref() == Some(&coll.id) {
                             self.transit = Some(Transit {
-                                id: coll.id.clone(),
                                 r,
                                 ir,
                                 t: rt,
