@@ -2199,7 +2199,7 @@ impl Scene for SongScene {
                 let s = 0.08;
                 let r = Rect::new(-s, 0., s, s);
                 let cc = semi_white(0.4);
-                ui.fill_rect(r, (*self.icons.menu, r.feather(-0.02), ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
+                ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
                 self.menu_btn.set(ui, r);
                 if self.need_show_menu {
                     self.need_show_menu = false;
