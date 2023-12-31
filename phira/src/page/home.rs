@@ -93,6 +93,7 @@ pub struct HomePage {
     char_text_start: f32,
     char_cached_size: f32,
     char_scroll: Scroll,
+    char_edit_btn: RectButton,
 }
 
 impl HomePage {
@@ -195,6 +196,7 @@ impl HomePage {
             char_text_start: 0.,
             char_cached_size: 0.,
             char_scroll: Scroll::new().use_clip(),
+            char_edit_btn: RectButton::new(),
         };
         res.load_char_illu();
 
@@ -397,8 +399,13 @@ impl Page for HomePage {
                 self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.icon.clone(), self.icons.lang.clone()))));
                 return Ok(true);
             }
-        } else if self.char_scroll.touch(touch, t) {
-            return Ok(true);
+        } else {
+            if self.char_scroll.touch(touch, t) {
+                return Ok(true);
+            }
+            if self.char_edit_btn.touch(touch) {
+                let _ = open_url("https://phira.moe/settings/account");
+            }
         }
         if self.btn_user.touch(touch, t) {
             if let Some(me) = &get_data().me {
@@ -625,7 +632,11 @@ impl Page for HomePage {
                     let mut r = Rect::new(r.x, r.y + 0.14, r.w, r.h - 0.14);
                     ui.fill_rect(r, semi_black(0.3));
                     ui.fill_rect(Rect::new(r.x, r.y, 0.01, r.h), WHITE);
-                    ui.text(tl!("change-char")).pos(r.x + 0.01, r.bottom() + 0.01).size(0.3).draw();
+                    let mut t = ui.text(tl!("change-char")).pos(r.x + 0.01, r.bottom() + 0.015).size(0.3);
+                    // let ir = t.measure().feather(0.007);
+                    // t.ui.fill_rect(ir, semi_black(0.2));
+                    // self.char_edit_btn.set(t.ui, ir);
+                    t.draw();
                     let pad = 0.01;
 
                     let mut t = ui
