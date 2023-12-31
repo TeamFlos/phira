@@ -753,11 +753,12 @@ impl<'a> Ui<'a> {
     #[inline]
     pub fn with_gl<R>(&mut self, transform: Mat4, f: impl FnOnce(&mut Self) -> R) -> R {
         let old = self.gl_transform;
-        self.gl_transform = old * transform;
+        // self.gl_transform = old * transform;
         let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.push_model_matrix(self.gl_transform);
+        gl.push_model_matrix(transform);
         let res = f(self);
         self.gl_transform = old;
+        unsafe{get_internal_gl()}.flush();
         gl.pop_model_matrix();
         res
     }

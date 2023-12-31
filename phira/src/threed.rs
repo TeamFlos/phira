@@ -32,8 +32,9 @@ impl ThreeD {
         }
     }
 
-    pub fn build(ct: Vec2, r: Rect, angle: f32) -> Mat4 {
-        let mut delta = ct - r.center();
+    pub fn build(point: Vec2, r: Rect, angle: f32) -> Mat4 {
+        let ct = r.center();
+        let mut delta = point - ct;
         let length = delta.length();
         let eps = 1e-4;
         if length > eps {
