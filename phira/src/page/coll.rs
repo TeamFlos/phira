@@ -21,7 +21,6 @@ struct CollectionItem {
 }
 
 struct Transit {
-    id: String,
     r: Rect,
     ir: Rect,
     t: f32,
