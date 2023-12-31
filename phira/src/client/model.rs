@@ -232,7 +232,14 @@ pub struct Character {
     pub name: String,
     pub intro: String,
     pub illust: String,
+    pub artist: String,
     pub designer: String,
+
+    #[serde(default)]
+    pub name_size: Option<f32>,
+
+    #[serde(default)]
+    pub baseline: bool,
 
     #[serde(skip)]
     name_en: Option<String>,
@@ -244,7 +251,12 @@ impl Default for Character {
             name: ttl!("main-character-name").into_owned(),
             intro: ttl!("main-character-intro").into_owned(),
             illust: "@".to_owned(),
+            artist: "清水QR".to_owned(),
             designer: "清水QR".to_owned(),
+
+            name_size: None,
+
+            baseline: false,
 
             name_en: None,
         }

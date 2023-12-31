@@ -98,6 +98,10 @@ mod dir {
         }
     }
 
+    pub fn bold_font_path() -> Result<String> {
+        Ok(format!("{}/bold.ttf", root()?))
+    }
+
     pub fn cache_image_local() -> Result<String> {
         ensure(&format!("{}/image", cache()?))
     }

@@ -1,4 +1,4 @@
-use super::Ui;
+use super::{clip_rounded_rect, Ui};
 use crate::core::{Matrix, Point, Vector};
 use macroquad::prelude::{Rect, Touch, TouchPhase, Vec2};
 use nalgebra::Translation2;
@@ -249,6 +249,7 @@ pub struct Scroll {
     size: (f32, f32),
     matrix: Option<Matrix>,
     horizontal: bool,
+    use_clip: bool,
 }
 
 impl Default for Scroll {
@@ -265,7 +266,13 @@ impl Scroll {
             size: (2., 2.),
             matrix: None,
             horizontal: false,
+            use_clip: false,
         }
+    }
+
+    pub fn use_clip(mut self) -> Self {
+        self.use_clip = true;
+        self
     }
 
     pub fn horizontal(mut self) -> Self {
@@ -306,9 +313,12 @@ impl Scroll {
 
     pub fn render(&mut self, ui: &mut Ui, content: impl FnOnce(&mut Ui) -> (f32, f32)) {
         self.matrix = Some(ui.transform.try_inverse().unwrap());
-        let s = ui.scissor(Rect::new(0., 0., self.size.0, self.size.1), |ui| {
-            ui.with(Translation2::new(-self.x_scroller.offset, -self.y_scroller.offset).to_homogeneous(), content)
-        });
+        let func = |ui: &mut Ui| ui.with(Translation2::new(-self.x_scroller.offset, -self.y_scroller.offset).to_homogeneous(), content);
+        let s = if self.use_clip {
+            clip_rounded_rect(ui, self.rect(), 0., func)
+        } else {
+            ui.scissor(self.rect(), func)
+        };
         self.x_scroller.size((s.0 - self.size.0).max(0.));
         self.y_scroller.size((s.1 - self.size.1).max(0.));
     }

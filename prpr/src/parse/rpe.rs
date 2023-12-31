@@ -516,7 +516,7 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
             line.notes.as_ref().map(|notes| {
                 notes
                     .iter()
-                    .map(|note| r.time(&note.start_time).not_nan())
+                    .map(|note| r.time(&note.end_time).not_nan())
                     .max()
                     .unwrap_or_default()
             }).unwrap_or_default().max(

@@ -1,8 +1,9 @@
 prpr::tl_file!("home");
 
-use std::{borrow::Cow, sync::Arc};
-
-use super::{EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState};
+use super::{
+    load_font_with_cksum, set_bold_font, EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState,
+    BOLD_FONT_CKSUM,
+};
 use crate::{
     anim::Anim,
     client::{recv_raw, Character, Client, LoginParams, User, UserManager},
@@ -15,7 +16,7 @@ use crate::{
     threed::ThreeD,
 };
 use ::rand::{random, thread_rng, Rng};
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use chrono::NaiveDate;
 use image::DynamicImage;
 use macroquad::prelude::*;
@@ -26,9 +27,11 @@ use prpr::{
     l10n::LANG_IDENTS,
     scene::{show_error, NextScene},
     task::Task,
-    ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, RectButton, Ui},
+    ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, FontArc, RectButton, Scroll, Ui},
 };
+use reqwest::StatusCode;
 use serde::Deserialize;
+use std::{borrow::Cow, sync::Arc};
 use tap::Tap;
 use tracing::{info, warn};
 
@@ -72,6 +75,7 @@ pub struct HomePage {
     has_new: bool,
 
     check_update_task: Option<Task<Result<Option<Version>>>>,
+    check_bold_font_update_task: Option<Task<Result<Option<(FontArc, String)>>>>,
 
     btn_play_3d: ThreeD,
     btn_other_3d: ThreeD,
@@ -88,6 +92,8 @@ pub struct HomePage {
     char_btn: RectButton,
     char_text_start: f32,
     char_cached_size: f32,
+    char_scroll: Scroll,
+    char_edit_btn: RectButton,
 }
 
 impl HomePage {
@@ -146,6 +152,30 @@ impl HomePage {
                     .json()
                     .await?)
             })),
+            check_bold_font_update_task: {
+                let cksum = BOLD_FONT_CKSUM.with(|it| it.borrow().clone());
+                Some(Task::new(async move {
+                    let resp = Client::get("/font-bold").query(&[("cksum", cksum)]).send().await?;
+                    if resp.status() == StatusCode::NOT_MODIFIED {
+                        info!("bold font not modified");
+                        return Ok(None);
+                    }
+                    if !resp.status().is_success() {
+                        let status = resp.status().as_str().to_owned();
+                        let text = resp.text().await.context("failed to receive text")?;
+                        if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
+                            if let Some(detail) = what["detail"].as_str() {
+                                bail!("request failed ({status}): {detail}");
+                            }
+                        }
+                        bail!("request failed ({status}): {text}");
+                    }
+                    info!("downloading new bold font");
+                    let bytes = resp.bytes().await?;
+                    std::fs::write(dir::bold_font_path()?, &bytes).context("failed to save font")?;
+                    Ok(Some(load_font_with_cksum(bytes.to_vec())?))
+                }))
+            },
 
             btn_play_3d: ThreeD::new(),
             btn_other_3d: ThreeD::new().tap_mut(|it| {
@@ -165,6 +195,8 @@ impl HomePage {
             char_btn: RectButton::new(),
             char_text_start: 0.,
             char_cached_size: 0.,
+            char_scroll: Scroll::new().use_clip(),
+            char_edit_btn: RectButton::new(),
         };
         res.load_char_illu();
 
@@ -223,44 +255,43 @@ impl HomePage {
         let pad = 0.04;
         // play button
         let r = Rect::new(0., -0.33, 0.83, 0.45);
-        let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.push_model_matrix(self.btn_play_3d.now(ui, r, t));
-        let top = s.render_fader(ui, |ui| {
-            let top = r.bottom() + 0.02;
-            let rad = self.btn_play.config.radius;
-            self.btn_play.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.4));
-                if let Some(cur) = &self.board_tex {
-                    let p = (t - self.board_last_time) / BOARD_TRANSIT_TIME;
-                    if p > 1. {
-                        self.board_tex_last = None;
-                        ui.fill_path(&path, (**cur, r));
-                    } else if let Some(last) = &self.board_tex_last {
-                        let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
-                        let p = 1. - (1. - p).powi(3);
-                        let p = if self.board_dir { 1. - p } else { p };
-                        clip_rounded_rect(ui, r, rad, |ui| {
-                            let mut nr = r;
-                            nr.h = r.h * (1. - p);
-                            ui.fill_rect(nr, (**last, nr));
+        let mat = self.btn_play_3d.now(ui, r, t);
+        let top = ui.with_gl(mat, |ui| {
+            s.render_fader(ui, |ui| {
+                let top = r.bottom() + 0.02;
+                let rad = self.btn_play.config.radius;
+                self.btn_play.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    if let Some(cur) = &self.board_tex {
+                        let p = (t - self.board_last_time) / BOARD_TRANSIT_TIME;
+                        if p > 1. {
+                            self.board_tex_last = None;
+                            ui.fill_path(&path, (**cur, r));
+                        } else if let Some(last) = &self.board_tex_last {
+                            let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
+                            let p = 1. - (1. - p).powi(3);
+                            let p = if self.board_dir { 1. - p } else { p };
+                            clip_rounded_rect(ui, r, rad, |ui| {
+                                let mut nr = r;
+                                nr.h = r.h * (1. - p);
+                                ui.fill_rect(nr, (**last, nr));
 
-                            nr.h = r.h * p;
-                            nr.y = r.bottom() - nr.h;
-                            ui.fill_rect(nr, (**cur, nr));
-                        });
-                    } else {
-                        ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p)));
+                                nr.h = r.h * p;
+                                nr.y = r.bottom() - nr.h;
+                                ui.fill_rect(nr, (**cur, nr));
+                            });
+                        } else {
+                            ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p)));
+                        }
                     }
-                }
-                ui.fill_path(&path, (semi_black(0.7), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
-                ui.text(tl!("play")).pos(r.x + pad, r.y + pad).draw();
-                let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
-                ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6)));
-            });
-            top + 0.03
+                    ui.fill_path(&path, (semi_black(0.7), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
+                    ui.text(tl!("play")).pos(r.x + pad, r.y + pad).draw();
+                    let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
+                    ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6)));
+                });
+                top + 0.03
+            })
         });
-        unsafe { get_internal_gl() }.flush();
-        gl.pop_model_matrix();
 
         let text_and_icon = |s: &mut SharedState, ui: &mut Ui, r: Rect, btn: &mut DRectButton, text, icon| {
             let ow = r.w;
@@ -281,37 +312,36 @@ impl HomePage {
             });
         };
 
-        gl.push_model_matrix(self.btn_other_3d.now(ui, Rect::new(0., top - 0.4, 0.83, 0.23), t));
+        let mat = self.btn_other_3d.now(ui, Rect::new(0., top - 0.4, 0.83, 0.23), t);
+        ui.with_gl(mat, |ui| {
+            let r = Rect::new(0., top, 0.38, 0.23);
+            text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal);
 
-        let r = Rect::new(0., top, 0.38, 0.23);
-        text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal);
+            let r = Rect::new(r.right() + 0.02, top, 0.29, 0.23);
+            text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack);
 
-        let r = Rect::new(r.right() + 0.02, top, 0.29, 0.23);
-        text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack);
+            let lf = r.right() + 0.02;
 
-        let lf = r.right() + 0.02;
+            s.render_fader(ui, |ui| {
+                let r = Rect::new(lf, top, 0.11, 0.11);
+                self.btn_msg.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let r = r.feather(-0.01);
+                    ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
+                    if self.has_new {
+                        let pad = 0.007;
+                        ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
+                    }
+                });
 
-        s.render_fader(ui, |ui| {
-            let r = Rect::new(lf, top, 0.11, 0.11);
-            self.btn_msg.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.4));
-                let r = r.feather(-0.01);
-                ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
-                if self.has_new {
-                    let pad = 0.007;
-                    ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
-                }
-            });
-
-            let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
-            self.btn_settings.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.4));
-                let r = r.feather(0.004);
-                ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
+                let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
+                self.btn_settings.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let r = r.feather(0.004);
+                    ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
+                });
             });
         });
-
-        gl.pop_model_matrix();
     }
 }
 
@@ -338,7 +368,7 @@ impl Page for HomePage {
         if self.login.touch(touch, s.t) {
             return Ok(true);
         }
-        if self.char_screen_p.now(t) < 1e-3 {
+        if self.char_screen_p.now(t) < 1e-2 {
             self.btn_play_3d.touch(touch, t);
             if self.btn_play.touch(touch, t) {
                 button_hit_large();
@@ -366,6 +396,13 @@ impl Page for HomePage {
             if self.btn_settings.touch(touch, t) {
                 self.next_page = Some(NextPage::Overlay(Box::new(SettingsPage::new(self.icons.icon.clone(), self.icons.lang.clone()))));
                 return Ok(true);
+            }
+        } else {
+            if self.char_scroll.touch(touch, t) {
+                return Ok(true);
+            }
+            if self.char_edit_btn.touch(touch) {
+                let _ = open_url("https://phira.moe/settings/account");
             }
         }
         if self.btn_user.touch(touch, t) {
@@ -396,11 +433,12 @@ impl Page for HomePage {
         let t = s.t;
         self.login.update(t)?;
         let current_user = Some(get_data().me.as_ref().map_or(-1, |it| it.id));
+        self.char_scroll.update(t);
         if self.char_last_user_id != current_user {
             let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
             self.char_last_user_id = current_user;
             self.char_fetch_task =
-                Some(Task::new(async move { Ok(recv_raw(Client::get(&format!("/me/char?locale={locale}"))).await?.json().await?) }));
+                Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
         }
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {
@@ -515,6 +553,21 @@ impl Page for HomePage {
                 self.check_update_task = None;
             }
         }
+        if let Some(task) = &mut self.check_bold_font_update_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        warn!("fail to check bold font update {:?}", err);
+                    }
+                    Ok(None) => {}
+                    Ok(Some(parsed)) => {
+                        info!(cksum = parsed.1, "new bold font");
+                        set_bold_font(parsed);
+                    }
+                }
+                self.check_bold_font_update_task = None;
+            }
+        }
         if let Some(task) = &mut self.char_illu_task {
             if let Some(res) = task.take() {
                 match res {
@@ -524,7 +577,7 @@ impl Page for HomePage {
                     Ok(image) => {
                         self.char_appear_p.goto(1., t, 0.5);
                         let tex: SafeTexture = image.into();
-                        self.char_illu = Some(tex);
+                        self.char_illu = Some(tex.with_mipmap());
                     }
                 }
                 self.char_illu_task = None;
@@ -562,7 +615,7 @@ impl Page for HomePage {
             if let Some(illu) = &self.char_illu {
                 let p = self.char_appear_p.now(t);
                 let r = Rect::new(r.x, r.y + (1. - p) * 0.05, r.w, r.h);
-                ui.fill_rect(r, (**illu, r, ScaleType::CropCenter, semi_white(p)));
+                ui.fill_rect(ui.screen_rect(), (**illu, r, ScaleType::CropCenter, semi_white(p)));
             }
             self.char_btn.set(ui, r);
 
@@ -577,7 +630,11 @@ impl Page for HomePage {
                     let mut r = Rect::new(r.x, r.y + 0.14, r.w, r.h - 0.14);
                     ui.fill_rect(r, semi_black(0.3));
                     ui.fill_rect(Rect::new(r.x, r.y, 0.01, r.h), WHITE);
-                    ui.text(tl!("change-char")).pos(r.x + 0.01, r.bottom() + 0.01).size(0.3).draw();
+                    let mut t = ui.text(tl!("change-char")).pos(r.x + 0.01, r.bottom() + 0.015).size(0.3);
+                    let ir = t.measure().feather(0.007);
+                    t.ui.fill_rect(ir, semi_black(0.2));
+                    self.char_edit_btn.set(t.ui, ir);
+                    t.draw();
                     let pad = 0.01;
 
                     let mut t = ui
@@ -603,8 +660,18 @@ impl Page for HomePage {
                     r.x += 0.01;
                     r.w -= 0.01;
 
-                    let r = r.feather(-0.03);
-                    ui.text(&self.character.intro).pos(r.x, r.y).max_width(r.w).multiline().size(0.4).draw();
+                    self.char_scroll.size((r.w, r.h));
+                    ui.scope(|ui| {
+                        ui.dx(r.x);
+                        ui.dy(r.y);
+                        let ow = r.w;
+                        self.char_scroll.render(ui, |ui| {
+                            let r = Rect::new(0., 0., r.w, r.h);
+                            let r = r.feather(-0.03);
+                            let r = ui.text(&self.character.intro).pos(r.x, r.y).max_width(r.w).multiline().size(0.4).draw();
+                            (ow, r.h + 0.1)
+                        });
+                    });
                 });
 
                 let r = Rect::new(r.x, r.y, 0.4, 0.12);
@@ -614,18 +681,22 @@ impl Page for HomePage {
                         .text(&self.character.name)
                         .pos(r.x + (1. - cp) * 0.12 + 0.01, r.center().y)
                         .anchor(0., 0.5)
-                        .no_baseline()
-                        .size(1.4)
+                        .size(self.character.name_size.unwrap_or(1.4))
                         .draw_using(&BOLD_FONT);
-                    let mut t = ui
-                        .text(format!("DESIGNED BY {}", self.character.designer))
-                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() - 0.01)
+
+                    let off = if self.character.baseline { 0. } else { 0.01 };
+                    ui.text(format!("Artist: {}", self.character.artist))
+                        .pos(r.right() + (1. - cp) * 0.1 + 0.02, r.bottom() + off - 0.03)
                         .anchor(0., 1.)
                         .size(0.34)
-                        .color(semi_white(0.6));
-                    let r = t.measure();
-                    t.ui.fill_rect(r.feather(0.01), semi_black(0.2));
-                    t.draw();
+                        .color(semi_white(0.7))
+                        .draw();
+                    ui.text(format!("Designer: {}", self.character.designer))
+                        .pos(r.right() + (1. - cp) * 0.1 + 0.016, r.bottom() + off)
+                        .anchor(0., 1.)
+                        .size(0.34)
+                        .color(semi_white(0.7))
+                        .draw();
                 });
 
                 gl.pop_model_matrix();
