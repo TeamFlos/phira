@@ -16,7 +16,7 @@ aa = []
 [dependencies]
 anyhow = "1.0"
 arc-swap = "1.6.0"
-base64 = "0.20"
+base64 = "0.21"
 bitflags = "2.2.1"
 bytes = "1.4.0"
 cacache = { version = "*", default-features = false, features = ["tokio-runtime"] }
@@ -24,14 +24,14 @@ chrono = { version = "0.4.23", features = ["serde"] }
 futures-util = "0.3.25"
 hex = "0.4.3"
 image = "*"
-lru = "0.9.0"
+lru = "0.12.1"
 lyon = "*"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
 md5 = "0.7"
 nalgebra = "*"
 once_cell = "*"
 openssl = { version = "*", features = ["vendored"] }
-pollster = "0.2.5"
+pollster = "0.3.0"
 prpr = { path = "../prpr", features = ["log"] }
 rand = "0.8.5"
 regex = "1.7.0"
@@ -46,7 +46,7 @@ tokio = { version = "*", features = ["rt-multi-thread", "sync"] }
 tracing = "0.1.37"
 walkdir = "2.3.3"
 zip = "0.6.4"
-zstd = "0.12"
+zstd = "0.13"
 
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp" }
