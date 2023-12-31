@@ -255,44 +255,43 @@ impl HomePage {
         let pad = 0.04;
         // play button
         let r = Rect::new(0., -0.33, 0.83, 0.45);
-        let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.push_model_matrix(self.btn_play_3d.now(ui, r, t));
-        let top = s.render_fader(ui, |ui| {
-            let top = r.bottom() + 0.02;
-            let rad = self.btn_play.config.radius;
-            self.btn_play.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.4));
-                if let Some(cur) = &self.board_tex {
-                    let p = (t - self.board_last_time) / BOARD_TRANSIT_TIME;
-                    if p > 1. {
-                        self.board_tex_last = None;
-                        ui.fill_path(&path, (**cur, r));
-                    } else if let Some(last) = &self.board_tex_last {
-                        let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
-                        let p = 1. - (1. - p).powi(3);
-                        let p = if self.board_dir { 1. - p } else { p };
-                        clip_rounded_rect(ui, r, rad, |ui| {
-                            let mut nr = r;
-                            nr.h = r.h * (1. - p);
-                            ui.fill_rect(nr, (**last, nr));
+        let mat = self.btn_play_3d.now(ui, r, t);
+        let top = ui.with_gl(mat, |ui| {
+            s.render_fader(ui, |ui| {
+                let top = r.bottom() + 0.02;
+                let rad = self.btn_play.config.radius;
+                self.btn_play.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    if let Some(cur) = &self.board_tex {
+                        let p = (t - self.board_last_time) / BOARD_TRANSIT_TIME;
+                        if p > 1. {
+                            self.board_tex_last = None;
+                            ui.fill_path(&path, (**cur, r));
+                        } else if let Some(last) = &self.board_tex_last {
+                            let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
+                            let p = 1. - (1. - p).powi(3);
+                            let p = if self.board_dir { 1. - p } else { p };
+                            clip_rounded_rect(ui, r, rad, |ui| {
+                                let mut nr = r;
+                                nr.h = r.h * (1. - p);
+                                ui.fill_rect(nr, (**last, nr));
 
-                            nr.h = r.h * p;
-                            nr.y = r.bottom() - nr.h;
-                            ui.fill_rect(nr, (**cur, nr));
-                        });
-                    } else {
-                        ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p)));
+                                nr.h = r.h * p;
+                                nr.y = r.bottom() - nr.h;
+                                ui.fill_rect(nr, (**cur, nr));
+                            });
+                        } else {
+                            ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p)));
+                        }
                     }
-                }
-                ui.fill_path(&path, (semi_black(0.7), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
-                ui.text(tl!("play")).pos(r.x + pad, r.y + pad).draw();
-                let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
-                ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6)));
-            });
-            top + 0.03
+                    ui.fill_path(&path, (semi_black(0.7), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
+                    ui.text(tl!("play")).pos(r.x + pad, r.y + pad).draw();
+                    let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
+                    ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6)));
+                });
+                top + 0.03
+            })
         });
-        unsafe { get_internal_gl() }.flush();
-        gl.pop_model_matrix();
 
         let text_and_icon = |s: &mut SharedState, ui: &mut Ui, r: Rect, btn: &mut DRectButton, text, icon| {
             let ow = r.w;
@@ -313,37 +312,36 @@ impl HomePage {
             });
         };
 
-        gl.push_model_matrix(self.btn_other_3d.now(ui, Rect::new(0., top - 0.4, 0.83, 0.23), t));
+        let mat = self.btn_other_3d.now(ui, Rect::new(0., top - 0.4, 0.83, 0.23), t);
+        ui.with_gl(mat, |ui| {
+            let r = Rect::new(0., top, 0.38, 0.23);
+            text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal);
 
-        let r = Rect::new(0., top, 0.38, 0.23);
-        text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal);
+            let r = Rect::new(r.right() + 0.02, top, 0.29, 0.23);
+            text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack);
 
-        let r = Rect::new(r.right() + 0.02, top, 0.29, 0.23);
-        text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack);
+            let lf = r.right() + 0.02;
 
-        let lf = r.right() + 0.02;
+            s.render_fader(ui, |ui| {
+                let r = Rect::new(lf, top, 0.11, 0.11);
+                self.btn_msg.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let r = r.feather(-0.01);
+                    ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
+                    if self.has_new {
+                        let pad = 0.007;
+                        ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
+                    }
+                });
 
-        s.render_fader(ui, |ui| {
-            let r = Rect::new(lf, top, 0.11, 0.11);
-            self.btn_msg.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.4));
-                let r = r.feather(-0.01);
-                ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
-                if self.has_new {
-                    let pad = 0.007;
-                    ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
-                }
-            });
-
-            let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
-            self.btn_settings.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.4));
-                let r = r.feather(0.004);
-                ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
+                let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
+                self.btn_settings.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let r = r.feather(0.004);
+                    ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
+                });
             });
         });
-
-        gl.pop_model_matrix();
     }
 }
 
@@ -633,9 +631,9 @@ impl Page for HomePage {
                     ui.fill_rect(r, semi_black(0.3));
                     ui.fill_rect(Rect::new(r.x, r.y, 0.01, r.h), WHITE);
                     let mut t = ui.text(tl!("change-char")).pos(r.x + 0.01, r.bottom() + 0.015).size(0.3);
-                    // let ir = t.measure().feather(0.007);
-                    // t.ui.fill_rect(ir, semi_black(0.2));
-                    // self.char_edit_btn.set(t.ui, ir);
+                    let ir = t.measure().feather(0.007);
+                    t.ui.fill_rect(ir, semi_black(0.2));
+                    self.char_edit_btn.set(t.ui, ir);
                     t.draw();
                     let pad = 0.01;
 

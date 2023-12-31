@@ -132,7 +132,7 @@ impl<T: Shading> VertexBuilder<T> {
 
 #[derive(Clone, Copy)]
 pub struct RectButton {
-    pub rect: Rect,
+    pts: [Vec2; 4],
     id: Option<u64>,
 }
 
@@ -145,7 +145,7 @@ impl Default for RectButton {
 impl RectButton {
     pub fn new() -> Self {
         Self {
-            rect: Rect::default(),
+            pts: [vec2(0., 0.); 4],
             id: None,
         }
     }
@@ -154,12 +154,31 @@ impl RectButton {
         self.id.is_some()
     }
 
+    pub fn contains(&self, pos: Vec2) -> bool {
+        let [a, b, c, d] = self.pts;
+        let abp = (b - a).perp_dot(pos - a);
+        let bcp = (c - b).perp_dot(pos - b);
+        let cdp = (d - c).perp_dot(pos - c);
+        let dap = (a - d).perp_dot(pos - d);
+        (abp >= 0. && bcp >= 0. && cdp >= 0. && dap >= 0.) || (abp <= 0. && bcp <= 0. && cdp <= 0. && dap <= 0.)
+    }
+
     pub fn set(&mut self, ui: &mut Ui, rect: Rect) {
-        self.rect = ui.rect_to_global(rect);
+        let mat = nalgebra_to_glm(&ui.transform) * ui.gl_transform;
+        let tr = |x: f32, y: f32| {
+            let pos = mat * vec4(x, y, 0., 1.);
+            pos.xy() / pos.w
+        };
+        self.pts = [
+            tr(rect.x, rect.y),
+            tr(rect.right(), rect.y),
+            tr(rect.right(), rect.bottom()),
+            tr(rect.x, rect.bottom()),
+        ];
     }
 
     pub fn touch(&mut self, touch: &Touch) -> bool {
-        let inside = self.rect.contains(touch.position);
+        let inside = self.contains(touch.position);
         match touch.phase {
             TouchPhase::Started => {
                 if inside {
@@ -186,7 +205,7 @@ impl RectButton {
 
 #[derive(Clone)]
 pub struct DRectButton {
-    inner: RectButton,
+    pub inner: RectButton,
     last_touching: bool,
     start_time: Option<f32>,
     pub config: ShadowConfig,
@@ -228,7 +247,7 @@ impl DRectButton {
     }
 
     pub fn invalidate(&mut self) {
-        self.inner.rect = Rect::default();
+        self.inner.pts = [vec2(0., 0.); 4];
     }
 
     pub fn render_shadow(&mut self, ui: &mut Ui, r: Rect, t: f32, f: impl FnOnce(&mut Ui, Path)) {
@@ -526,6 +545,7 @@ pub struct Ui<'a> {
     pub text_painter: &'a mut TextPainter,
 
     pub transform: Matrix,
+    pub gl_transform: Mat4,
     scissor: Option<(i32, i32, i32, i32)>,
     touches: Option<Vec<Touch>>,
 
@@ -553,6 +573,7 @@ impl<'a> Ui<'a> {
             text_painter,
 
             transform: Matrix::identity(),
+            gl_transform: Mat4::IDENTITY,
             scissor: None,
             touches: None,
 
@@ -726,6 +747,18 @@ impl<'a> Ui<'a> {
         self.transform = Matrix::identity();
         let res = f(self);
         self.transform = old;
+        res
+    }
+
+    #[inline]
+    pub fn with_gl<R>(&mut self, transform: Mat4, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = self.gl_transform;
+        self.gl_transform = old * transform;
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.push_model_matrix(self.gl_transform);
+        let res = f(self);
+        self.gl_transform = old;
+        gl.pop_model_matrix();
         res
     }
 
