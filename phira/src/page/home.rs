@@ -368,7 +368,7 @@ impl Page for HomePage {
         if self.login.touch(touch, s.t) {
             return Ok(true);
         }
-        if self.char_screen_p.now(t) < 1e-2 {
+        if self.char_screen_p.now(rt) < 1e-2 {
             self.btn_play_3d.touch(touch, t);
             if self.btn_play.touch(touch, t) {
                 button_hit_large();
@@ -614,7 +614,8 @@ impl Page for HomePage {
             let r = Rect::new(-1. + 0.14 * cp, -ui.top + 0.12, 1., 1.7);
             if let Some(illu) = &self.char_illu {
                 let p = self.char_appear_p.now(t);
-                let r = Rect::new(r.x, r.y + (1. - p) * 0.05, r.w, r.h);
+                let (ox, oy, ow, oh) = self.character.illu_adjust;
+                let r = Rect::new(r.x + ox, r.y + (1. - p) * 0.05 + oy, r.w + ow, r.h + oh);
                 ui.fill_rect(ui.screen_rect(), (**illu, r, ScaleType::CropCenter, semi_white(p)));
             }
             self.char_btn.set(ui, r);
