@@ -6,6 +6,8 @@ use serde::Deserialize;
 #[serde(rename_all = "camelCase")]
 pub struct Collection {
     pub id: i32,
+    #[serde(default)]
+    pub cover: Option<String>,
     pub owner: Ptr<User>,
     pub name: String,
     pub description: String,

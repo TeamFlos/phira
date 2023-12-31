@@ -1,6 +1,6 @@
 prpr::tl_file!("library");
 
-use super::{Page, SharedState};
+use super::{CollectionPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
     client::{Chart, Client},
@@ -15,7 +15,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
 use prpr::{
-    ext::{semi_black, JoinToString, RectExt, SafeTexture, ScaleType},
+    ext::{semi_black, JoinToString, RectExt, SafeTexture, ScaleType, LocalTask, poll_future},
     scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
     task::Task,
     ui::{button_hit, DRectButton, RectButton, Ui},
@@ -83,6 +83,9 @@ pub struct LibraryPage {
     rating: RateDialog,
     rating_last_show: bool,
     filter_show_tag: bool,
+
+    next_page: Option<NextPage>,
+    next_page_task: LocalTask<Result<NextPage>>,
 }
 
 impl LibraryPage {
@@ -128,6 +131,9 @@ impl LibraryPage {
             }),
             rating_last_show: false,
             filter_show_tag: true,
+
+            next_page: None,
+            next_page_task: None,
         })
     }
 }
@@ -233,8 +239,12 @@ impl LibraryPage {
     fn sync_local(&mut self, s: &SharedState) {
         let list = self.tabs.selected_mut();
         if list.ty == ChartListType::Local {
-            list.view
-                .set(s.t, s.charts_local.iter().map(|it| ChartDisplayItem::new(it.clone(), None)).collect());
+            list.view.set(
+                s.t,
+                std::iter::once(ChartDisplayItem::new(None, None))
+                    .chain(s.charts_local.iter().map(|it| ChartDisplayItem::new(Some(it.clone()), None)))
+                    .collect(),
+            );
         }
     }
 }
@@ -348,6 +358,19 @@ impl Page for LibraryPage {
                     self.current_page = 0;
                     self.load_online();
                 }
+            }
+        }
+        if self.tabs.selected_mut().view.clicked_special {
+            let icons = Arc::clone(&self.icons);
+            self.next_page_task = Some(Box::pin(async move {
+                Ok(NextPage::Overlay(Box::new(CollectionPage::new(icons).await?)))
+            }));
+            self.tabs.selected_mut().view.clicked_special = false;
+        }
+        if let Some(task) = &mut self.next_page_task {
+            if let Some(res) = poll_future(task.as_mut()) {
+                self.next_page = Some(res?);
+                self.next_page_task = None;
             }
         }
 
@@ -515,6 +538,10 @@ impl Page for LibraryPage {
     fn render_top(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
         self.tabs.selected_mut().view.render_top(ui, s.t);
         Ok(())
+    }
+
+    fn next_page(&mut self) -> NextPage {
+        self.next_page.take().unwrap_or_default()
     }
 
     fn next_scene(&mut self, _s: &mut SharedState) -> NextScene {

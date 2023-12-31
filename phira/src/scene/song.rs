@@ -346,7 +346,8 @@ impl SongScene {
             .charts
             .iter()
             .find(|it| Some(&it.local_path) == local_path.as_ref())
-            .and_then(|it| it.record.clone());
+            .and_then(|it| it.record.clone())
+            .or_else(|| local_path.as_ref().and_then(|path| get_data().local_records.get(path).cloned().flatten()));
         let fetch_best_task = if get_data().me.is_some() {
             chart.info.id.map(|id| Task::new(Client::best_record(id)))
         } else {
@@ -612,11 +613,17 @@ impl SongScene {
     }
 
     fn update_record(&mut self, new_rec: SimpleRecord) -> Result<()> {
-        let chart = get_data_mut()
+        let rec = get_data_mut()
             .charts
             .iter_mut()
-            .find(|it| Some(&it.local_path) == self.local_path.as_ref());
-        let Some(chart) = chart else {
+            .find(|it| Some(&it.local_path) == self.local_path.as_ref())
+            .map(|it| &mut it.record)
+            .or_else(|| {
+                self.local_path
+                    .clone()
+                    .map(|path| get_data_mut().local_records.entry(path).or_insert(None))
+            });
+        let Some(rec) = rec else {
             if let Some(rec) = &mut self.record {
                 rec.update(&new_rec);
             } else {
@@ -624,21 +631,21 @@ impl SongScene {
             }
             return Ok(());
         };
-        if let Some(rec) = &mut chart.record {
+        if let Some(rec) = rec {
             if rec.update(&new_rec) {
                 save_data()?;
             }
         } else {
-            chart.record = Some(new_rec);
+            *rec = Some(new_rec);
             save_data()?;
         }
-        self.record = chart.record.clone();
+        self.record = rec.clone();
         Ok(())
     }
 
     fn update_menu(&mut self) {
         self.menu_options.clear();
-        if self.local_path.is_some() {
+        if self.local_path.as_ref().map_or(false, |it| !it.starts_with(':')) {
             self.menu_options.push("delete");
         }
         if self.info.id.is_some() {
@@ -680,7 +687,7 @@ impl SongScene {
         {
             self.menu_options.push("review-del");
         }
-        self.menu.set_options(self.menu_options.iter().map(|it| tl!(it).into_owned()).collect());
+        self.menu.set_options(self.menu_options.iter().map(|it| tl!(*it).into_owned()).collect());
     }
 
     fn launch(&mut self, mode: GameMode) -> Result<()> {
@@ -707,14 +714,15 @@ impl SongScene {
         record: Option<SimpleRecord>,
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
+        let can_rated = id.is_some() || local_path.starts_with(':');
         #[cfg(feature = "closed")]
         let rated = {
             let config = &get_data().config;
-            !config.offline_mode && id.is_some() && !mods.contains(Mods::AUTOPLAY) && config.speed >= 1.0 - 1e-3
+            !config.offline_mode && can_rated && !mods.contains(Mods::AUTOPLAY) && config.speed >= 1.0 - 1e-3
         };
         #[cfg(not(feature = "closed"))]
         let rated = false;
-        if !rated && id.is_some() && mode == GameMode::Normal {
+        if !rated && can_rated && mode == GameMode::Normal {
             show_message(tl!("warn-unrated")).warn();
         }
         let update_fn = client.and_then(|mut client| {
@@ -1332,10 +1340,12 @@ impl Scene for SongScene {
             if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
                 if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
                     if matches!(self.side_content, SideContent::Mods) {
-                        let chart = &mut get_data_mut().charts[get_data().find_chart_by_path(self.local_path.as_deref().unwrap()).unwrap()];
-                        if chart.mods != self.mods {
-                            chart.mods = self.mods;
-                            save_data()?;
+                        if let Some(index) = get_data().find_chart_by_path(self.local_path.as_deref().unwrap()) {
+                            let chart = &mut get_data_mut().charts[index];
+                            if chart.mods != self.mods {
+                                chart.mods = self.mods;
+                                save_data()?;
+                            }
                         }
                     }
                     self.side_enter_time = -tm.real_time() as _;
@@ -2212,9 +2222,11 @@ impl Scene for SongScene {
                 ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
-                ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
-                self.edit_btn.set(ui, r);
-                ui.dx(-r.w - 0.03);
+                if self.local_path.as_ref().map_or(true, |it| !it.starts_with(':')) {
+                    ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
+                    self.edit_btn.set(ui, r);
+                    ui.dx(-r.w - 0.03);
+                }
                 ui.fill_rect(r, (*self.icons.r#mod, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                 self.mod_btn.set(ui, r);
             });
