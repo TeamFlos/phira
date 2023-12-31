@@ -10,7 +10,7 @@ use prpr::{
     scene::SimpleRecord,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, ops::DerefMut, path::Path};
+use std::{collections::{HashSet, HashMap}, ops::DerefMut, path::Path};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,6 +64,7 @@ pub struct LocalChart {
 pub struct Data {
     pub me: Option<User>,
     pub charts: Vec<LocalChart>,
+    pub local_records: HashMap<String, Option<SimpleRecord>>,
     pub config: Config,
     pub message_check_time: Option<DateTime<Utc>>,
     pub language: Option<String>,

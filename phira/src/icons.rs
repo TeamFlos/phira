@@ -25,6 +25,8 @@ pub struct Icons {
     pub filter: SafeTexture,
     pub r#mod: SafeTexture,
     pub star: SafeTexture,
+
+    pub r#abstract: SafeTexture,
 }
 
 impl Icons {
@@ -51,6 +53,8 @@ impl Icons {
             filter: SafeTexture::from(load_texture("filter.png").await?).with_mipmap(),
             r#mod: SafeTexture::from(load_texture("mod.png").await?).with_mipmap(),
             star: SafeTexture::from(load_texture("star.png").await?).with_mipmap(),
+
+            r#abstract: load_texture("abstract.jpg").await?.into(),
         })
     }
 }

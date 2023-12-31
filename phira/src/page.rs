@@ -1,3 +1,6 @@
+mod coll;
+pub use coll::CollectionPage;
+
 mod event;
 pub use event::EventPage;
 
@@ -132,6 +135,16 @@ impl Illustration {
         }
     }
 
+    pub fn from_done(tex: SafeTexture) -> Self {
+        Self {
+            texture: (tex.clone(), tex),
+            notify: Arc::default(),
+            task: None,
+            loaded: Arc::default(),
+            load_time: f32::NAN,
+        }
+    }
+
     pub fn notify(&self) {
         self.notify.notify_one();
     }
@@ -155,6 +168,8 @@ impl Illustration {
                 self.load_time = t;
                 self.task = None;
             }
+        } else if self.load_time.is_nan() {
+            self.load_time = t;
         }
     }
 

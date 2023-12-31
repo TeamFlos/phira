@@ -132,7 +132,7 @@ impl<T: Shading> VertexBuilder<T> {
 
 #[derive(Clone, Copy)]
 pub struct RectButton {
-    pts: [Vec2; 4],
+    pts: Option<[Vec2; 4]>,
     id: Option<u64>,
 }
 
@@ -144,10 +144,7 @@ impl Default for RectButton {
 
 impl RectButton {
     pub fn new() -> Self {
-        Self {
-            pts: [vec2(0., 0.); 4],
-            id: None,
-        }
+        Self { pts: None, id: None }
     }
 
     pub fn touching(&self) -> bool {
@@ -155,12 +152,15 @@ impl RectButton {
     }
 
     pub fn contains(&self, pos: Vec2) -> bool {
-        let [a, b, c, d] = self.pts;
-        let abp = (b - a).perp_dot(pos - a);
-        let bcp = (c - b).perp_dot(pos - b);
-        let cdp = (d - c).perp_dot(pos - c);
-        let dap = (a - d).perp_dot(pos - d);
-        (abp >= 0. && bcp >= 0. && cdp >= 0. && dap >= 0.) || (abp <= 0. && bcp <= 0. && cdp <= 0. && dap <= 0.)
+        if let Some([a, b, c, d]) = self.pts {
+            let abp = (b - a).perp_dot(pos - a);
+            let bcp = (c - b).perp_dot(pos - b);
+            let cdp = (d - c).perp_dot(pos - c);
+            let dap = (a - d).perp_dot(pos - d);
+            (abp >= 0. && bcp >= 0. && cdp >= 0. && dap >= 0.) || (abp <= 0. && bcp <= 0. && cdp <= 0. && dap <= 0.)
+        } else {
+            false
+        }
     }
 
     pub fn set(&mut self, ui: &mut Ui, rect: Rect) {
@@ -169,12 +169,12 @@ impl RectButton {
             let pos = mat * vec4(x, y, 0., 1.);
             pos.xy() / pos.w
         };
-        self.pts = [
+        self.pts = Some([
             tr(rect.x, rect.y),
             tr(rect.right(), rect.y),
             tr(rect.right(), rect.bottom()),
             tr(rect.x, rect.bottom()),
-        ];
+        ]);
     }
 
     pub fn touch(&mut self, touch: &Touch) -> bool {
@@ -247,7 +247,7 @@ impl DRectButton {
     }
 
     pub fn invalidate(&mut self) {
-        self.inner.pts = [vec2(0., 0.); 4];
+        self.inner.pts = None;
     }
 
     pub fn render_shadow(&mut self, ui: &mut Ui, r: Rect, t: f32, f: impl FnOnce(&mut Ui, Path)) {
@@ -758,7 +758,7 @@ impl<'a> Ui<'a> {
         gl.push_model_matrix(transform);
         let res = f(self);
         self.gl_transform = old;
-        unsafe{get_internal_gl()}.flush();
+        unsafe { get_internal_gl() }.flush();
         gl.pop_model_matrix();
         res
     }

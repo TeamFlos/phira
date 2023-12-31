@@ -27,7 +27,7 @@ use prpr::{
     l10n::LANG_IDENTS,
     scene::{show_error, NextScene},
     task::Task,
-    ui::{button_hit_large, clip_rounded_rect, DRectButton, Dialog, FontArc, RectButton, Scroll, Ui},
+    ui::{button_hit_large, clip_rounded_rect, ClipType, DRectButton, Dialog, FontArc, RectButton, Scroll, Ui},
 };
 use reqwest::StatusCode;
 use serde::Deserialize;
@@ -195,7 +195,7 @@ impl HomePage {
             char_btn: RectButton::new(),
             char_text_start: 0.,
             char_cached_size: 0.,
-            char_scroll: Scroll::new().use_clip(),
+            char_scroll: Scroll::new().use_clip(ClipType::Clip),
             char_edit_btn: RectButton::new(),
         };
         res.load_char_illu();

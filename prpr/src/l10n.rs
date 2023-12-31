@@ -141,7 +141,7 @@ pub static GENERATION: AtomicU8 = AtomicU8::new(0);
 
 pub struct L10nLocal {
     bundles: &'static L10nBundles,
-    cache: LruCache<&'static str, (usize, &'static Pattern<&'static str>)>,
+    cache: LruCache<Cow<'static, str>, (usize, &'static Pattern<&'static str>)>,
     generation: u8,
 }
 
@@ -154,17 +154,17 @@ impl L10nLocal {
         }
     }
 
-    fn format_with_errors<'s>(&mut self, key: &'static str, args: Option<&'s FluentArgs<'s>>, errors: &mut Vec<FluentError>) -> Cow<'s, str> {
+    fn format_with_errors<'s>(&mut self, key: Cow<'static, str>, args: Option<&'s FluentArgs<'s>>, errors: &mut Vec<FluentError>) -> Cow<'s, str> {
         let gen = GENERATION.load(Ordering::Relaxed);
         if gen > self.generation {
             self.generation = gen;
             self.cache.clear();
         }
-        let (id, pattern) = self.cache.get_or_insert(key, || {
+        let (id, pattern) = self.cache.get_or_insert(key.clone(), || {
             let guard = GLOBAL.order.lock().unwrap();
             if let Some((id, message)) = guard
                 .iter()
-                .filter_map(|id| self.bundles.inner[*id].get_message(key).map(|msg| (*id, msg)))
+                .filter_map(|id| self.bundles.inner[*id].get_message(&key).map(|msg| (*id, msg)))
                 .next()
             {
                 return (id, message.value().unwrap());
@@ -174,9 +174,10 @@ impl L10nLocal {
         unsafe { std::mem::transmute(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
     }
 
-    pub fn format<'s>(&mut self, key: &'static str, args: Option<&'s FluentArgs<'s>>) -> Cow<'s, str> {
+    pub fn format<'s>(&mut self, key: impl Into<Cow<'static, str>>, args: Option<&'s FluentArgs<'s>>) -> Cow<'s, str> {
         let mut errors = Vec::new();
-        let res = self.format_with_errors(key, args, &mut errors);
+        let key: Cow<'static, str> = key.into();
+        let res = self.format_with_errors(key.clone(), args, &mut errors);
         for error in errors {
             warn!("l10n error {key}: {error:?}");
         }
