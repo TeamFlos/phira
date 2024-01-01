@@ -107,20 +107,22 @@ impl Page for CollectionPage {
         if self.scroll.touch(touch, rt) {
             return Ok(true);
         }
-        for coll in &mut self.colls {
-            if coll.btn.touch(touch) {
-                if coll.id != "@" {
-                    self.transit_id = Some(coll.id.clone());
-                    let id = coll.id.clone();
-                    let icons = Arc::clone(&self.icons);
-                    let rank_icons = s.icons.clone();
-                    let illu = coll.illu.texture.1.clone();
-                    self.scene_task = Some(Box::pin(async move {
-                        let scene = ChapterScene::new(id, icons, rank_icons, illu).await?;
-                        Ok(NextScene::Overlay(Box::new(scene)))
-                    }));
+        if self.transit.is_none() {
+            for coll in &mut self.colls {
+                if coll.btn.touch(touch) {
+                    if coll.id != "@" {
+                        self.transit_id = Some(coll.id.clone());
+                        let id = coll.id.clone();
+                        let icons = Arc::clone(&self.icons);
+                        let rank_icons = s.icons.clone();
+                        let illu = coll.illu.texture.1.clone();
+                        self.scene_task = Some(Box::pin(async move {
+                            let scene = ChapterScene::new(id, icons, rank_icons, illu).await?;
+                            Ok(NextScene::Overlay(Box::new(scene)))
+                        }));
+                    }
+                    return Ok(true);
                 }
-                return Ok(true);
             }
         }
         Ok(false)

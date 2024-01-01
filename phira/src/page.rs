@@ -1,4 +1,4 @@
-mod coll;
+pub mod coll;
 pub use coll::CollectionPage;
 
 mod event;
