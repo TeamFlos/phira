@@ -177,6 +177,7 @@ impl JudgeLine {
     pub fn render(&self, ui: &mut Ui, res: &mut Resource, lines: &[JudgeLine], bpm_list: &mut BpmList, settings: &ChartSettings, id: usize) {
         let alpha = self.object.alpha.now_opt().unwrap_or(1.0) * res.alpha;
         let color = self.color.now_opt();
+        let line_scaled = (self.object.scale.1.now() - 1.).abs() > 1e-4;
         res.with_model(self.now_transform(res, lines), |res| {
             if res.config.chart_debug {
                 res.apply_model(|_| {
@@ -189,12 +190,12 @@ impl JudgeLine {
                         let mut color = color.unwrap_or(res.judge_line_color);
                         color.a *= alpha.max(0.0);
                         let len = res.info.line_length;
-                        draw_line(-len, 0., len, 0., 0.01, color);
+                        draw_line(-len, 0., len, 0., if line_scaled { 0.0076 } else { 0.01 }, color);
                     }
                     JudgeLineKind::Texture(texture, _) => {
                         let mut color = color.unwrap_or(WHITE);
                         color.a = alpha.max(0.0);
-                        let hf = vec2(texture.width() / res.aspect_ratio, texture.height() / res.aspect_ratio);
+                        let hf = vec2(texture.width(), texture.height());
                         draw_texture_ex(
                             **texture,
                             -hf.x / 2.,
