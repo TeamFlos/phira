@@ -386,7 +386,8 @@ impl ChartsView {
                                     ui.fill_path(&path, (*self.icons.r#abstract, r));
                                     ui.fill_path(&path, semi_black(0.2));
                                     let ct = r.center();
-                                    ui.text("更多谱面")
+                                    use crate::page::coll::*;
+                                    ui.text(tl!("label"))
                                         .pos(ct.x, ct.y)
                                         .anchor(0.5, 0.5)
                                         .no_baseline()

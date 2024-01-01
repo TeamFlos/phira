@@ -103,7 +103,7 @@ impl ChapterScene {
 
     pub async fn new(id: String, icons: Arc<Icons>, rank_icons: [SafeTexture; 8], cover: SafeTexture) -> Result<Self> {
         let songs = match id.as_str() {
-            "c1" => vec!["snow"],
+            "c1" => vec!["snow", "jumping23"],
             _ => vec![],
         };
         let mut charts = Vec::with_capacity(songs.capacity());
@@ -329,7 +329,7 @@ impl Scene for ChapterScene {
                     y += step;
                 }
 
-                (step * (self.charts.len() - 1) as f32 + 2., Self::HEIGHT)
+                (Self::WIDTH, step * (self.charts.len() - 1) as f32 + 2.)
             });
         });
 
