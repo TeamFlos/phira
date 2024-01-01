@@ -329,7 +329,7 @@ impl Scene for ChapterScene {
                     y += step;
                 }
 
-                (Self::WIDTH, step * (self.charts.len() - 1) as f32 + 2.)
+                (Self::WIDTH, step * (self.charts.len() - 1) as f32 + ui.top * 2.)
             });
         });
 
