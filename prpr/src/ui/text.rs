@@ -234,7 +234,6 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
                 } else {
                     ui.text_painter.submit(ui.transform, ui.alpha);
                 }
-                unsafe { get_internal_gl() }.flush();
             });
         self.text = Some(text);
         rect
