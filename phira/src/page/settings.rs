@@ -12,10 +12,11 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
+    core::BOLD_FONT,
     ext::{poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, take_input},
-    ui::{DRectButton, Scroll, Slider, Ui}, core::BOLD_FONT,
+    ui::{DRectButton, Scroll, Slider, Ui},
 };
 use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
@@ -186,7 +187,12 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
 
     let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
     let (first, text) = text.split_once('\n').unwrap();
-    let tr = ui.text(first).pos(ct.x, ir.bottom() + 0.03).anchor(0.5, 0.).size(0.6).draw_using(&BOLD_FONT);
+    let tr = ui
+        .text(first)
+        .pos(ct.x, ir.bottom() + 0.03)
+        .anchor(0.5, 0.)
+        .size(0.6)
+        .draw_using(&BOLD_FONT);
 
     let r = ui
         .text(text.trim())
@@ -513,6 +519,7 @@ struct ChartList {
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
+    desktop_pause_btn: ChooseButton,
     speed_slider: Slider,
     size_slider: Slider,
 }
@@ -524,12 +531,39 @@ impl ChartList {
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
+            desktop_pause_btn: ChooseButton::new()
+                .with_options(
+                    [tl!("esc"), tl!("space"), tl!("esc-and-space"), tl!("none")]
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                )
+                .with_selected(
+                    get_data()
+                        .config
+                        .space_or_esc
+                        .as_ref()
+                        .and_then(|it| {
+                            [
+                                String::from("esc"),
+                                String::from("space"),
+                                String::from("esc-and-space"),
+                                String::from("none"),
+                            ]
+                            .iter()
+                            .position(|i| i == it)
+                        })
+                        .unwrap_or_default(),
+                ),
             speed_slider: Slider::new(0.5..2., 0.05),
             size_slider: Slider::new(0.8..1.2, 0.005),
         }
     }
 
-    pub fn top_touch(&mut self, _touch: &Touch, _t: f32) -> bool {
+    pub fn top_touch(&mut self, touch: &Touch, t: f32) -> bool {
+        if self.desktop_pause_btn.top_touch(touch, t) {
+            return true;
+        }
         false
     }
 
@@ -552,6 +586,9 @@ impl ChartList {
             config.aggressive ^= true;
             return Ok(Some(true));
         }
+        if self.desktop_pause_btn.touch(touch, t) {
+            return Ok(Some(false));
+        }
         if let wt @ Some(_) = self.speed_slider.touch(touch, t, &mut config.speed) {
             return Ok(wt);
         }
@@ -561,7 +598,15 @@ impl ChartList {
         Ok(None)
     }
 
-    pub fn update(&mut self, _t: f32) -> Result<bool> {
+    pub fn update(&mut self, t: f32) -> Result<bool> {
+        self.desktop_pause_btn.update(t);
+        let data = get_data_mut();
+        let config = &mut data.config;
+        if self.desktop_pause_btn.changed() {
+            config.space_or_esc = Some(["esc", "space", "esc-and-space", "none"][self.desktop_pause_btn.selected()].to_string());
+            sync_data();
+            return Ok(true);
+        }
         Ok(false)
     }
 
@@ -596,6 +641,10 @@ impl ChartList {
             render_switch(ui, rr, t, &mut self.opt_btn, config.aggressive);
         }
         item! {
+            render_title(ui, tl!("item-esc-or-space"), Some(tl!("item-esc-or-space-sub")));
+            self.desktop_pause_btn.render(ui, rr, t);
+        }
+        item! {
             render_title(ui, tl!("item-speed"), None);
             self.speed_slider.render(ui, rr, t, config.speed, format!("{:.2}", config.speed));
         }
@@ -603,6 +652,7 @@ impl ChartList {
             render_title(ui, tl!("item-note-size"), None);
             self.size_slider.render(ui, rr, t, config.note_scale, format!("{:.3}", config.note_scale));
         }
+        self.desktop_pause_btn.render_top(ui, t, 1.);
         (w, h)
     }
 }

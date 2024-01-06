@@ -899,8 +899,18 @@ impl Scene for GameScene {
         };
         self.res.judge_line_color.a *= self.res.alpha;
         self.chart.update(&mut self.res);
+
         let res = &mut self.res;
-        if res.config.interactive && is_key_pressed(KeyCode::Space) {
+        let esc_or_space = match res.config.space_or_esc {
+            Some(ref x) => match &x[..] {
+                "esc" => is_key_pressed(KeyCode::Escape),
+                "space" => is_key_pressed(KeyCode::Space),
+                "esc-and-space" => is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape),
+                _ => false,
+            },
+            None => false,
+        };
+        if res.config.interactive && esc_or_space {
             if tm.paused() {
                 if matches!(self.state, State::Playing) {
                     self.music.play()?;
