@@ -16,6 +16,9 @@ mod song;
 use once_cell::sync::Lazy;
 pub use song::{Downloading, SongScene, RECORD_ID};
 
+mod unlock;
+pub use unlock::UnlockScene;
+
 mod profile;
 pub use profile::ProfileScene;
 

@@ -1,6 +1,6 @@
 prpr::tl_file!("song");
 
-use super::{confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene};
+use super::{confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, UnlockScene};
 use crate::{
     charts_view::NEED_UPDATE,
     client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
@@ -655,6 +655,9 @@ impl SongScene {
         if self.local_path.is_some() {
             self.menu_options.push("exercise");
             self.menu_options.push("offset");
+            if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_some() {
+                self.menu_options.push("unlock")
+            }
         }
         let perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default();
         let is_uploader = get_data()
@@ -700,6 +703,21 @@ impl SongScene {
             None,
             Some(self.background.clone()),
             self.record.clone(),
+            false,
+        )?;
+        Ok(())
+    }
+
+    fn unlock(&mut self) -> Result<()> {
+        self.scene_task = Self::global_launch(
+            self.info.id,
+            self.local_path.as_ref().unwrap(),
+            self.mods,
+            GameMode::Normal,
+            None,
+            Some(self.background.clone()),
+            self.record.clone(),
+            true,
         )?;
         Ok(())
     }
@@ -713,6 +731,7 @@ impl SongScene {
         client: Option<Arc<phira_mp_client::Client>>,
         background_output: Option<Arc<Mutex<Option<SafeTexture>>>>,
         record: Option<SimpleRecord>,
+        is_unlock: bool,
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         let can_rated = id.is_some() || local_path.starts_with(':');
@@ -847,60 +866,76 @@ impl SongScene {
             if let Some(output) = background_output {
                 *output.lock().unwrap() = Some(preload.1.clone());
             }
-            LoadingScene::new(
-                mode,
-                info,
-                config,
-                fs,
-                get_data().me.as_ref().map(|it| BasicPlayer {
-                    avatar: UserManager::get_avatar(it.id).flatten(),
-                    id: it.id,
-                    rks: it.rks,
-                    historic_best: record.map_or(0, |it| it.score as u32),
-                }),
-                Some(Arc::new(move |data| {
-                    Task::new(async move {
-                        #[derive(Serialize)]
-                        #[serde(rename_all = "camelCase")]
-                        struct Req {
-                            chart: i32,
-                            token: String,
-                            chart_updated: Option<DateTime<Utc>>,
-                        }
-                        #[derive(Deserialize)]
-                        #[serde(rename_all = "camelCase")]
-                        struct Resp {
-                            id: i32,
-                            exp_delta: f64,
-                            new_best: bool,
-                            improvement: u32,
-                            new_rks: f32,
-                        }
-                        let resp: Resp = recv_raw(Client::post(
-                            "/play/upload",
-                            &Req {
-                                chart: id.unwrap(),
-                                token: STANDARD.encode(data),
-                                chart_updated,
-                            },
-                        ))
-                        .await?
-                        .json()
-                        .await?;
-                        RECORD_ID.store(resp.id, Ordering::Relaxed);
-                        Ok(RecordUpdateState {
-                            best: resp.new_best,
-                            improvement: resp.improvement,
-                            gain_exp: resp.exp_delta as f32,
-                            new_rks: Some(resp.new_rks),
-                        })
+            let player = get_data().me.as_ref().map(|it| BasicPlayer {
+                avatar: UserManager::get_avatar(it.id).flatten(),
+                id: it.id,
+                rks: it.rks,
+                historic_best: record.map_or(0, |it| it.score as u32),
+            });
+            let upload_fn = Some(Arc::new(move |data| {
+                Task::new(async move {
+                    #[derive(Serialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct Req {
+                        chart: i32,
+                        token: String,
+                        chart_updated: Option<DateTime<Utc>>,
+                    }
+                    #[derive(Deserialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct Resp {
+                        id: i32,
+                        exp_delta: f64,
+                        new_best: bool,
+                        improvement: u32,
+                        new_rks: f32,
+                    }
+                    let resp: Resp = recv_raw(Client::post(
+                        "/play/upload",
+                        &Req {
+                            chart: id.unwrap(),
+                            token: STANDARD.encode(data),
+                            chart_updated,
+                        },
+                    ))
+                    .await?
+                    .json()
+                    .await?;
+                    RECORD_ID.store(resp.id, Ordering::Relaxed);
+                    Ok(RecordUpdateState {
+                        best: resp.new_best,
+                        improvement: resp.improvement,
+                        gain_exp: resp.exp_delta as f32,
+                        new_rks: Some(resp.new_rks),
                     })
-                })),
-                update_fn,
-                Some(preload),
-            )
-            .await
-            .map(|it| NextScene::Overlay(Box::new(it)))
+                })
+            }));
+            if is_unlock {
+                UnlockScene::new(
+                    mode,
+                    info,
+                    config,
+                    fs,
+                    player,
+                    upload_fn,
+                    update_fn,
+                )
+                .await
+                .map(|it| NextScene::Overlay(Box::new(it)))
+            } else {
+                LoadingScene::new(
+                    mode,
+                    info,
+                    config,
+                    fs,
+                    player,
+                    upload_fn,
+                    update_fn,
+                    Some(preload),
+                )
+                .await
+                .map(|it| NextScene::Overlay(Box::new(it)))
+            }
         })))
     }
 
@@ -1633,6 +1668,9 @@ impl Scene for SongScene {
                 }
                 "offset" => {
                     self.launch(GameMode::TweakOffset)?;
+                }
+                "unlock" => {
+                    self.unlock()?;
                 }
                 "review-approve" => {
                     let id = self.info.id.unwrap();
