@@ -112,7 +112,7 @@ impl Chart {
     pub fn render(&self, ui: &mut Ui, res: &mut Resource) {
         #[cfg(feature = "video")]
         for video in &self.extra.videos {
-            video.render(res);
+            video.render(res.time, res.aspect_ratio);
         }
         res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(if res.config.flip_x() { -1. } else { 1. }, -1.)), |res| {
             let mut guard = self.bpm_list.borrow_mut();

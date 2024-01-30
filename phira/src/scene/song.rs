@@ -31,8 +31,7 @@ use prpr::{
     info::ChartInfo,
     judge::{icon_index, Judge},
     scene::{
-        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn,
+        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene, LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn
     },
     task::Task,
     time::TimeManager,
@@ -872,7 +871,7 @@ impl SongScene {
                 rks: it.rks,
                 historic_best: record.map_or(0, |it| it.score as u32),
             });
-            let upload_fn = Some(Arc::new(move |data| {
+            let upload_fn: Option<UploadFn> = Some(Arc::new(move |data: Vec<u8>| {
                 Task::new(async move {
                     #[derive(Serialize)]
                     #[serde(rename_all = "camelCase")]
