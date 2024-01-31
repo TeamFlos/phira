@@ -1453,7 +1453,11 @@ impl Scene for SongScene {
         }
         if self.play_btn.touch(touch, t) {
             if self.local_path.is_some() {
-                self.launch(GameMode::Normal)?;
+                if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_none() {
+                    self.unlock()?;
+                } else {
+                    self.launch(GameMode::Normal)?;
+                }
             } else {
                 self.start_download()?;
             }

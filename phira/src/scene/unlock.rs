@@ -102,7 +102,7 @@ impl Scene for UnlockScene {
         }
 
         if self.video.ended && self.game_scene.is_some() {
-            self.next_scene = self.game_scene.map(|it| NextScene::Replace(it));
+            self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
         } else {
             self.video.update(tm.now() as _)?;
         }

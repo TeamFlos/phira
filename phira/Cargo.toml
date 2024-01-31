@@ -8,7 +8,7 @@ license = "GPL-3.0-only"
 crate-type = ["lib", "cdylib"]
 
 [features]
-closed = ["prpr/closed"]
+closed = ["prpr/closed", "openssl", "zstd"]
 video = ["prpr/video"]
 chat = []
 aa = []
@@ -27,10 +27,10 @@ image = "*"
 lru = "0.12.1"
 lyon = "*"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-md5 = "0.7"
+md5 = { version = "0.7", optional = true }
 nalgebra = "*"
 once_cell = "*"
-openssl = { version = "*", features = ["vendored"] }
+openssl = { version = "*", features = ["vendored"], optional = true }
 pollster = "0.3.0"
 prpr = { path = "../prpr", features = ["log"] }
 rand = "0.8.5"
@@ -46,7 +46,7 @@ tokio = { version = "*", features = ["rt-multi-thread", "sync"] }
 tracing = "0.1.37"
 walkdir = "2.3.3"
 zip = "0.6.4"
-zstd = "0.13"
+zstd = { version = "0.13", optional = true }
 
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp" }
