@@ -28,6 +28,7 @@ delete = 删除
 rate = 评分
 exercise = 练习
 offset = 调整延迟
+unlock = 播放解锁动画
 
 edit-cancel = 取消
 edit-save = 保存
