@@ -1,9 +1,9 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
 use prpr::{
     config::Config,
     core::{Anim, Keyframe, Video},
-    ext::{create_audio_manger, ScaleType, BLACK_TEXTURE},
+    ext::{create_audio_manger, semi_white, ScaleType, BLACK_TEXTURE},
     fs::FileSystem,
     info::ChartInfo,
     scene::{BasicPlayer, GameMode, LoadingScene, NextScene, Scene, UpdateFn, UploadFn},
@@ -12,6 +12,14 @@ use prpr::{
 };
 use sasa::{AudioClip, Music, MusicParams};
 
+enum State {
+    Blank1,
+    Playing,
+    Blank2,
+    Loading,
+    Blank3
+}
+
 pub struct UnlockScene {
     loading_scene: Box<LoadingScene>,
     game_scene: Option<Box<dyn Scene>>,
@@ -19,8 +27,9 @@ pub struct UnlockScene {
 
     video: Video,
     music: Music,
+    music_length: f32,
 
-    end_time: f32,
+    state: State,
 
     aspect_ratio: f32,
 }
@@ -42,8 +51,10 @@ impl UnlockScene {
             Anim::new(vec![Keyframe::new(0., 1., 0)]),
             Anim::default(),
         )?;
+        let clip = AudioClip::new(fs.load_file("unlock.mp3").await?)?;
+        let music_length = clip.length();
         let music = create_audio_manger(&config)?.create_music(
-            AudioClip::new(fs.load_file("unlock.mp3").await?)?,
+            clip,
             MusicParams {
                 amplifier: config.volume_music,
                 ..Default::default()
@@ -61,15 +72,14 @@ impl UnlockScene {
 
             video,
             music,
+            music_length,
 
-            end_time: -1.,
+            state: State::Blank1,
 
             aspect_ratio,
         })
     }
 }
-
-const BLANKING_TIME: f32 = 1.;
 
 impl Scene for UnlockScene {
     fn pause(&mut self, tm: &mut TimeManager) -> Result<()> {
@@ -85,10 +95,8 @@ impl Scene for UnlockScene {
     }
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
-        tm.update(self.music.position() as _);
-
         if self.game_scene.is_none() {
-            self.loading_scene.update(tm);
+            self.loading_scene.update(tm)?;
             let loading_next_scene = self.loading_scene.next_scene(tm);
             match loading_next_scene {
                 NextScene::PopWithResult(_) => self.next_scene = Some(loading_next_scene),
@@ -97,37 +105,95 @@ impl Scene for UnlockScene {
             }
         }
 
-        if self.video.ended && self.end_time < 0. {
-            self.end_time = tm.now() as _;
-        }
-
-        if self.video.ended && self.game_scene.is_some() {
-            self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
-        } else {
-            self.video.update(tm.now() as _)?;
+        let t = tm.now() as f32;
+        match self.state {
+            State::Blank1 => {
+                if t > 0.5 {
+                    self.state = State::Playing;
+                    tm.reset();
+                    self.music.play()?;
+                }
+            },
+            State::Playing => {
+                if self.video.ended && t > self.music_length {
+                    self.state = State::Blank2;
+                    tm.reset();
+                } else {
+                    tm.seek_to(self.music.position() as _);
+                    self.video.update(tm.now() as _)?;
+                }
+            },
+            State::Blank2 => {
+                if t > 1. && self.game_scene.is_some() {
+                    self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
+                } else {
+                    self.state = State::Loading;
+                    tm.reset();
+                }
+            },
+            State::Loading => {
+                if t > 1. && self.game_scene.is_some() {
+                    self.state = State::Blank3;
+                    tm.reset();
+                }
+            },
+            State::Blank3 => {
+                if t > 1. {
+                    if self.game_scene.is_none() {
+                        return Err(anyhow!("UnlockScene exited at State::Blank3 without GameScene"));
+                    }
+                    self.next_scene = self.game_scene
+                        .take()
+                        .map(|it| NextScene::Replace(it));
+                }
+            },
         }
 
         Ok(())
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut prpr::ui::Ui) -> Result<()> {
-        let t = tm.now() as _;
-        if self.end_time > 0. && t > self.end_time + BLANKING_TIME && self.next_scene.is_none() {
-            let top = 1. - self.aspect_ratio;
-            let padding = 0.07;
-            ui.loading(
-                1. - padding,
-                top - padding,
-                t,
-                WHITE, // TODO: fade in && fade out
-                LoadingParams {
-                    radius: 0.04,
-                    width: 0.01,
-                    ..Default::default()
-                }
-            )
-        } else {
-            self.video.render(t, self.aspect_ratio);
+        let t = tm.now() as f32;
+
+        set_camera(&ui.camera());
+        clear_background(BLACK);
+
+        match self.state {
+            State::Playing => {
+                self.video.render(t, self.aspect_ratio);
+            },
+            State::Loading => {
+                let top = 1. / self.aspect_ratio;
+                let pad = 0.07;
+                ui.loading(
+                    1. - pad,
+                    top - pad,
+                    t,
+                    WHITE,
+                    LoadingParams {
+                        width: 0.01,
+                        radius: 0.04,
+                        ..Default::default()
+                    }
+                );
+            },
+            State::Blank3 => {
+                let top = 1. / self.aspect_ratio;
+                let pad = 0.07;
+                let alpha = if t < 0.5 { 0.5 - t } else { 0. }; // TODO: more smoothly
+                ui.loading(
+                    1. - pad,
+                    top - pad,
+                    t,
+                    semi_white(alpha),
+                    LoadingParams {
+                        width: 0.01,
+                        radius: 0.04,
+                        ..Default::default()
+                    }
+                );
+            }
+            _ => (),
         }
 
         Ok(())
