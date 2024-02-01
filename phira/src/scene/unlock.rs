@@ -10,7 +10,7 @@ use prpr::{
     time::TimeManager,
     ui::LoadingParams
 };
-use sasa::{AudioClip, Music, MusicParams};
+use sasa::{AudioClip, AudioManager, Music, MusicParams};
 
 enum State {
     Blank1,
@@ -25,13 +25,13 @@ pub struct UnlockScene {
     game_scene: Option<Box<dyn Scene>>,
     next_scene: Option<NextScene>,
 
+    render_target: Option<RenderTarget>,
     video: Video,
+    audio_manager: AudioManager,
     music: Music,
     music_length: f32,
 
     state: State,
-
-    aspect_ratio: f32,
 }
 
 impl UnlockScene {
@@ -53,14 +53,14 @@ impl UnlockScene {
         )?;
         let clip = AudioClip::new(fs.load_file("unlock.mp3").await?)?;
         let music_length = clip.length();
-        let music = create_audio_manger(&config)?.create_music(
+        let mut audio_manager = create_audio_manger(&config)?;
+        let music = audio_manager.create_music(
             clip,
             MusicParams {
                 amplifier: config.volume_music,
                 ..Default::default()
             }
         )?;
-        let aspect_ratio = config.aspect_ratio.unwrap_or(info.aspect_ratio);
         let loading_scene = Box::new(LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn,
             Some((BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone(), WHITE))
         ).await?);
@@ -70,18 +70,24 @@ impl UnlockScene {
             next_scene: None,
             game_scene: None,
 
+            render_target: None,
             video,
+            audio_manager,
             music,
             music_length,
 
             state: State::Blank1,
-
-            aspect_ratio,
         })
     }
 }
 
 impl Scene for UnlockScene {
+    fn enter(&mut self, tm: &mut TimeManager, target: Option<RenderTarget>) -> Result<()> {
+        self.render_target = target;
+        tm.reset(); // TODO: useless?
+        Ok(())
+    }
+
     fn pause(&mut self, tm: &mut TimeManager) -> Result<()> {
         tm.pause();
         self.music.pause()?;
@@ -95,6 +101,8 @@ impl Scene for UnlockScene {
     }
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
+        self.audio_manager.recover_if_needed()?;
+
         if self.game_scene.is_none() {
             self.loading_scene.update(tm)?;
             let loading_next_scene = self.loading_scene.next_scene(tm);
@@ -111,6 +119,7 @@ impl Scene for UnlockScene {
                 if t > 0.5 {
                     self.state = State::Playing;
                     tm.reset();
+                    self.music.seek_to(0.)?;
                     self.music.play()?;
                 }
             },
@@ -120,7 +129,7 @@ impl Scene for UnlockScene {
                     tm.reset();
                 } else {
                     tm.seek_to(self.music.position() as _);
-                    self.video.update(tm.now() as _)?;
+                    self.video.update(t)?;
                 }
             },
             State::Blank2 => {
@@ -134,7 +143,6 @@ impl Scene for UnlockScene {
             State::Loading => {
                 if t > 1. && self.game_scene.is_some() {
                     self.state = State::Blank3;
-                    tm.reset();
                 }
             },
             State::Blank3 => {
@@ -153,18 +161,20 @@ impl Scene for UnlockScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut prpr::ui::Ui) -> Result<()> {
-        let t = tm.now() as f32;
-
-        set_camera(&ui.camera());
         clear_background(BLACK);
+        let mut cam = ui.camera();
+        let asp = -cam.zoom.y;
+        let t = tm.now() as f32;
+        cam.render_target = self.render_target;
+        set_camera(&cam);
 
         match self.state {
             State::Playing => {
-                self.video.render(t, self.aspect_ratio);
+                self.video.render(t, asp);
             },
             State::Loading => {
-                let top = 1. / self.aspect_ratio;
                 let pad = 0.07;
+                let top = 1. / asp;
                 ui.loading(
                     1. - pad,
                     top - pad,
@@ -178,9 +188,9 @@ impl Scene for UnlockScene {
                 );
             },
             State::Blank3 => {
-                let top = 1. / self.aspect_ratio;
+                let top = 1. / asp;
                 let pad = 0.07;
-                let alpha = if t < 0.5 { 0.5 - t } else { 0. }; // TODO: more smoothly
+                let alpha = if t < 0.5 { 1. - t / 0.5 } else { 0. }; // TODO: more smoothly
                 ui.loading(
                     1. - pad,
                     top - pad,
