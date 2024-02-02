@@ -654,7 +654,7 @@ impl SongScene {
         if self.local_path.is_some() {
             self.menu_options.push("exercise");
             self.menu_options.push("offset");
-            if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_some() {
+            if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_some() && self.info.has_unlock {
                 self.menu_options.push("unlock")
             }
         }
@@ -1453,7 +1453,7 @@ impl Scene for SongScene {
         }
         if self.play_btn.touch(touch, t) {
             if self.local_path.is_some() {
-                if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_none() {
+                if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_none() && self.info.has_unlock {
                     self.unlock()?;
                 } else {
                     self.launch(GameMode::Normal)?;

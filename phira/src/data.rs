@@ -25,6 +25,8 @@ pub struct BriefChartInfo {
     pub charter: String,
     pub composer: String,
     pub illustrator: String,
+    #[serde(default)]
+    pub has_unlock: bool,
     pub created: Option<DateTime<Utc>>,
     pub updated: Option<DateTime<Utc>>,
     pub chart_updated: Option<DateTime<Utc>>,
@@ -42,6 +44,7 @@ impl From<ChartInfo> for BriefChartInfo {
             charter: info.charter,
             composer: info.composer,
             illustrator: info.illustrator,
+            has_unlock: info.unlock_video.is_some(),
             created: info.created,
             updated: info.updated,
             chart_updated: info.chart_updated,

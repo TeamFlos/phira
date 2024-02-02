@@ -37,7 +37,7 @@ pub struct UnlockScene {
 impl UnlockScene {
     pub async fn new(
         mode: GameMode,
-        info: ChartInfo,
+        mut info: ChartInfo,
         config: Config,
         mut fs: Box<dyn FileSystem>,
         player: Option<BasicPlayer>,
@@ -45,13 +45,13 @@ impl UnlockScene {
         update_fn: Option<UpdateFn>,
     ) -> Result<UnlockScene> {
         let video = Video::new(
-            fs.load_file("unlock.mp4").await?,
+            fs.load_file(info.unlock_video.take().unwrap_or("unlock.mp4".into()).as_str()).await?,
             0.,
             ScaleType::CropCenter,
             Anim::new(vec![Keyframe::new(0., 1., 0)]),
             Anim::default(),
         )?;
-        let clip = AudioClip::new(fs.load_file("unlock.mp3").await?)?;
+        let clip = AudioClip::new(fs.load_file("unlock.mp3").await?)?; // TODO: Split from unlock_video
         let music_length = clip.length();
         let mut audio_manager = create_audio_manger(&config)?;
         let music = audio_manager.create_music(
