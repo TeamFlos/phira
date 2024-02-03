@@ -2,16 +2,40 @@ use std::ffi::c_void;
 
 #[link(name = "avformat", kind = "static")]
 extern "C" {
+    pub fn av_interleaved_write_frame(s: *mut AVFormatContext, pkt: *mut AVPacket) -> ::std::os::raw::c_int;
     pub fn avformat_alloc_context() -> *mut AVFormatContext;
+    pub fn avformat_alloc_output_context2(
+        ctx: *mut *mut AVFormatContext,
+        oformat: *const ::std::os::raw::c_void,
+        format_name: *const ::std::os::raw::c_char,
+        filename: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
     pub fn avformat_free_context(s: *mut AVFormatContext);
+    pub fn avformat_write_header(s: *mut AVFormatContext, options: *mut *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int;
     pub fn avformat_open_input(
         ps: *mut *mut AVFormatContext,
         url: *const ::std::os::raw::c_char,
-        fmt: *mut c_void,
+        fmt: *const c_void,
         options: *mut *mut c_void,
     ) -> ::std::os::raw::c_int;
     pub fn avformat_find_stream_info(ic: *mut AVFormatContext, options: *mut *mut c_void) -> ::std::os::raw::c_int;
+    pub fn avformat_new_stream(s: *mut AVFormatContext, c: *const AVCodec) -> *mut AVStream;
     pub fn av_read_frame(s: *mut AVFormatContext, pkt: *mut AVPacket) -> ::std::os::raw::c_int;
+    pub fn avio_alloc_context(
+        buffer: *mut ::std::os::raw::c_uchar,
+        buffer_size: ::std::os::raw::c_int,
+        write_flag: ::std::os::raw::c_int,
+        opaque: *mut ::std::os::raw::c_void,
+        read_packet: ::std::option::Option<
+            unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, buf: *mut u8, buf_size: ::std::os::raw::c_int) -> ::std::os::raw::c_int,
+        >,
+        write_packet: ::std::option::Option<
+            unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, buf: *mut u8, buf_size: ::std::os::raw::c_int) -> ::std::os::raw::c_int,
+        >,
+        seek: ::std::option::Option<unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, offset: i64, whence: ::std::os::raw::c_int) -> i64>,
+    ) -> *mut AVIOContext;
+    pub fn av_write_trailer(s: *mut AVFormatContext) -> ::std::os::raw::c_int;
+
 }
 
 #[link(name = "avutil", kind = "static")]
@@ -24,6 +48,8 @@ extern "C" {
 
 #[link(name = "avcodec", kind = "static")]
 extern "C" {
+    pub fn av_packet_unref(pkt: *mut AVPacket);
+    pub fn av_malloc(size: usize) -> *mut ::std::os::raw::c_void;
     pub fn avcodec_find_decoder(id: AVCodecID) -> *mut AVCodec;
     pub fn avcodec_alloc_context3(codec: *const AVCodec) -> *mut AVCodecContext;
     pub fn avcodec_free_context(avctx: *mut *mut AVCodecContext);
@@ -33,6 +59,7 @@ extern "C" {
     pub fn avcodec_send_packet(avctx: *mut AVCodecContext, avpkt: *const AVPacket) -> ::std::os::raw::c_int;
     pub fn avcodec_receive_frame(avctx: *mut AVCodecContext, frame: *mut AVFrame) -> ::std::os::raw::c_int;
     pub fn avcodec_default_get_format(s: *mut AVCodecContext, fmt: *const AVPixelFormat) -> AVPixelFormat;
+    pub fn avcodec_parameters_copy(dst: *mut AVCodecParameters, src: *const AVCodecParameters) -> ::std::os::raw::c_int;
 }
 
 #[link(name = "swscale", kind = "static")]
@@ -75,10 +102,27 @@ pub type AVMediaType = ::std::os::raw::c_int;
 pub type AVPictureType = ::std::os::raw::c_uint;
 pub type AVPixelFormat = ::std::os::raw::c_int;
 pub type AVSampleFormat = ::std::os::raw::c_int;
-
-pub type AVCodec = c_void;
 pub type SwsContext = c_void;
-
+pub type AVIODataMarkerType = ::std::os::raw::c_uint;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct AVCodec {
+    pub name: *const ::std::os::raw::c_char,
+    _long_name: *const ::std::os::raw::c_char,
+    _type: AVMediaType,
+    _id: AVCodecID,
+    _capabilities: ::std::os::raw::c_int,
+    _max_lowres: u8,
+    _supported_framerates: *const AVRational,
+    _pix_fmts: *const AVPixelFormat,
+    _supported_samplerates: *const ::std::os::raw::c_int,
+    _sample_fmts: *const AVSampleFormat,
+    _channel_layouts: *const u64,
+    _priv_class: *const ::std::os::raw::c_void,
+    _profiles: *const ::std::os::raw::c_void,
+    _wrapper_name: *const ::std::os::raw::c_char,
+    _ch_layouts: *const AVChannelLayout,
+}
 pub const AV_ERROR_MAX_STRING_SIZE: u32 = 64;
 pub const SWS_BICUBIC: u32 = 4;
 
@@ -128,7 +172,71 @@ pub struct AVPacket {
     pub opaque_ref: *mut AVBufferRef,
     pub time_base: AVRational,
 }
-
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct AVIOContext {
+    #[doc = " A class for private options.\n\n If this AVIOContext is created by avio_open2(), av_class is set and\n passes the options down to protocols.\n\n If this AVIOContext is manually allocated, then av_class may be set by\n the caller.\n\n warning -- this field can be NULL, be sure to not pass this AVIOContext\n to any av_opt_* functions in that case."]
+    pub av_class: *const ::std::os::raw::c_void,
+    #[doc = "< Start of the buffer."]
+    pub buffer: *mut ::std::os::raw::c_uchar,
+    #[doc = "< Maximum buffer size"]
+    pub buffer_size: ::std::os::raw::c_int,
+    #[doc = "< Current position in the buffer"]
+    pub buf_ptr: *mut ::std::os::raw::c_uchar,
+    #[doc = "< End of the data, may be less than\nbuffer+buffer_size if the read function returned\nless data than requested, e.g. for streams where\nno more data has been received yet."]
+    pub buf_end: *mut ::std::os::raw::c_uchar,
+    #[doc = "< A private pointer, passed to the read/write/seek/...\nfunctions."]
+    pub opaque: *mut ::std::os::raw::c_void,
+    pub read_packet: ::std::option::Option<
+        unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, buf: *mut u8, buf_size: ::std::os::raw::c_int) -> ::std::os::raw::c_int,
+    >,
+    pub write_packet: ::std::option::Option<
+        unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, buf: *mut u8, buf_size: ::std::os::raw::c_int) -> ::std::os::raw::c_int,
+    >,
+    pub seek: ::std::option::Option<unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, offset: i64, whence: ::std::os::raw::c_int) -> i64>,
+    pub pos: i64,
+    pub eof_reached: ::std::os::raw::c_int,
+    pub error: ::std::os::raw::c_int,
+    pub write_flag: ::std::os::raw::c_int,
+    pub max_packet_size: ::std::os::raw::c_int,
+    pub min_packet_size: ::std::os::raw::c_int,
+    pub checksum: ::std::os::raw::c_ulong,
+    pub checksum_ptr: *mut ::std::os::raw::c_uchar,
+    pub update_checksum: ::std::option::Option<
+        unsafe extern "C" fn(checksum: ::std::os::raw::c_ulong, buf: *const u8, size: ::std::os::raw::c_uint) -> ::std::os::raw::c_ulong,
+    >,
+    pub read_pause:
+        ::std::option::Option<unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, pause: ::std::os::raw::c_int) -> ::std::os::raw::c_int>,
+    pub read_seek: ::std::option::Option<
+        unsafe extern "C" fn(
+            opaque: *mut ::std::os::raw::c_void,
+            stream_index: ::std::os::raw::c_int,
+            timestamp: i64,
+            flags: ::std::os::raw::c_int,
+        ) -> i64,
+    >,
+    pub seekable: ::std::os::raw::c_int,
+    pub direct: ::std::os::raw::c_int,
+    pub protocol_whitelist: *const ::std::os::raw::c_char,
+    pub protocol_blacklist: *const ::std::os::raw::c_char,
+    pub write_data_type: ::std::option::Option<
+        unsafe extern "C" fn(
+            opaque: *mut ::std::os::raw::c_void,
+            buf: *mut u8,
+            buf_size: ::std::os::raw::c_int,
+            type_: AVIODataMarkerType,
+            time: i64,
+        ) -> ::std::os::raw::c_int,
+    >,
+    #[doc = " If set, don't call write_data_type separately for AVIO_DATA_MARKER_BOUNDARY_POINT,\n but ignore them and treat them as AVIO_DATA_MARKER_UNKNOWN (to avoid needlessly\n small chunks of data returned from the callback)."]
+    pub ignore_boundary_point: ::std::os::raw::c_int,
+    #[doc = " Maximum reached position before a backward seek in the write buffer,\n used keeping track of already written data for a later flush."]
+    pub buf_ptr_max: *mut ::std::os::raw::c_uchar,
+    #[doc = " Read-only statistic of bytes read for this AVIOContext."]
+    pub bytes_read: i64,
+    #[doc = " Read-only statistic of bytes written for this AVIOContext."]
+    pub bytes_written: i64,
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct AVFormatContext {
@@ -136,7 +244,7 @@ pub struct AVFormatContext {
     pub iformat: *const c_void,
     pub oformat: *const c_void,
     pub priv_data: *mut ::std::os::raw::c_void,
-    pub pb: *mut c_void,
+    pub pb: *mut AVIOContext,
     pub ctx_flags: ::std::os::raw::c_int,
     pub nb_streams: ::std::os::raw::c_uint,
     pub streams: *mut *mut AVStream,
