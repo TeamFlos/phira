@@ -12,6 +12,7 @@ closed = ["prpr/closed"]
 video = ["prpr/video"]
 chat = []
 aa = []
+event_debug = []
 
 [dependencies]
 anyhow = "1.0"

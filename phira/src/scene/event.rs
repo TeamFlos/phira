@@ -21,7 +21,11 @@ use prpr::{
 use serde::Deserialize;
 use std::{any::Any, sync::Arc, time::SystemTime};
 
+#[cfg(not(feature = "event_debug"))]
 const DEBUG_MODE: bool = false;
+#[cfg(feature = "event_debug")]
+const DEBUG_MODE: bool = true;
+
 const LDB_WIDTH: f32 = 0.94;
 const TRANSIT_TIME: f32 = 0.4;
 
