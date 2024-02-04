@@ -45,7 +45,7 @@ mod video;
 #[cfg(feature = "video")]
 pub use video::Video;
 #[cfg(feature = "video")]
-pub use prpr_avc::{demuxer_safe, demuxer};
+pub use prpr_avc::demuxer;
 
 
 
