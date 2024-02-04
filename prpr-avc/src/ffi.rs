@@ -35,7 +35,7 @@ extern "C" {
         seek: ::std::option::Option<unsafe extern "C" fn(opaque: *mut ::std::os::raw::c_void, offset: i64, whence: ::std::os::raw::c_int) -> i64>,
     ) -> *mut AVIOContext;
     pub fn av_write_trailer(s: *mut AVFormatContext) -> ::std::os::raw::c_int;
-
+    pub fn avformat_close_input(s: *mut *mut AVFormatContext);
 }
 
 #[link(name = "avutil", kind = "static")]

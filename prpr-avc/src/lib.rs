@@ -77,6 +77,7 @@ extern "C" fn write_packet(
     }
 }
 
+
 /// This Function is used to split audio and video.
 /// The result is Ok((audio_buffer, video_buffer)).
 pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
@@ -91,7 +92,10 @@ pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
             true => return Err(anyhow::anyhow!("Failed to alloc format context")),
             false => {}
         }
-        handle(ffi::avformat_find_stream_info(in_fmt_ctx, null_mut()))?;
+        handle(ffi::avformat_find_stream_info(in_fmt_ctx, null_mut())).map_err(|e| {
+            ffi::avformat_close_input(&mut in_fmt_ctx);
+            e
+        })?;
         let streams = std::slice::from_raw_parts((*in_fmt_ctx).streams, (*in_fmt_ctx).nb_streams as usize);
         let mut video_stream_index: i32 = -1;
         let mut video_format = "";
@@ -128,15 +132,26 @@ pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
         let o_v_file_type = std::ffi::CString::new(video_format).unwrap();
         ffi::avformat_alloc_output_context2(&mut out_video_fmt_ctx, null(), o_v_file_type.as_ptr(), null());
         match out_video_fmt_ctx.is_null() {
-            true => return Err(anyhow::anyhow!("Failed to alloc format context")),
+            true => {
+                ffi::avformat_close_input(&mut in_fmt_ctx);
+                return Err(anyhow::anyhow!("Failed to alloc format context"));
+            }
             false => {}
         }
         let out_video_stream = ffi::avformat_new_stream(out_video_fmt_ctx, null_mut());
         match out_video_stream.is_null() {
-            true => return Err(anyhow::anyhow!("Failed to alloc format context")),
+            true => {
+                ffi::avformat_free_context(out_video_fmt_ctx);
+                ffi::avformat_close_input(&mut in_fmt_ctx);
+                return Err(anyhow::anyhow!("Failed to alloc format context"));
+            }
             false => {}
         }
-        handle(ffi::avcodec_parameters_copy((*out_video_stream).codecpar, (*streams[video_stream_index as usize]).codecpar))?;
+        handle(ffi::avcodec_parameters_copy((*out_video_stream).codecpar, (*streams[video_stream_index as usize]).codecpar)).map_err(|e| {
+            ffi::avformat_free_context(out_video_fmt_ctx);
+            ffi::avformat_close_input(&mut in_fmt_ctx);
+            e
+        })?;
         (*(*out_video_stream).codecpar).codec_tag = 0;
         let buffer_video = ffi::av_malloc(32768);
         let mut out_video_buffer: Vec<u8> = vec![];
@@ -149,24 +164,46 @@ pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
             Some(write_packet),
             None,
         );
+        match out_video_avio_ctx.is_null() {
+            true => {
+                ffi::avformat_free_context(out_video_fmt_ctx);
+                ffi::avformat_close_input(&mut in_fmt_ctx);
+                return Err(anyhow::anyhow!("Failed to alloc avio context"));
+            }
+            false => {}
+        }
         (*out_video_fmt_ctx).pb = out_video_avio_ctx;
         let mut out_audio_fmt_ctx = null_mut();
         let o_a_file_type = std::ffi::CString::new(audio_format).unwrap();
         ffi::avformat_alloc_output_context2(&mut out_audio_fmt_ctx, null(), o_a_file_type.as_ptr(), null());
         match out_audio_fmt_ctx.is_null() {
-            true => return Err(anyhow::anyhow!("Failed to alloc format context")),
+            true => {
+                ffi::avformat_free_context(out_video_fmt_ctx);
+                ffi::avformat_close_input(&mut in_fmt_ctx);
+                return Err(anyhow::anyhow!("Failed to alloc avio context"));
+            }
             false => {}
         }
         let out_audio_stream = ffi::avformat_new_stream(out_audio_fmt_ctx, null_mut());
         match out_audio_stream.is_null() {
-            true => return Err(anyhow::anyhow!("Failed to alloc format context")),
+            true => {
+                ffi::avformat_free_context(out_video_fmt_ctx);
+                ffi::avformat_free_context(out_audio_fmt_ctx);
+                ffi::avformat_close_input(&mut in_fmt_ctx);
+                return Err(anyhow::anyhow!("Failed to alloc format context"));
+            }
             false => {}
         }
-        handle(ffi::avcodec_parameters_copy((*out_audio_stream).codecpar, (*streams[audio_stream_index as usize]).codecpar))?;
+        handle(ffi::avcodec_parameters_copy((*out_audio_stream).codecpar, (*streams[audio_stream_index as usize]).codecpar)).map_err(|e| {
+            ffi::avformat_free_context(out_audio_fmt_ctx);
+            ffi::avformat_free_context(out_video_fmt_ctx);
+            ffi::avformat_close_input(&mut in_fmt_ctx);
+            e
+        })?;
         (*(*out_audio_stream).codecpar).codec_tag = 0;
         let buffer_audio = ffi::av_malloc(32768);
         let mut out_audio_buffer: Vec<u8> = vec![];
-        let out_video_avio_ctx = ffi::avio_alloc_context(
+        let out_audio_avio_ctx = ffi::avio_alloc_context(
             buffer_audio as _,
             32768,
             1,
@@ -175,7 +212,16 @@ pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
             Some(write_packet),
             None,
         );
-        (*out_audio_fmt_ctx).pb = out_video_avio_ctx;
+        match out_audio_avio_ctx.is_null() {
+            true => {
+                ffi::avformat_free_context(out_video_fmt_ctx);
+                ffi::avformat_free_context(out_audio_fmt_ctx);
+                ffi::avformat_close_input(&mut in_fmt_ctx);
+                return Err(anyhow::anyhow!("Failed to alloc avio context"));
+            }
+            false => {}
+        }
+        (*out_audio_fmt_ctx).pb = out_audio_avio_ctx;
         ffi::avformat_write_header(out_video_fmt_ctx, &mut null_mut());
         ffi::avformat_write_header(out_audio_fmt_ctx, &mut null_mut());
 
@@ -191,9 +237,10 @@ pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
             ffi::av_packet_unref(packet);
         }
         ffi::av_write_trailer(out_video_fmt_ctx);
-        ffi::avformat_free_context(out_video_fmt_ctx);
         ffi::av_write_trailer(out_audio_fmt_ctx);
+        ffi::avformat_free_context(out_video_fmt_ctx);
         ffi::avformat_free_context(out_audio_fmt_ctx);
+        ffi::avformat_close_input(&mut in_fmt_ctx);
         Ok((out_audio_buffer, out_video_buffer))
     }
 }

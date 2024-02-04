@@ -207,4 +207,3 @@ impl Scene for UnlockScene {
         self.next_scene.take().unwrap_or(NextScene::None)
     }
 }
-
