@@ -2633,6 +2633,7 @@ name = "prpr-avc"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "tempfile",
  "tracing",
 ]
 

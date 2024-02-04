@@ -44,6 +44,10 @@ pub use tween::{easing_from, BezierTween, ClampedTween, StaticTween, TweenFuncti
 mod video;
 #[cfg(feature = "video")]
 pub use video::Video;
+#[cfg(feature = "video")]
+pub use prpr_avc::demuxer;
+
+
 
 use std::cell::RefCell;
 use crate::ui::TextPainter;
