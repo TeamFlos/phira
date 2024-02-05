@@ -654,8 +654,11 @@ impl SongScene {
         if self.local_path.is_some() {
             self.menu_options.push("exercise");
             self.menu_options.push("offset");
-            if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_some() && self.info.has_unlock {
-                self.menu_options.push("unlock")
+            if !self.mods.contains(Mods::AUTOPLAY)
+                && self.record.as_ref().and_then(|it| if it.score > 0 { Some(it) } else { None }).is_some()
+                && self.info.has_unlock
+            {
+                self.menu_options.push("unlock");
             }
         }
         let perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default();
@@ -918,6 +921,7 @@ impl SongScene {
                     player,
                     upload_fn,
                     update_fn,
+                    Some(preload),
                 )
                 .await
                 .map(|it| NextScene::Overlay(Box::new(it)))
@@ -1453,7 +1457,10 @@ impl Scene for SongScene {
         }
         if self.play_btn.touch(touch, t) {
             if self.local_path.is_some() {
-                if !self.mods.contains(Mods::AUTOPLAY) && self.record.is_none() && self.info.has_unlock {
+                if !self.mods.contains(Mods::AUTOPLAY)
+                    && self.record.as_ref().and_then(|it| if it.score > 0 { Some(it) } else { None }).is_none()
+                    && self.info.has_unlock
+                {
                     self.unlock()?;
                 } else {
                     self.launch(GameMode::Normal)?;
@@ -1472,6 +1479,7 @@ impl Scene for SongScene {
             if self.edit_btn.touch(touch) {
                 button_hit();
                 let mut info: ChartInfo = serde_yaml::from_str(&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?)?;
+                println!("{path}\n{}",&std::fs::read_to_string(format!("{}/{path}/info.yml", dir::charts()?))?);
                 info.id = self.info.id;
                 UPLOAD_NOT_SAVED.store(false, Ordering::SeqCst);
                 self.info_edit = Some(ChartInfoEdit::new(info));
