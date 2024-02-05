@@ -114,9 +114,9 @@ impl Video {
         let mut frame = self.mutex.0.lock().unwrap();
         loop {
             let Some(data) = *frame else {
-        		frame = self.mutex.1.wait(frame).unwrap();
-        		continue;
-        	};
+                frame = self.mutex.1.wait(frame).unwrap();
+                continue;
+            };
             let Some(data) = data else {
                 self.ended.store(true, Ordering::SeqCst);
                 return None;

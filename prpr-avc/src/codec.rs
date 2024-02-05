@@ -1,6 +1,4 @@
-use crate::{
-    ffi, handle, AVError, AVFrame, AVPacket, AVPixelFormat, AVResult, OwnedPtr, StreamFormat,
-};
+use crate::{ffi, handle, AVError, AVFrame, AVPacket, AVPixelFormat, AVResult, OwnedPtr, StreamFormat};
 use anyhow::{bail, Context, Result};
 use std::{
     ptr::null_mut,
@@ -44,10 +42,7 @@ impl AVCodecRef {
 static EXPECTED_PIX_FMT_EDIT: Mutex<()> = Mutex::new(());
 static EXPECTED_PIX_FMT: AtomicI32 = AtomicI32::new(-1);
 
-unsafe fn get_format(
-    s: *mut ffi::AVCodecContext,
-    fmt: *const ffi::AVPixelFormat,
-) -> ffi::AVPixelFormat {
+unsafe fn get_format(s: *mut ffi::AVCodecContext, fmt: *const ffi::AVPixelFormat) -> ffi::AVPixelFormat {
     let expected = EXPECTED_PIX_FMT.load(Ordering::SeqCst);
     for i in 0.. {
         let fmt = fmt.add(i).read();
@@ -64,14 +59,9 @@ unsafe fn get_format(
 #[repr(transparent)]
 pub struct AVCodecContext(OwnedPtr<ffi::AVCodecContext>);
 impl AVCodecContext {
-    pub fn new(
-        codec: AVCodecRef,
-        par: AVCodecParamsRef,
-        expected: Option<AVPixelFormat>,
-    ) -> Result<Self> {
+    pub fn new(codec: AVCodecRef, par: AVCodecParamsRef, expected: Option<AVPixelFormat>) -> Result<Self> {
         unsafe {
-            let mut ptr = OwnedPtr::new(ffi::avcodec_alloc_context3(codec.0))
-                .context("failed to create context")?;
+            let mut ptr = OwnedPtr::new(ffi::avcodec_alloc_context3(codec.0)).context("failed to create context")?;
             handle(ffi::avcodec_parameters_to_context(ptr.0, par.0))?;
             let _guard = expected.map(|pix_fmt| {
                 let guard = EXPECTED_PIX_FMT_EDIT.lock().unwrap();
