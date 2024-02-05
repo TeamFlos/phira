@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 use prpr::{
     config::Config,
     core::{demuxer, Anim, Keyframe, Video},
-    ext::{create_audio_manger, semi_white, ScaleType, BLACK_TEXTURE},
+    ext::{create_audio_manger, draw_image, semi_white, ScaleType},
     fs::FileSystem,
     info::ChartInfo,
     scene::{BasicPlayer, GameMode, LoadingScene, NextScene, Scene, UpdateFn, UploadFn},
@@ -13,11 +13,11 @@ use prpr::{
 use sasa::{AudioClip, AudioManager, Music, MusicParams};
 
 enum State {
-    Blank1,
+    Before,
     Playing,
-    Blank2,
+    Blanking,
     Loading,
-    Blank3,
+    Transforming,
 }
 
 pub struct UnlockScene {
@@ -31,6 +31,8 @@ pub struct UnlockScene {
     music: Music,
     music_length: f32,
 
+    background: Texture2D,
+
     state: State,
 }
 
@@ -43,6 +45,7 @@ impl UnlockScene {
         player: Option<BasicPlayer>,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
+        preloaded: Option<(prpr::ext::SafeTexture, prpr::ext::SafeTexture, Color)>,
     ) -> Result<UnlockScene> {
         let (audio_buffer, video_buffer) = demuxer(fs.load_file(info.unlock_video.take().unwrap_or("unlock.mp4".into()).as_str()).await?)?;
         let video = Video::new(video_buffer, 0., ScaleType::CropCenter, Anim::new(vec![Keyframe::new(0., 1., 0)]), Anim::default())?;
@@ -56,8 +59,9 @@ impl UnlockScene {
                 ..Default::default()
             },
         )?;
+        let (_, background, _) = preloaded.clone().unwrap_or(LoadingScene::load(&mut *fs, &info.illustration).await?);
         let loading_scene = Box::new(
-            LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some((BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone(), WHITE)))
+            LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, preloaded)
                 .await?,
         );
 
@@ -72,7 +76,9 @@ impl UnlockScene {
             music,
             music_length,
 
-            state: State::Blank1,
+            background: background.into_inner(),
+
+            state: State::Before,
         })
     }
 }
@@ -111,7 +117,7 @@ impl Scene for UnlockScene {
 
         let t = tm.now() as f32;
         match self.state {
-            State::Blank1 => {
+            State::Before => {
                 if t > 0.5 {
                     self.state = State::Playing;
                     tm.reset();
@@ -121,14 +127,14 @@ impl Scene for UnlockScene {
             }
             State::Playing => {
                 if self.video.ended && t > self.music_length {
-                    self.state = State::Blank2;
+                    self.state = State::Blanking;
                     tm.reset();
                 } else {
                     tm.seek_to(self.music.position() as _);
                     self.video.update(t)?;
                 }
             }
-            State::Blank2 => {
+            State::Blanking => {
                 if t > 1. && self.game_scene.is_some() {
                     self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
                 } else {
@@ -138,10 +144,10 @@ impl Scene for UnlockScene {
             }
             State::Loading => {
                 if t > 1. && self.game_scene.is_some() {
-                    self.state = State::Blank3;
+                    self.state = State::Transforming;
                 }
             }
-            State::Blank3 => {
+            State::Transforming => {
                 if t > 1. {
                     if self.game_scene.is_none() {
                         return Err(anyhow!("UnlockScene exited at State::Blank3 without GameScene"));
@@ -155,16 +161,18 @@ impl Scene for UnlockScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut prpr::ui::Ui) -> Result<()> {
-        clear_background(BLACK);
         let mut cam = ui.camera();
         let asp = -cam.zoom.y;
         let t = tm.now() as f32;
         cam.render_target = self.render_target;
         set_camera(&cam);
+        clear_background(BLACK);
 
         match self.state {
             State::Playing => {
-                self.video.render(t, asp);
+                if t > 0.05 {
+                    self.video.render(t, asp);
+                }
             }
             State::Loading => {
                 let pad = 0.07;
@@ -181,21 +189,27 @@ impl Scene for UnlockScene {
                     },
                 );
             }
-            State::Blank3 => {
+            State::Transforming => {
                 let top = 1. / asp;
-                let pad = 0.07;
-                let alpha = if t < 0.5 { 1. - t / 0.5 } else { 0. }; // TODO: more smoothly
-                ui.loading(
-                    1. - pad,
-                    top - pad,
-                    t,
-                    semi_white(alpha),
-                    LoadingParams {
-                        width: 0.01,
-                        radius: 0.04,
-                        ..Default::default()
-                    },
-                );
+                if t < 0.5 {
+                    let pad = 0.07;
+                    let alpha = if t < 0.5 { 1. - t / 0.5 } else { 0. }; // TODO: more smoothly
+                    ui.loading(
+                        1. - pad,
+                        top - pad,
+                        t,
+                        semi_white(alpha),
+                        LoadingParams {
+                            width: 0.01,
+                            radius: 0.04,
+                            ..Default::default()
+                        },
+                    );
+                } else {
+                    let alpha = if t < 0.5 { t / 0.5 * 0.3 } else { 0.3 };
+                    draw_image(self.background, Rect::new(-1., -top, 2., top * 2.), ScaleType::CropCenter);
+                    draw_rectangle(-1., -top, 2., top * 2., Color::new(0., 0., 0., alpha));
+                }
             }
             _ => (),
         }
