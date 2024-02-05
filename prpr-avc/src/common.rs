@@ -12,12 +12,7 @@ impl AVError {
         let code = code as i32;
         let msg = unsafe {
             let mut buf = [0; ffi::AV_ERROR_MAX_STRING_SIZE as usize];
-            if ffi::av_strerror(
-                code,
-                buf.as_mut_ptr(),
-                ffi::AV_ERROR_MAX_STRING_SIZE as usize,
-            ) == 0
-            {
+            if ffi::av_strerror(code, buf.as_mut_ptr(), ffi::AV_ERROR_MAX_STRING_SIZE as usize) == 0 {
                 Some(CStr::from_ptr(buf.as_ptr()).to_string_lossy().into_owned())
             } else {
                 None

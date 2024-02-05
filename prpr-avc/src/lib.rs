@@ -77,7 +77,6 @@ extern "C" fn write_packet(
     }
 }
 
-
 /// This Function is used to split audio and video.
 /// The result is Ok((audio_buffer, video_buffer)).
 pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
@@ -118,6 +117,7 @@ pub fn demuxer(file_stream: Vec<u8>) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
                     false => {
                         audio_format = match std::ffi::CStr::from_ptr((*decoder).name).to_str().unwrap() {
                             "aac" => "adts",
+                            "vorbis" => "ogg",
                             x => x,
                         }
                     }
