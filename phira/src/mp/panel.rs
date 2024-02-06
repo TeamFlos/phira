@@ -471,6 +471,7 @@ impl MPPanel {
                         self.client.as_ref().map(Arc::clone),
                         None,
                         None,
+                        false,
                     )?;
                 }
             } else {

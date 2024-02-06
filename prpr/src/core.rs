@@ -43,10 +43,12 @@ pub use tween::{easing_from, BezierTween, ClampedTween, StaticTween, TweenFuncti
 #[cfg(feature = "video")]
 mod video;
 #[cfg(feature = "video")]
+pub use prpr_avc::demux_audio;
+#[cfg(feature = "video")]
 pub use video::Video;
 
-use std::cell::RefCell;
 use crate::ui::TextPainter;
+use std::cell::RefCell;
 
 thread_local! {
     pub static PGR_FONT: RefCell<Option<TextPainter>> = RefCell::default();

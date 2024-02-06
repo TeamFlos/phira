@@ -28,7 +28,6 @@ image = "*"
 lru = "0.12.1"
 lyon = "*"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-md5 = "0.7"
 nalgebra = "*"
 once_cell = "*"
 openssl = { version = "*", features = ["vendored"] }
@@ -43,6 +42,7 @@ serde_yaml = "0.9.17"
 sha2 = "*"
 smallvec = "1.10.0"
 tap = "1.0.1"
+tempfile = "3.10.0"
 tokio = { version = "*", features = ["rt-multi-thread", "sync"] }
 tracing = "0.1.37"
 walkdir = "2.3.3"

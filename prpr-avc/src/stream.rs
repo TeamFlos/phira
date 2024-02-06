@@ -1,5 +1,4 @@
-use crate::{ffi, AVCodecParamsRef, AVCodecRef, AVRational};
-use anyhow::Result;
+use crate::{ffi, AVCodecParamsRef, AVCodecRef, AVRational, Result};
 
 #[repr(transparent)]
 #[derive(Clone, Copy)]
@@ -13,8 +12,16 @@ impl AVStreamRef {
         unsafe { (*self.0).r_frame_rate.into() }
     }
 
+    pub fn codec_type(&self) -> ffi::AVMediaType {
+        unsafe { (*(*self.0).codecpar).codec_type }
+    }
+
     pub fn is_video(&self) -> bool {
-        unsafe { (*(*self.0).codecpar).codec_type == 0 }
+        self.codec_type() == 0
+    }
+
+    pub fn is_audio(&self) -> bool {
+        self.codec_type() == 1
     }
 
     pub fn codec_params(&self) -> AVCodecParamsRef {

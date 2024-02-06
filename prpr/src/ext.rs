@@ -185,7 +185,6 @@ pub enum ScaleType {
     Fit,
 }
 
-/// Returns the source rect **in the texture space**, using relative coordinates (i.e. texture itself is 1x1)
 pub fn source_of_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) -> Option<Rect> {
     match scale_type {
         ScaleType::CropCenter => {

@@ -13,8 +13,10 @@ mod main;
 pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 
 mod song;
-use once_cell::sync::Lazy;
 pub use song::{Downloading, SongScene, RECORD_ID};
+
+mod unlock;
+pub use unlock::UnlockScene;
 
 mod profile;
 pub use profile::ProfileScene;
@@ -22,6 +24,7 @@ pub use profile::ProfileScene;
 use crate::{client::UserManager, data::LocalChart, dir, get_data, get_data_mut, page::Fader, save_data};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
 use prpr::{
     config::Mods,
     core::{BOLD_FONT, PGR_FONT},
@@ -181,6 +184,7 @@ pub async fn import_chart_to(dir: &Path, id: Uuid, path: String) -> Result<Local
         local_path,
         record: None,
         mods: Mods::default(),
+        played_unlock: false,
     })
 }
 

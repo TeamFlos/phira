@@ -6,5 +6,6 @@ edition = "2021"
 [lib]
 
 [dependencies]
-anyhow = "1.0.71"
+sasa = { git = "https://github.com/Mivik/sasa", default-features = false }
+thiserror = "1.0.56"
 tracing = "0.1.37"

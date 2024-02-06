@@ -218,6 +218,7 @@ impl Scene for ChapterScene {
                     format: None,
                     music: ":music".to_owned(),
                     illustration: ":illu".to_owned(),
+                    unlock_video: None,
 
                     preview_start: 0.,
                     preview_end: None,

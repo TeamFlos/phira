@@ -1,5 +1,5 @@
 use crate::{
-    client::{Ptr, User, Character},
+    client::{Character, Ptr, User},
     dir,
 };
 use anyhow::Result;
@@ -10,7 +10,11 @@ use prpr::{
     scene::SimpleRecord,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::{HashSet, HashMap}, ops::DerefMut, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::DerefMut,
+    path::Path,
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,6 +61,8 @@ pub struct LocalChart {
     pub record: Option<SimpleRecord>,
     #[serde(default)]
     pub mods: Mods,
+    #[serde(default)]
+    pub played_unlock: bool,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -102,6 +108,7 @@ impl Data {
                     local_path: filename,
                     record: None,
                     mods: Mods::default(),
+                    played_unlock: false,
                 });
             }
         }
@@ -125,6 +132,7 @@ impl Data {
                     local_path: filename,
                     record: None,
                     mods: Mods::default(),
+                    played_unlock: false,
                 });
             }
         }

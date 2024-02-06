@@ -1,29 +1,28 @@
-use crate::{ffi, AVFrame, OwnedPtr, StreamFormat};
-use anyhow::{Context, Result};
+use crate::{ffi, AVFrame, Error, OwnedPtr, Result, VideoStreamFormat};
 use std::{
     mem::transmute,
     ptr::{null, null_mut},
 };
 
+#[repr(transparent)]
 pub struct SwsContext(OwnedPtr<ffi::SwsContext>);
 impl SwsContext {
-    pub fn new(src: StreamFormat, dst: StreamFormat) -> Result<Self> {
+    pub fn new(src: VideoStreamFormat, dst: VideoStreamFormat) -> Result<Self> {
         unsafe {
-            Ok(Self(
-                OwnedPtr::new(ffi::sws_getContext(
-                    src.width,
-                    src.height,
-                    src.pix_fmt.0 as _,
-                    dst.width,
-                    dst.height,
-                    dst.pix_fmt.0 as _,
-                    ffi::SWS_BICUBIC as _,
-                    null_mut(),
-                    null_mut(),
-                    null(),
-                ))
-                .context("failed to create sws context")?,
+            OwnedPtr::new(ffi::sws_getContext(
+                src.width,
+                src.height,
+                src.pix_fmt.0 as _,
+                dst.width,
+                dst.height,
+                dst.pix_fmt.0 as _,
+                ffi::SWS_BICUBIC as _,
+                null_mut(),
+                null_mut(),
+                null(),
             ))
+            .map(Self)
+            .ok_or(Error::AllocationFailed)
         }
     }
 
