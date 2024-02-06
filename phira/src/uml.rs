@@ -9,11 +9,11 @@ use crate::{
     client::{recv_raw, Client, File},
     icons::Icons,
 };
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use image::DynamicImage;
 use macroquad::prelude::*;
 use nalgebra::Vector2;
-use parse::{Expr, VarRef};
+use parse::Expr;
 use prpr::{
     core::Matrix,
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
@@ -665,9 +665,8 @@ enum StackLayer {
 pub struct Uml {
     elements: Vec<Box<dyn Element>>,
 
-    vars: Vec<Var>,
-    persistent_vars: Vec<Var>,
-    var_map: HashMap<String, usize>,
+    var_map: HashMap<String, Var>,
+    persistent_vars: Vec<String>,
 
     stack: RefCell<Vec<StackLayer>>,
 
@@ -688,9 +687,8 @@ impl Uml {
         let mut res = Self {
             elements,
 
-            vars: Vec::new(),
-            persistent_vars: Vec::new(),
             var_map: HashMap::new(),
+            persistent_vars: Vec::new(),
 
             stack: RefCell::new(Vec::new()),
 
@@ -705,8 +703,8 @@ impl Uml {
 
     fn init(&mut self, global_defs: &[(String, Expr)]) {
         for (name, initial) in global_defs {
-            self.var_map.insert(name.clone(), !self.persistent_vars.len());
-            self.persistent_vars.push(initial.eval(self).unwrap());
+            self.var_map.insert(name.clone(), initial.eval(self).unwrap());
+            self.persistent_vars.push(name.clone());
         }
     }
 
@@ -730,9 +728,8 @@ impl Uml {
         }
     }
 
-    pub(crate) fn get_var(&self, rf: &VarRef) -> Result<&Var> {
-        let id = rf.id(self)?;
-        Ok(if id & 0x8000 != 0 { &self.persistent_vars[!id] } else { &self.vars[id] })
+    pub(crate) fn get_var(&self, id: &str) -> Result<&Var> {
+        self.var_map.get(id).ok_or_else(|| anyhow!("variable not found: {id}"))
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32, action: &mut Option<String>) -> Result<bool> {
@@ -746,29 +743,15 @@ impl Uml {
         Ok(false)
     }
 
-    fn set_var(first_time: bool, vars: &mut Vec<Var>, persistent_vars: &mut [Var], var_map: &mut HashMap<String, usize>, name: &str, value: Var) {
-        match var_map.get(name) {
-            Some(x) if x & 0x8000 != 0 => {
-                if std::mem::discriminant(&persistent_vars[!x]) != std::mem::discriminant(&value) {
-                    warn!("type mismatch: {name}");
-                } else {
-                    persistent_vars[!x] = value;
-                }
-            }
-            _ => {
-                if first_time {
-                    var_map.insert(name.to_owned(), vars.len());
-                }
-                vars.push(value);
-            }
-        }
-    }
-
     pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
-        self.vars.clear();
-        for (name, val) in vars.iter().chain(std::iter::once(&("version", 2.))) {
-            Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, name, Var::Float(*val));
+        self.var_map = std::mem::take(&mut self.var_map)
+            .into_iter()
+            .filter(|(key, _)| self.persistent_vars.contains(key))
+            .collect::<HashMap<_, _>>();
+        for (name, value) in vars.iter().copied().chain(std::iter::once(("version", 2.))) {
+            self.var_map.insert(name.to_owned(), Var::Float(value));
         }
+
         let mut right = 0f32;
         let mut bottom = 0f32;
         self.t = t;
@@ -781,16 +764,16 @@ impl Uml {
                     bottom = bottom.max(r.bottom());
                 }
                 if let Some(id) = elem.id() {
-                    Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, id, r);
+                    self.var_map.insert(id.to_owned(), r);
                 }
             }
 
             Ok(())
         })?;
-        if let Some(Var::Float(w)) = self.var_map.get("$w").map(|it| &self.vars[*it]) {
+        if let Some(Var::Float(w)) = self.var_map.get("$w") {
             right = *w;
         }
-        if let Some(Var::Float(h)) = self.var_map.get("$h").map(|it| &self.vars[*it]) {
+        if let Some(Var::Float(h)) = self.var_map.get("$h") {
             bottom = *h;
         }
         self.first_time = false;

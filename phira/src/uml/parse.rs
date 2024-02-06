@@ -8,7 +8,7 @@ use serde::{
     de::{value::MapDeserializer, DeserializeOwned, Visitor},
     Deserialize,
 };
-use std::{cell::Cell, collections::HashMap, fmt::Display, iter::Peekable, sync::Arc};
+use std::{collections::HashMap, fmt::Display, iter::Peekable, sync::Arc};
 use tap::Tap;
 
 macro_rules! bail {
@@ -70,38 +70,6 @@ macro_rules! bail {
     }
 }
 
-pub struct VarRef {
-    pub id: String,
-    resolved: Cell<Option<usize>>,
-}
-
-impl VarRef {
-    pub fn new(id: String) -> Self {
-        Self {
-            id,
-            resolved: Cell::new(None),
-        }
-    }
-
-    pub fn id(&self, uml: &Uml) -> Result<usize> {
-        Ok(if let Some(id) = self.resolved.get() {
-            id
-        } else {
-            let Some(&id) = uml.var_map.get(&self.id) else {
-                anyhow::bail!("variable `{}` not found", self.id);
-            };
-            self.resolved.set(Some(id));
-            id
-        })
-    }
-}
-
-impl Display for VarRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.id.fmt(f)
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum BinOp {
     Add,
@@ -150,8 +118,8 @@ pub enum RawExpr {
     Literal(f32),
     ButtonState(ButtonState),
     Rect([Expr; 4]),
-    Var(VarRef),
-    VarSub(VarRef, String),
+    Var(String),
+    VarSub(String, String),
     Func(&'static str, Function, Vec<Expr>),
     BinOp(Expr, Expr, BinOp),
 }
@@ -290,7 +258,7 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                 let Some(Ok(Token::Ident(f))) = lexer.next() else {
                     bail!("expected field")
                 };
-                RawExpr::VarSub(VarRef::new(s), f).into()
+                RawExpr::VarSub(s, f).into()
             }
             Some(&Ok(Token::LBrace)) => {
                 lexer.next();
@@ -349,7 +317,7 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                 }
                 RawExpr::Func(name, func, args).into()
             }
-            _ => RawExpr::Var(VarRef::new(s)).into(),
+            _ => RawExpr::Var(s).into(),
         },
         Token::Number(val) => RawExpr::Literal(val).into(),
         Token::LBrace => {
