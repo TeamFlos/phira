@@ -15,6 +15,18 @@ pub enum Token {
     #[token("#>if-no-v2")]
     IfNoV2,
 
+    #[token("#>if")]
+    If,
+
+    #[token("#>else")]
+    Else,
+
+    #[token("#>elif")]
+    ElseIf,
+
+    #[token("#>fi")]
+    EndIf,
+
     #[regex("(#>)?[@a-zA-Z$_][a-zA-Z0-9-$_]*", |lex| lex.slice().to_owned())]
     Ident(String),
 
@@ -51,6 +63,18 @@ pub enum Token {
     Mul,
     #[token("/")]
     Div,
+    #[token("<=")]
+    Le,
+    #[token(">=")]
+    Ge,
+    #[token("<")]
+    Lt,
+    #[token(">")]
+    Gt,
+    #[token("==")]
+    Eq,
+    #[token("!=")]
+    Neq,
 }
 
 fn text_block(lexer: &Lexer<Token>) -> String {

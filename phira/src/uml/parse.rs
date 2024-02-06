@@ -351,6 +351,12 @@ fn take_op(lexer: &mut Lexer) -> Result<Option<BinOp>, String> {
         Token::Sub => BinOp::Sub,
         Token::Mul => BinOp::Mul,
         Token::Div => BinOp::Div,
+        Token::Lt => BinOp::Lt,
+        Token::Le => BinOp::Le,
+        Token::Gt => BinOp::Gt,
+        Token::Ge => BinOp::Ge,
+        Token::Eq => BinOp::Eq,
+        Token::Neq => BinOp::Neq,
         _ => {
             return Ok(None);
         }
@@ -464,6 +470,10 @@ pub fn take_element(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &m
 pub enum TopLevel {
     Element(Box<dyn Element>),
     GlobalDef(String, Expr),
+    If(Expr),
+    Else,
+    ElseIf(Expr),
+    EndIf,
 }
 
 pub fn take_top_level(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: &mut Lexer) -> Result<Option<TopLevel>, String> {
@@ -488,6 +498,22 @@ pub fn take_top_level(icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8], lexer: 
             take_top_level(icons, rank_icons, lexer)?;
             return take_top_level(icons, rank_icons, lexer);
         }
+        Ok(Token::If) => {
+            lexer.next();
+            Some(TopLevel::If(take_expr(lexer)?))
+        }
+        Ok(Token::Else) => {
+            lexer.next();
+            Some(TopLevel::Else)
+        }
+        Ok(Token::EndIf) => {
+            lexer.next();
+            Some(TopLevel::EndIf)
+        }
+        Ok(Token::ElseIf) => {
+            lexer.next();
+            Some(TopLevel::ElseIf(take_expr(lexer)?))
+        }
         Ok(_) => take_element(icons, rank_icons, lexer)?.map(TopLevel::Element),
         Err(err) => return Err(err.to_string()),
     })
@@ -498,9 +524,10 @@ pub fn parse_uml(s: &str, icons: &Arc<Icons>, rank_icons: &[SafeTexture; 8]) -> 
     let mut elements = Vec::new();
     let mut global_defs = Vec::new();
     while let Some(top) = take_top_level(icons, rank_icons, &mut lexer)? {
-        match top {
-            TopLevel::Element(el) => elements.push(el),
-            TopLevel::GlobalDef(id, expr) => global_defs.push((id, expr)),
+        if let TopLevel::GlobalDef(id, expr) = top {
+            global_defs.push((id.clone(), expr));
+        } else {
+            elements.push(top);
         }
     }
     Uml::new(elements, &global_defs).map_err(|it| it.to_string())

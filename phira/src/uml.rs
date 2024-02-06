@@ -3,7 +3,7 @@ mod parse;
 
 pub use parse::parse_uml;
 
-use self::parse::{constant, ButtonState};
+use self::parse::{constant, ButtonState, TopLevel};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView},
     client::{recv_raw, Client, File},
@@ -663,7 +663,7 @@ enum StackLayer {
     Alpha(f32),
 }
 pub struct Uml {
-    elements: Vec<Box<dyn Element>>,
+    elements: Vec<TopLevel>,
 
     var_map: HashMap<String, Var>,
     persistent_vars: Vec<String>,
@@ -683,7 +683,7 @@ impl Default for Uml {
 }
 
 impl Uml {
-    pub fn new(elements: Vec<Box<dyn Element>>, global_defs: &[(String, Expr)]) -> Result<Self> {
+    pub fn new(elements: Vec<TopLevel>, global_defs: &[(String, Expr)]) -> Result<Self> {
         let mut res = Self {
             elements,
 
@@ -735,9 +735,11 @@ impl Uml {
     pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32, action: &mut Option<String>) -> Result<bool> {
         self.t = t;
         self.rt = rt;
-        for element in &self.elements {
-            if element.touch(touch, self, action)? {
-                return Ok(true);
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                if el.touch(touch, self, action)? {
+                    return Ok(true);
+                }
             }
         }
         Ok(false)
@@ -752,19 +754,65 @@ impl Uml {
             self.var_map.insert(name.to_owned(), Var::Float(value));
         }
 
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum IfState {
+            IfPassed,
+            IfFailed,
+            Nopped,
+        }
+
+        let mut ifs = vec![IfState::IfPassed];
+
         let mut right = 0f32;
         let mut bottom = 0f32;
         self.t = t;
         self.rt = rt;
         ui.scope::<Result<()>>(|ui| {
-            for elem in &self.elements {
-                let r = elem.render(ui, self)?;
-                if let Var::Rect(r) = &r {
-                    right = right.max(r.right());
-                    bottom = bottom.max(r.bottom());
-                }
-                if let Some(id) = elem.id() {
-                    self.var_map.insert(id.to_owned(), r);
+            for el in &self.elements {
+                match el {
+                    TopLevel::Element(el) => {
+                        if let Some(IfState::IfPassed) = ifs.last() {
+                            let r = el.render(ui, self)?;
+                            if let Var::Rect(r) = &r {
+                                right = right.max(r.right());
+                                bottom = bottom.max(r.bottom());
+                            }
+                            if let Some(id) = el.id() {
+                                self.var_map.insert(id.to_owned(), r);
+                            }
+                        }
+                    }
+                    TopLevel::If(cond) => {
+                        if let Some(IfState::IfPassed) = ifs.last() {
+                            ifs.push(if cond.eval(self)?.float()? > 0. {
+                                IfState::IfPassed
+                            } else {
+                                IfState::IfFailed
+                            });
+                        }
+                    }
+                    TopLevel::Else => {
+                        if let Some(IfState::IfFailed) = ifs.last() {
+                            *ifs.last_mut().unwrap() = IfState::IfPassed;
+                        } else {
+                            *ifs.last_mut().unwrap() = IfState::Nopped;
+                        }
+                    }
+                    TopLevel::ElseIf(cond) => {
+                        if let Some(IfState::IfFailed) = ifs.last() {
+                            *ifs.last_mut().unwrap() = if cond.eval(self)?.float()? > 0. {
+                                IfState::IfPassed
+                            } else {
+                                IfState::IfFailed
+                            };
+                        } else {
+                            *ifs.last_mut().unwrap() = IfState::Nopped;
+                        }
+                    }
+                    TopLevel::EndIf => {
+                        ifs.pop();
+                    }
+                    TopLevel::GlobalDef(..) => {}
                 }
             }
 
@@ -784,22 +832,28 @@ impl Uml {
     pub fn render_top(&mut self, ui: &mut Ui, t: f32, rt: f32) -> Result<()> {
         self.t = t;
         self.rt = rt;
-        for element in &self.elements {
-            element.render_top(ui, self)?;
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                el.render_top(ui, self)?;
+            }
         }
         Ok(())
     }
 
     pub fn on_result(&self, t: f32, delete: bool) {
-        for element in &self.elements {
-            element.on_result(t, delete);
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                el.on_result(t, delete);
+            }
         }
     }
 
     pub fn next_scene(&self) -> Option<NextScene> {
-        for element in &self.elements {
-            if let Some(s) = element.next_scene() {
-                return Some(s);
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                if let Some(next) = el.next_scene() {
+                    return Some(next);
+                }
             }
         }
         None
