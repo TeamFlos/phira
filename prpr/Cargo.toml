@@ -41,7 +41,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 symphonia = { version = "0.5", features = ["flac", "mp3", "ogg", "vorbis", "wav", "pcm"] }
-sys-locale = "0.2.3"
+sys-locale = "0.3.1"
 tempfile = "3.3.0"
 tracing = "0.1.37"
 unic-langid = { version = "0.9.1", features = ["macros"] }
@@ -52,7 +52,7 @@ chrono = { version = "0.4.24", features = ["serde"] }
 hex = "0.4.3"
 hmac = "0.12.1"
 miniz_oxide = "0.7.1"
-obfstr = "=0.4.1"
+obfstr = "0.4.3"
 sha2 = "0.10.6"
 subtle = "2.4.1"
 libc = "0.2.142"
