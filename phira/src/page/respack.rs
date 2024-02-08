@@ -149,7 +149,7 @@ impl Page for ResPackPage {
                 tl!("info"),
                 tl!("info-content", "name" => item.name.clone(), "author" => info.author.clone(), "desc" => info.description.clone()),
             )
-            .listener(|index| index == 2)
+            .listener(|index| index == -2)
             .show();
             return Ok(true);
         }
