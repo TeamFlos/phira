@@ -13,7 +13,9 @@ pub struct Dialog {
     title: String,
     message: String,
     buttons: Vec<String>,
-    listener: Option<Box<dyn FnMut(i32) -> bool>>, // -1 for cancel, -2 for text
+    /// listener function returns `false` to close the dialog, `true` to keep it open
+    /// the parameter is the *index* of the button clicked, `-1` for outside click, `-2` for text
+    listener: Option<Box<dyn FnMut(i32) -> bool>>,
 
     text_btn: RectButton,
 
