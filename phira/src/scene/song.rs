@@ -57,7 +57,7 @@ use std::{
     thread_local,
 };
 use tokio::net::TcpStream;
-use tracing::warn;
+use tracing::{error, warn};
 use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
@@ -704,14 +704,15 @@ impl SongScene {
         let local_path = self.local_path.as_ref().unwrap();
         let is_unlock = force_unlock
             || (mode == GameMode::Normal
-                && !get_data()
+                && get_data()
                     .charts
                     .iter()
                     .find(|it| it.local_path == *local_path)
-                    .map_or(false, |it| it.played_unlock));
+                    .map_or(false, |it| it.info.has_unlock && !it.played_unlock));
 
         self.scene_task =
             Self::global_launch(self.info.id, local_path, self.mods, mode, None, Some(self.background.clone()), self.record.clone(), is_unlock)?;
+
         Ok(())
     }
 
@@ -1606,6 +1607,7 @@ impl Scene for SongScene {
             if let Some(res) = poll_future(task.as_mut()) {
                 match res {
                     Err(err) => {
+                        error!(?err, "failed to play");
                         self.tr_start = f32::NAN;
                         let error = format!("{err:?}");
                         Dialog::plain(tl!("failed-to-play"), error)

@@ -32,6 +32,8 @@ pub struct BriefChartInfo {
     pub created: Option<DateTime<Utc>>,
     pub updated: Option<DateTime<Utc>>,
     pub chart_updated: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub has_unlock: bool,
 }
 
 impl From<ChartInfo> for BriefChartInfo {
@@ -49,6 +51,7 @@ impl From<ChartInfo> for BriefChartInfo {
             created: info.created,
             updated: info.updated,
             chart_updated: info.chart_updated,
+            has_unlock: info.unlock_video.is_some(),
         }
     }
 }

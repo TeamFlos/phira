@@ -56,6 +56,7 @@ impl Chart {
             created: Some(self.created),
             updated: Some(self.updated),
             chart_updated: Some(self.chart_updated),
+            has_unlock: false,
         }
     }
 }

@@ -198,6 +198,7 @@ impl Scene for ChapterScene {
                         created: None,
                         updated: None,
                         chart_updated: None,
+                        has_unlock: false,
                     },
                     illu: Illustration::from_done(chart.illu.clone()),
                     local_path: Some(local_path.clone()),
