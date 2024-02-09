@@ -1608,6 +1608,7 @@ impl Scene for SongScene {
                 match res {
                     Err(err) => {
                         error!(?err, "failed to play");
+                        *self.background.lock().unwrap() = None;
                         self.tr_start = f32::NAN;
                         let error = format!("{err:?}");
                         Dialog::plain(tl!("failed-to-play"), error)
