@@ -30,6 +30,8 @@ bitflags! {
         const SET_ALL_ROLE      = 0x00001000;
         const SET_REVIEWER      = 0x00002000;
         const SET_SUPERVISOR    = 0x00004000;
+        const BAN_AVATAR        = 0x00008000;
+        const REVIEW_PECJAM     = 0x00010000;
     }
 }
 
@@ -41,6 +43,7 @@ bitflags! {
         const SUPERVISOR        = 0x0004;
         const HEAD_SUPERVISOR   = 0x0008;
         const HEAD_REVIEWER     = 0x0010;
+        const PECJAM_REVIEWER   = 0x0020;
     }
 }
 
@@ -74,6 +77,9 @@ impl Roles {
             perm |= Permissions::DELETE_STABLE;
             perm |= Permissions::SET_RANKED;
             perm |= Permissions::SET_SUPERVISOR;
+        }
+        if self.contains(Self::PECJAM_REVIEWER) {
+            perm |= Permissions::REVIEW_PECJAM;
         }
         perm
     }
