@@ -1,4 +1,6 @@
-oad-list-failed = 이벤트를 불러오지 못했습니다
+label = 이벤트
+
+load-list-failed = 이벤트를 불러오지 못했습니다
 load-failed = 이벤트를 불러오지 못했습니다
 load-status-failed = 이벤트 상태를 불러오지 못했습니다
 load-ldb-failed = 리더보드를 불러오지 못했습니다

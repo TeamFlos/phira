@@ -7,5 +7,5 @@ info-content =
   제작자: { $author }
   설명: { $desc }
 
-cant-delete-builtin = 기본 리소스팩을 삭제할 수 없습니다
+cant-delete-builtin = 기본 리소스팩은 삭제할 수 없습니다
 deleted = 삭제됨
