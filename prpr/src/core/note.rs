@@ -186,7 +186,7 @@ impl Note {
         if config.invisible_time.is_finite() && self.time - config.invisible_time < res.time {
             return;
         }
-        let scale = (if self.multiple_hint {
+        let scale = (if res.config.double_hint && self.multiple_hint {
             res.res_pack.note_style_mh.click.width() / res.res_pack.note_style.click.width()
         } else {
             1.0
