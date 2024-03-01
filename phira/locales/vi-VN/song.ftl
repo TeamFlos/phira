@@ -1,121 +1,128 @@
 
-load-preview-failed = Không thể tải nghe trước nhạc
-load-charts-failed = Tải biểu đồ thất bại
-no-chart-for-download = Biểu đồ này không thể tải.
+load-preview-failed = Failed to load song preview
+load-charts-failed = Failed to load beatmaps
+no-chart-for-download = This beatmap is not downloadable
 
-load-chart-failed = Không thể tải biểu đồ
+load-chart-failed = Failed to load the beatmap
 
-dl-cancel = Hủy bỏ
-dl-status-fetch = Đang tìm thông tin...
-dl-status-song = Đang tải nhạc...
-dl-status-chart = Đang tải biểu đồ...
-dl-status-extract = Đang giải nén...
-dl-status-illustration = Đang tải hình minh hoạ...
-dl-status-assets = Đang tải tài sản...
-dl-status-saving = Đang lưu
-dl-failed = Không thể tải
-dl-success = Đã tải
+dl-cancel = Cancel
+dl-status-fetch = Fetching info
+dl-status-song = Downloading song
+dl-status-chart = Downloading chart
+dl-status-extract = Extracting
+dl-status-illustration = Downloading illustration
+dl-status-assets = Downloading assets
+dl-status-saving = Saving
+dl-failed = Download failed
+dl-success = Downloaded
 
-guest = Khách
+guest = Guest
 
-warn-unrated = Lượt chơi không được ghi nhận
-failed-to-play = Không thể bắt đầu ở chế độ trực tuyến
-play-cancel = Hủy bỏ
-play-switch-to-offline = Chuyển sang chế độ ngoại tuyến
-switched-to-offline = Đã chuyển sang chế độ ngoại tuyến 
+warn-unrated = This play is unrated
+failed-to-play = Failed to start as online mode
+play-cancel = Cancel
+play-switch-to-offline = Switch to offline mode
+switched-to-offline = Switched to offline mode
 
-delete = Xoá
-rate = Đánh giá
-exercise = Luyện tập
-offset = Chỉnh độ lệch
+delete = Delete
+rate = Rate
+exercise = Exercise
+offset = Adjust offset
+unlock = Play unlock video
 
-edit-cancel = Hủy
-edit-save = Lưu
-edit-saving = Đang lưu
-edit-load-file-failed = Không thể tải tệp bên ngoài
-edit-save-failed = Lưu thất bại
-edit-saved = Đã lưu
-edit-preview-invalid = Nghe trước vượt giới hạn
-edit-tags = Sửa thẻ
-edit-downloaded = Không thể chỉnh sửa biểu đồ đã tải
+edit-cancel = Cancel
+edit-save = Save
+edit-saving = Saving
+edit-load-file-failed = Failed to load external file
+edit-save-failed = Save failed
+edit-saved = Saved
+edit-preview-invalid = Preview time out of bounds
+edit-tags = Edit tags
+edit-downloaded = You can't edit downloaded chart
+edit-overwrite = Overwrite
+edit-overwrite-confirm = Are you sure to overwrite this chart with the imported one? (This will only sync to online platform after clicking "Update")
+edit-overwrite-success = Overwritten
+edit-overwrite-failed = Failed to overwrite
 
-edit-upload = Tải lên
-edit-update = Cập Nhật
+edit-upload = Upload
+edit-update = Update
 
-upload-login-first = Hãy đăng nhập trước
-upload-builtin = Không thể tải lên biểu đồ tích hợp
-upload-rules = Quy tắc tải lên
+upload-not-saved = You haven't saved the chart, do you want to save it now?
+upload-login-first = Please login first
+upload-builtin = Built-in beatmaps cannot be uploaded
+upload-rules = Upload rules
 upload-rules-content =
-  Trước khi tải lên. Bạn cần xác nhận rằng:
-    1. ! Beatmap này do tôi tạo ra, bản đồ hợp tác cần có sự cho phép tải lên từ tất cả các nhà thiết kế bản đồ, nếu không bạn có thể đối mặt với hình phạt bị cấm tải lên vĩnh viễn
-    2. Đề nghị sử dụng hình đại diện và ID dễ nhận biết; Nếu ID hình đại diện bạn sử dụng trong Phira khá khác với nền tảng phát hành video tự tạo điểm (cụ thể là BiliBili), yêu cầu phải có các chú thích bổ sung, cũng như vui lòng thêm ngôn ngữ yêu thích của bạn vào mô tả bản đồ (nếu không phải là tiếng Trung Quốc đại lục)
-    3. Nội dung của beatmap (bao gồm âm nhạc, hình minh họa, văn bản, v.v.) phải tuân thủ các quy định pháp luật khác của Cộng hòa Nhân dân Trung Hoa và không được vi phạm pháp luật hoặc chứa thông tin xấu
-    4. Tôi ủy quyền sử dụng nội dung tôi cung cấp cho việc quảng bá công khai bởi Phira. Mọi việc sử dụng khác đòi hỏi sự cho phép bổ sung của tôi.
-    5. Quyền giải thích cuối cùng của quy định này thuộc về TeamFlos
-uploading = Đang tải lên...
-upload-chart-failed = T.lên biểu đồ thất bại
-upload-success = Đã t.lên, chờ xét duyệt!
-upload-failed = T.lên thất bại
+  Before uploading, you need to confirm that:
+  1. ! The beatmap is created by me, collaborative chart needs upload permission ALL chart designers, otherwise you may face the penalty of permanent ban on uploading
+  2. It is recommended to use a highly recognizable avatar and ID; If the avatar ID you use in Phira is quite different from the self-made score video publishing platform (specifically, BiliBili), additional annotations are required, also please add your favored language in the chart description (if not zh-CN)
+  3. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information
+  4. I authorize the use of the content I provide for public promotion by Phira. Any other use requires my additional permission
+  5. The final interpretation rights of this rule belong to TeamFlos
+uploading = Uploading
+upload-chart-failed = Failed to upload beatmap
+upload-success = Uploaded successfully, please wait for review!
+upload-failed = Upload failed
+upload-confirm-clear-ldb = Since the current chart file is different from the remote chart file, the leaderboard of this chart will be cleared after uploading, are you sure to continue?
 
-ldb = Bảng xếp hạng
-ldb-load-failed = Không thể tải bảng xếp hạng
-ldb-no-rank = Vô hạng
-ldb-score = Điểm
-ldb-std = Độ C.Xác
+ldb = Leaderboard
+ldb-load-failed = Failed to load leaderboard
+ldb-no-rank = None
+ldb-score = Score
+ldb-std = Purity
 
-info-name = Tên
-info-composer = Nhà S.nhạc
-info-charter = Nhà B.đồ
-info-difficulty = Độ khó
-info-desc = Mô tả
-info-rating = Đánh giá
-info-type = Loại
-info-tags = Thẻ
+info-name = Name
+info-composer = Composer
+info-charter = Charter
+info-difficulty = Difficulty
+info-desc = Description
+info-rating = Rating
+info-type = Type
+info-tags = Tags
 
-review-approve = Chấp thuận
-review-deny = Từ chối
-review-del = Xóa trực tuyến
-review-approved = Đã chấp thuận
-review-passed = Đã vượt qua
-review-denied = Đã từ chối
-review-deleted = Đã xoá
-review-action-failed = Không thể làm việc xem xét
-review-doing = Thực hiện hành động
-review-not-loaded = Thông tin chưa tải, vui lòng đợi
-review-edit-tags = Sửa thẻ
-review-edit-tags-failed = Sửa thẻ thất bại
-review-edit-tags-done = Đã cập nhật thẻ
+reviewed = Reviewed
+unreviewed = Unreviewed
 
-reviewed = Đã xem xét
-unreviewed = Chưa được xem xét
+review-approve = Approve
+review-deny = Deny
+review-del = Delete online
+review-approved = Approved
+review-passed = Passed
+review-denied = Denied
+review-deleted = Deleted
+review-action-failed = Failed to perform review action
+review-doing = Executing action
+review-not-loaded = Info is not loaded, please wait
+review-edit-tags = Edit tags
+review-edit-tags-failed = Failed to edit tags
+review-edit-tags-done = Tags updated
 
-mods = Các Sửa Đổi
-mods-autoplay = Tự động chơi
-mods-autoplay-sub = Bật và vô hiệu tải lên thành tích
-mods-flip-x = Lật trục X
-mods-flip-x-sub = Nó hoạt động như gương vậy
-mods-fade-out = Mờ dần
-mods-fade-out-sub = Nốt biến mất khi gần đến dòng
+mods = Mods
+mods-autoplay = Autoplay
+mods-autoplay-sub = Enabling this would disable record uploading
+mods-flip-x = Flip X
+mods-flip-x-sub = Flip on the X-axis
+mods-fade-out = Fade out
+mods-fade-out-sub = Notes disappear when they approach the line
 
-rate-failed = Đánh giá thất bại
-rate-done = Đánh giá thành công
+rate-failed = Rate failed
+rate-done = Rated successfully
 
-need-update = Cần cập nhật
-need-update-info-only-content = Thông tin về biểu đồ đã được cập nhật. Bạn có muốn đồng bộ hóa bản cập nhật không?
-need-update-content = Biểu đồ này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản cục bộ của mình trước khi tải lên bản ghi. Bạn có muốn làm điều đó ngay bây giờ?
+need-update = Update needed
+need-update-info-only-content = The info of beatmap has updated. Do you want to sync the update?
+need-update-content = This beatmap has updated. You must sync your local version before uploading record. Do you want to do it now?
 
-request-failed = Yêu cầu thất bại
+request-failed = Request failed
 
-stabilize = Ổn định
-stabilize-warn = Người dùng bình thường chỉ có thể yêu cầu ổn định beatmap một lần trong 3 ngày. Nếu bạn có biểu đồ ổn định, khoảng thời gian sẽ giảm xuống còn 1 ngày.
-stabilize-requested = Đã gửi yêu cầu ổn định
-stabilize-failed = Ổn định không thành công
-stabilize-approve = Phê duyệt đặc biệt
-stabilize-approve-ranked = Phê duyệt ổn định
-stabilize-comment = Bình luận ổn định
-stabilize-commented = Đã nhận xét
-stabilize-deny = Từ chối ổn định
-stabilize-approved = Tán thành
-stabilize-approved-passed = Đã được phê duyệt, biểu đồ đã ổn định
-stabilize-denied = Từ chối
-stabilize-denied-passed = Bị từ chối, biểu đồ bị từ chối
+stabilize = Stabilize
+stabilize-warn = Normal user can only request to stabilize beatmap once per 3 days. If you have beatmaps that are stabilized, the interval is reduced to 1 day.
+stabilize-requested = Stablizing request sent
+stabilize-failed = Stabilize failed
+stabilize-approve = Approve special
+stabilize-approve-ranked = Approve stable
+stabilize-comment = Stable comment
+stabilize-commented = Commented
+stabilize-deny = Deny stable
+stabilize-approved = Approved
+stabilize-approved-passed = Approved, the beatmap is stablized
+stabilize-denied = Denied
+stabilize-denied-passed = Denied, the beatmap is rejected
