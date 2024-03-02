@@ -1,9 +1,18 @@
 
 play = Chơi
-event = Sự Kiện
-respack = T.Nguyên
+event = Sự kiện
+respack = Skin
 
-not-opened = Không Khả Dụng
-not-logged-in = Chưa Đăng nhập
+not-opened = Ko có sẵn
+not-logged-in = Đăng nhập
 
-failed-to-update = Không thể cập nhật thông tin người dùng.
+failed-to-update = Không thể tải dữ liệu của bạn
+
+update = Đã có phiên bản{ $version }
+update-desc =
+  Phát hành: { $date }
+  Nội dung cập nhật: { $desc }
+update-ignore = Deo cập nhật
+update-go = Cập nhật
+
+change-char = Đổi nhân vật

@@ -1,86 +1,86 @@
 
-multiplayer = Đa Người Chơi
+multiplayer = Nhiều ng chơi
 
 connect = Kết nối
-connect-must-login = Cần đăng nhập để vào chế độ đa người chơi
-connect-success = Kết nối thành công
-connect-failed = Kết nối thất bại
-connect-authenticate-failed = Ủy quyền thất bại
-reconnect = Đang kết nối lại...
+connect-must-login = Bạn phải đăng nhập để chơi nhiều ng
+connect-success = Thành công!
+connect-failed = Thất bại
+connect-authenticate-failed = Ủy quyển thất bại
+reconnect = Kết nối lại...
 
 create-room = Tạo phòng
-create-room-success = Đã tạo phòng
-create-room-failed = Tạo phòng thất bại
-create-invalid-id = ID phòng bao gồm không quá 20 ký tự, bao gồm chữ cái, số, - (gạch ngang) và _ (gạch dưới)
-
+create-room-success = Đã tạo!
+create-room-failed = Tạo thất bại
+create-invalid-id = ID phòng tối đa 20 ký tự, chứa chữ, số , - và _
 
 join-room = Vào phòng
-join-room-invalid-id = ID phòng không tồn tại
-join-room-failed = Không thể tham gia phòng
+join-room-invalid-id = Không tìm thấy ID
+join-room-failed = Không thể vào
 
-leave-room = Rời phòng
-leave-room-failed = Rời phòng thất bại (lmao)
+leave-room = Rời
+leave-room-failed = Không thể rời
 
 disconnect = Ngắt kết nối
 
-request-start = Bắt đầu Game
-request-start-no-chart = Bạn chưa chọn biểu đồ
-request-start-failed = Bắt đầu thất bại
+request-start = Chơi
+request-start-no-chart = Bạn phải chọn Chart
+request-start-failed = Không thể bắt đầu
 
-user-list = Người Chơi
+user-list = Ng chơi
 
 lock-room = { $current ->
-  [true] Mở phòng
-  *[other] Đóng phòng
+  [true] Mở khóa
+  *[other] Khóa
 }
 cycle-room = { $current ->
-  [true] Chế độ đạp xe (CM)
-  *[other] Chế độ thường
+  [true] Xe đạp?
+  *[other] Bthg
 }
-
 
 ready = Sẵn sàng
 ready-failed = Không thể sẵn sàng
 
-cancel-ready = Hủy bỏ
+cancel-ready = Hủy
 
-room-id = ID Phòng: { $id }
+room-id = ID phòng: { $id }
 
-download-failed = Không thể tải biểu đồ
+download-failed = Không thể tải chart
 
-chat-placeholder = Viết gì đó
+lock-room-failed = Không thể khóa phòng
+cycle-room-failed = Không thể đổi chế độ
+
+chat-placeholder = Tin nhắn...
 chat-send = Gửi
-chat-empty = Tin nhắn rỗng
+chat-empty = Không có văn bản
 chat-sent = Đã gửi
 chat-send-failed = Không thể gửi
 
-select-chart-host-only = Chỉ chủ phòng mới có quyền chọn
-select-chart-local = Không chọn biểu đồ nội bộ
-select-chart-failed = Chọn biểu đồ thất bại
-select-chart-not-now = Bạn không thể chọn biểu đồ ngay bây giờ. 
+select-chart-host-only = Chỉ có chủ phòng mới được chọn chart
+select-chart-local = Không thể chọn chart của bạn
+select-chart-failed = Không thể chọn chart
+select-chart-not-now = Bạn không thể chọn lúc này.
 
 msg-create-room = `{ $user }` đã tạo phòng
-msg-join-room = `{ $user }` đã tham gia
-msg-leave-room = `{ $user }` đã rời phòng
-msg-new-host = `{ $user }` trở thành chủ mới
-msg-select-chart = Chủ phòng `{ $user }`  chọn biểu đồ  `{ $chart }` (#{ $id })
-msg-game-start = Chủ phòng `{ $user }` bắt đầu trò chơi. Những người chơi khác nên sẵn sàng.
+msg-join-room = `{ $user }` đã vào phòng
+msg-leave-room = `{ $user }` đã rời
+msg-new-host = `{ $user }` trở thành chủ phòng
+msg-select-chart = `{ $user }` đã chọn `{ $chart }` (ID: #{ $id })
+msg-game-start = `{ $user }` đã bắt đầu, đợi sẵn sàng từ bạn
 msg-ready = `{ $user }` đã sẵn sàng
 msg-cancel-ready = `{ $user }` hủy sẵn sàng
-msg-cancel-game = `{ $user }` hủy trò chơi 
-msg-start-playing = Trò chơi bắt đầu
-msg-played = `{ $user }` chơi xong: { $score } ({ $accuracy }){ $full-combo ->
-  [true] , full combo
+msg-cancel-game = `{ $user }` hủy kèo
+msg-start-playing = Bắt đầu
+msg-played = `{ $user }` đã kết thúc: { $score } ({ $accuracy }){ $full-combo ->
+  [true] , FC
   *[other] {""}
 }
-msg-game-end = Trò chơi kết thúc
-msg-abort = `{ $user }` hủy bỏ trò chơi
+msg-game-end = Kết thúc
+msg-abort = Trò chơi bị hủy bởi `{ $user }`
 msg-room-lock = { $lock ->
-  [true] Đã khoá phòng
-  *[other] Đã mở khoá phòng
+  [true] Đã khóa phòng
+  *[other] Đã mở khóa phòng
 }
 msg-room-cycle = { $cycle ->
-  [true] Phòng đã đổi sang chế độ đi xe đạp (CM)
-  *[other] Phòng đã chuyển sang chế độ bình thường
+  [true] Chuyển sang chế độ Xe đạp?
+  *[other] Chuyển về chế đọ Bthg
 }
-
