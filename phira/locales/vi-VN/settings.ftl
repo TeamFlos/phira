@@ -10,38 +10,38 @@ about = Giới thiệu
 item-lang = Ngôn ngữ
 item-offline = Chế độ Offline
 item-offline-sub = Bạn không thể đồng bộ hóa kết quả chơi trong chế độ Offline 
-item-mp = Nhiều ng chơi
-item-mp-sub = Bật chế độ nhiều ng chơi
-item-mp-addr = Server nhiều ng chơi
+item-mp = Nhiều người chơi
+item-mp-sub = Bật chế độ nhiều người chơi
+item-mp-addr = Server nhiều người chơi
 item-mp-addr-sub = Địa chỉ server, 'host:port'
-item-mp-addr-invalid = Địa chỉ không hợp lệ
+item-mp-addr-invalid = Địa chỉ không tồn tại
 item-lowq = Đồ họa thấp
-item-lowq-sub = Giảm đồ họa khi chơi tránh giật lag
+item-lowq-sub = Giảm đồ họa khi chơi tránh giật lag, nên bật cho máy yếu.
 item-insecure = Chế độ không an toàn
 item-insecure-sub = Kích hoạt tính năng này nếu bạn không thể sử dụng các chức năng trực tuyến. Làm cho kết nối của bạn không an toàn!
 
-item-adjust = Tự động điều chỉnh thời gian
-item-adjust-sub = Điều chỉnh thời gian linh hoạt để đồng bộ hóa nhạc và beatmap
+item-adjust = Tự động điều chỉnh Offset
+item-adjust-sub = Tính năng này sẽ tự động điều chỉnh khi bạn kết nối với loa bluetooth.
 item-music = Âm lượng nhạc
 item-sfx = Âm lượng note
 item-bgm = Âm lượng nhạc nền
-item-cali = Điều chỉnh độ lệch
+item-cali = Điều chỉnh Offset
 
-item-show-acc = Hiển thị độ chính xác theo thời gian thực
+item-show-acc = Hiển thị độ Accuracy trực tiếp dưới điểm
 item-dc-pause = Chạm hai lần tạm dừng
-item-dhint = Tô vàng note trùng nhau
+item-dhint = Tô vàng note kép
 item-dhint-sub = Các note rơi cùng thời điểm sẽ được tô màu vàng
 item-opt = Tối ưu hóa
 item-opt-sub = Cải thiện hiệu suất, nhưng có thể gây ra hành vi không chính xác
 item-speed = Tốc độ
-item-note-size = Kích thước Notes
+item-note-size = Kích thước note
 
 item-chart-debug = Gỡ lỗi beatmap
 item-chart-debug-sub = Hiển thị số line và hướng
 item-touch-debug = Gỡ lỗi chạm
 item-touch-debug-sub = Hiển thị phản hồi khi chạm
 
-load-cali-failed = Không tải được âm thanh
+load-cali-failed = Thất bại
 
 about-content =
   Phira phiên bản { $version }

@@ -1,8 +1,8 @@
 
-multiplayer = Nhiều ng chơi
+multiplayer = Nhiều người chơi
 
 connect = Kết nối
-connect-must-login = Bạn phải đăng nhập để chơi nhiều ng
+connect-must-login = Bạn phải đăng nhập để chơi
 connect-success = Thành công!
 connect-failed = Thất bại
 connect-authenticate-failed = Ủy quyển thất bại
@@ -26,15 +26,15 @@ request-start = Chơi
 request-start-no-chart = Bạn phải chọn Chart
 request-start-failed = Không thể bắt đầu
 
-user-list = Ng chơi
+user-list = Người chơi
 
 lock-room = { $current ->
-  [true] Mở khóa
-  *[other] Khóa
+  [true] Mở phòng
+  *[other] Khóa phòng
 }
 cycle-room = { $current ->
-  [true] Xe đạp?
-  *[other] Bthg
+  [true] Vòng lặp
+  *[other] Bình thường
 }
 
 ready = Sẵn sàng
@@ -65,10 +65,10 @@ msg-join-room = `{ $user }` đã vào phòng
 msg-leave-room = `{ $user }` đã rời
 msg-new-host = `{ $user }` trở thành chủ phòng
 msg-select-chart = `{ $user }` đã chọn `{ $chart }` (ID: #{ $id })
-msg-game-start = `{ $user }` đã bắt đầu, đợi sẵn sàng từ bạn
+msg-game-start = `{ $user }` đã bắt đầu, đợi bạn sẵn sàng!
 msg-ready = `{ $user }` đã sẵn sàng
 msg-cancel-ready = `{ $user }` hủy sẵn sàng
-msg-cancel-game = `{ $user }` hủy kèo
+msg-cancel-game = `{ $user }` hủy trò chơi
 msg-start-playing = Bắt đầu
 msg-played = `{ $user }` đã kết thúc: { $score } ({ $accuracy }){ $full-combo ->
   [true] , FC
@@ -81,6 +81,6 @@ msg-room-lock = { $lock ->
   *[other] Đã mở khóa phòng
 }
 msg-room-cycle = { $cycle ->
-  [true] Chuyển sang chế độ Xe đạp?
-  *[other] Chuyển về chế đọ Bthg
+  [true] Chuyển sang chế độ Vòng lặp
+  *[other] Chuyển về chế đọ Bình thường
 }
