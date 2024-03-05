@@ -1,11 +1,11 @@
 
 login = Đăng nhập
-login-sub = Đăng nhập để tham gia cùng với cộng đồng Phira
-back-login = Quay lại Đăng nhập
+login-sub = Đăng nhập để tham gia cùng với cộng đồng Phira!
+back-login = Quay lại
 register = Tạo tài khoản
 
 email = Email
-username = Tên
+username = Tên người dùng
 password = Mật khẩu
 
 name-length-req = Tên phải trong khoảng từ 4 đến 20 ký tự

@@ -1,8 +1,8 @@
 
-info-fail = Không thể tải info
-invalid-chart = Chart không hợp lệ
+info-fail = Không thể tải thông tin
+invalid-chart = Chart không hỗ trợ
 
-importing = Đang nạp
+importing = Đang nhập...
 import-success = Thành công!
 import-failed = Thất bại
 import-respack-success = Thành công!

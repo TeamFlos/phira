@@ -29,7 +29,7 @@ expected-usize = Expected usize
 expected-tween = Expected tween
 
 no-notes-inserted = Không có note nào được thêm
-unknown-command = Lệnh không hợp lệ: { $cmd }
+unknown-command = Lệnh không xác định: { $cmd }
 bp-error = Bpm events (bp) phải liền kề và nằm ở đầu của file
 expected-01 = Expected 0 / 1 (real note / fake note)
 unexpected-extra = Unexpected extra content: { $next }

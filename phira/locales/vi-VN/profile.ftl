@@ -6,10 +6,10 @@ delete-failed = Không thể xóa tài khoản, cay
 delete-req-sent = Yêu cầu xóa tài khoản đã được xác nhận, tạm biệt.
 
 load-user-failed = Không thể tìm dữ liệu người chơi
-edit-avatar-success = Đã cập nhât Avatar
-edit-avatar-failed = Không thể cập nhật Avatar
+edit-avatar-success = Đã cập nhật ảnh
+edit-avatar-failed = Không thể cập nhật ảnh
 
-uploading-avatar = Đang thay Avatar
+uploading-avatar = Đang thay ảnh của bạn...
 
 load-record-failed = Không thể tải số liệu
 

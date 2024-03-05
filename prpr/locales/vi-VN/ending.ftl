@@ -1,5 +1,5 @@
 
-retry = CHIẾN LẠI
+retry = CHƠI LẠI
 proceed = TIẾP TỤC
 
 new-best = KỈ LỤC MỚI

@@ -1,17 +1,17 @@
 
 edit-chart = Tùy chỉnh
-level-displayed = Level
+level-displayed = Cấp
 chart-name = Tên
 author = Charter
 composer = Soạn nhạc
 illustrator = Minh họa
 diff = Độ khó
-preview-time = Nhạc nghe trước
+preview-time = Nhạc preview
 preview-hint = Nên là "START-END"; có thể thêm dấu cách
 invalid-time = Thời gian không hợp lệ
 preview-too-short = Quá ngắn
 preview-too-long = Quá dài
-offset = Độ lệch(s)
+offset = Offset(s)
 aspect-ratio = Tỉ lệ màn hình
 ps = Notes:
 aspect-hint = Tỉ lệ khung hình nên là một số hoặc viết dưới dạng "rộng:cao", tỉ lệ mặc định là "1.777777". Tùy vào nhu cầu của charter mà con số này có thể thay đổi.
