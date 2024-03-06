@@ -1,2 +1,2 @@
 
-label = THIẾT LẬP
+label = ĐIỀU CHỈNH
