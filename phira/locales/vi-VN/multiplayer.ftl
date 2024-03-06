@@ -2,23 +2,23 @@
 multiplayer = Nhiều người chơi
 
 connect = Kết nối
-connect-must-login = Bạn phải đăng nhập để chơi
-connect-success = Thành công!
-connect-failed = Thất bại
+connect-must-login = Bạn phải đăng nhập để chơi nhiều người
+connect-success = Kết nối thành công
+connect-failed = Không thể kết nối
 connect-authenticate-failed = Ủy quyển thất bại
 reconnect = Kết nối lại...
 
 create-room = Tạo phòng
 create-room-success = Đã tạo!
-create-room-failed = Tạo thất bại
+create-room-failed = Không thể tạo phòng
 create-invalid-id = ID phòng tối đa 20 ký tự, chứa chữ, số , - và _
 
 join-room = Vào phòng
 join-room-invalid-id = Không tìm thấy ID
-join-room-failed = Không thể vào
+join-room-failed = Không thể vào phòng
 
-leave-room = Rời
-leave-room-failed = Không thể rời
+leave-room = Rời phòng
+leave-room-failed = Không thể rời phòng
 
 disconnect = Ngắt kết nối
 
@@ -65,10 +65,10 @@ msg-join-room = `{ $user }` đã vào phòng
 msg-leave-room = `{ $user }` đã rời
 msg-new-host = `{ $user }` trở thành chủ phòng
 msg-select-chart = `{ $user }` đã chọn `{ $chart }` (ID: #{ $id })
-msg-game-start = `{ $user }` đã bắt đầu, đợi bạn sẵn sàng!
+msg-game-start = `{ $user }` đã bắt đầu, đợi bạn sẵn sàng
 msg-ready = `{ $user }` đã sẵn sàng
 msg-cancel-ready = `{ $user }` hủy sẵn sàng
-msg-cancel-game = `{ $user }` hủy trò chơi
+msg-cancel-game = `{ $user }` hủy kèo
 msg-start-playing = Bắt đầu
 msg-played = `{ $user }` đã kết thúc: { $score } ({ $accuracy }){ $full-combo ->
   [true] , FC

@@ -1,17 +1,17 @@
 
-load-preview-failed = Tải nhạc preview thất bại
+load-preview-failed = Không thể tải nhạc nghe trước
 load-charts-failed = Không thể tải Chart
-no-chart-for-download = Không có chart để tải
+no-chart-for-download = Chart không tải được
 
 load-chart-failed = Không thể tải beatmap
 
 dl-cancel = Hủy
 dl-status-fetch = Đang tìm nạp thông tin...
-dl-status-song = Nhạc...
-dl-status-chart = Chart...
-dl-status-extract = Giải nén...
-dl-status-illustration = Minh họa...
-dl-status-assets = Nội dung...
+dl-status-song = Đang tải nhạc
+dl-status-chart = Đang tải chart
+dl-status-extract = Đang giải nén
+dl-status-illustration = Đang tải minh hoạ
+dl-status-assets = Đang tải nội dung
 dl-status-saving = Đang lưu...
 dl-failed = Thất bại
 dl-success = Đã xong!
@@ -27,7 +27,7 @@ switched-to-offline = Đã xong
 delete = Xóa
 rate = Đánh giá
 exercise = Luyện tập
-offset = Chỉnh Offset
+offset = Chỉnh độ lệch
 unlock = Phát video mở khóa
 
 edit-cancel = Hủy bỏ
@@ -54,19 +54,19 @@ upload-rules = Nội quy tải lên chart
 upload-rules-content =
   Trước khi tải lên thư viện trực tuyến, bạn cần xác nhận rằng:
    1. ! Chart do tôi tạo ra, chart hợp tác cần có quyền tải lên cho TẤT CẢ các thành viên thiết kế chart, nếu không bạn có thể phải đối mặt với hình phạt cấm tải lên vĩnh viễn
-   2. Nên sử dụng hình đại diện và ID có khả năng nhận biết cao; Nếu ID hình đại diện bạn sử dụng trong Phira khá khác so với nền tảng xuất bản video điểm số tự tạo (cụ thể là BiliBili), thì cần có chú thích bổ sung, đồng thời vui lòng thêm ngôn ngữ ưa thích của bạn vào mô tả chart (nếu không phải zh-CN (tiếng Tàu))
+   2. Nên sử dụng hình đại diện và ID có khả năng nhận biết cao; Nếu ID hình đại diện bạn sử dụng trong Phira khá khác so với nền tảng xuất bản video điểm số tự tạo (cụ thể là BiliBili), thì cần có chú thích bổ sung, đồng thời vui lòng thêm ngôn ngữ ưa thích của bạn vào mô tả chart (nếu không phải zh-CN (tiếng Trung))
    3. Nội dung của chart (bao gồm âm nhạc, hình minh họa, văn bản, v.v.) phải tuân thủ các luật và quy định khác của Cộng hòa Nhân dân Trung Hoa và không được vi phạm pháp luật hoặc chứa thông tin xấu
    4. Tôi cho phép Phira sử dụng nội dung tôi cung cấp để quảng bá công khai. Bất kỳ việc sử dụng nào khác đều cần có sự cho phép bổ sung của tôi
    5. Quyền giải thích cuối cùng của quy tắc này thuộc về TeamFlos
 uploading = Đang tải lên...
 upload-chart-failed = Không thể tải lên
 upload-success = Đã xong!, hãy đợi đến khi nó được review!
-upload-failed = Không thể tải lên.
+upload-failed = Không the tải lên.
 upload-confirm-clear-ldb = Vì tệp chart hiện tại khác với tệp chart đã tải lên nên bảng xếp hạng của chart này sẽ bị xóa sau khi tải lên, bạn có chắc chắn tiếp tục không?
 
-ldb = Xếp hạng
+ldb = Bảng xếp hạng
 ldb-load-failed = Không thể xem bảng xếp hạng
-ldb-no-rank = .-.
+ldb-no-rank = Không xếp hạng
 ldb-score = Điểm
 ldb-std = Độ C.xác
 
@@ -98,9 +98,9 @@ review-edit-tags-done = Thẻ đã cập nhật
 
 mods = Mods
 mods-autoplay = Autoplays
-mods-autoplay-sub = Chart sẽ tự chơi, nhưng  sẽ không tính thành tích
+mods-autoplay-sub = Chart sẽ tự chơi, nhưng không tính thành tích
 mods-flip-x = Flip X
-mods-flip-x-sub = Lật ngược chart theo chiều ngang
+mods-flip-x-sub = Lật ngược chart theo trục X
 mods-fade-out = Mờ dần
 mods-fade-out-sub = Notes biến mất khi nó đi gần tới line
 
@@ -108,8 +108,8 @@ rate-failed = Thất bại
 rate-done = Đã đánh giá!
 
 need-update = Cần cập nhật
-need-update-info-only-content = Thông tin của chart đã được cập nhật. Bạn có muốn tải lại không?
-need-update-content = Chart này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản đã tải của mình trước khi tải chart lên. Bạn có muốn làm điều đó bây giờ không?
+need-update-info-only-content = thông tin của chart đã được cập nhật. Bạn có muốn đồng bộ hóa bản cập nhật không?
+need-update-content = Beatmap này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản đã tải của mình trước khi tải bản ghi lên. Bạn có muốn làm điều đó bây giờ không?
 
 request-failed = Yêu cầu không thành công
 
@@ -123,6 +123,6 @@ stabilize-comment = Duyệt bình luận
 stabilize-commented = Đã duyệt bình luận
 stabilize-deny = Hủy duyệt
 stabilize-approved = Đã chấp nhận
-stabilize-approved-passed = Chúc mừng, chart của bạn đã được duyệt
+stabilize-approved-passed = Đã chấp nhận, chart đã được duyệt
 stabilize-denied = Từ chối duyệt
 stabilize-denied-passed = Chart của bạn đã bị từ chối, cay:)

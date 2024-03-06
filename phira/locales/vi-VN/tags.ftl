@@ -2,7 +2,7 @@
 filter = Lọc theo thẻ
 edit = Sửa thẻ
 
-invalid-tag = Tag không hợp lệ
+invalid-tag = Thẻ không hợp lệ
 
 wanted = Muốn
 unwanted = Không muốn
@@ -13,7 +13,7 @@ confirm = OK
 filter-by-rating = Lọc theo đánh giá
 
 regular = Regular
-troll = trôn
+troll = Trôn
 plain = Plain
 visual = Visual
 

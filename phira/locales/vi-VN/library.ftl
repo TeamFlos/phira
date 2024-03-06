@@ -9,7 +9,7 @@ prev-page = Trước
 next-page = Sau
 
 not-opened = Không có sẵn
-failed-to-load-online = Tải thất bại
+failed-to-load-online = Không thể tải thư viện trực tuyến
 
 import = Nhập
 
