@@ -5,7 +5,7 @@ back-login = Quay lại đăng nhập
 register = Tạo tài khoản
 
 email = Email
-username = Tên
+username = Tên người dùng
 password = Mật khẩu
 
 name-length-req = Tên phải trong khoảng từ 4 đến 20 ký tự

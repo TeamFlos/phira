@@ -1,6 +1,6 @@
 
 info-fail = Không thể tải thông tin
-invalid-chart = Chart không hợp lệ
+invalid-chart = Chart không hỗ trợ
 
 importing = Đang nhập
 import-success = Nhập thành công!

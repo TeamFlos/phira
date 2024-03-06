@@ -68,7 +68,7 @@ msg-select-chart = `{ $user }` đã chọn `{ $chart }` (ID: #{ $id })
 msg-game-start = `{ $user }` đã bắt đầu, đợi bạn sẵn sàng
 msg-ready = `{ $user }` đã sẵn sàng
 msg-cancel-ready = `{ $user }` hủy sẵn sàng
-msg-cancel-game = `{ $user }` hủy kèo
+msg-cancel-game = `{ $user }` hủy trò chơi
 msg-start-playing = Bắt đầu
 msg-played = `{ $user }` đã kết thúc: { $score } ({ $accuracy }){ $full-combo ->
   [true] , FC

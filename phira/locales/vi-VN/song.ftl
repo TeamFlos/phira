@@ -1,7 +1,7 @@
 
 load-preview-failed = Không thể tải nhạc nghe trước
 load-charts-failed = Không thể tải Chart
-no-chart-for-download = Chart không tải được
+no-chart-for-download = Không có chart để tải
 
 load-chart-failed = Không thể tải beatmap
 
@@ -61,7 +61,7 @@ upload-rules-content =
 uploading = Đang tải lên...
 upload-chart-failed = Không thể tải lên
 upload-success = Đã xong!, hãy đợi đến khi nó được review!
-upload-failed = Không the tải lên.
+upload-failed = Không thể tải lên.
 upload-confirm-clear-ldb = Vì tệp chart hiện tại khác với tệp chart đã tải lên nên bảng xếp hạng của chart này sẽ bị xóa sau khi tải lên, bạn có chắc chắn tiếp tục không?
 
 ldb = Bảng xếp hạng
@@ -109,7 +109,7 @@ rate-done = Đã đánh giá!
 
 need-update = Cần cập nhật
 need-update-info-only-content = thông tin của chart đã được cập nhật. Bạn có muốn đồng bộ hóa bản cập nhật không?
-need-update-content = Beatmap này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản đã tải của mình trước khi tải bản ghi lên. Bạn có muốn làm điều đó bây giờ không?
+need-update-content = Beatmap này đã được cập nhật. Bạn phải đồng bộ hóa phiên bản đã tải của mình trước khi tải Beatmap lên. Bạn có muốn làm điều đó bây giờ không?
 
 request-failed = Yêu cầu không thành công
 
@@ -125,4 +125,4 @@ stabilize-deny = Hủy duyệt
 stabilize-approved = Đã chấp nhận
 stabilize-approved-passed = Đã chấp nhận, chart đã được duyệt
 stabilize-denied = Từ chối duyệt
-stabilize-denied-passed = Chart của bạn đã bị từ chối, cay:)
+stabilize-denied-passed = Chart của bạn đã bị từ chối
