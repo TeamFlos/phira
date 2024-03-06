@@ -1,5 +1,5 @@
 
-edit-chart = Chỉnh sửa beatmap
+edit-chart = Tuỳ chỉnh
 level-displayed = Cấp độ
 chart-name = Tên
 author = Tác giả
@@ -24,4 +24,4 @@ intro = Giới thiệu
 tags = Thẻ
 tag-exists = Thẻ này đã tồn tại
 
-illegal-input = Đầu vào không hợp lệ
+illegal-input = Giá trị không hợp lệ
