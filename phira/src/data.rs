@@ -1,5 +1,5 @@
 use crate::{
-    client::{Ptr, User},
+    client::{Character, Ptr, User},
     dir,
 };
 use anyhow::Result;
@@ -10,7 +10,11 @@ use prpr::{
     scene::SimpleRecord,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, ops::DerefMut, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::DerefMut,
+    path::Path,
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +32,8 @@ pub struct BriefChartInfo {
     pub created: Option<DateTime<Utc>>,
     pub updated: Option<DateTime<Utc>>,
     pub chart_updated: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub has_unlock: bool,
 }
 
 impl From<ChartInfo> for BriefChartInfo {
@@ -45,6 +51,7 @@ impl From<ChartInfo> for BriefChartInfo {
             created: info.created,
             updated: info.updated,
             chart_updated: info.chart_updated,
+            has_unlock: info.unlock_video.is_some(),
         }
     }
 }
@@ -57,6 +64,8 @@ pub struct LocalChart {
     pub record: Option<SimpleRecord>,
     #[serde(default)]
     pub mods: Mods,
+    #[serde(default)]
+    pub played_unlock: bool,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -64,6 +73,7 @@ pub struct LocalChart {
 pub struct Data {
     pub me: Option<User>,
     pub charts: Vec<LocalChart>,
+    pub local_records: HashMap<String, Option<SimpleRecord>>,
     pub config: Config,
     pub message_check_time: Option<DateTime<Utc>>,
     pub language: Option<String>,
@@ -74,6 +84,7 @@ pub struct Data {
     pub accept_invalid_cert: bool,
     pub read_tos_and_policy: bool,
     pub ignored_version: Option<semver::Version>,
+    pub character: Option<Character>,
 }
 
 impl Data {
@@ -100,6 +111,7 @@ impl Data {
                     local_path: filename,
                     record: None,
                     mods: Mods::default(),
+                    played_unlock: false,
                 });
             }
         }
@@ -123,6 +135,7 @@ impl Data {
                     local_path: filename,
                     record: None,
                     mods: Mods::default(),
+                    played_unlock: false,
                 });
             }
         }

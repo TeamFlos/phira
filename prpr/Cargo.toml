@@ -1,14 +1,15 @@
 [package]
 name = "prpr"
-version = "0.5.0"
+version = "0.6.2"
 edition = "2021"
 license = "GPL-3.0-only"
 
 [lib]
 
 [features]
-default = ["log"]
+default = ["log", "video"]
 closed = []
+video = ["dep:prpr-avc"]
 log = ["dep:tracing-subscriber", "dep:colored"]
 
 [dependencies]
@@ -40,7 +41,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 symphonia = { version = "0.5", features = ["flac", "mp3", "ogg", "vorbis", "wav", "pcm"] }
-sys-locale = "0.2.3"
+sys-locale = "0.3.1"
 tempfile = "3.3.0"
 tracing = "0.1.37"
 unic-langid = { version = "0.9.1", features = ["macros"] }
@@ -51,7 +52,7 @@ chrono = { version = "0.4.24", features = ["serde"] }
 hex = "0.4.3"
 hmac = "0.12.1"
 miniz_oxide = "0.7.1"
-obfstr = "=0.4.1"
+obfstr = "0.4.3"
 sha2 = "0.10.6"
 subtle = "2.4.1"
 libc = "0.2.142"
@@ -59,12 +60,16 @@ bitflags = { version = "2.2.1", features = ["serde"] }
 color-thief = "0.2.2"
 
 tracing-subscriber = { version = "0.3.17", optional = true }
-colored = { version = "2.0.0", optional = true }
+colored = { version = "=2.0.0", optional = true }
 
-prpr-avc = { path = "../prpr-avc" }
+prpr-avc = { path = "../prpr-avc", optional = true }
+
+ahash = "=0.8.6"
+cfg-expr = "=0.15.4"
+system-deps = "=6.1.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-rfd = "0.10"
+rfd = "=0.10.0"
 open = "5.0.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]

@@ -1,4 +1,4 @@
-use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIElement, Vector, Video};
+use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIElement, Vector};
 use crate::{fs::FileSystem, judge::JudgeStatus, ui::Ui};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
@@ -9,7 +9,8 @@ use tracing::warn;
 pub struct ChartExtra {
     pub effects: Vec<Effect>,
     pub global_effects: Vec<Effect>,
-    pub videos: Vec<Video>,
+    #[cfg(feature = "video")]
+    pub videos: Vec<super::Video>,
 }
 
 #[derive(Default)]
@@ -100,6 +101,7 @@ impl Chart {
         for effect in &mut self.extra.effects {
             effect.update(res);
         }
+        #[cfg(feature = "video")]
         for video in &mut self.extra.videos {
             if let Err(err) = video.update(res.time) {
                 warn!("video error: {err:?}");
@@ -108,8 +110,9 @@ impl Chart {
     }
 
     pub fn render(&self, ui: &mut Ui, res: &mut Resource) {
+        #[cfg(feature = "video")]
         for video in &self.extra.videos {
-            video.render(res);
+            video.render(res.time, res.aspect_ratio);
         }
         res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(if res.config.flip_x() { -1. } else { 1. }, -1.)), |res| {
             let mut guard = self.bpm_list.borrow_mut();

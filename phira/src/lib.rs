@@ -14,6 +14,7 @@ mod mp;
 mod page;
 mod popup;
 mod rate;
+mod resource;
 mod scene;
 mod tabs;
 mod tags;
@@ -26,6 +27,7 @@ use macroquad::prelude::*;
 use prpr::{
     build_conf,
     core::{init_assets, PGR_FONT},
+    ext::SafeTexture,
     l10n::{set_prefered_locale, GLOBAL, LANGS},
     log,
     scene::{show_error, show_message},
@@ -47,6 +49,18 @@ pub static mut DATA: Option<Data> = None;
 pub async fn load_res(name: &str) -> Vec<u8> {
     let bytes = load_file(name).await.unwrap();
     inner::resolve_data(bytes)
+}
+
+#[allow(unused)]
+pub async fn load_res_tex(name: &str) -> SafeTexture {
+    #[cfg(feature = "closed")]
+    {
+        let bytes = load_res(name).await;
+        let image = image::load_from_memory(&bytes).unwrap();
+        image.into()
+    }
+    #[cfg(not(feature = "closed"))]
+    prpr::ext::BLACK_TEXTURE.clone()
 }
 
 pub fn sync_data() {
@@ -96,6 +110,10 @@ mod dir {
         } else {
             ensure("cache")
         }
+    }
+
+    pub fn bold_font_path() -> Result<String> {
+        Ok(format!("{}/bold.ttf", root()?))
     }
 
     pub fn cache_image_local() -> Result<String> {
@@ -282,7 +300,7 @@ fn show_and_exit(msg: &str) {
 pub extern "C" fn quad_main() {
     macroquad::Window::from_config(build_conf(), async {
         if let Err(err) = the_main().await {
-            error!("Error: {:?}", err);
+            error!(?err, "global error");
         }
     });
 }

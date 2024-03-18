@@ -1,4 +1,4 @@
-use super::Ui;
+use super::{clip_rounded_rect, Ui};
 use crate::core::{Matrix, Point, Vector};
 use macroquad::prelude::{Rect, Touch, TouchPhase, Vec2};
 use nalgebra::Translation2;
@@ -187,7 +187,7 @@ impl Scroller {
         // }
         let dt = t - self.last_time;
         self.offset += self.speed * dt;
-        const K: f32 = 3.;
+        const K: f32 = 4.;
         let unlock = self.touch.map_or(false, |it| it.3);
         if unlock {
             self.speed *= (0.5_f32).powf((t - self.last_time) / 0.4);
@@ -243,12 +243,19 @@ impl Scroller {
     }
 }
 
+pub enum ClipType {
+    None,
+    Scissor,
+    Clip,
+}
+
 pub struct Scroll {
     pub x_scroller: Scroller,
     pub y_scroller: Scroller,
     size: (f32, f32),
     matrix: Option<Matrix>,
     horizontal: bool,
+    clip: ClipType,
 }
 
 impl Default for Scroll {
@@ -265,7 +272,13 @@ impl Scroll {
             size: (2., 2.),
             matrix: None,
             horizontal: false,
+            clip: ClipType::Scissor,
         }
+    }
+
+    pub fn use_clip(mut self, clip: ClipType) -> Self {
+        self.clip = clip;
+        self
     }
 
     pub fn horizontal(mut self) -> Self {
@@ -305,10 +318,13 @@ impl Scroll {
     }
 
     pub fn render(&mut self, ui: &mut Ui, content: impl FnOnce(&mut Ui) -> (f32, f32)) {
-        self.matrix = Some(ui.get_matrix().try_inverse().unwrap());
-        let s = ui.scissor(Rect::new(0., 0., self.size.0, self.size.1), |ui| {
-            ui.with(Translation2::new(-self.x_scroller.offset, -self.y_scroller.offset).to_homogeneous(), content)
-        });
+        self.matrix = Some(ui.transform.try_inverse().unwrap());
+        let func = |ui: &mut Ui| ui.with(Translation2::new(-self.x_scroller.offset, -self.y_scroller.offset).to_homogeneous(), content);
+        let s = match self.clip {
+            ClipType::None => func(ui),
+            ClipType::Scissor => ui.scissor(self.rect(), func),
+            ClipType::Clip => clip_rounded_rect(ui, self.rect(), 0., func),
+        };
         self.x_scroller.size((s.0 - self.size.0).max(0.));
         self.y_scroller.size((s.1 - self.size.1).max(0.));
     }

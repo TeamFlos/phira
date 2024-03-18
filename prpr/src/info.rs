@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[repr(u8)]
 #[serde(rename_all = "lowercase")]
 pub enum ChartFormat {
@@ -29,6 +29,7 @@ pub struct ChartInfo {
     pub format: Option<ChartFormat>,
     pub music: String,
     pub illustration: String,
+    pub unlock_video: Option<String>,
 
     pub preview_start: f32,
     pub preview_end: Option<f32>,
@@ -64,6 +65,7 @@ impl Default for ChartInfo {
             format: None,
             music: "song.mp3".to_string(),
             illustration: "background.png".to_string(),
+            unlock_video: None,
 
             preview_start: 0.,
             preview_end: None,

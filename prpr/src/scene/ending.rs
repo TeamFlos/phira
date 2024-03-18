@@ -23,7 +23,7 @@ pub struct RecordUpdateState {
     pub best: bool,
     pub improvement: u32,
     pub gain_exp: f32,
-    pub new_rks: f32,
+    pub new_rks: Option<f32>,
 }
 
 pub struct EndingScene {
@@ -72,6 +72,7 @@ impl EndingScene {
         bgm: AudioClip,
         upload_fn: Option<UploadFn>,
         player_rks: Option<f32>,
+        historic_best: u32,
         record_data: Option<Vec<u8>>,
         record: Option<SimpleRecord>,
     ) -> Result<Self> {
@@ -100,11 +101,16 @@ impl EndingScene {
             update_state: if upload_task.is_some() {
                 None
             } else {
+                let (best, improvement) = if result.score > historic_best {
+                    (true, result.score - historic_best)
+                } else {
+                    (false, 0)
+                };
                 Some(RecordUpdateState {
-                    best: true,
-                    improvement: result.score,
+                    best,
+                    improvement,
                     gain_exp: 0.,
-                    new_rks: 0.,
+                    new_rks: None,
                 })
             },
             rated: upload_task.is_some(),
@@ -312,7 +318,7 @@ impl Scene for EndingScene {
             });
 
             if let Some(s) = &self.update_state {
-                if !s.best {
+                if s.best {
                     ui.text(format!("{}  {:+07}", tl!("new-best"), s.improvement))
                         .pos(x - 0.01, y - 0.016)
                         .anchor(1., 1.)
@@ -369,8 +375,8 @@ impl Scene for EndingScene {
 
             let p = ran(t, 0.8, 1.8);
             let p = 1. - (1. - p).powi(3);
-            let mut y = tp + 0.07;
-            let mut x = lf + 0.44;
+            let mut y = tp;
+            let mut x = lf + 0.42;
             let r = ui
                 .text(tl!("max-combo"))
                 .pos(x, y)
@@ -379,7 +385,30 @@ impl Scene for EndingScene {
                 .size(s)
                 .draw_using(&BOLD_FONT);
             let mut r = Rect::new(r.right() + 0.03, r.y + 0.004, 0.45, r.h);
-            ui.fill_rect(r, semi_black(0.4));
+            let draw_par = |ui: &mut Ui, r: Rect, p: f32, c: Color| {
+                let sl = 1.9 / 0.4;
+                let w = p * r.w;
+                let d = r.h / sl;
+                let mut b = ui.builder(c);
+                b.add(r.x, r.bottom());
+                if w < d {
+                    b.add(r.x + w, r.bottom());
+                    b.add(r.x + w, r.bottom() - w * sl);
+                    b.triangle(0, 1, 2);
+                } else {
+                    b.add(r.x + d, r.y);
+                    b.add(r.x + w, r.y);
+                    b.add(r.x + w.min(r.w - d), r.bottom());
+                    b.triangle(0, 1, 2);
+                    b.triangle(0, 2, 3);
+                    if w + d > r.right() {
+                        b.add(r.x + w, r.y + (r.w - w) * sl);
+                        b.triangle(2, 3, 4);
+                    }
+                }
+                b.commit();
+            };
+            draw_par(ui, r, 1., semi_black(0.4));
             let ct = r.center();
             let combo = (res.max_combo as f32 * p).round() as u32;
             let text = format!("{combo} / {}", res.num_of_notes);
@@ -389,8 +418,9 @@ impl Scene for EndingScene {
                 .no_baseline()
                 .size(0.4)
                 .draw_using(&BOLD_FONT);
-            r.w *= combo as f32 / res.num_of_notes as f32;
-            ui.fill_rect(r, WHITE);
+            let p = combo as f32 / res.num_of_notes as f32;
+            draw_par(ui, r, p, WHITE);
+            r.w *= p;
             ui.scissor(r, |ui| {
                 ui.text(text)
                     .pos(ct.x, ct.y)
@@ -412,9 +442,13 @@ impl Scene for EndingScene {
                 .color(semi_white(0.6))
                 .size(s)
                 .draw_using(&BOLD_FONT);
-            let text = if let Some((state, now)) = self.update_state.as_ref().zip(self.player_rks) {
-                let delta = state.new_rks - now;
-                format!("{:+.2}", delta)
+            let text = if let Some((new_rks, now)) = self.update_state.as_ref().and_then(|it| it.new_rks).zip(self.player_rks) {
+                let delta = new_rks - now;
+                if delta.abs() > 1e-5 {
+                    format!("{:+.2}", delta)
+                } else {
+                    "-".to_owned()
+                }
             } else {
                 "-".to_owned()
             };
@@ -510,8 +544,8 @@ impl Scene for EndingScene {
                 .max_width(mw)
                 .size(0.6)
                 .draw();
-            ui.text(if let Some(state) = &self.update_state {
-                format!("{:.2}", state.new_rks)
+            ui.text(if let Some(new_rks) = self.update_state.as_ref().and_then(|it| it.new_rks) {
+                format!("{new_rks:.2}")
             } else if let Some(rks) = &self.player_rks {
                 format!("{rks:.2}")
             } else {

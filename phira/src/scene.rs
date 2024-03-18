@@ -3,6 +3,9 @@ prpr::tl_file!("import" itl);
 mod chart_order;
 pub use chart_order::{ChartOrder, ORDERS};
 
+mod chapter;
+pub use chapter::ChapterScene;
+
 pub(crate) mod event;
 pub use event::EventScene;
 
@@ -12,26 +15,33 @@ pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 mod song;
 pub use song::{Downloading, SongScene, RECORD_ID};
 
+mod unlock;
+pub use unlock::UnlockScene;
+
 mod profile;
 pub use profile::ProfileScene;
 
 use crate::{client::UserManager, data::LocalChart, dir, get_data, get_data_mut, page::Fader, save_data};
 use anyhow::{bail, Context, Result};
+use async_trait::async_trait;
+use once_cell::sync::Lazy;
 use prpr::{
     config::Mods,
     core::{BOLD_FONT, PGR_FONT},
     ext::{open_url, semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
+    info::ChartInfo,
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
 use std::{
+    any::Any,
     cell::RefCell,
     fs::File,
     io::{BufReader, Write},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 use uuid::Uuid;
@@ -41,9 +51,54 @@ thread_local! {
     pub static TEX_ICON_BACK: RefCell<Option<SafeTexture>> = RefCell::new(None);
 }
 
+pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
+
+#[derive(Clone)]
+pub struct AssetsChartFileSystem(pub String, pub String);
+
+#[async_trait]
+impl FileSystem for AssetsChartFileSystem {
+    async fn load_file(&mut self, path: &str) -> Result<Vec<u8>> {
+        if path == ":info" {
+            return Ok(serde_yaml::to_string(&ASSET_CHART_INFO.lock().unwrap().clone())?.into_bytes());
+        }
+        #[cfg(feature = "closed")]
+        {
+            use crate::load_res;
+            if path == ":music" {
+                return Ok(load_res(&format!("res/song/{}/music", self.0)).await);
+            }
+            if path == ":illu" {
+                return Ok(load_res(&format!("res/song/{}/cover", self.0)).await);
+            }
+            if path == ":chart" {
+                return Ok(load_res(&format!("res/song/{}/{}", self.0, self.1)).await);
+            }
+        }
+        bail!("not found");
+    }
+
+    async fn exists(&mut self, _path: &str) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn list_root(&self) -> Result<Vec<String>> {
+        Ok(Vec::new())
+    }
+
+    fn clone_box(&self) -> Box<dyn FileSystem> {
+        Box::new(self.clone())
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem + Send + Sync + 'static>> {
     if let Some(name) = path.strip_prefix(':') {
-        fs::fs_from_assets(format!("charts/{name}/"))
+        let (name, diff) = name.split_once(':').unwrap();
+        Ok(Box::new(AssetsChartFileSystem(name.to_owned(), diff.to_owned())))
     } else {
         fs::fs_from_file(Path::new(&format!("{}/{path}", dir::charts()?)))
     }
@@ -66,30 +121,28 @@ pub fn check_read_tos_and_policy() -> bool {
         return true;
     }
 
-    let mut done = 0;
+    let mut opened = false;
     Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc"))
-        .buttons(vec![ttl!("cancel").into_owned(), ttl!("tos").into_owned(), ttl!("policy").into_owned()])
-        .listener(move |pos| {
-            match pos {
-                1 => {
-                    open_url("https://phira.moe/terms-of-use").unwrap();
-                    done |= 1;
-                }
-                2 => {
-                    open_url("https://phira.moe/privacy-policy").unwrap();
-                    done |= 2;
-                }
-                _ => {
-                    return false;
-                }
+        .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
+        .listener(move |pos| match pos {
+            -2 => {
+                opened = true;
+                open_url("https://phira.moe/terms-of-use").unwrap();
+                true
             }
-            if done == 3 {
+            -1 => true,
+            0 => false,
+            1 => {
+                if !opened {
+                    opened = true;
+                    open_url("https://phira.moe/terms-of-use").unwrap();
+                    return true;
+                }
                 get_data_mut().read_tos_and_policy = true;
                 let _ = save_data();
                 false
-            } else {
-                true
             }
+            _ => unreachable!(),
         })
         .show();
 
@@ -131,6 +184,7 @@ pub async fn import_chart_to(dir: &Path, id: Uuid, path: String) -> Result<Local
         local_path,
         record: None,
         mods: Mods::default(),
+        played_unlock: false,
     })
 }
 

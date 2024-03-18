@@ -384,11 +384,7 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
                     res.map_value(|v| v * factor);
                     Ok(res)
                 }
-                let factor = if rpe.texture == "line.png" {
-                    1.
-                } else {
-                    2.57 / RPE_WIDTH /*TODO tweak*/
-                };
+                let factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
                 rpe.extended
                     .as_ref()
                     .map(|e| -> Result<_> {
@@ -516,7 +512,7 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
             line.notes.as_ref().map(|notes| {
                 notes
                     .iter()
-                    .map(|note| r.time(&note.start_time).not_nan())
+                    .map(|note| r.time(&note.end_time).not_nan())
                     .max()
                     .unwrap_or_default()
             }).unwrap_or_default().max(

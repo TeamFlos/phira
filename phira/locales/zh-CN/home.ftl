@@ -14,3 +14,5 @@ update-desc =
   描述：{ $desc }
 update-ignore = 忽略该版本
 update-go = 更新
+
+change-char = 更换角色

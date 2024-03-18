@@ -1,18 +1,18 @@
+
 logout = Đăng xuất
 logged-out = Đã đăng xuất
+delete = Xóa tài khoản
+delete-failed = Không thể xóa tài khoản
+delete-req-sent = Yêu cầu xóa tài khoản đã được xác nhận, tạm biệt.
 
-delete = Xoá tài khoản
-delete-failed = Xoá tài khoản thất bại
-delete-req-sent = Yêu cầu xóa tài khoản đã gửi
+load-user-failed = Không thể tìm dữ liệu người chơi
+edit-avatar-success = Đã cập nhật ảnh đại diện
+edit-avatar-failed = Không thể cập nhật ảnh đại diện
 
-load-user-failed = Không tìm nạp được thông tin người dùng
-edit-avatar-success = Đã cập nhật ảnh
-edit-avatar-failed = Không thể cập nhật ảnh
+uploading-avatar = Đang thay ảnh đại diện
 
-uploading-avatar = Đang tải ảnh lên
-
-load-record-failed = Không thể tải bản ghi
+load-record-failed = Không thể tải số liệu
 
 last-login = Đăng nhập lần cuối: { $time }
-badge-admin = Quản trị viên
-badge-sponsor = Nhà tài trợ
+badge-admin = Admin
+badge-sponsor = Tài trợ

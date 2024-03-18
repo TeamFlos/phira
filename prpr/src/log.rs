@@ -1,7 +1,7 @@
 use colored::Colorize;
 use miniquad::{debug, error, info, trace, warn};
 use tracing::{field::Visit, Level, Subscriber};
-use tracing_subscriber::{prelude::*, Layer};
+use tracing_subscriber::{filter, prelude::*, Layer};
 
 struct CustomLayer;
 
@@ -71,5 +71,13 @@ where
 }
 
 pub fn register() {
-    tracing_subscriber::registry().with(CustomLayer).init();
+    tracing_subscriber::registry()
+        .with(CustomLayer)
+        .with(
+            filter::Targets::new()
+                .with_target("hyper", Level::INFO)
+                .with_target("rustls", Level::INFO)
+                .with_default(Level::TRACE),
+        )
+        .init();
 }

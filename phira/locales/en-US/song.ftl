@@ -28,6 +28,7 @@ delete = Delete
 rate = Rate
 exercise = Exercise
 offset = Adjust offset
+unlock = Play unlock video
 
 edit-cancel = Cancel
 edit-save = Save

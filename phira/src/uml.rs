@@ -3,17 +3,19 @@ mod parse;
 
 pub use parse::parse_uml;
 
-use self::parse::{constant, ButtonState};
+use self::parse::{constant, ButtonState, TopLevel};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView},
     client::{recv_raw, Client, File},
     icons::Icons,
 };
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use image::DynamicImage;
 use macroquad::prelude::*;
-use parse::{Expr, VarRef};
+use nalgebra::Vector2;
+use parse::Expr;
 use prpr::{
+    core::Matrix,
     ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::NextScene,
     task::Task,
@@ -206,7 +208,7 @@ impl Element for Image {
                 match res {
                     Ok(val) => *self.tex.borrow_mut() = Some(val.into()),
                     Err(err) => {
-                        warn!("failed to load image ({}): {:?}", c.url.url, err);
+                        warn!(url = c.url.url, ?err, "failed to load image");
                     }
                 }
                 drop(guard);
@@ -298,7 +300,7 @@ impl Element for Collection {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
-                        warn!("failed to fetch collection: {:?}", err);
+                        warn!(?err, "failed to fetch collection");
                     }
                     Ok(col) => {
                         state
@@ -450,11 +452,194 @@ impl Element for Assign {
     }
 }
 
+fn default_zero() -> Expr {
+    constant(0.)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RotationConfig {
+    #[serde(default = "default_zero")]
+    angle: Expr,
+    #[serde(default = "default_zero")]
+    cx: Expr,
+    #[serde(default = "default_zero")]
+    cy: Expr,
+}
+pub struct Rotation {
+    config: RotationConfig,
+}
+impl Rotation {
+    pub fn new(config: RotationConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Rotation {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let angle = self.config.angle.eval(uml)?.float()?;
+        let cx = self.config.cx.eval(uml)?.float()?;
+        let cy = self.config.cy.eval(uml)?.float()?;
+        let ct = Vector2::new(cx, cy);
+        let mat = Matrix::new_translation(&ct) * Matrix::new_rotation(angle);
+        let mat = mat.prepend_translation(&-ct);
+        uml.push(ui, StackLayer::Mat(mat));
+        Ok(Var::default())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslationConfig {
+    #[serde(default = "default_zero")]
+    dx: Expr,
+    #[serde(default = "default_zero")]
+    dy: Expr,
+}
+pub struct Translation {
+    config: TranslationConfig,
+}
+impl Translation {
+    pub fn new(config: TranslationConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Translation {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let dx = self.config.dx.eval(uml)?.float()?;
+        let dy = self.config.dy.eval(uml)?.float()?;
+        uml.push(ui, StackLayer::Mat(Matrix::new_translation(&Vector2::new(dx, dy))));
+        Ok(Var::default())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AlphaConfig {
+    #[serde(default = "default_zero")]
+    a: Expr,
+}
+pub struct Alpha {
+    config: AlphaConfig,
+}
+impl Alpha {
+    pub fn new(config: AlphaConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Alpha {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let alpha = self.config.a.eval(uml)?.float()?;
+        uml.push(ui, StackLayer::Alpha(alpha));
+        Ok(Var::default())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatConfig {
+    #[serde(default = "default_zero")]
+    x00: Expr,
+    #[serde(default = "default_zero")]
+    x01: Expr,
+    #[serde(default = "default_zero")]
+    x02: Expr,
+    #[serde(default = "default_zero")]
+    x03: Expr,
+    #[serde(default = "default_zero")]
+    x10: Expr,
+    #[serde(default = "default_zero")]
+    x11: Expr,
+    #[serde(default = "default_zero")]
+    x12: Expr,
+    #[serde(default = "default_zero")]
+    x13: Expr,
+    #[serde(default = "default_zero")]
+    x20: Expr,
+    #[serde(default = "default_zero")]
+    x21: Expr,
+    #[serde(default = "default_zero")]
+    x22: Expr,
+    #[serde(default = "default_zero")]
+    x23: Expr,
+    #[serde(default = "default_zero")]
+    x30: Expr,
+    #[serde(default = "default_zero")]
+    x31: Expr,
+    #[serde(default = "default_zero")]
+    x32: Expr,
+    #[serde(default = "default_zero")]
+    x33: Expr,
+}
+pub struct Mat {
+    config: MatConfig,
+}
+impl Mat {
+    pub fn new(config: MatConfig) -> Self {
+        Self { config }
+    }
+}
+impl Element for Mat {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        let x00 = self.config.x00.eval(uml)?.float()?;
+        let x01 = self.config.x01.eval(uml)?.float()?;
+        let x02 = self.config.x02.eval(uml)?.float()?;
+        let x03 = self.config.x03.eval(uml)?.float()?;
+        let x10 = self.config.x10.eval(uml)?.float()?;
+        let x11 = self.config.x11.eval(uml)?.float()?;
+        let x12 = self.config.x12.eval(uml)?.float()?;
+        let x13 = self.config.x13.eval(uml)?.float()?;
+        let x20 = self.config.x20.eval(uml)?.float()?;
+        let x21 = self.config.x21.eval(uml)?.float()?;
+        let x22 = self.config.x22.eval(uml)?.float()?;
+        let x23 = self.config.x23.eval(uml)?.float()?;
+        let x30 = self.config.x30.eval(uml)?.float()?;
+        let x31 = self.config.x31.eval(uml)?.float()?;
+        let x32 = self.config.x32.eval(uml)?.float()?;
+        let x33 = self.config.x33.eval(uml)?.float()?;
+        let mat = Matrix::from_column_slice(&[x00, x10, x20, x30, x01, x11, x21, x31, x02, x12, x22, x32, x03, x13, x23, x33]);
+        uml.push(ui, StackLayer::Mat(mat));
+        Ok(Var::default())
+    }
+}
+
+pub struct Pop;
+impl Element for Pop {
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    fn render(&self, ui: &mut Ui, uml: &Uml) -> Result<Var> {
+        uml.pop(ui);
+        Ok(Var::default())
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum Var {
     Rect(Rect),
     ButtonState(ButtonState),
     Float(f32),
+}
+impl Default for Var {
+    fn default() -> Self {
+        Self::Float(0.)
+    }
 }
 
 impl Var {
@@ -473,12 +658,17 @@ impl Var {
     }
 }
 
+enum StackLayer {
+    Mat(Matrix),
+    Alpha(f32),
+}
 pub struct Uml {
-    elements: Vec<Box<dyn Element>>,
+    elements: Vec<TopLevel>,
 
-    vars: Vec<Var>,
-    persistent_vars: Vec<Var>,
-    var_map: HashMap<String, usize>,
+    var_map: HashMap<String, Var>,
+    persistent_vars: Vec<String>,
+
+    stack: RefCell<Vec<StackLayer>>,
 
     t: f32,
     rt: f32,
@@ -493,13 +683,14 @@ impl Default for Uml {
 }
 
 impl Uml {
-    pub fn new(elements: Vec<Box<dyn Element>>, global_defs: &[(String, Expr)]) -> Result<Self> {
+    pub fn new(elements: Vec<TopLevel>, global_defs: &[(String, Expr)]) -> Result<Self> {
         let mut res = Self {
             elements,
 
-            vars: Vec::new(),
-            persistent_vars: Vec::new(),
             var_map: HashMap::new(),
+            persistent_vars: Vec::new(),
+
+            stack: RefCell::new(Vec::new()),
 
             t: 0.,
             rt: 0.,
@@ -512,68 +703,125 @@ impl Uml {
 
     fn init(&mut self, global_defs: &[(String, Expr)]) {
         for (name, initial) in global_defs {
-            self.var_map.insert(name.clone(), !self.persistent_vars.len());
-            self.persistent_vars.push(initial.eval(self).unwrap());
+            self.var_map.insert(name.clone(), initial.eval(self).unwrap());
+            self.persistent_vars.push(name.clone());
         }
     }
 
-    pub(crate) fn get_var(&self, rf: &VarRef) -> Result<&Var> {
-        let id = rf.id(self)?;
-        Ok(if id & 0x8000 != 0 { &self.persistent_vars[!id] } else { &self.vars[id] })
+    fn push(&self, ui: &mut Ui, layer: StackLayer) {
+        match layer {
+            StackLayer::Mat(mat) => {
+                self.stack.borrow_mut().push(StackLayer::Mat(ui.transform));
+                ui.transform *= mat;
+            }
+            StackLayer::Alpha(alpha) => {
+                self.stack.borrow_mut().push(StackLayer::Alpha(ui.alpha));
+                ui.alpha *= alpha;
+            }
+        }
+    }
+    fn pop(&self, ui: &mut Ui) {
+        match self.stack.borrow_mut().pop() {
+            Some(StackLayer::Mat(mat)) => ui.transform = mat,
+            Some(StackLayer::Alpha(alpha)) => ui.alpha = alpha,
+            None => {}
+        }
+    }
+
+    pub(crate) fn get_var(&self, id: &str) -> Result<&Var> {
+        self.var_map.get(id).ok_or_else(|| anyhow!("variable not found: {id}"))
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32, action: &mut Option<String>) -> Result<bool> {
         self.t = t;
         self.rt = rt;
-        for element in &self.elements {
-            if element.touch(touch, self, action)? {
-                return Ok(true);
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                if el.touch(touch, self, action)? {
+                    return Ok(true);
+                }
             }
         }
         Ok(false)
     }
 
-    fn set_var(first_time: bool, vars: &mut Vec<Var>, persistent_vars: &mut [Var], var_map: &mut HashMap<String, usize>, name: &str, value: Var) {
-        match var_map.get(name) {
-            Some(x) if x & 0x8000 != 0 => {
-                if std::mem::discriminant(&persistent_vars[!x]) != std::mem::discriminant(&value) {
-                    warn!("type mismatch: {name}");
-                } else {
-                    persistent_vars[!x] = value;
-                }
-            }
-            _ => {
-                if first_time {
-                    var_map.insert(name.to_owned(), vars.len());
-                }
-                vars.push(value);
-            }
-        }
-    }
-
     pub fn render(&mut self, ui: &mut Ui, t: f32, rt: f32, vars: &[(&str, f32)]) -> Result<(f32, f32)> {
-        self.vars.clear();
-        for (name, val) in vars {
-            Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, name, Var::Float(*val));
+        self.var_map = std::mem::take(&mut self.var_map)
+            .into_iter()
+            .filter(|(key, _)| self.persistent_vars.contains(key))
+            .collect::<HashMap<_, _>>();
+        for (name, value) in vars.iter().copied().chain(std::iter::once(("version", 2.))) {
+            self.var_map.insert(name.to_owned(), Var::Float(value));
         }
+
+        #[derive(Clone, Copy, PartialEq, Eq)]
+        enum IfState {
+            IfPassed,
+            IfFailed,
+            Nopped,
+        }
+
+        let mut ifs = vec![IfState::IfPassed];
+
         let mut right = 0f32;
         let mut bottom = 0f32;
         self.t = t;
         self.rt = rt;
-        for elem in &self.elements {
-            let r = elem.render(ui, self)?;
-            if let Var::Rect(r) = &r {
-                right = right.max(r.right());
-                bottom = bottom.max(r.bottom());
+        ui.scope::<Result<()>>(|ui| {
+            for el in &self.elements {
+                match el {
+                    TopLevel::Element(el) => {
+                        if let Some(IfState::IfPassed) = ifs.last() {
+                            let r = el.render(ui, self)?;
+                            if let Var::Rect(r) = &r {
+                                right = right.max(r.right());
+                                bottom = bottom.max(r.bottom());
+                            }
+                            if let Some(id) = el.id() {
+                                self.var_map.insert(id.to_owned(), r);
+                            }
+                        }
+                    }
+                    TopLevel::If(cond) => {
+                        if let Some(IfState::IfPassed) = ifs.last() {
+                            ifs.push(if cond.eval(self)?.float()? > 0. {
+                                IfState::IfPassed
+                            } else {
+                                IfState::IfFailed
+                            });
+                        }
+                    }
+                    TopLevel::Else => {
+                        if let Some(IfState::IfFailed) = ifs.last() {
+                            *ifs.last_mut().unwrap() = IfState::IfPassed;
+                        } else {
+                            *ifs.last_mut().unwrap() = IfState::Nopped;
+                        }
+                    }
+                    TopLevel::ElseIf(cond) => {
+                        if let Some(IfState::IfFailed) = ifs.last() {
+                            *ifs.last_mut().unwrap() = if cond.eval(self)?.float()? > 0. {
+                                IfState::IfPassed
+                            } else {
+                                IfState::IfFailed
+                            };
+                        } else {
+                            *ifs.last_mut().unwrap() = IfState::Nopped;
+                        }
+                    }
+                    TopLevel::EndIf => {
+                        ifs.pop();
+                    }
+                    TopLevel::GlobalDef(..) => {}
+                }
             }
-            if let Some(id) = elem.id() {
-                Self::set_var(self.first_time, &mut self.vars, &mut self.persistent_vars, &mut self.var_map, id, r);
-            }
-        }
-        if let Some(Var::Float(w)) = self.var_map.get("$w").map(|it| &self.vars[*it]) {
+
+            Ok(())
+        })?;
+        if let Some(Var::Float(w)) = self.var_map.get("$w") {
             right = *w;
         }
-        if let Some(Var::Float(h)) = self.var_map.get("$h").map(|it| &self.vars[*it]) {
+        if let Some(Var::Float(h)) = self.var_map.get("$h") {
             bottom = *h;
         }
         self.first_time = false;
@@ -584,22 +832,28 @@ impl Uml {
     pub fn render_top(&mut self, ui: &mut Ui, t: f32, rt: f32) -> Result<()> {
         self.t = t;
         self.rt = rt;
-        for element in &self.elements {
-            element.render_top(ui, self)?;
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                el.render_top(ui, self)?;
+            }
         }
         Ok(())
     }
 
     pub fn on_result(&self, t: f32, delete: bool) {
-        for element in &self.elements {
-            element.on_result(t, delete);
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                el.on_result(t, delete);
+            }
         }
     }
 
     pub fn next_scene(&self) -> Option<NextScene> {
-        for element in &self.elements {
-            if let Some(s) = element.next_scene() {
-                return Some(s);
+        for el in &self.elements {
+            if let TopLevel::Element(el) = el {
+                if let Some(next) = el.next_scene() {
+                    return Some(next);
+                }
             }
         }
         None

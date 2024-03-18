@@ -202,10 +202,10 @@ pub fn source_of_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) -> Op
             let exp = rect.w / rect.h;
             let act = tex.width() / tex.height();
             Some(if exp > act {
-                let w = act / exp;
+                let w = exp / act;
                 Rect::new(0.5 - w / 2., 0., w, 1.)
             } else {
-                let h = exp / act;
+                let h = act / exp;
                 Rect::new(0., 0.5 - h / 2., 1., h)
             })
         }

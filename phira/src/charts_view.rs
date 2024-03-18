@@ -9,7 +9,7 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
-    core::Tweenable,
+    core::{Tweenable, BOLD_FONT},
     ext::{semi_black, RectExt, SafeTexture, BLACK_TEXTURE},
     scene::{show_message, NextScene},
     task::Task,
@@ -32,13 +32,13 @@ const TRANSIT_TIME: f32 = 0.4;
 const BACK_FADE_IN_TIME: f32 = 0.2;
 
 pub struct ChartDisplayItem {
-    chart: ChartItem,
+    chart: Option<ChartItem>,
     symbol: Option<char>,
     btn: DRectButton,
 }
 
 impl ChartDisplayItem {
-    pub fn new(chart: ChartItem, symbol: Option<char>) -> Self {
+    pub fn new(chart: Option<ChartItem>, symbol: Option<char>) -> Self {
         Self {
             chart,
             symbol,
@@ -48,7 +48,7 @@ impl ChartDisplayItem {
 
     pub fn from_remote(chart: &Chart) -> Self {
         Self::new(
-            ChartItem {
+            Some(ChartItem {
                 info: chart.to_info(),
                 illu: {
                     let notify = Arc::new(Notify::new());
@@ -67,7 +67,7 @@ impl ChartDisplayItem {
                     }
                 },
                 local_path: None,
-            },
+            }),
             if chart.stable_request {
                 Some('+')
             } else if !chart.reviewed {
@@ -106,6 +106,8 @@ pub struct ChartsView {
     pub row_height: f32,
 
     pub can_refresh: bool,
+
+    pub clicked_special: bool,
 }
 
 impl ChartsView {
@@ -126,6 +128,8 @@ impl ChartsView {
             row_height: 0.3,
 
             can_refresh: true,
+
+            clicked_special: false,
         }
     }
 
@@ -173,60 +177,64 @@ impl ChartsView {
         if self.scroll.contains(touch) {
             if let Some(charts) = &mut self.charts {
                 for (id, item) in charts.iter_mut().enumerate() {
-                    let chart = &item.chart;
-                    if item.btn.touch(touch, t) {
-                        button_hit_large();
-                        let handled_by_mp = MP_PANEL.with(|it| {
-                            if let Some(panel) = it.borrow_mut().as_mut() {
-                                if panel.in_room() {
-                                    if let Some(id) = chart.info.id {
-                                        panel.select_chart(id);
-                                        panel.show(rt);
-                                    } else {
-                                        use crate::mp::{mtl, L10N_LOCAL};
-                                        show_message(mtl!("select-chart-local")).error();
+                    if let Some(chart) = &item.chart {
+                        if item.btn.touch(touch, t) {
+                            button_hit_large();
+                            let handled_by_mp = MP_PANEL.with(|it| {
+                                if let Some(panel) = it.borrow_mut().as_mut() {
+                                    if panel.in_room() {
+                                        if let Some(id) = chart.info.id {
+                                            panel.select_chart(id);
+                                            panel.show(rt);
+                                        } else {
+                                            use crate::mp::{mtl, L10N_LOCAL};
+                                            show_message(mtl!("select-chart-local")).error();
+                                        }
+                                        return true;
                                     }
-                                    return true;
                                 }
+                                false
+                            });
+                            if handled_by_mp {
+                                continue;
                             }
-                            false
-                        });
-                        if handled_by_mp {
-                            continue;
-                        }
-                        let download_path = chart.info.id.map(|it| format!("download/{it}"));
-                        let scene = SongScene::new(
-                            chart.clone(),
-                            if let Some(path) = &chart.local_path {
-                                Some(path.clone())
-                            } else {
-                                let path = download_path.clone().unwrap();
-                                if Path::new(&format!("{}/{path}", dir::charts()?)).exists() {
-                                    Some(path)
+                            let download_path = chart.info.id.map(|it| format!("download/{it}"));
+                            let scene = SongScene::new(
+                                chart.clone(),
+                                if let Some(path) = &chart.local_path {
+                                    Some(path.clone())
                                 } else {
-                                    None
-                                }
-                            },
-                            Arc::clone(&self.icons),
-                            self.rank_icons.clone(),
-                            get_data()
-                                .charts
-                                .iter()
-                                .find(|it| Some(&it.local_path) == download_path.as_ref())
-                                .map(|it| it.mods)
-                                .unwrap_or_default(),
-                        );
-                        self.transit = Some(TransitState {
-                            id: id as _,
-                            rect: None,
-                            chart: chart.clone(),
-                            start_time: t,
-                            next_scene: Some(NextScene::Overlay(Box::new(scene))),
-                            back: false,
-                            done: false,
-                            delete: false,
-                        });
-                        return Ok(true);
+                                    let path = download_path.clone().unwrap();
+                                    if Path::new(&format!("{}/{path}", dir::charts()?)).exists() {
+                                        Some(path)
+                                    } else {
+                                        None
+                                    }
+                                },
+                                Arc::clone(&self.icons),
+                                self.rank_icons.clone(),
+                                get_data()
+                                    .charts
+                                    .iter()
+                                    .find(|it| Some(&it.local_path) == download_path.as_ref())
+                                    .map(|it| it.mods)
+                                    .unwrap_or_default(),
+                            );
+                            self.transit = Some(TransitState {
+                                id: id as _,
+                                rect: None,
+                                chart: chart.clone(),
+                                start_time: t,
+                                next_scene: Some(NextScene::Overlay(Box::new(scene))),
+                                back: false,
+                                done: false,
+                                delete: false,
+                            });
+                            return Ok(true);
+                        }
+                    } else if item.btn.touch(touch, t) {
+                        button_hit_large();
+                        self.clicked_special = true;
                     }
                 }
             }
@@ -244,10 +252,10 @@ impl ChartsView {
                     if transit.delete {
                         let data = get_data_mut();
                         let item = &self.charts.as_ref().unwrap()[transit.id as usize];
-                        let path = if let Some(path) = &item.chart.local_path {
+                        let path = if let Some(path) = &item.chart.as_ref().unwrap().local_path {
                             path.clone()
                         } else {
-                            format!("download/{}", item.chart.info.id.unwrap())
+                            format!("download/{}", item.chart.as_ref().unwrap().info.id.unwrap())
                         };
                         std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
                         data.charts.remove(data.find_chart_by_path(path.as_str()).unwrap());
@@ -265,7 +273,9 @@ impl ChartsView {
 
         if let Some(charts) = &mut self.charts {
             for chart in charts {
-                chart.chart.illu.settle(t);
+                if let Some(chart) = &mut chart.chart {
+                    chart.illu.settle(t);
+                }
             }
         }
 
@@ -316,60 +326,73 @@ impl ChartsView {
                             let mut c = WHITE;
 
                             let item = &mut charts[id as usize];
-                            item.chart.illu.notify();
 
                             item.btn.render_shadow(ui, r, t, |ui, path| {
-                                ui.fill_path(&path, semi_black(c.a));
-                                ui.fill_path(&path, item.chart.illu.shading(r.feather(0.01), t));
-                                if let Some((that_id, start_time)) = &self.back_fade_in {
-                                    if id == *that_id {
-                                        let p = ((t - start_time) / BACK_FADE_IN_TIME).max(0.);
-                                        if p > 1. {
-                                            self.back_fade_in = None;
-                                        } else {
-                                            ui.fill_path(&path, semi_black(0.55 * (1. - p)));
-                                            c.a *= p;
+                                if let Some(chart) = &mut item.chart {
+                                    chart.illu.notify();
+                                    ui.fill_path(&path, semi_black(c.a));
+                                    ui.fill_path(&path, chart.illu.shading(r.feather(0.01), t));
+                                    if let Some((that_id, start_time)) = &self.back_fade_in {
+                                        if id == *that_id {
+                                            let p = ((t - start_time) / BACK_FADE_IN_TIME).max(0.);
+                                            if p > 1. {
+                                                self.back_fade_in = None;
+                                            } else {
+                                                ui.fill_path(&path, semi_black(0.55 * (1. - p)));
+                                                c.a *= p;
+                                            }
                                         }
                                     }
-                                }
 
-                                ui.fill_path(&path, (semi_black(0.4 * c.a), (0., 0.), semi_black(0.8 * c.a), (0., ch)));
+                                    ui.fill_path(&path, (semi_black(0.4 * c.a), (0., 0.), semi_black(0.8 * c.a), (0., ch)));
 
-                                let info = &item.chart.info;
-                                let mut level = info.level.clone();
-                                if !level.contains("Lv.") {
-                                    use std::fmt::Write;
-                                    write!(&mut level, " Lv.{}", info.difficulty as i32).unwrap();
-                                }
-                                let mut t = ui
-                                    .text(level)
-                                    .pos(r.right() - 0.016, r.y + 0.016)
-                                    .max_width(r.w * 2. / 3.)
-                                    .anchor(1., 0.)
-                                    .size(0.52 * r.w / cw)
-                                    .color(c);
-                                let ms = t.measure();
-                                t.ui.fill_path(
-                                    &ms.feather(0.008).rounded(0.01),
-                                    Color {
-                                        a: c.a * 0.7,
-                                        ..t.ui.background()
-                                    },
-                                );
-                                t.draw();
-                                ui.text(&info.name)
-                                    .pos(r.x + 0.01, r.bottom() - 0.02)
-                                    .max_width(r.w)
-                                    .anchor(0., 1.)
-                                    .size(0.6 * r.w / cw)
-                                    .color(c)
-                                    .draw();
-                                if let Some(symbol) = item.symbol {
-                                    ui.text(symbol.to_string())
-                                        .pos(r.x + 0.01, r.y + 0.01)
-                                        .size(0.8 * r.w / cw)
+                                    let info = &chart.info;
+                                    let mut level = info.level.clone();
+                                    if !level.contains("Lv.") {
+                                        use std::fmt::Write;
+                                        write!(&mut level, " Lv.{}", info.difficulty as i32).unwrap();
+                                    }
+                                    let mut t = ui
+                                        .text(level)
+                                        .pos(r.right() - 0.016, r.y + 0.016)
+                                        .max_width(r.w * 2. / 3.)
+                                        .anchor(1., 0.)
+                                        .size(0.52 * r.w / cw)
+                                        .color(c);
+                                    let ms = t.measure();
+                                    t.ui.fill_path(
+                                        &ms.feather(0.008).rounded(0.01),
+                                        Color {
+                                            a: c.a * 0.7,
+                                            ..t.ui.background()
+                                        },
+                                    );
+                                    t.draw();
+                                    ui.text(&info.name)
+                                        .pos(r.x + 0.01, r.bottom() - 0.02)
+                                        .max_width(r.w)
+                                        .anchor(0., 1.)
+                                        .size(0.6 * r.w / cw)
                                         .color(c)
                                         .draw();
+                                    if let Some(symbol) = item.symbol {
+                                        ui.text(symbol.to_string())
+                                            .pos(r.x + 0.01, r.y + 0.01)
+                                            .size(0.8 * r.w / cw)
+                                            .color(c)
+                                            .draw();
+                                    }
+                                } else {
+                                    ui.fill_path(&path, (*self.icons.r#abstract, r));
+                                    ui.fill_path(&path, semi_black(0.2));
+                                    let ct = r.center();
+                                    use crate::page::coll::*;
+                                    ui.text(tl!("label"))
+                                        .pos(ct.x, ct.y)
+                                        .anchor(0.5, 0.5)
+                                        .no_baseline()
+                                        .size(0.7)
+                                        .draw_using(&BOLD_FONT);
                                 }
                             });
                         });

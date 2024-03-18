@@ -11,7 +11,7 @@ pub enum ChartOrder {
 
 impl ChartOrder {
     pub fn names() -> Vec<String> {
-        ORDER_LABELS.iter().map(|it| tl!(it).into_owned()).collect()
+        ORDER_LABELS.iter().map(|it| tl!(*it).into_owned()).collect()
     }
 
     pub fn apply(&self, charts: &mut [ChartItem]) {

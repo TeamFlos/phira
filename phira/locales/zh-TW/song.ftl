@@ -28,6 +28,7 @@ delete = 刪除
 rate = 評分
 exercise = 練習
 offset = 調整延遲
+unlock = 播放解鎖動畫
 
 edit-cancel = 取消
 edit-save = 保存
@@ -38,10 +39,15 @@ edit-saved = 保存成功
 edit-preview-invalid = 預覽時間超出範圍
 edit-tags = 編輯標籤
 edit-downloaded = 您無法編輯下載的譜面！
+edit-overwrite = 覆蓋
+edit-overwrite-confirm = 確定要使用外部的譜面覆蓋當前的譜面嗎？（只有在點擊"更新"後才會同步到線上平臺）
+edit-overwrite-success = 覆蓋成功
+edit-overwrite-failed = 覆蓋失敗
 
 edit-upload = 上傳
 edit-update = 更新
 
+upload-not-saved = 你尚未保存譜面，確定要繼續上傳嗎？
 upload-login-first = 請先登入
 upload-builtin = 不能上傳內置譜面
 upload-rules = 上傳須知
@@ -56,6 +62,7 @@ uploading = 上傳中...
 upload-chart-failed = 上傳譜面失敗
 upload-success = 上傳成功，請等待審核！
 upload-failed = 上傳失敗
+upload-confirm-clear-ldb = 由於當前譜面文件和遠端譜面文件不同，上傳譜面後將清空該譜面的排行榜，確定要繼續嗎？
 
 ldb = 排行榜
 ldb-load-failed = 載入排行榜失敗

@@ -1,5 +1,6 @@
-use crate::{AVCodecContext, AVFormatContext, AVFrame, AVPacket, AVPixelFormat, AVRational, AVStreamRef, StreamFormat, SwsContext};
-use anyhow::{Context, Result};
+use crate::{
+    AVCodecContext, AVFormatContext, AVFrame, AVPacket, AVPixelFormat, AVRational, AVStreamRef, Error, Result, SwsContext, VideoStreamFormat,
+};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -10,7 +11,7 @@ use std::{
 use tracing::error;
 
 pub struct Video {
-    stream_format: StreamFormat,
+    stream_format: VideoStreamFormat,
     video_stream: AVStreamRef,
 
     dropped: Arc<AtomicBool>,
@@ -26,24 +27,25 @@ impl Video {
         format_ctx.open_input(file.as_ref())?;
         format_ctx.find_stream_info()?;
 
-        let video_stream = format_ctx.streams().into_iter().find(|it| it.is_video()).context("no video")?;
+        let video_stream = format_ctx.streams().into_iter().find(|it| it.is_video()).ok_or(Error::NoVideoStream)?;
 
         let decoder = video_stream.find_decoder()?;
         let mut codec_ctx = AVCodecContext::new(decoder, video_stream.codec_params(), Some(pix_fmt))?;
 
-        let out_format = StreamFormat {
+        let out_format = VideoStreamFormat {
             pix_fmt,
-            ..codec_ctx.stream_format()
+            ..codec_ctx.video_stream_format()
         };
 
         let mutex = Arc::new((Mutex::new(None), Condvar::new()));
 
-        let stream_format = codec_ctx.stream_format();
+        let stream_format = codec_ctx.video_stream_format();
 
         let mut sws = SwsContext::new(stream_format.clone(), out_format.clone())?;
         let mut in_frame = AVFrame::new()?;
         let mut out_frame = AVFrame::new()?;
-        out_frame.get_buffer(&out_format).context("failed to get buffer")?;
+        out_frame.set_video_format(&out_format);
+        out_frame.get_buffer()?;
 
         let dropped = Arc::new(AtomicBool::default());
 
@@ -102,7 +104,7 @@ impl Video {
         })
     }
 
-    pub fn stream_format(&self) -> StreamFormat {
+    pub fn stream_format(&self) -> VideoStreamFormat {
         self.stream_format.clone()
     }
 
@@ -114,9 +116,9 @@ impl Video {
         let mut frame = self.mutex.0.lock().unwrap();
         loop {
             let Some(data) = *frame else {
-        		frame = self.mutex.1.wait(frame).unwrap();
-        		continue;
-        	};
+                frame = self.mutex.1.wait(frame).unwrap();
+                continue;
+            };
             let Some(data) = data else {
                 self.ended.store(true, Ordering::SeqCst);
                 return None;

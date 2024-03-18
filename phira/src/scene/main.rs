@@ -384,15 +384,7 @@ impl Scene for MainScene {
         let s = &mut self.state;
         s.update(tm);
 
-        // 1. title
-        if s.fader.transiting() {
-            let pos = self.pages.len() - 2;
-            s.fader.reset();
-            s.fader.render_title(ui, s.t, &self.pages[pos].label());
-        }
-        s.fader.for_sub(|f| f.render_title(ui, s.t, &self.pages.last().unwrap().label()));
-
-        // 2. page
+        // 1. page
         if s.fader.transiting() {
             let pos = self.pages.len() - 2;
             let old = s.fader.distance;
@@ -404,6 +396,16 @@ impl Scene for MainScene {
         s.fader.reset();
         self.pages.last_mut().unwrap().render(ui, s)?;
         s.fader.sub = false;
+
+        // 2. title
+        if s.fader.transiting() {
+            let pos = self.pages.len() - 2;
+            s.fader.reset();
+            s.fader.render_title(ui, s.t, &self.pages[pos].label());
+        }
+        s.fader.for_sub(|f| f.render_title(ui, s.t, &self.pages.last().unwrap().label()));
+
+        self.pages.last_mut().unwrap().render_top(ui, s)?;
 
         // 3. back
         if self.pages.len() >= 2 {
