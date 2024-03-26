@@ -1,7 +1,7 @@
 
-input = Input
-input-msg = Please input text
-input-hint = text
+input = Giriş
+input-msg = Lütfen bir yazı yazın
+input-hint = yazı
 
-read-file-failed = Failed to read file
-pasted = Pasted from clipboard
+read-file-failed = Dosya okunamadı
+pasted = Panodan yapıştırıldı

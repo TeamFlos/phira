@@ -1,7 +1,7 @@
 
-notice = Notice
-ok = OK
+notice = Bildirim
+ok = Tamam
 
-error = Error
-error-copy = Copy error
-error-copied = Copied
+error = Hata
+error-copy = Hatayı Kopyala
+error-copied = Kopyalandı

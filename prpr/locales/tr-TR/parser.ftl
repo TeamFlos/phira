@@ -1,42 +1,42 @@
 
 # general
-unknown-note-type = Unknown note type: { $type }
-json-parse-failed = Failed to parse JSON
-judge-line-location = In judge line #{ $jlid }
+unknown-note-type = Bilinmeyen nota türü: { $type }
+json-parse-failed = JSON ayrıştırılamadı
+judge-line-location = Satır #{ $jlid }
 
 # rpe
-type-events-parse-failed = Failed to parse { $type } events
-incline-events-parse-failed = Failed to parse incline events
-paint-events-parse-failed = Failed to parse paint events
-text-events-parse-failed = Failed to parse text events
-color-events-parse-failed = Failed to parse color events
+type-events-parse-failed = { $type } etkinlikleri çözümlenemedi
+incline-events-parse-failed = Eğim etkinlikleri çözümlenemedi
+paint-events-parse-failed = Çizim etkinlikleri çözümlenemedi
+text-events-parse-failed = Yazı etkinlikleri çözümlenemedi
+color-events-parse-failed = Renk etkinlikleri çözümlenemedi
 
-illustration-load-failed = Failed to load illustration at { $path }
+illustration-load-failed = { $path } çizimi yüklenemedi
 
-judge-line-location-name = In judge line #{ $jlid } ({ $name })
+judge-line-location-name = Sıra #{ $jlid } ({ $name })
 
 # pgr
-event-not-contiguous = Events should be contiguous
+event-not-contiguous = Etkinlikler kesintisiz olmalı
 
-alpha-events-parse-failed = Failed to parse alpha events
-rotate-events-parse-failed = Failed to parse rotate events
-move-events-parse-failed = Failed to parse move events
+alpha-events-parse-failed = Alpha etkinlikleri çözümlenemedi
+rotate-events-parse-failed = Döndürme etkinlikleri çözümlenemedi
+move-events-parse-failed = Hareket etkinlikleri çözümlenemedi
 
 # pec
-unexpected-eol = Unexpected end of line
-expected-f32 = Expected f32
-expected-usize = Expected usize
-expected-tween = Expected tween
+unexpected-eol = Beklenmeyen satır sonu
+expected-f32 = f32 beknenmişti
+expected-usize = usize beklenmişti
+expected-tween = tam sayı beklenmişti
 
-no-notes-inserted = No note has been inserted yet
-unknown-command = Unknown command: { $cmd }
-bp-error = Bpm events (bp) should be contiguous and in the head of the file
-expected-01 = Expected 0 / 1 (real note / fake note)
-unexpected-extra = Unexpected extra content: { $next }
-line-location = On line #{ $lid }
+no-notes-inserted = Hiçbir not eklenmedi
+unknown-command = Bilinmeyen komut: { $cmd }
+bp-error = Bpm etkinlikleri (bp) sayfanın başlangıcında kesintisiz olmalı
+expected-01 = Beklenen 0 / 1 (gerçek nota / sahte nota)
+unexpected-extra = Beklenmeyen ek içerik: { $next }
+line-location = #{ $lid }. satırda
 
 # extra
-shader-load-failed = Cannot load shader from { $path }
-shader-not-found = Cannot find preset shader { $shader }
-effect-location = In effect #{ $id }
-video-load-failed = Failed to read video from { $path }
+shader-load-failed = { $path } içindeki shader'lar yüklenemiyor
+shader-not-found = Ön ayar shader'ı bulunamıyor { $shader }
+effect-location = #{ $id }. etkide
+video-load-failed = { $path } yolundaki video yüklenemiyor

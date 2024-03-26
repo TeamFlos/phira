@@ -1,11 +1,11 @@
 
-to = to
-adjust-offset = Adjust offset
-offset-cancel = Cancel
-offset-reset = Reset
-offset-save = Save
-speed = Speed
+to = 'den
+adjust-offset = Dengeyi ayarla
+offset-cancel = İptal Et
+offset-reset = Sıfırla
+offset-save = Kaydet
+speed = Hız
 
-ex-time-out-of-range = Time is out of range
-ex-invalid-format = Invalid format
-ex-time-set = Time changed
+ex-time-out-of-range = Süre aralık dışı
+ex-invalid-format = Geçersiz format
+ex-time-set = Süre değişti

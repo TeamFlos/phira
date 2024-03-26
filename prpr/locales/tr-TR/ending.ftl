@@ -1,17 +1,17 @@
 
-retry = RETRY
-proceed = PROCEED
+retry = TEKRAR
+proceed = DEVAM
 
-new-best = NEW BEST
-max-combo = MAX COMBO
+new-best = YENİ REKOR
+max-combo = YENİ KOMBO
 rks-delta = RKS DELTA
-accuracy = Accuracy
-error = Error
+accuracy = Doğruluk
+error = Hata
 
-uploading = Uploading result…
-uploaded = Result uploaded
-upload-failed = Failed to upload
-upload-cancel = Cancel upload
-upload-retry = Retry
+uploading = Sonuçlar yükleniyor
+uploaded = Sonuç yüklendi
+upload-failed = Yükleme başarısız
+upload-cancel = Yüklemeyi iptal et
+upload-retry = Yeniden dene
 
-still-uploading = Uploading result, please wait…
+still-uploading = Sonuç yükleniyor, lütfen bekleyin...
