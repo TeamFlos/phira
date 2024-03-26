@@ -1,6 +1,6 @@
-time = Time desc.
-rev-time = Time asc.
-name = Name asc.
-rev-name = Name desc.
-rating = Rating desc.
-rev-rating = Rating asc.
+time = Süre (azalan)
+rev-time = Süre (artan)
+name = Ad
+rev-name = Ad (ters)
+rating = Oy (azalan)
+rev-rating = Oy (Artan)

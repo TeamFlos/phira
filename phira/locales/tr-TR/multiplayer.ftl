@@ -1,86 +1,86 @@
 
-multiplayer = Multiplayer
+multiplayer = Çok Oyunculu
 
-connect = Connect
-connect-must-login = You must login to enter multiplayer mode
-connect-success = Connected successfully
-connect-failed = Failed to connect
-connect-authenticate-failed = Authorization failed
-reconnect = Reconnecting…
+connect = Bağlan
+connect-must-login = Çok oyunculu moda katılmak için giriş yapmalısınız
+connect-success = Bağlantı başarılı
+connect-failed = Bağlanılamadı
+connect-authenticate-failed = Giriş başarısız
+reconnect = Yeniden bağlanılıyor...
 
-create-room = Create Room
-create-room-success = Room created
-create-room-failed = Failed to create room
-create-invalid-id = Room ID consists of no more than 20 characters, including letters, numbers, - (dash) and _ (underscore)
+create-room = Oda Yarat
+create-room-success = Oda yaratıldı
+create-room-failed = Oda yaratılamadı
+create-invalid-id = Oda ID'si, 20 karakterden uzun olmayacak şekilde harf, sayı, kısa çizgi (-) ve alt çizgi (_) içerebilir
 
-join-room = Join Room
-join-room-invalid-id = Invalid room ID
-join-room-failed = Failed to join room
+join-room = Bir Odaya Katıl
+join-room-invalid-id = Geçersiz Oda ID'si
+join-room-failed = Odaya katılınamadı
 
-leave-room = Leave Room
-leave-room-failed = Failed to leave room
+leave-room = Odadan Ayrıl
+leave-room-failed = Odadan ayrılınamadı
 
-disconnect = Disconnect
+disconnect = Bağlantıyı Kes
 
-request-start = Start Game
-request-start-no-chart = You haven't selected a chart
-request-start-failed = Failed to start game
+request-start = Oyuna Başla
+request-start-no-chart = Bir müzik seçmediniz
+request-start-failed = Oyun başlatılamadı
 
-user-list = Users
+user-list = Kullanıcılar
 
 lock-room = { $current ->
-  [true] Unlock room
-  *[other] Lock room
+  [true] Odanın kilidini aç
+  *[other] Odayı kilitle
 }
 cycle-room = { $current ->
-  [true] Cycling mode
-  *[other] Normal mode
+  [true] Dönen mod
+  *[other] Normal mod
 }
 
-ready = Ready
-ready-failed = Failed to get ready
+ready = Hazır
+ready-failed = Hazırlanma başarısız
 
-cancel-ready = Cancel
+cancel-ready = İptal
 
-room-id = Room ID: { $id }
+room-id = Oda ID'si: { $id }
 
-download-failed = Failed to download chart
+download-failed = Müzik indirilemedi
 
-lock-room-failed = Failed to lock room
-cycle-room-failed = Failed to change room mode
+lock-room-failed = Oda kilitlenemedi
+cycle-room-failed = Oda modu değiştirilemedi
 
-chat-placeholder = Say something…
-chat-send = Send
-chat-empty = Message is empty
-chat-sent = Sent
-chat-send-failed = Failed to send message
+chat-placeholder = Bir şey yazın...
+chat-send = Gönder
+chat-empty = Yaprak bile kıpırdamıyor
+chat-sent = Gönderildi
+chat-send-failed = Mesaj gönderilemedi
 
-select-chart-host-only = Only the host can select chart
-select-chart-local = Can't select local chart
-select-chart-failed = Failed to select chart
-select-chart-not-now = You can't select chart now
+select-chart-host-only = Müziği yalnızca oda sahibi seçebilir
+select-chart-local = Yerel müzik seçilemiyor
+select-chart-failed = Müzik seçilemedi
+select-chart-not-now = Şu anda müzik seçemezsiniz
 
-msg-create-room = `{ $user }` created the room
-msg-join-room = `{ $user }` joined the room
-msg-leave-room = `{ $user }` left the room
-msg-new-host = `{ $user }` became the new host
-msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id })
-msg-game-start = The host `{ $user }` started the game. Other players should get ready.
-msg-ready = `{ $user }` is ready
-msg-cancel-ready = `{ $user }` cancelled ready
-msg-cancel-game = `{ $user }` cancelled the game
-msg-start-playing = Game start
-msg-played = `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-combo ->
-  [true] , full combo
+msg-create-room = `{ $user }` odayı yarattı
+msg-join-room = `{ $user }` odaya katıldı
+msg-leave-room = `{ $user }` odadan ayrıldı
+msg-new-host = `{ $user }` yeni oda sahibi 
+msg-select-chart = Oda sahibi `{ $user }`, `{ $chart }` (#{ $id }) müziğini seçti
+msg-game-start = Oda sahibi `{ $user }` oyunu başlatıyor. Oyuncular hazırlansın.
+msg-ready = `{ $user }` hazır
+msg-cancel-ready = `{ $user }` artık hazır değil
+msg-cancel-game = `{ $user }` oyunu iptal etti
+msg-start-playing = Oyun başladı
+msg-played = `{ $user }` bitirdi: { $score } ({ $accuracy }){ $full-combo ->
+  [true] , full kombo
   *[other] {""}
 }
-msg-game-end = Game ended
-msg-abort = `{ $user }` aborted the game
+msg-game-end = Oyun bitti
+msg-abort = `{ $user }` oyunu iptal etti
 msg-room-lock = { $lock ->
-  [true] Room locked
-  *[other] Room unlocked
+  [true] Oda kilitlendi
+  *[other] Odanın kilidi açıldı
 }
 msg-room-cycle = { $cycle ->
-  [true] Room changed to cycling mode
-  *[other] Room changed to normal mode
+  [true] Oda dönen moda geçirildi
+  *[other] Oda normal moda geçirildi
 }

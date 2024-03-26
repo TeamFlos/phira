@@ -1,14 +1,14 @@
 
-label = RESPACK
+label = KAYNAKLAR
 
-default = Default
-load-failed = Failed to load respack
+default = Varsayılan
+load-failed = Kaynak paketi yüklenemedi
 
-info = Respack Info
+info = Kaynak Paketi Bilgisi
 info-content =
-  Name: { $name }
-  Author: { $author }
-  Description: { $desc }
+  Ad: { $name }
+  Yazar: { $author }
+  Açıklama: { $desc }
 
-cant-delete-builtin = Can't delete builtin respack
-deleted = Deleted
+cant-delete-builtin = Gömülü gelen kaynak paketleri silinemez
+deleted = Silindi

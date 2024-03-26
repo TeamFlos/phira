@@ -1,128 +1,128 @@
 
-load-preview-failed = Failed to load song preview
-load-charts-failed = Failed to load beatmaps
-no-chart-for-download = This beatmap is not downloadable
+load-preview-failed = Şarkı önizlemesi yüklenemedi
+load-charts-failed = Ritim haritaları yüklenemedi
+no-chart-for-download = Bu ritim haritası indirilemez
 
-load-chart-failed = Failed to load the beatmap
+load-chart-failed = Ritim haritası yüklenemedi
 
-dl-cancel = Cancel
-dl-status-fetch = Fetching info
-dl-status-song = Downloading song
-dl-status-chart = Downloading chart
-dl-status-extract = Extracting
-dl-status-illustration = Downloading illustration
-dl-status-assets = Downloading assets
-dl-status-saving = Saving
-dl-failed = Download failed
-dl-success = Downloaded
+dl-cancel = İptal
+dl-status-fetch = Bilgi alınıyor
+dl-status-song = Şarkı indiriliyor
+dl-status-chart = Harita indiriliyor
+dl-status-extract = Çıkarılıyor
+dl-status-illustration = Çizim indiriliyor
+dl-status-assets = Kaynaklar indiriliyor
+dl-status-saving = Kaydediliyor
+dl-failed = İndirme başarısız
+dl-success = İndirildi
 
-guest = Guest
+guest = Ziyaretçi
 
-warn-unrated = This play is unrated
-failed-to-play = Failed to start as online mode
-play-cancel = Cancel
-play-switch-to-offline = Switch to offline mode
-switched-to-offline = Switched to offline mode
+warn-unrated = Bu müzik hiç oylanmamış
+failed-to-play = Çevrimiçi mod başlatılamadı
+play-cancel = İptal
+play-switch-to-offline = Çevrimdışı moda geç
+switched-to-offline = Çevrimdışı moda geçildi
 
-delete = Delete
-rate = Rate
-exercise = Exercise
-offset = Adjust offset
-unlock = Play unlock video
+delete = Sil
+rate = Oyla
+exercise = Antrenman Yap
+offset = Dengeyi Ayarla
+unlock = Videoyu Aç
 
-edit-cancel = Cancel
-edit-save = Save
-edit-saving = Saving
-edit-load-file-failed = Failed to load external file
-edit-save-failed = Save failed
-edit-saved = Saved
-edit-preview-invalid = Preview time out of bounds
-edit-tags = Edit tags
-edit-downloaded = You can't edit downloaded chart
-edit-overwrite = Overwrite
-edit-overwrite-confirm = Are you sure to overwrite this chart with the imported one? (This will only sync to online platform after clicking "Update")
-edit-overwrite-success = Overwritten
-edit-overwrite-failed = Failed to overwrite
+edit-cancel = İptal
+edit-save = Kaydet
+edit-saving = Kaydediliyor
+edit-load-file-failed = Dış dosya yüklenemedi
+edit-save-failed = Kaydedilemedi
+edit-saved = Kaydoldu
+edit-preview-invalid = Önizleme zamanı sınır dışı
+edit-tags = Etiketleri düzenle
+edit-downloaded = İndirdiğiniz haritaları düzenleyemezsiniz
+edit-overwrite = Üstüne Yaz
+edit-overwrite-confirm = Bu haritayı diğeriyle değiştirmek istediğinize emin misiniz? (Sadece "güncelle"ye tıkladıktan sonra çevrimiçi platformla senkronize edilecektir)
+edit-overwrite-success = Üstüne Yazıldı
+edit-overwrite-failed = Başarısız
 
-edit-upload = Upload
-edit-update = Update
+edit-upload = Yükle
+edit-update = Güncelle
 
-upload-not-saved = You haven't saved the chart, do you want to save it now?
-upload-login-first = Please login first
-upload-builtin = Built-in beatmaps cannot be uploaded
-upload-rules = Upload rules
+upload-not-saved = Bu haritayı kaydetmediniz. Şimdi kaydetmek istiyor musunuz?
+upload-login-first = Lütfen ilk önce giriş yapın
+upload-builtin = Hazırda gelen ritim haritaları güncellenemez
+upload-rules = Yükleme Kuralları
 upload-rules-content =
-  Before uploading, you need to confirm that:
-  1. ! The beatmap is created by me, collaborative chart needs upload permission ALL chart designers, otherwise you may face the penalty of permanent ban on uploading
-  2. It is recommended to use a highly recognizable avatar and ID; If the avatar ID you use in Phira is quite different from the self-made score video publishing platform (specifically, BiliBili), additional annotations are required, also please add your favored language in the chart description (if not zh-CN)
-  3. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information
-  4. I authorize the use of the content I provide for public promotion by Phira. Any other use requires my additional permission
-  5. The final interpretation rights of this rule belong to TeamFlos
-uploading = Uploading
-upload-chart-failed = Failed to upload beatmap
-upload-success = Uploaded successfully, please wait for review!
-upload-failed = Upload failed
-upload-confirm-clear-ldb = Since the current chart file is different from the remote chart file, the leaderboard of this chart will be cleared after uploading, are you sure to continue?
+  Yüklemeden önce lütfen aşağıdakilerden emin olun:
+  1. ! Bu eser sizin tarafından yaratılmıştır. Birçok kişi tarafından tasarlanan haritalarda tüm tasarımcıların yükleme yetkisine ihtiyaç duyulur. Aksi takdirde kalıcı yükleme yasağına çarptırılabilirsiniz.
+  2. Yeterince tanınır bir avatar ve ID kullanmanız şiddetle tavsiye edilir. Eğer Phira'daki avatarınız ve ID'niz, paylaşım platformundan (özellikle BiliBili'den) fçok farklı olursa ek bağlantılar gerekecektir. Ayrıca lütfen açıklamalarda anadilinizi belirtin. Aksi takdirde zh-CN olarak seçilecektir.
+  3. Ritim haritasındaki içerikler (müzik, çizimler, yazılar vb.) Çin Halk Cumhuriyetinin kanun ve yönetmeliklerine uymalıdır, kötü bilgiler içermemelidir.
+  4. Yüklediğiniz içeriğin Phira tarafından tanıtımlarda kullanılacğaına izin vermiş olursunuz. Herhangi bir ek kullanım, izninize tabidir.
+  5. Bu kuralın son değiştirme hakları TeamFlos'a aittir.
+uploading = Yükleniyor
+upload-chart-failed = Ritim haritası yüklenemedi
+upload-success = Yükleme başarılı, lütfen gözden geçirilmesini bekleyin!
+upload-failed = Yükleme başarısız
+upload-confirm-clear-ldb = Mevcut ritim, internettekinden farklı olduğundan yükleme tamamlandıktan sonra bu ritme ait liderlik tablosu sıfırlanacaktır. Devam etmek istediğinize emin misiniz?
 
-ldb = Leaderboard
-ldb-load-failed = Failed to load leaderboard
-ldb-no-rank = None
-ldb-score = Score
-ldb-std = Purity
+ldb = Liderlik Tablosu
+ldb-load-failed = Liderlik tablosu yüklenemedi
+ldb-no-rank = Yok
+ldb-score = Skor
+ldb-std = Saflık
 
-info-name = Name
-info-composer = Composer
-info-charter = Charter
-info-difficulty = Difficulty
-info-desc = Description
-info-rating = Rating
-info-type = Type
-info-tags = Tags
+info-name = Ad
+info-composer = Bestekâr
+info-charter = Ritimkâr
+info-difficulty = Zorluk
+info-desc = Açıklama
+info-rating = Derece
+info-type = Tür
+info-tags = Etiketler
 
-reviewed = Reviewed
-unreviewed = Unreviewed
+reviewed = Teftiş Edildi
+unreviewed = Teftiş Edilmedi
 
-review-approve = Approve
-review-deny = Deny
-review-del = Delete online
-review-approved = Approved
-review-passed = Passed
-review-denied = Denied
-review-deleted = Deleted
-review-action-failed = Failed to perform review action
-review-doing = Executing action
-review-not-loaded = Info is not loaded, please wait
-review-edit-tags = Edit tags
-review-edit-tags-failed = Failed to edit tags
-review-edit-tags-done = Tags updated
+review-approve = Onayla
+review-deny = Reddet
+review-del = Sil
+review-approved = Onaylandı
+review-passed = Geçti
+review-denied = Reddedildi
+review-deleted = Silindi
+review-action-failed = Teftiş işlemi başarısız
+review-doing = İşlem yapılıyor...
+review-not-loaded = Bilgi yüklenmedi, lütfen bekleyin
+review-edit-tags = Etiketleri düzenle
+review-edit-tags-failed = Etiketler düzenlenemedi
+review-edit-tags-done = Etiketler düzenlendi
 
-mods = Mods
-mods-autoplay = Autoplay
-mods-autoplay-sub = Enabling this would disable record uploading
-mods-flip-x = Flip X
-mods-flip-x-sub = Flip on the X-axis
-mods-fade-out = Fade out
-mods-fade-out-sub = Notes disappear when they approach the line
+mods = Moddlar
+mods-autoplay = Otomatik Oynama
+mods-autoplay-sub = Bunu açmak, kayıt yüklemeyi durduracaktır
+mods-flip-x = X'te Döndür
+mods-flip-x-sub = X ekseninde döndür
+mods-fade-out = Sönerek çık
+mods-fade-out-sub = Notalar çizgiye yaklaşırken kaybolur
 
-rate-failed = Rate failed
-rate-done = Rated successfully
+rate-failed = Oylama başarısız
+rate-done = Başarıyla oylandı
 
-need-update = Update needed
-need-update-info-only-content = The info of beatmap has updated. Do you want to sync the update?
-need-update-content = This beatmap has updated. You must sync your local version before uploading record. Do you want to do it now?
+need-update = Güncelleme gerekli
+need-update-info-only-content = Ritim haritasının bilgileri güncellendi. Senkronize edilsin mi?
+need-update-content = Bu ritim haritası güncellendi. Yüklemeden önce yereldeki versiyonunuzu senkronize etmeniz gerekiyor. Şimdi yapmak istiyor musunuz?
 
-request-failed = Request failed
+request-failed = İstek başarısız
 
-stabilize = Stabilize
-stabilize-warn = Normal user can only request to stabilize beatmap once per 3 days. If you have beatmaps that are stabilized, the interval is reduced to 1 day.
-stabilize-requested = Stablizing request sent
-stabilize-failed = Stabilize failed
-stabilize-approve = Approve special
-stabilize-approve-ranked = Approve stable
-stabilize-comment = Stable comment
-stabilize-commented = Commented
-stabilize-deny = Deny stable
-stabilize-approved = Approved
-stabilize-approved-passed = Approved, the beatmap is stablized
-stabilize-denied = Denied
-stabilize-denied-passed = Denied, the beatmap is rejected
+stabilize = Dengele
+stabilize-warn = Normal kullanıcılar ritim haritasını yalnızca 3 günde 1 kez dengeleyebilir. Eğer dengelenmiş başka ritim haritanız varsa bu ara 1 güne düşer.
+stabilize-requested = Dengeleme isteği gönderildi
+stabilize-failed = Dengeleme başarısız
+stabilize-approve = Özel Onayla
+stabilize-approve-ranked = Dengeli Onayla
+stabilize-comment = Dengeli yorum
+stabilize-commented = Yorum yapıldı
+stabilize-deny = Dengeliyi reddet
+stabilize-approved = Onaylandı
+stabilize-approved-passed = Onaylandı, bu ritim dengelendi
+stabilize-denied = Reddedildi
+stabilize-denied-passed = Reddedildi, bu ritim reddedildi.

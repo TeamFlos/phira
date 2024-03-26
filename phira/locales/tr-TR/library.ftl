@@ -1,18 +1,18 @@
 
-label = LIBRARY
+label = KÜTÜPHANE
 
-local = Local
-popular = Popular
+local = Yerel
+popular = Popüler
 
-page = Page { $current } / { $total }
-prev-page = Prev page
-next-page = Next page
+page = Sayfa { $current } / { $total }
+prev-page = Önceki
+next-page = Sonraki
 
-not-opened = Not available yet
-failed-to-load-online = Failed to load online beatmaps
+not-opened = Henüz mevcut değil
+failed-to-load-online = İnternet üzerindeki müzikler yüklenemedi
 
-import = Import
+import = İçe Aktar
 
-offline-mode = Can't load online beatmaps in offline mode
+offline-mode = Çevrimdışıyken çevrimiçi müzikler kullanılamaz
 
-must-login = You must login to view online charts
+must-login = Çevrimiçi özellikleri görmek için giriş yapmalısınız

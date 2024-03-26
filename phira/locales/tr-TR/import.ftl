@@ -1,9 +1,9 @@
 
-info-fail = Failed to load info
-invalid-chart = Invalid chart
+info-fail = Bilgi yüklenemedi
+invalid-chart = Geçersiz tablo
 
-importing = Importing
-import-success = Imported successfully
-import-failed = Import failed
-import-respack-success = Imported successfully
-import-respack-failed = Failed to import respack
+importing = Yükleniyor
+import-success = Yükleme başarılı
+import-failed = Yükleme başarısız
+import-respack-success = Kaynak paketi yüklendi
+import-respack-failed = Kaynak paketi yüklenemedi

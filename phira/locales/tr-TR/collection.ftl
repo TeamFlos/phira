@@ -1,6 +1,6 @@
 
-label = Collections
+label = Koleksiyonlar
 
-wait-for-more = More coming…
+wait-for-more = Daha fazlası yolda...
 
-name-c1 = Future Relics
+name-c1 = Gelecek Kalıntıları

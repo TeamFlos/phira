@@ -1,11 +1,11 @@
 
-rate = Rate
-filter = Filter by rating
+rate = Oyla
+filter = Oylara göre filtrele
 
-cancel = Cancel
-confirm = Confirm
+cancel = İptal Et
+confirm = Onayla
 
-lower-bound = Lower bound
-upper-bound = Upper bound
+lower-bound = Üst sınır
+upper-bound = Alt sınır
 
-filter-by-tags = Filter by tags
+filter-by-tags = Etiketlere göre filtrele

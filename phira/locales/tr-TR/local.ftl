@@ -1,7 +1,7 @@
 
-label = Local
+label = Yerel
 
-import-failed = Failed to import
-import-success = Imported successfully
+import-failed = İçe aktarma başarısız
+import-success = İçe aktarma başarılı
 
-not-loaded = Not yet finished loading
+not-loaded = Yükleme daha bitmedi

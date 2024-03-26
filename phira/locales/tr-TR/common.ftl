@@ -1,27 +1,27 @@
 
-del-confirm = Are you sure to delete?
-del-confirm-content = This operation can not be undone.
+del-confirm = Silmek istediğinize emin misiniz?
+del-confirm-content = Bu işlem geri alınamaz.
 
-cancel = Cancel
-confirm = Confirm
+cancel = İptal Et
+confirm = Onayla
 
-release-to-refresh = Release to refresh
+release-to-refresh = Yenilemek için bırakın
 
-switch-on = On
-switch-off = Off
+switch-on = Açık
+switch-off = Kapalı
 
-chart-ranked = Ranked
-chart-special = Special
-chart-unstable = Unstable
+chart-ranked = Sıralı
+chart-special = Özel
+chart-unstable = Değişken
 
-list-empty = Nothing here
+list-empty = Bir şey yok
 
-tos-and-policy = Terms of Service and Privacy Policy
-tos-and-policy-desc = You must read (by clicking here) and agree to our Terms of Service and Privacy Policy before using Phira online services provided by TeamFlos.
-tos-deny = Deny
-tos-accept = Accept
+tos-and-policy = Kullanım Şartları ve Gizlilik İlkesi
+tos-and-policy-desc = TeamFlos tarfından sunulan Phira online servislerini kullanmadan önce Kullanum Şartlarını ve Gizlilik İlkesini okuyup onaylamanız gerekmektedir.
+tos-deny = Reddet
+tos-accept = Kabul Et
 
-open-in-web = Open in Web
+open-in-web = Tarayıcıda Aç
 
-main-character-name = Shee
-main-character-intro = TODO
+main-character-name = Alp
+main-character-intro = Hehe

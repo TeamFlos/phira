@@ -1,6 +1,6 @@
 
-chap-c1 = Future Relics
+chap-c1 = Gelecek Kalıntıları
 chap-c1-intro =
-  On the Phira land, 137 AD, a miraculous event known as the "Future Relics" occurred.
-  Countless gigantic structures and machinery descended randomly through cracks in the sky, carrying materials and magic that seemed to be from the future.
-  This cast a mysterious and panic-stricken atmosphere over the entire continent…
+  Milattan sonra 137 yılında Phira diyarında "Gelecek Kalıntıları" olarak anılan mucizevi bir olay meydana geldi.
+  Gelecekten gelmişlercesine maddeler ve büyüler taşıyan sayısız devasa yapı ve makine, gökte rastgele açılan yarıklardan Phira'ya indi.
+  Bu olay yüzünden tüm kıtaya gizemli ve panik dolu bir hava hakim oldu...

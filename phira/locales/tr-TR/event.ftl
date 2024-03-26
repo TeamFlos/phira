@@ -1,17 +1,17 @@
 
-label = EVENTS
+label = ETKİNLİKLER
 
-load-list-failed = Failed to load events
-load-failed = Failed to load event
-load-status-failed = Failed to load event status
-load-ldb-failed = Failed to load leaderboard
-join-failed = Failed to participate
+load-list-failed = Etkinlikler yüklenemedi
+load-failed = Etkinlik yüklenemedi
+load-status-failed = Etkinlik durumu yüklenemedi
+load-ldb-failed = Liderlik sıralaması yüklenemedi
+join-failed = Katılım başarısız
 
-scroll-down-for-more = Scroll down for more
+scroll-down-for-more = Daha fazlası için aşağı kaydırın
 
-btn-join = Participate
-btn-not-started = Not started
-btn-ongoing = Ongoing
-btn-ended = Ended
+btn-join = Katıl
+btn-not-started = Başlamadı
+btn-ongoing = Devam ediyor
+btn-ended = Bitti
 
-ldb = Leaderboard
+ldb = Liderlik Tablosu

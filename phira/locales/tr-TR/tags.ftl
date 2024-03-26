@@ -1,22 +1,22 @@
 
-filter = Filter by tags
-edit = Edit tags
+filter = Etikete göre filtrele
+edit = Etiketleri düzenle
 
-invalid-tag = Invalid tag
+invalid-tag = Geçersiz etiket
 
-wanted = Wanted
-unwanted = Unwanted
+wanted = İstenilen
+unwanted = İstenmeyen
 
-cancel = Cancel
-confirm = Confirm
+cancel = İptal Et
+confirm = Onayla
 
-filter-by-rating = Filter by rating
+filter-by-rating = Oylamaya göre filtrele
 
-regular = Regular
+regular = Sıradan
 troll = Troll
-plain = Plain
-visual = Visual
+plain = Düz
+visual = Görsel
 
-filter-me = Uploaded by me
-filter-unreviewed = Unreviewed
-filter-stabilize = Stabilize request
+filter-me = Benim tarafından yüklenenler
+filter-unreviewed = Teftiş edilmemişler
+filter-stabilize = Dengeleme isteği

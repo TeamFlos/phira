@@ -1,6 +1,6 @@
 
-label = MESSAGES
+label = MESAJLAR
 
-load-msg-fail = Failed to load messages
-no-msg = Nothing yet
-subtitle = { $author } at { $time }
+load-msg-fail = Mesajlar yüklenemedi
+no-msg = Sessiz sedasız
+subtitle = { $author } kullanıcısından, { $time }
