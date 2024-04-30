@@ -24,7 +24,7 @@ play-cancel = ยกเลิก
 play-switch-to-offline = เปลี่ยนไปใช้โหมด Offline
 switched-to-offline = เปลี่ยนไปใช้โหลด Offline แล้ว
 
-delete = ลย
+delete = ลบ
 rate = Rate
 exercise = ฝึก
 offset = ปรับ Offset
