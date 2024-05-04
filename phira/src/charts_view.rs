@@ -2,7 +2,7 @@ use crate::{
     client::Chart,
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{ChartItem, Fader, Illustration},
+    page::{ChartItem, ChartType, Fader, Illustration},
     save_data,
     scene::{render_release_to_refresh, SongScene, MP_PANEL},
 };
@@ -67,6 +67,7 @@ impl ChartDisplayItem {
                     }
                 },
                 local_path: None,
+                chart_type: ChartType::Downloaded,
             }),
             if chart.stable_request {
                 Some('+')
