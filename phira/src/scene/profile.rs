@@ -245,6 +245,9 @@ impl Scene for ProfileScene {
     }
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
+        if self.sf.transiting() {
+            return Ok(true);
+        }
         if self.avatar_task.is_some() {
             return Ok(true);
         }
