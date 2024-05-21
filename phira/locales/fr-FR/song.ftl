@@ -28,9 +28,10 @@ delete = Supprimer
 rate = Noter
 exercise = S'exercer
 offset = Ajuster le décalage
+unlock = Jouer la vidéo de déverrouillage
 
 edit-cancel = Annuler
-edit-save = Entrgistrer
+edit-save = Enregistrer
 edit-saving = Enregistrement
 edit-load-file-failed = Impossible de charger le fichier externe
 edit-save-failed = Échec de l'enregistrement
@@ -43,25 +44,25 @@ edit-overwrite-confirm = Êtes-vous sûr(e) d'écraser cette partition par celle
 edit-overwrite-success = Écrasée
 edit-overwrite-failed = Échec de l'écrasement
 
-edit-upload = Envoyer
+edit-upload = Publier
 edit-update = Mettre à jour
 
-upload-not-saved = Vous n'avez pas enregistré la partition, souhaitez-vous l'enregistrer maintenant ?
-upload-login-first = Connectez-vous d'abord, s'il vous plaît
-upload-builtin = Les partitions intégrées ne peuvent pas être envoyées
-upload-rules = À lire avant d'envoyer votre contenu
+upload-not-saved = Vous n'avez pas enregistré la partition, souhaitez-vous le faire maintenant ?
+upload-login-first = Veuillez d'abord vous connecter
+upload-builtin = Les partitions intégrées ne peuvent pas être publiées
+upload-rules = Règles de publication
 upload-rules-content =
-  Avant d'envoyer, vous devez confirmer que :
-  1. Vous avez créé la partition, ou l'envoi a été approuvé par l'auteur original. Dans le deuxième cas, il faut indiquer dans l'introduction de la partition qu'elle est envoyée au nom d'une autre personne ;
-  2. Si vous avez créé la partition, il est recommandé d'utiliser un avatar et un identifiant hautement reconnaissables ; Si l'avatar et l'identifiant que vous utilisez sur prpr sont assez différents de la plate-forme de publication de vidéos de partition (en particulier, Bilibili), des annotations supplémentaires sont nécessaires ;
-  3. /!\ Il est interdit d'envoyer la partition sans le consentement de l'auteur, sinon vous risquez la peine d'une interdiction permanente d'envoi ;
-  4. Le contenu de la partition (y compris la musique, les illustrations, le texte, etc.) doit être conforme aux autres lois et réglementations de la République populaire de Chine, et ne doit pas violer la loi ou contenir de mauvaises informations.
+  Avant de publier, vous devez confirmer que :
+  1. Vous avez créé la partition. Les partitions collaboratives nécessitent l'autorisation de publication de TOUS les auteurs de la partition, sous peine d'interdiction permanente de publication
+  2. Il est recommandé d'utiliser un avatar et un ID reconnaissables ; si l'ID ou l'avatar que vous utilisez dans Phira sont trop différent de ceux utilisés sur la plateforme de publication vidéos de score (surtout BiliBili), des notes supplémentaires sont nécessaires ; veuillez également ajouter votre langue de préférence dans la description de la partition (si ce n'est pas zh-CN)
+  3. Le contenu de la partition (y compris la musique, les illustrations, le texte, etc.) doit être conforme aux autres lois et règlements de la République populaire de Chine et ne doit pas enfreindre la loi ou contenir de mauvaises informations
+  4. J'autorise l'utilisation du contenu que je fournis à des fins de promotion publique par Phira. Toute autre utilisation nécessite mon autorisation préalable
   5. Les droits finaux d'interprétation de cette règle appartiennent à TeamFlos.
-uploading = Envoi
-upload-chart-failed = Échec de l'envoi de la partition
-upload-success = Envoyée avec succès, veuillez attendre l'examen !
-upload-failed = Échec de l'envoi
-upload-confirm-clear-ldb = Étant donné que le fichier actuel de partition est différent de celui cloud, le classement de cette partition sera effacé après le téléchargement. Êtes-vous sûr(e) de continuer ?
+uploading = Publication
+upload-chart-failed = La publication de la partition a échouée
+upload-success = Publiée avec succès, veuillez attendre la vérification !
+upload-failed = Échec de la publication
+upload-confirm-clear-ldb = Le fichier actuel de partition est différent de celui des serveurs, le classement de cette partition sera effacé après le téléchargement. Êtes-vous sûr(e) de vouloir continuer ?
 
 ldb = Classement
 ldb-load-failed = Échec du chargement du classement
@@ -78,17 +79,17 @@ info-rating = Note
 info-type = Type
 info-tags = Étiquettes
 
-reviewed = Reviewed
-unreviewed = Unreviewed
+reviewed = Vérifiée
+unreviewed = Non vérifiée
 
 review-approve = Approuver
 review-deny = Refuser
 review-del = Supprimer en ligne
-review-approved = Approuvé
+review-approved = Approuvée
 review-passed = Acceptée
-review-denied = Refusé
-review-deleted = Supprimé
-review-action-failed = Échec de l'exécution de l'action d'examen
+review-denied = Refusée
+review-deleted = Supprimée
+review-action-failed = Échec de l'exécution de l'action de vérification
 review-doing = Exécution de l'action
 review-not-loaded = Les informations ne sont pas chargées, veuillez patienter
 review-edit-tags = Modifier les étiquettes
@@ -96,21 +97,21 @@ review-edit-tags-failed = Échec de la modification des étiquettes
 review-edit-tags-done = Étiquettes mises à jour
 
 mods = Mods
-mods-autoplay = Autoplay
-mods-autoplay-sub = Après activation, il ne sera pas possible d'envoyer les notes
-mods-flip-x = Flip X
+mods-autoplay = Jeu auto
+mods-autoplay-sub = Activer cette option empêche la publication de scores.
+mods-flip-x = Inverser sur X
 mods-flip-x-sub = Inversion de la partition sur l'axe X
-mods-fade-out = Fade out
+mods-fade-out = Disparition
 mods-fade-out-sub = Les notes disparaissent à l'approche de la ligne de jugement
 
 rate-failed = Échec de la notation
 rate-done = Noté avec succès
 
 need-update = Mise à jour nécessaire
-need-update-info-only-content = Les informations de partition ont été mises à jour. Voulez-vous synchroniser la mise à jour ?
-need-update-content = Cette partition a été mise à jour. Vous devez synchroniser votre version locale avant de télécharger votre record. Voulez-vous le faire maintenant ?
+need-update-info-only-content = Les informations de la partition ont été mises à jour. Voulez-vous synchroniser la mise à jour ?
+need-update-content = Cette partition a été mise à jour. Vous devez synchroniser votre version locale avant de publier votre record. Voulez-vous le faire maintenant ?
 
-request-failed = Demande échoué
+request-failed = Demande échouée
 
 stabilize = Stabiliser
 stabilize-warn = L'utilisateur normal ne peut demander de stabiliser la partition qu'une fois tous les 3 jours. Si vous avez des partitions stabilisées, l'intervalle est réduit à 1 jour.
