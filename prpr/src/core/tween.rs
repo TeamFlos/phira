@@ -98,17 +98,18 @@ fn bounce(x: f32) -> f32 {
 
 #[rustfmt::skip]
 pub static TWEEN_FUNCTIONS: [fn(f32) -> f32; 33] = [
-	|_| 0., |_| 1., |x| x,
-	f1!(sine), f2!(sine), f3!(sine),
-	f1!(quad), f2!(quad), f3!(quad),
-	f1!(cubic), f2!(cubic), f3!(cubic),
-	f1!(quart), f2!(quart), f3!(quart),
-	f1!(quint), f2!(quint), f3!(quint),
-	f1!(expo), f2!(expo), f3!(expo),
-	f1!(circ), f2!(circ), f3!(circ),
-	f1!(back), f2!(back), f3!(back),
-	f1!(elastic), f2!(elastic), f3!(elastic),
-	f1!(bounce), f2!(bounce), f3!(bounce),
+	|_| 0.,			|_| 1.,			|x| x,
+	/* In */		/* Out */		/* InOut */
+	f1!(sine),		f2!(sine),		f3!(sine),
+	f1!(quad),		f2!(quad),		f3!(quad),
+	f1!(cubic),		f2!(cubic),		f3!(cubic),
+	f1!(quart),		f2!(quart),		f3!(quart),
+	f1!(quint),		f2!(quint),		f3!(quint),
+	f1!(expo),		f2!(expo),		f3!(expo),
+	f1!(circ),		f2!(circ),		f3!(circ),
+	f1!(back),		f2!(back),		f3!(back),
+	f1!(elastic),	f2!(elastic),	f3!(elastic),
+	f1!(bounce),	f2!(bounce),	f3!(bounce),
 ];
 
 thread_local! {

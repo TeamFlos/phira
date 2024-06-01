@@ -32,6 +32,7 @@ pub struct Note {
     pub height: f32,
     pub speed: f32,
 
+    /// From the other side of the line
     pub above: bool,
     pub multiple_hint: bool,
     pub fake: bool,

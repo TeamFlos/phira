@@ -6,6 +6,7 @@ use nalgebra::Rotation2;
 pub struct Object {
     pub alpha: AnimFloat,
     pub scale: AnimVector,
+    /// Rotation in degrees
     pub rotation: AnimFloat,
     pub translation: AnimVector,
 }

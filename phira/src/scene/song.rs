@@ -670,7 +670,7 @@ impl SongScene {
             .me
             .as_ref()
             .map_or(false, |it| Some(it.id) == self.info.uploader.as_ref().map(|it| it.id));
-        if self.info.id.is_some() && perms.contains(Permissions::REVIEW) {
+        if self.info.id.is_some() && (perms.contains(Permissions::REVIEW) || perms.contains(Permissions::REVIEW_PECJAM)) {
             if self.entity.as_ref().map_or(false, |it| !it.reviewed && !it.stable_request) {
                 self.menu_options.push("review-approve");
                 self.menu_options.push("review-deny");
