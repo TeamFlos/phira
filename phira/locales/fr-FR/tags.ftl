@@ -15,8 +15,8 @@ filter-by-rating = Filtrer par note
 regular = Régulier
 troll = Troll
 plain = Fade
-visual = Ornemental
+visual = Visuel
 
-filter-me = Envoyé par moi
-filter-unreviewed = Non revu
-filter-stabilize = En attente d'examen de stable
+filter-me = Envoyées par moi
+filter-unreviewed = Non vérifiées
+filter-stabilize = En demande de stabilisation
