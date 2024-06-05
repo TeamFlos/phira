@@ -1,2 +1,2 @@
 
-label = ÉTALONNAGE
+label = CALIBRAGE

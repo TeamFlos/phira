@@ -75,7 +75,7 @@ async fn the_main() -> Result<()> {
     let _guard = rt.enter();
 
     let font = FontArc::try_from_vec(load_file("font.ttf").await?)?;
-    let mut painter = TextPainter::new(font);
+    let mut painter = TextPainter::new(font, None);
 
     let config: Config = (|| -> Result<Config> { Ok(serde_yaml::from_reader(File::open("monitor-config.yml")?)?) })().context("读取配置失败")?;
 

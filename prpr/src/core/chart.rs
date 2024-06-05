@@ -23,10 +23,15 @@ pub struct Chart {
     pub offset: f32,
     pub lines: Vec<JudgeLine>,
     pub bpm_list: RefCell<BpmList>,
+
     pub settings: ChartSettings,
     pub extra: ChartExtra,
 
+    /// Line order according to z-index, lines with attach_ui will be removed from this list
+    ///
+    /// Store the index of the line in z-index ascending order
     pub order: Vec<usize>,
+    /// TODO: docs from RPE
     pub attach_ui: [Option<usize>; 7],
 }
 
