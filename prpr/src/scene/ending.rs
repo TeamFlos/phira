@@ -3,14 +3,16 @@ crate::tl_file!("ending");
 use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{
     config::Config,
-    core::{BOLD_FONT, PGR_FONT},
-    ext::{create_audio_manger, rect_shadow, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    ext::{
+        create_audio_manger, draw_illustration, draw_parallelogram, draw_parallelogram_ex, draw_text_aligned, SafeTexture, ScaleType,
+        PARALLELOGRAM_SLOPE,
+    },
     info::ChartInfo,
     judge::{icon_index, PlayResult},
     scene::show_message,
     task::Task,
     time::TimeManager,
-    ui::{clip_sector, DRectButton, Dialog, MessageHandle, Ui},
+    ui::{Dialog, MessageHandle, DRectButton, Ui},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -41,6 +43,8 @@ pub struct EndingScene {
     result: PlayResult,
     player_name: String,
     player_rks: Option<f32>,
+    challenge_texture: SafeTexture,
+    challenge_rank: u32,
     autoplay: bool,
     speed: f32,
     next: u8, // 0 -> none, 1 -> pop, 2 -> exit
@@ -68,6 +72,7 @@ impl EndingScene {
         icon_proceed: SafeTexture,
         info: ChartInfo,
         result: PlayResult,
+        challenge_texture: SafeTexture,
         config: &Config,
         bgm: AudioClip,
         upload_fn: Option<UploadFn>,
@@ -119,6 +124,8 @@ impl EndingScene {
             result,
             player_name: config.player_name.clone(),
             player_rks,
+            challenge_texture,
+            challenge_rank: config.challenge_rank,
             autoplay: config.autoplay(),
             speed: config.speed,
             next: 0,
@@ -160,9 +167,8 @@ impl Scene for EndingScene {
         Ok(())
     }
 
-    fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
-        let t = tm.now() as f32;
-        if self.btn_retry.touch(touch, t) {
+    fn touch(&mut self, _tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
+        if self.btn_retry.touch(touch) {
             if self.upload_task.is_some() {
                 show_message(tl!("still-uploading"));
             } else {
@@ -171,7 +177,7 @@ impl Scene for EndingScene {
             }
             return Ok(true);
         }
-        if self.btn_proceed.touch(touch, t) {
+        if self.btn_proceed.touch(touch) {
             if self.upload_task.is_some() {
                 show_message(tl!("still-uploading"));
             } else {
@@ -226,6 +232,8 @@ impl Scene for EndingScene {
         let asp = -cam.zoom.y;
         let top = 1. / asp;
         let t = tm.now() as f32;
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        let res = &self.result;
         cam.render_target = self.target;
         let sr = ui.screen_rect();
         set_camera(&cam);
@@ -234,291 +242,141 @@ impl Scene for EndingScene {
         fn ran(t: f32, l: f32, r: f32) -> f32 {
             ((t - l) / (r - l)).clamp(0., 1.)
         }
+        fn tran(gl: &mut QuadGl, x: f32) {
+            gl.push_model_matrix(Mat4::from_translation(vec3(x * 2., 0., 0.)));
+        }
 
-        let ct = vec2(-0.55, 1.2);
-        let start = vec2(1.25, 0.9) - ct;
-        let end = vec2(-0.15, -0.7) - ct;
-        let angle_start = start.y.atan2(start.x) * 0.4;
-        let angle_end = end.y.atan2(end.x);
-        let center_angle = 1.8;
+        tran(gl, (1. - ran(t, 0.1, 1.3)).powi(3));
+        let r = draw_illustration(*self.illustration, -0.38, 0., 1., 1.2, WHITE);
+        let slope = PARALLELOGRAM_SLOPE;
+        let ratio = 0.2;
+        draw_parallelogram_ex(
+            Rect::new(r.x, r.y + r.h * (1. - ratio), r.w - r.h * (1. - ratio) * slope, r.h * ratio),
+            None,
+            Color::default(),
+            Color::new(0., 0., 0., 0.7),
+            false,
+        );
+        let rr = draw_text_aligned(ui, &self.info.level, r.right() - r.h / 7. * 13. * 0.13 - 0.01, r.bottom() - top / 20., (1., 1.), 0.46, WHITE);
+        let p = (r.x + 0.04, r.bottom() - top / 20.);
+        let mw = rr.x - 0.02 - p.0;
+        let mut text = ui.text(&self.info.name).pos(p.0, p.1).anchor(0., 1.).size(0.7);
+        if text.measure().w <= mw {
+            text.draw();
+        } else {
+            drop(text);
+            ui.text(&self.info.name).pos(p.0, p.1).anchor(0., 1.).size(0.5).max_width(mw).draw();
+        }
+        gl.pop_model_matrix();
 
-        let p = ran(t, 0.1, 1.8);
-        let p = 1. - (1. - p).powi(3);
-        let sector_start = p * (angle_end - angle_start - center_angle) + angle_start;
-        let project_y = ct.y + (1. - ct.x) * (sector_start + center_angle).sin();
+        let dx = 0.06;
+        let c = Color::new(0., 0., 0., 0.6);
 
-        let pf = ran(t, 2., 2.4);
-
-        if project_y < top {
-            let c = ui.background();
-            let y = -top + 0.12;
-            let br = Rect::new(-1., y, 2., 0.34);
-            ui.fill_rect(br, (c, (-1., y), Color { a: 0.1, ..c }, (1., y + 0.3)));
-
-            let res = &self.result;
-
-            let y = y - 0.07;
-            ui.fill_rect(Rect::new(-1., y, 2., 0.07), Color { a: 0.3, ..c });
-            let r = ui
-                .text(&self.info.name)
-                .pos(-0.53 + (1.2 - y) / 1.9 * 0.4, y + 0.012)
-                .color(semi_white(0.6))
-                .max_width(0.8)
-                .size(0.56)
-                .draw();
-            ui.text(&self.info.level)
-                .pos(0.97, r.y)
-                .anchor(1., 0.)
-                .size(0.56)
-                .color(semi_white(0.7))
-                .draw();
-
-            let icon = &self.icons[icon_index(res.score, res.max_combo == res.num_of_notes)];
-            let p = ran(t, 1.7, 2.4).powi(2);
-            let r = Rect::new(0.75, br.center().y, 0., 0.).feather(0.13 + (1. - p) * 0.05);
-            ui.fill_rect(r, (**icon, r, ScaleType::Fit, semi_white(p)));
-
-            let y = y + 0.16;
-            let lf = -0.48 + (1.2 - y) / 1.9 * 0.4;
-            let mut x = lf;
-            let p = ran(t, 0.9, 2.6);
-            let mut digits = Vec::with_capacity(7);
-            let mut s = res.score;
-            for _ in 0..7 {
-                digits.push(s % 10);
-                s /= 10;
-            }
-            digits.reverse();
-            let s = 1.5;
-            let sr = ui.text("0").size(s).measure_using(&PGR_FONT);
-            let h = sr.h;
-            ui.scissor(Rect::new(-1., y, 2., h + 0.01), |ui| {
-                for (i, d) in digits.into_iter().enumerate() {
-                    let p = (p * (1. + (0.16 * (6 - i) as f32).powi(2))).min(1.);
-                    let p = 1. - (1. - p).powi(3);
-                    let mut p = d as f32 + (1. - p) * 7.;
-                    if p > 10. {
-                        p -= 10.;
-                    }
-                    let up = p as u32;
-                    let dw = (up + 1) % 10;
-                    let o = -h * (p - up as f32);
-                    ui.text(up.to_string())
-                        .pos(x + sr.w / 2., y + o)
-                        .anchor(0.5, 0.)
-                        .size(s)
-                        .draw_using(&PGR_FONT);
-                    ui.text(dw.to_string())
-                        .pos(x + sr.w / 2., y + h + o)
-                        .anchor(0.5, 0.)
-                        .size(s)
-                        .draw_using(&PGR_FONT);
-                    x += sr.w;
-                }
-            });
-
-            if let Some(s) = &self.update_state {
-                if s.best {
-                    ui.text(format!("{}  {:+07}", tl!("new-best"), s.improvement))
-                        .pos(x - 0.01, y - 0.016)
-                        .anchor(1., 1.)
-                        .color(semi_white(pf))
-                        .size(0.5)
-                        .draw_using(&BOLD_FONT);
-                }
-            }
-
-            let cl = semi_white(0.6);
-            let ct = semi_white(0.8);
-            let cs = semi_white(0.4);
-            let s = 0.5;
-
-            let r = ui
-                .text(tl!("accuracy"))
-                .pos(lf - 0.017, y + h + 0.03)
-                .color(cl)
-                .size(s)
-                .draw_using(&BOLD_FONT);
-            let r = ui
-                .text(format!("{:.2}%", res.accuracy * 100.))
-                .pos(r.right() + 0.02, r.y)
-                .color(ct)
-                .size(s)
-                .draw_using(&BOLD_FONT);
-
-            let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
-
-            let r = ui.text(tl!("error")).pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
-            ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
-                .pos(r.right() + 0.02, r.y)
-                .size(s)
-                .color(ct)
-                .draw_using(&BOLD_FONT);
-
-            let mut y = -top + 0.4 + ui.top * 0.3;
-            let tp = y;
-            let mut x = -0.26 + (1.2 - y) / 1.9 * 0.4;
-            let lf = x;
-            let s = 0.64;
-            for (title, num) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().zip(res.counts) {
-                ui.text(title)
-                    .pos(x, y)
-                    .anchor(1., 0.)
-                    .color(semi_white(0.6))
-                    .size(s)
-                    .draw_using(&BOLD_FONT);
-                let r = ui.text(num.to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT);
-                let dy = r.h + 0.03;
-                y += dy;
-                x -= dy / 1.9 * 0.4;
-            }
-
-            let p = ran(t, 0.8, 1.8);
-            let p = 1. - (1. - p).powi(3);
-            let mut y = tp;
-            let mut x = lf + 0.42;
-            let r = ui
-                .text(tl!("max-combo"))
-                .pos(x, y)
-                .anchor(1., 0.)
-                .color(semi_white(0.6))
-                .size(s)
-                .draw_using(&BOLD_FONT);
-            let mut r = Rect::new(r.right() + 0.03, r.y + 0.004, 0.45, r.h);
-            let draw_par = |ui: &mut Ui, r: Rect, p: f32, c: Color| {
-                let sl = 1.9 / 0.4;
-                let w = p * r.w;
-                let d = r.h / sl;
-                let mut b = ui.builder(c);
-                b.add(r.x, r.bottom());
-                if w < d {
-                    b.add(r.x + w, r.bottom());
-                    b.add(r.x + w, r.bottom() - w * sl);
-                    b.triangle(0, 1, 2);
-                } else {
-                    b.add(r.x + d, r.y);
-                    b.add(r.x + w, r.y);
-                    b.add(r.x + w.min(r.w - d), r.bottom());
-                    b.triangle(0, 1, 2);
-                    b.triangle(0, 2, 3);
-                    if w + d > r.right() {
-                        b.add(r.x + w, r.y + (r.w - w) * sl);
-                        b.triangle(2, 3, 4);
-                    }
-                }
-                b.commit();
-            };
-            draw_par(ui, r, 1., semi_black(0.4));
-            let ct = r.center();
-            let combo = (res.max_combo as f32 * p).round() as u32;
-            let text = format!("{combo} / {}", res.num_of_notes);
-            ui.text(&text)
-                .pos(ct.x, ct.y)
-                .anchor(0.5, 0.5)
-                .no_baseline()
-                .size(0.4)
-                .draw_using(&BOLD_FONT);
-            let p = combo as f32 / res.num_of_notes as f32;
-            draw_par(ui, r, p, WHITE);
-            r.w *= p;
-            ui.scissor(r, |ui| {
-                ui.text(text)
-                    .pos(ct.x, ct.y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.4)
-                    .color(BLACK)
-                    .draw_using(&BOLD_FONT);
-            });
-
-            let dy = r.h + 0.03;
-            y += dy;
-            x -= dy / 1.9 * 0.4;
-
-            let r = ui
-                .text(tl!("rks-delta"))
-                .pos(x, y)
-                .anchor(1., 0.)
-                .color(semi_white(0.6))
-                .size(s)
-                .draw_using(&BOLD_FONT);
-            let text = if let Some((new_rks, now)) = self.update_state.as_ref().and_then(|it| it.new_rks).zip(self.player_rks) {
-                let delta = new_rks - now;
-                if delta.abs() > 1e-5 {
-                    format!("{:+.2}", delta)
-                } else {
-                    "-".to_owned()
-                }
-            } else {
-                "-".to_owned()
-            };
-            ui.text(text).pos(r.right() + 0.03, y).size(s).draw_using(&BOLD_FONT);
-
-            let mut r = Rect::new(0.96, ui.top - 0.04, 0.25, 0.1);
-            r.x -= r.w;
-            r.y -= r.h;
-            self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex(0x3f51b5));
-                let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                ui.fill_rect(ir, (*self.icon_proceed, ir));
-                ui.text(tl!("proceed"))
-                    .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.44)
-                    .draw_using(&BOLD_FONT);
-            });
-
-            r.x -= r.w + 0.02;
-            self.btn_retry.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex(0x78909c));
-                let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                ui.fill_rect(ir, (*self.icon_retry, ir));
-                ui.text(tl!("retry"))
-                    .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.44)
-                    .draw_using(&BOLD_FONT);
-            });
-
+        tran(gl, (1. - ran(t, 0.2, 1.3)).powi(3));
+        let main = Rect::new(r.right() - 0.05, r.y, r.w * 0.84, r.h / 2.);
+        draw_parallelogram(main, None, c, true);
+        {
             let spd = if (self.speed - 1.).abs() <= 1e-4 {
                 String::new()
             } else {
-                format!("{:.2}x", self.speed)
+                format!(" {:.2}x", self.speed)
             };
             let text = if self.autoplay {
-                format!("AUTOPLAY {spd}")
+                format!("PHIRA[AUTOPLAY] {spd}")
             } else if !self.rated {
-                format!("UNRATED {spd}")
+                format!("PHIRA[UNRATED] {spd}")
+            } else if let Some(state) = &self.update_state {
+                format!(
+                    "PHIRA {spd}  {}",
+                    if state.best {
+                        format!("NEW BEST +{:07}", state.improvement)
+                    } else {
+                        String::new()
+                    }
+                )
             } else {
-                spd
+                "Uploading…".to_owned()
             };
-            let text = text.trim();
-            if !text.is_empty() {
-                let ty = br.bottom();
-                let x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
-                let h = 0.04;
-                let mut text = ui
-                    .text(text)
-                    .pos(x + 0.02, ty - h / 2.)
-                    .anchor(0., 0.5)
-                    .no_baseline()
-                    .color(semi_black(0.6))
-                    .size(0.5);
-                let tr = text.measure_using(&BOLD_FONT);
-                let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
-                let mut b = text.ui.builder(WHITE);
-                b.add(-1., tr.y);
-                b.add(r.right(), tr.y);
-                b.add(r.right() - tr.h / 1.9 * 0.4, tr.bottom());
-                b.add(-1., tr.bottom());
-                b.triangle(0, 1, 2);
-                b.triangle(0, 2, 3);
-                b.commit();
+            let r = draw_text_aligned(ui, &text, main.x + dx, main.bottom() - 0.035, (0., 1.), 0.34, WHITE);
+            let r = draw_text_aligned(ui, &format!("{:07}", res.score), r.x, r.y - 0.023, (0., 1.), 1., WHITE);
+            let icon = icon_index(res.score, res.num_of_notes == res.max_combo);
+            let p = ran(t, 1.4, 1.9).powi(2);
+            let s = main.h * 0.67;
+            let ct = (main.right() - main.h * slope - s / 2., r.bottom() + 0.02 - s / 2.);
+            let s = s + s * (1. - p) * 0.3;
+            draw_texture_ex(
+                *self.icons[icon],
+                ct.0 - s / 2.,
+                ct.1 - s / 2.,
+                Color::new(1., 1., 1., p),
+                DrawTextureParams {
+                    dest_size: Some(vec2(s, s)),
+                    ..Default::default()
+                },
+            );
+        }
+        gl.pop_model_matrix();
 
-                text.draw_using(&BOLD_FONT);
-            }
+        tran(gl, (1. - ran(t, 0.4, 1.5)).powi(3));
+        let d = r.h / 16.;
+        let s1 = Rect::new(main.x - d * 4. * slope, main.bottom() + d, main.w - d * 5. * slope, d * 3.);
+        draw_parallelogram(s1, None, c, true);
+        {
+            let dy = 0.025;
+            let r = draw_text_aligned(ui, "Max Combo", s1.x + dx, s1.bottom() - dy, (0., 1.), 0.34, WHITE);
+            draw_text_aligned(ui, &res.max_combo.to_string(), r.x, r.y - 0.01, (0., 1.), 0.7, WHITE);
+            let r = draw_text_aligned(ui, "Accuracy", s1.right() - dx, s1.bottom() - dy, (1., 1.), 0.34, WHITE);
+            draw_text_aligned(ui, &format!("{:.2}%", res.accuracy * 100.), r.right(), r.y - 0.01, (1., 1.), 0.7, WHITE);
+        }
+        gl.pop_model_matrix();
+
+        tran(gl, (1. - ran(t, 0.5, 1.7)).powi(3));
+        let s2 = Rect::new(s1.x - d * 4. * slope, s1.bottom() + d, s1.w, s1.h);
+        draw_parallelogram(s2, None, c, true);
+        {
+            let dy = 0.025;
+            let dy2 = 0.015;
+            let bg = 0.57;
+            let sm = 0.26;
+            let draw_count = |ui: &mut Ui, ratio: f32, name: &str, count: u32| {
+                let r = draw_text_aligned(ui, name, s2.x + s2.w * ratio, s2.bottom() - dy, (0.5, 1.), sm, WHITE);
+                draw_text_aligned(ui, &count.to_string(), r.center().x, r.y - dy2, (0.5, 1.), bg, WHITE);
+            };
+            draw_count(ui, 0.14, "Perfect", res.counts[0]);
+            draw_count(ui, 0.33, "Good", res.counts[1]);
+            draw_count(ui, 0.46, "Bad", res.counts[2]);
+            draw_count(ui, 0.59, "Miss", res.counts[3]);
+
+            let sm = 0.3;
+            let l = s2.x + s2.w * 0.72;
+            let rt = s2.x + s2.w * 0.94;
+            let cy = s2.center().y;
+            let r = draw_text_aligned(ui, "Early", l, cy - dy2 / 2., (0., 1.), sm, WHITE);
+            draw_text_aligned(ui, &res.early.to_string(), rt, r.bottom(), (1., 1.), sm, WHITE);
+            let r = draw_text_aligned(ui, "Late", l, cy + dy2 / 2., (0., 0.), 0.3, WHITE);
+            draw_text_aligned(ui, &res.late.to_string(), rt, r.y, (1., 0.), sm, WHITE);
+        }
+        gl.pop_model_matrix();
+
+        let dy = 0.006;
+        let w = 0.17;
+        let p = (1. - ran(t, 2., 2.7)).powi(2);
+        let h = 0.1;
+        let s = 0.05;
+        let hs = h * 0.3;
+        let params = DrawTextureParams {
+            dest_size: Some(vec2(hs * 2., hs * 2.)),
+            ..Default::default()
+        };
+        tran(gl, -p * 0.085);
+        let r = Rect::new(-1. - h * slope, -top + dy, w, h);
+        draw_parallelogram(r, None, c, true);
+        draw_parallelogram(Rect::new(r.x + r.w * (1. - s), r.y, r.w * s, r.h), None, WHITE, false);
+        let ct = r.center();
+        draw_texture_ex(*self.icon_retry, ct.x - hs, ct.y - hs, WHITE, params.clone());
+        gl.pop_model_matrix();
+        if p <= 0. {
+            self.btn_retry.set(ui, r);
         }
         clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
             ui.fill_rect(sr, (*self.illustration, sr));
@@ -528,52 +386,59 @@ impl Scene for EndingScene {
             ui.fill_rect(sr, (*self.illustration, sr.feather(0.15)));
         });
 
-        ui.alpha(pf, |ui| {
-            let s = 0.05;
-            let pad = 0.02;
-            let mw = 0.4;
-            let w = s * 2. + pad + ui.text(&self.player_name).size(0.6).measure().w.min(mw) + 0.02;
-            let r = Rect::new(-0.96, -top + 0.04, w, s * 2.);
-            ui.fill_path(&r.feather(0.01).rounded(s + 0.01), semi_black(0.6));
-            ui.fill_rect(Rect::new(r.x, r.y + s + 0.003, r.w + 0.01, 0.).nonuniform_feather(-0.01, 0.002), WHITE);
-            ui.avatar(r.x + s, r.y + s, s, t, Ok(Some(self.player.clone())));
-            let lf = r.x + s * 2. + pad;
-            ui.text(&self.player_name)
-                .pos(lf, r.y + s - 0.007)
-                .anchor(0., 1.)
-                .max_width(mw)
-                .size(0.6)
-                .draw();
-            ui.text(if let Some(new_rks) = self.update_state.as_ref().and_then(|it| it.new_rks) {
-                format!("{new_rks:.2}")
+        tran(gl, p * 0.085);
+        let r = Rect::new(1. + h * slope - w, top - dy - h, w, h);
+        draw_parallelogram(r, None, c, true);
+        draw_parallelogram(Rect::new(r.x + r.w * s, r.y, r.w * s, r.h), None, WHITE, false);
+        let ct = r.center();
+        draw_texture_ex(*self.icon_proceed, ct.x - hs, ct.y - hs, WHITE, params);
+        gl.pop_model_matrix();
+        if p <= 0. {
+            self.btn_proceed.set(ui, r);
+        }
+
+        let alpha = ran(t, 1.5, 1.9);
+        let main = Rect::new(1. - 0.28, -top + dy * 2.5, 0.35, 0.1);
+        draw_parallelogram(main, None, Color::new(0., 0., 0., c.a * alpha), false);
+        let sub = Rect::new(1. - 0.13, main.center().y + 0.01, 0.12, 0.03);
+        let color = Color::new(1., 1., 1., alpha);
+        draw_parallelogram(sub, None, color, false);
+        draw_text_aligned(
+            ui,
+            &if let Some(state) = &self.update_state {
+                format!("{:.2}", state.new_rks)
             } else if let Some(rks) = &self.player_rks {
                 format!("{rks:.2}")
             } else {
-                String::new()
-            })
-            .pos(lf, r.y + s + 0.008)
-            .size(0.4)
-            .color(semi_white(0.6))
-            .draw();
-        });
+                "".to_owned()
+            },
+            sub.center().x,
+            sub.center().y,
+            (0.5, 0.5),
+            0.37,
+            Color::new(0., 0., 0., alpha),
+        );
+        let r = draw_illustration(*self.player, 1. - 0.21, main.center().y, 0.12 / (0.076 * 7.), 0.12 / (0.076 * 7.), color);
+        let text = draw_text_aligned(ui, &self.player_name, r.x - 0.01, r.center().y, (1., 0.5), 0.54, color);
+        draw_parallelogram(
+            Rect::new(text.x - main.h * slope - 0.01, main.y, r.x - text.x + main.h * slope * 2. + 0.013, main.h),
+            None,
+            Color::new(0., 0., 0., c.a * alpha),
+            false,
+        );
+        draw_text_aligned(ui, &self.player_name, r.x - 0.01, r.center().y, (1., 0.5), 0.54, color);
 
-        if !self.tr_start.is_nan() {
-            let p = ((t - self.tr_start) / 0.5).min(1.);
-            if p >= 1. {
-                self.tr_start = f32::NAN;
-            }
-            let p = 1. - (1. - p).powi(3);
-            let mut r = sr;
-            r.y -= r.h * (1. - p);
-            rect_shadow(r, 0.01, 0.5);
-            let (tex, alpha) = if self.next == 1 {
-                (&self.background, 0.3)
-            } else {
-                (&self.illustration, 0.55)
-            };
-            ui.fill_rect(r, (**tex, r));
-            ui.fill_rect(r, semi_black(alpha));
-        }
+        let ct = (1. - 0.1 + 0.043, main.center().y - 0.034 + 0.02);
+        let (w, h) = (0.09 * self.challenge_texture.width() / 78., 0.04 * self.challenge_texture.height() / 38.);
+        let r = Rect::new(ct.0 - w / 2., ct.1 - h / 2., w, h);
+        ui.fill_rect(r, (*self.challenge_texture, r, ScaleType::Fit, color));
+        let ct = r.center();
+        ui.text(self.challenge_rank.to_string())
+            .pos(ct.x, ct.y)
+            .anchor(0.5, 1.)
+            .size(0.46)
+            .color(color)
+            .draw();
 
         Ok(())
     }

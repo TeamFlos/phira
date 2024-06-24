@@ -774,33 +774,21 @@ impl<'a> Ui<'a> {
     pub fn scissor<R>(&mut self, rect: Rect, f: impl FnOnce(&mut Ui) -> R) -> R {
         let igl = unsafe { get_internal_gl() };
         let gl = igl.quad_gl;
-        let rect = self.rect_to_global(rect);
-        let vp = get_viewport();
-        let pt = (
-            vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
-            (screen_height() - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
-        );
-
-        let old = self.scissor;
-        self.scissor = {
-            let mut l = pt.0 as i32;
-            let mut t = pt.1 as i32;
-            let mut r = (pt.0 + rect.w * vp.2 as f32 / 2.) as i32;
-            let mut b = (pt.1 + rect.h * vp.2 as f32 / 2.) as i32;
-            if let Some((l0, t0, w0, h0)) = old {
-                l = l.max(l0);
-                t = t.max(t0);
-                r = r.min(l0 + w0);
-                b = b.min(t0 + h0);
-            }
-            Some((l, t, r - l, b - t))
-        };
-
-        gl.scissor(self.scissor);
-        let res = f(self);
-        self.scissor = old;
-        gl.scissor(old);
-        res
+        if let Some(rect) = rect {
+            let rect = self.rect_to_global(rect);
+            let vp = get_viewport();
+            let screen_height = gl
+                .get_active_render_pass()
+                .map(|it| it.texture(igl.quad_context).height as f32)
+                .unwrap_or_else(screen_height);
+            let pt = (
+                vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
+                (screen_height - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
+            );
+            gl.scissor(Some((pt.0 as _, pt.1 as _, (rect.w * vp.2 as f32 / 2.) as _, (rect.h * vp.2 as f32 / 2.) as _)));
+        } else {
+            gl.scissor(None);
+        }
     }
 
     pub fn text<'s, 'ui>(&'ui mut self, text: impl Into<Cow<'s, str>>) -> DrawText<'a, 's, 'ui> {
