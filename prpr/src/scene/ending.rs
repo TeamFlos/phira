@@ -12,7 +12,7 @@ use crate::{
     scene::show_message,
     task::Task,
     time::TimeManager,
-    ui::{Dialog, MessageHandle, DRectButton, Ui},
+    ui::{RectButton, Dialog, MessageHandle, Ui},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -56,8 +56,8 @@ pub struct EndingScene {
     record_data: Option<Vec<u8>>,
     record: Option<SimpleRecord>,
 
-    btn_retry: DRectButton,
-    btn_proceed: DRectButton,
+    btn_retry: RectButton,
+    btn_proceed: RectButton,
 
     tr_start: f32,
 }
@@ -106,16 +106,11 @@ impl EndingScene {
             update_state: if upload_task.is_some() {
                 None
             } else {
-                let (best, improvement) = if result.score > historic_best {
-                    (true, result.score - historic_best)
-                } else {
-                    (false, 0)
-                };
                 Some(RecordUpdateState {
-                    best,
-                    improvement,
+                    best: true,
+                    improvement: result.score,
                     gain_exp: 0.,
-                    new_rks: None,
+                    new_rks: Some(0.),
                 })
             },
             rated: upload_task.is_some(),
@@ -135,8 +130,8 @@ impl EndingScene {
             record_data,
             record,
 
-            btn_retry: DRectButton::new(),
-            btn_proceed: DRectButton::new(),
+            btn_retry: RectButton::new(),
+            btn_proceed: RectButton::new(),
 
             tr_start: f32::NAN,
         })
@@ -172,7 +167,6 @@ impl Scene for EndingScene {
             if self.upload_task.is_some() {
                 show_message(tl!("still-uploading"));
             } else {
-                self.tr_start = t;
                 self.next = 1;
             }
             return Ok(true);
@@ -181,7 +175,6 @@ impl Scene for EndingScene {
             if self.upload_task.is_some() {
                 show_message(tl!("still-uploading"));
             } else {
-                self.tr_start = t;
                 self.next = 2;
             }
             return Ok(true);
@@ -378,13 +371,6 @@ impl Scene for EndingScene {
         if p <= 0. {
             self.btn_retry.set(ui, r);
         }
-        clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
-            ui.fill_rect(sr, (*self.illustration, sr));
-        });
-        let sector_start = (p * 1.4 - 0.3).max(0.) * (angle_end - angle_start - center_angle) + angle_start;
-        clip_sector(ui, ct, sector_start, sector_start + center_angle * 0.5, |ui| {
-            ui.fill_rect(sr, (*self.illustration, sr.feather(0.15)));
-        });
 
         tran(gl, p * 0.085);
         let r = Rect::new(1. + h * slope - w, top - dy - h, w, h);
@@ -406,7 +392,7 @@ impl Scene for EndingScene {
         draw_text_aligned(
             ui,
             &if let Some(state) = &self.update_state {
-                format!("{:.2}", state.new_rks)
+                format!("{:.2}", state.new_rks.unwrap())
             } else if let Some(rks) = &self.player_rks {
                 format!("{rks:.2}")
             } else {
@@ -444,9 +430,6 @@ impl Scene for EndingScene {
     }
 
     fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
-        if !self.tr_start.is_nan() {
-            return NextScene::None;
-        }
         if self.next != 0 {
             let _ = self.bgm.pause();
         }
