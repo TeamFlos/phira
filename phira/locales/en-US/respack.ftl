@@ -1,4 +1,6 @@
 
+label = RESPACK
+
 default = Default
 load-failed = Failed to load respack
 

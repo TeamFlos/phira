@@ -1,13 +1,13 @@
 
-local = Local
-online = Online
-popular = Popular
+local = ローカル
+online = オンライン
+popular = 人気
 
-page = Page { $current } / { $total }
-prev-page = Prev page
-next-page = Next page
+page = ページ { $current } / { $total }
+prev-page = 前のページへ
+next-page = 次のページへ
 
-not-opened = 現在利用できません
-failed-to-load-online = オンラインビートマップの読み込みに失敗しました
+not-opened = 現在は利用できません
+failed-to-load-online = オンラインのビートマップの読み込みに失敗しました
 
-import = Import
+import = インポート

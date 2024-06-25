@@ -1,3 +1,6 @@
+pub mod coll;
+pub use coll::CollectionPage;
+
 mod event;
 pub use event::EventPage;
 
@@ -31,7 +34,7 @@ use anyhow::Result;
 use image::DynamicImage;
 use macroquad::prelude::*;
 use prpr::{
-    core::Resource,
+    core::{Resource, BOLD_FONT},
     ext::{semi_black, semi_white, SafeTexture, ScaleType, BLACK_TEXTURE},
     fs,
     scene::{NextScene, Scene},
@@ -42,6 +45,7 @@ use prpr::{
 use std::{
     any::Any,
     borrow::Cow,
+    cell::RefCell,
     ops::DerefMut,
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -52,15 +56,39 @@ pub fn thumbnail_path(path: &str) -> Result<PathBuf> {
     Ok(format!("{}/{}", dir::cache_image_local()?, path.replace('/', "_")).into())
 }
 
-pub fn illustration_task(notify: Arc<Notify>, path: String) -> Task<Result<(DynamicImage, Option<DynamicImage>)>> {
+pub fn illustration_task(notify: Arc<Notify>, path: String, full: bool) -> Task<Result<(DynamicImage, Option<DynamicImage>)>> {
     Task::new(async move {
         notify.notified().await;
         let mut fs = fs_from_path(&path)?;
         let info = fs::load_info(fs.deref_mut()).await?;
-        let image = image::load_from_memory(&fs.load_file(&info.illustration).await?)?;
-        let thumbnail = Images::local_or_else(thumbnail_path(&path)?, async { Ok(Images::thumbnail(&image)) }).await?;
-        Ok((thumbnail, Some(image)))
+        let mut img = None;
+        let thumbnail = Images::local_or_else(thumbnail_path(&path)?, async {
+            let image = image::load_from_memory(&fs.load_file(&info.illustration).await?)?;
+            let thumbnail = Images::thumbnail(&image);
+            img = Some(image);
+            Ok(thumbnail)
+        })
+        .await?;
+        if full {
+            if img.is_none() {
+                img = Some(image::load_from_memory(&fs.load_file(&info.illustration).await?)?);
+            }
+        } else {
+            img = None;
+        }
+        Ok((thumbnail, img))
     })
+}
+
+pub fn local_illustration(path: String, def: SafeTexture, full: bool) -> Illustration {
+    let notify = Arc::new(Notify::new());
+    Illustration {
+        texture: (def.clone(), def),
+        notify: Arc::clone(&notify),
+        task: Some(illustration_task(notify, path, full)),
+        loaded: Arc::default(),
+        load_time: f32::NAN,
+    }
 }
 
 pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
@@ -71,16 +99,7 @@ pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
         .map(|it| ChartItem {
             info: it.info.clone(),
             local_path: Some(it.local_path.clone()),
-            illu: {
-                let notify = Arc::new(Notify::new());
-                Illustration {
-                    texture: (tex.clone(), tex.clone()),
-                    notify: Arc::clone(&notify),
-                    task: Some(illustration_task(notify, it.local_path.clone())),
-                    loaded: Arc::default(),
-                    load_time: f32::NAN,
-                }
-            },
+            illu: local_illustration(it.local_path.clone(), tex.clone(), false),
         })
         .collect();
     order.0.apply(&mut res);
@@ -116,6 +135,16 @@ impl Illustration {
         }
     }
 
+    pub fn from_done(tex: SafeTexture) -> Self {
+        Self {
+            texture: (tex.clone(), tex),
+            notify: Arc::default(),
+            task: None,
+            loaded: Arc::default(),
+            load_time: f32::NAN,
+        }
+    }
+
     pub fn notify(&self) {
         self.notify.notify_one();
     }
@@ -125,7 +154,7 @@ impl Illustration {
             if let Some(illu) = task.take() {
                 match illu {
                     Err(err) => {
-                        warn!("failed to load illustration: {:?}", err);
+                        warn!(?err, "failed to load illustration");
                     }
                     Ok(illu) => {
                         self.texture = Images::into_texture(illu);
@@ -139,6 +168,8 @@ impl Illustration {
                 self.load_time = t;
                 self.task = None;
             }
+        } else if self.load_time.is_nan() {
+            self.load_time = t;
         }
     }
 
@@ -150,8 +181,8 @@ impl Illustration {
         }
     }
 
-    pub fn shading(&self, r: Rect, t: f32, alpha: f32) -> impl Shading {
-        (*self.texture.0, r, ScaleType::CropCenter, semi_white(alpha * self.alpha(t))).into_shading()
+    pub fn shading(&self, r: Rect, t: f32) -> impl Shading {
+        (*self.texture.0, r, ScaleType::CropCenter, semi_white(self.alpha(t))).into_shading()
     }
 }
 
@@ -223,11 +254,11 @@ impl Fader {
         self.back = true;
     }
 
-    pub fn progress(&self, t: f32) -> f32 {
+    pub fn progress_scaled(&self, t: f32, scale: f32) -> f32 {
         if self.start_time.is_nan() {
             0.
         } else {
-            let p = ((t - self.start_time) / self.time).clamp(0., 1.);
+            let p = ((t - self.start_time) / self.time * scale).clamp(0., 1.);
             let p = (1. - p).powi(3);
             let p = if self.back { p } else { 1. - p };
             if self.sub {
@@ -238,17 +269,21 @@ impl Fader {
         }
     }
 
+    pub fn progress(&self, t: f32) -> f32 {
+        self.progress_scaled(t, 1.)
+    }
+
     pub fn roll_back(&mut self) {
         self.index = self.index.saturating_sub(1);
     }
 
-    pub fn render<R>(&mut self, ui: &mut Ui, t: f32, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
+    pub fn render<R>(&mut self, ui: &mut Ui, t: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
         let p = self.progress(t - self.index as f32 * Self::DELTA);
         let (dy, alpha) = (p * self.distance, 1. - p.abs());
         self.index += 1;
         ui.scope(|ui| {
             ui.dy(dy);
-            f(ui, Color::new(1., 1., 1., alpha))
+            ui.alpha(alpha, f)
         })
     }
 
@@ -266,21 +301,36 @@ impl Fader {
         }
     }
 
-    pub fn render_title(&mut self, ui: &mut Ui, painter: &mut TextPainter, t: f32, s: &str) {
-        let tp = -ui.top + 0.08;
-        let h = ui.text("L").size(1.4).no_baseline().measure().h;
-        ui.scissor(Some(Rect::new(-1., tp, 2., h)));
-        let p = self.progress(t);
-        let tp = tp + h * p;
-        for (i, c) in s.chars().enumerate() {
-            ui.text(c.to_string())
-                .pos(-0.8 + i as f32 * 0.117, tp)
-                .anchor(0.5, 0.)
-                .size(1.4)
-                .color(Color::new(1., 1., 1., 0.4))
-                .draw_with_font(Some(painter));
-        }
-        ui.scissor(None);
+    pub fn render_title(&mut self, ui: &mut Ui, t: f32, s: &str) {
+        let tp = ui.back_rect().center().y;
+        let h = ui.text("L").size(1.2).no_baseline().measure_using(&BOLD_FONT).h;
+        ui.scissor(Rect::new(-1., tp - h / 2., 2., h), |ui| {
+            let p = self.progress_scaled(t, 1.6);
+            let tp = tp + h * p - h / 2.;
+            let mut x = -0.87;
+            if s == "PHIRA" {
+                x -= ui.back_rect().w;
+            }
+            for c in s.chars() {
+                x += ui
+                    .text(c.to_string())
+                    .pos(x, tp)
+                    .anchor(0., 0.)
+                    .size(1.2)
+                    .color(WHITE)
+                    .draw_using(&BOLD_FONT)
+                    .w
+                    + 0.012;
+            }
+            if s == "PHIRA" {
+                ui.text(concat!('v', env!("CARGO_PKG_VERSION")))
+                    .pos(x + 0.01, tp + h - 0.027)
+                    .anchor(0., 1.)
+                    .color(semi_white(0.4))
+                    .size(0.5)
+                    .draw_using(&BOLD_FONT);
+            }
+        });
     }
 }
 
@@ -342,21 +392,49 @@ pub struct SharedState {
     pub t: f32,
     pub rt: f32,
     pub fader: Fader,
-    pub painter: TextPainter,
     pub charts_local: Vec<ChartItem>,
 
     pub icons: [SafeTexture; 8],
 }
 
+thread_local! {
+    static FALLBACK: RefCell<Option<FontArc>> = RefCell::default();
+    pub static BOLD_FONT_CKSUM: RefCell<Option<String>> = RefCell::default();
+}
+
+fn sha256(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    format!("{:x}", hasher.finalize())
+}
+fn load_font_with_cksum(data: Vec<u8>) -> Result<(FontArc, String)> {
+    let cksum = sha256(&data);
+    Ok((FontArc::try_from_vec(data)?, cksum))
+}
+
+fn set_bold_font((font, cksum): (FontArc, String)) {
+    BOLD_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(font, FALLBACK.with(|it| it.borrow().clone()))));
+    BOLD_FONT_CKSUM.with(move |it| *it.borrow_mut() = Some(cksum));
+}
+
 impl SharedState {
-    pub async fn new() -> Result<Self> {
-        let font = FontArc::try_from_vec(load_file("halva.ttf").await?)?;
-        let painter = TextPainter::new(font);
+    pub async fn new(fallback: FontArc) -> Result<Self> {
+        FALLBACK.with(|it| *it.borrow_mut() = Some(fallback));
+        let path: PathBuf = dir::bold_font_path()?.into();
+        let mut font = None;
+        if path.exists() {
+            font = std::fs::read(&path).ok().and_then(|it| load_font_with_cksum(it).ok());
+        }
+        let loaded = match font {
+            Some(it) => it,
+            None => load_font_with_cksum(load_file("bold.ttf").await?)?,
+        };
+        set_bold_font(loaded);
         Ok(Self {
             t: 0.,
             rt: 0.,
             fader: Fader::new(),
-            painter,
             charts_local: Vec::new(),
 
             icons: Resource::load_icons().await?,
@@ -368,7 +446,7 @@ impl SharedState {
         self.rt = tm.real_time() as _;
     }
 
-    pub fn render_fader<R>(&mut self, ui: &mut Ui, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
+    pub fn render_fader<R>(&mut self, ui: &mut Ui, f: impl FnOnce(&mut Ui) -> R) -> R {
         self.fader.render(ui, self.t, f)
     }
 
@@ -401,6 +479,9 @@ pub trait Page {
     fn update(&mut self, s: &mut SharedState) -> Result<()>;
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool>;
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()>;
+    fn render_top(&mut self, _ui: &mut Ui, _s: &mut SharedState) -> Result<()> {
+        Ok(())
+    }
     fn pause(&mut self) -> Result<()> {
         Ok(())
     }

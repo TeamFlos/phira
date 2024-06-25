@@ -1,11 +1,11 @@
 
-load-preview-failed = 曲のプレビューを読み込むのに失敗しました。
+load-preview-failed = 曲のプレビューの読み込みに失敗しました。
 load-charts-failed = ビートマップの読み込みに失敗しました。
 no-chart-for-download = このビートマップはダウンロードできません。
 
 load-chart-failed = ビートマップの読み込みに失敗しました。
 
-dl-cancel = Cancel
+dl-cancel = キャンセル
 dl-status-fetch = 情報を取得する
 dl-status-song = 楽曲をダウンロード中
 dl-status-chart = ダウンロード中のチャート
@@ -14,49 +14,46 @@ dl-status-illustration = イラストをダウンロード中
 dl-status-assets = アセットをダウンロード中
 dl-status-saving = 保存中
 dl-failed = ダウンロードに失敗しました
-dl-success = Downloaded
+dl-success = ダウンロード成功
 
-guest = Guest
+guest = ゲスト
 
-warn-unrated = このゲームはスコアリングされません
-failed-to-play = オンラインモードでの起動に失敗しました
-play-cancel = Cancel
+warn-unrated = この譜面は評価されていません
+failed-to-play = オンラインモードとしてプレイするのに失敗しました
+play-cancel = キャンセル
 play-switch-to-offline = オフラインモードに切り替えます
-switched-to-offline = オフラインモードに切り替わる
+switched-to-offline = オフラインモードに切り替えました
 
-delete = Delete
-exercise = Exercise
-offset = 補正遅延
+delete = 削除
+exercise = 練習
+offset = 補正
 
-edit-cancel = Cancel
-edit-save = Save
-edit-saving = Saving
+edit-cancel = キャンセル
+edit-save = 保存
+edit-saving = 保存しています
 edit-load-file-failed = 外部ファイルの読み込みに失敗しました
-edit-save-failed = Save failed
-edit-saved = Saved
-edit-preview-invalid = Preview time out of bounds
+edit-save-failed = 保存に失敗
+edit-saved = 保存しました
+edit-preview-invalid = プレビュー時間が長すぎます
 
-edit-upload = Upload
-upload-login-first = Please login first
-upload-builtin = Built-in beatmaps cannot be uploaded
-upload-downloaded = Downloaded beatmaps cannot be uploaded
-upload-rules = Upload rules
+edit-upload = アップロード
+upload-login-first = ログインしてください
+upload-builtin = 元からあるビートマップはアップロードできません
+upload-rules = アップロード規定
 upload-rules-content =
-  Before uploading, you need to confirm that:
-  1. The beatmap was created by me, or the act of uploading it has been approved by the scorer. If it is the second case, it needs to be indicated in the beatmap introduction that it is uploaded on behalf of a person;
-  2. If the beatmap is created by yourself, it is recommended to use a highly recognizable avatar and ID; If the avatar ID you use in prpr is quite different from the self-made score video publishing platform (specifically, BiliBili), additional annotations are required;
-  3. ! It is forbidden to violate the rules and upload the beatmap without the consent of the scorer, otherwise you may face the penalty of permanent ban on uploading;
-  4. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information.
-upload-cancel = Cancel
-upload-confirm = Confirm
-uploading = Uploading
-upload-chart-failed = Failed to upload beatmap
-upload-success = Uploaded successfully, please wait for review!
-upload-failed = Upload failed
+  譜面をアップロードする前に、以下のことをご確認ください:
+  1. 譜面の制作者はあなた自身である、もしくは制作者より許可を得ていること。制作者の代わりに譜面をアップロードする際は、説明等に制作者についてを記す必要があります。
+  2. あなた自身が譜面制作者なのであれば、識別が容易いアバターやIDにすることをおすすめします。あなたのアバターやIDが、自分の譜面紹介動画プラットフォーム(主にBiliBiliなど)のアバターやIDが全く異なる場合は、追加で注釈する必要があります。説明については、自分が使っている言語でお願いします。
+  3. ! 本ルールを守らないことや、譜面制作者の許可なく譜面をアップロードすることは厳しく禁じます。もし守らなかった場合、アップロードの永久バンにつながる可能性があります。;
+  4. 譜面のコンテンツ(楽曲、イラスト、文字等を含む)については中華人民共和国やその他の法律に従わなければなりません。
+uploading = アップロード中
+upload-chart-failed = 譜面のアップロードに失敗しました
+upload-success = アップロードに成功しました！ レビューをお待ちください。
+upload-failed = アップロード失敗
 
-ldb = Leaderboard
-ldb-load-failed = Failed to load leaderboard
-ldb-no-rank = None
+ldb = リーダーボード
+ldb-load-failed = リーダーボードの読み込みに失敗
+ldb-no-rank = なし
 
-mods-autoplay = Autoplay
-mods-autoplay-sub = これを有効にすると、レコードのアップロードが無効になります
+mods-autoplay = オートプレイ
+mods-autoplay-sub = これを有効にすると、リザルトの記録が無効になります

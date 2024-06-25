@@ -1,13 +1,11 @@
-rate = Rate
 
+rate = Rate
 filter = กรองโดย Rating
 
 cancel = ยกเลิก
-
 confirm = ยืนยัน
 
-lower-bound = ช่วงล่าง
-
-upper-bound = ช่วงบน
+lower-bound = ต่ำสุด
+upper-bound = สูงสุด
 
 filter-by-tags = กรองโดย Tags

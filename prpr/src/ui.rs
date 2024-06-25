@@ -8,7 +8,7 @@ mod dialog;
 pub use dialog::Dialog;
 
 mod scroll;
-pub use scroll::Scroll;
+pub use scroll::*;
 
 mod shading;
 pub use shading::*;
@@ -79,17 +79,17 @@ impl From<u8> for Gravity {
     }
 }
 
-struct ShadedConstructor<T: Shading>(Matrix, pub T);
+struct ShadedConstructor<T: Shading>(Matrix, pub T, f32);
 impl<T: Shading> FillVertexConstructor<Vertex> for ShadedConstructor<T> {
     fn new_vertex(&mut self, vertex: FillVertex) -> Vertex {
         let pos = vertex.position();
-        self.1.new_vertex(&self.0, &Point::new(pos.x, pos.y))
+        self.1.new_vertex(&self.0, &Point::new(pos.x, pos.y), self.2)
     }
 }
 impl<T: Shading> StrokeVertexConstructor<Vertex> for ShadedConstructor<T> {
     fn new_vertex(&mut self, vertex: StrokeVertex) -> Vertex {
         let pos = vertex.position();
-        self.1.new_vertex(&self.0, &Point::new(pos.x, pos.y))
+        self.1.new_vertex(&self.0, &Point::new(pos.x, pos.y), self.2)
     }
 }
 
@@ -98,20 +98,22 @@ pub struct VertexBuilder<T: Shading> {
     vertices: Vec<Vertex>,
     indices: Vec<u16>,
     shading: T,
+    alpha: f32,
 }
 
 impl<T: Shading> VertexBuilder<T> {
-    fn new(matrix: Matrix, shading: T) -> Self {
+    fn new(matrix: Matrix, shading: T, alpha: f32) -> Self {
         Self {
             matrix,
             vertices: Vec::new(),
             indices: Vec::new(),
             shading,
+            alpha,
         }
     }
 
     pub fn add(&mut self, x: f32, y: f32) {
-        self.vertices.push(self.shading.new_vertex(&self.matrix, &Point::new(x, y)))
+        self.vertices.push(self.shading.new_vertex(&self.matrix, &Point::new(x, y), self.alpha));
     }
 
     pub fn triangle(&mut self, x: u16, y: u16, z: u16) {
@@ -130,7 +132,7 @@ impl<T: Shading> VertexBuilder<T> {
 
 #[derive(Clone, Copy)]
 pub struct RectButton {
-    pub rect: Rect,
+    pts: Option<[Vec2; 4]>,
     id: Option<u64>,
 }
 
@@ -142,22 +144,41 @@ impl Default for RectButton {
 
 impl RectButton {
     pub fn new() -> Self {
-        Self {
-            rect: Rect::default(),
-            id: None,
-        }
+        Self { pts: None, id: None }
     }
 
     pub fn touching(&self) -> bool {
         self.id.is_some()
     }
 
+    pub fn contains(&self, pos: Vec2) -> bool {
+        if let Some([a, b, c, d]) = self.pts {
+            let abp = (b - a).perp_dot(pos - a);
+            let bcp = (c - b).perp_dot(pos - b);
+            let cdp = (d - c).perp_dot(pos - c);
+            let dap = (a - d).perp_dot(pos - d);
+            (abp >= 0. && bcp >= 0. && cdp >= 0. && dap >= 0.) || (abp <= 0. && bcp <= 0. && cdp <= 0. && dap <= 0.)
+        } else {
+            false
+        }
+    }
+
     pub fn set(&mut self, ui: &mut Ui, rect: Rect) {
-        self.rect = ui.rect_to_global(rect);
+        let mat = nalgebra_to_glm(&ui.transform) * ui.gl_transform;
+        let tr = |x: f32, y: f32| {
+            let pos = mat * vec4(x, y, 0., 1.);
+            pos.xy() / pos.w
+        };
+        self.pts = Some([
+            tr(rect.x, rect.y),
+            tr(rect.right(), rect.y),
+            tr(rect.right(), rect.bottom()),
+            tr(rect.x, rect.bottom()),
+        ]);
     }
 
     pub fn touch(&mut self, touch: &Touch) -> bool {
-        let inside = self.rect.contains(touch.position);
+        let inside = self.contains(touch.position);
         match touch.phase {
             TouchPhase::Started => {
                 if inside {
@@ -184,7 +205,7 @@ impl RectButton {
 
 #[derive(Clone)]
 pub struct DRectButton {
-    inner: RectButton,
+    pub inner: RectButton,
     last_touching: bool,
     start_time: Option<f32>,
     pub config: ShadowConfig,
@@ -210,98 +231,79 @@ impl DRectButton {
         }
     }
 
-    pub fn build(&mut self, ui: &mut Ui, t: f32, r: Rect) -> (Rect, Path) {
-        let r = r.feather((1. - self.progress(t)) * self.delta);
+    pub fn build(&mut self, ui: &mut Ui, t: f32, r: Rect, f: impl FnOnce(&mut Ui, Path)) {
         self.inner.set(ui, r);
-        (r, r.rounded(self.config.radius))
+        // let r = r.feather((1. - self.progress(t)) * self.delta);
+        let ct = r.center();
+        let ct = Vector::new(ct.x, ct.y);
+        ui.with(
+            Matrix::new_translation(&-ct)
+                .append_scaling(1. - (1. - self.progress(t)) * 0.04)
+                .append_translation(&ct),
+            |ui| {
+                f(ui, r.rounded(self.config.radius));
+            },
+        );
     }
 
     pub fn invalidate(&mut self) {
-        self.inner.rect = Rect::default();
+        self.inner.pts = None;
     }
 
-    pub fn render_shadow<T: IntoShading>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, shading: impl FnOnce(Rect) -> T) -> (Rect, Path) {
-        let (r, path) = self.build(ui, t, r);
+    pub fn render_shadow(&mut self, ui: &mut Ui, r: Rect, t: f32, f: impl FnOnce(&mut Ui, Path)) {
         let p = self.progress(t);
-        rounded_rect_shadow(
-            ui,
-            r,
-            &ShadowConfig {
-                elevation: self.config.elevation * p,
-                base: self.config.base * alpha,
-                radius: self.config.radius,
-                ..self.config
-            },
-        );
-        ui.fill_path(&path, shading(r).into_shading());
-        (r, path)
+        let config = ShadowConfig {
+            elevation: self.config.elevation * p,
+            radius: self.config.radius,
+            ..self.config
+        };
+        ui.scope(|ui| {
+            ui.dy((1. - p) * 0.004);
+            self.build(ui, t, r, |ui, path| {
+                rounded_rect_shadow(ui, r, &config);
+                f(ui, path);
+            });
+        });
     }
 
-    pub fn render_text<'a>(
-        &mut self,
-        ui: &mut Ui,
-        r: Rect,
-        t: f32,
-        alpha: f32,
-        text: impl Into<Cow<'a, str>>,
-        size: f32,
-        chosen: bool,
-    ) -> (Rect, Path) {
+    pub fn render_text<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) {
         let oh = r.h;
-        let (r, path) = self.build(ui, t, r);
-        let ct = r.center();
-        ui.fill_path(&path, if chosen { semi_white(alpha) } else { semi_black(alpha * 0.4) });
-        ui.text(text)
-            .pos(ct.x, ct.y)
-            .anchor(0.5, 0.5)
-            .no_baseline()
-            .size(size * (1. - (1. - r.h / oh).powf(1.3)))
-            .max_width(r.w)
-            .color(if chosen { Color::new(0.3, 0.3, 0.3, alpha) } else { semi_white(alpha) })
-            .draw();
-        (r, path)
+        self.build(ui, t, r, |ui, path| {
+            let ct = r.center();
+            ui.fill_path(&path, if chosen { WHITE } else { semi_black(0.4) });
+            ui.text(text)
+                .pos(ct.x, ct.y)
+                .anchor(0.5, 0.5)
+                .no_baseline()
+                .size(size * (1. - (1. - r.h / oh).powf(1.3)))
+                .max_width(r.w)
+                .color(if chosen { Color::new(0.3, 0.3, 0.3, 1.) } else { WHITE })
+                .draw();
+        });
     }
 
-    pub fn render_text_left<'a>(
-        &mut self,
-        ui: &mut Ui,
-        r: Rect,
-        t: f32,
-        alpha: f32,
-        text: impl Into<Cow<'a, str>>,
-        size: f32,
-        chosen: bool,
-    ) -> (Rect, Path) {
+    pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) {
         let oh = r.h;
-        let (r, path) = self.build(ui, t, r);
-        ui.fill_path(&path, if chosen { semi_white(alpha) } else { semi_black(alpha * 0.4) });
-        ui.text(text)
-            .pos(r.x + 0.02, r.center().y)
-            .anchor(0., 0.5)
-            .max_width(r.w - 0.04)
-            .no_baseline()
-            .size(size * r.h / oh)
-            .color(if chosen { Color::new(0.3, 0.3, 0.3, alpha) } else { semi_white(alpha) })
-            .draw();
-        (r, path)
+        self.build(ui, t, r, |ui, path| {
+            ui.fill_path(&path, if chosen { WHITE } else { semi_black(0.4) });
+            ui.text(text)
+                .pos(r.x + 0.02, r.center().y)
+                .anchor(0., 0.5)
+                .max_width(r.w - 0.04)
+                .no_baseline()
+                .size(size * r.h / oh)
+                .color(if chosen { Color::new(0.3, 0.3, 0.3, alpha) } else { semi_white(alpha) })
+                .draw();
+        });
     }
 
     #[inline]
-    pub fn render_input<'a>(
-        &mut self,
-        ui: &mut Ui,
-        r: Rect,
-        t: f32,
-        alpha: f32,
-        text: impl Into<Cow<'a, str>>,
-        hint: impl Into<Cow<'a, str>>,
-        size: f32,
-    ) {
+    pub fn render_input<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, text: impl Into<Cow<'a, str>>, hint: impl Into<Cow<'a, str>>, size: f32) {
         let text = text.into();
         if text.trim().is_empty() {
-            self.render_text_left(ui, r, t, alpha * 0.7, hint, size, false);
+            self.render_text_left(ui, r, t, 0.7, hint, size, false);
         } else {
-            self.render_text_left(ui, r, t, alpha, text, size, false);
+            self.render_text_left(ui, r, t, 1., text, size, false);
         }
     }
 
@@ -435,7 +437,7 @@ impl Slider {
         None
     }
 
-    pub fn render(&mut self, ui: &mut Ui, mut r: Rect, t: f32, c: Color, p: f32, text: String) {
+    pub fn render(&mut self, ui: &mut Ui, mut r: Rect, t: f32, p: f32, text: String) {
         r.x -= 0.1;
         r.x -= r.w * 0.2;
         r.w *= 1.2;
@@ -443,15 +445,14 @@ impl Slider {
         let size = 0.026;
         let cy = r.center().y;
         self.btn_dec
-            .render_text(ui, Rect::new(r.x - pad - size, cy, 0., 0.).feather(size), t, c.a, "-", 0.7, true);
+            .render_text(ui, Rect::new(r.x - pad - size, cy, 0., 0.).feather(size), t, "-", 0.7, true);
         self.btn_inc
-            .render_text(ui, Rect::new(r.right() + pad + size, cy, 0., 0.).feather(size), t, c.a, "+", 0.7, true);
+            .render_text(ui, Rect::new(r.right() + pad + size, cy, 0., 0.).feather(size), t, "+", 0.7, true);
         self.rect = ui.rect_to_global(r);
         ui.text(text)
             .pos(r.x - (pad + size) * 2., cy)
             .anchor(1., 0.5)
             .no_baseline()
-            .color(c)
             .size(0.6)
             .draw();
         let p = (p - self.range.start) / (self.range.end - self.range.start);
@@ -468,10 +469,7 @@ impl Slider {
                 p.build()
             },
             0.02,
-            Color {
-                a: c.a * 0.8,
-                ..ui.background()
-            },
+            Color { a: 0.8, ..ui.background() },
         );
         ui.stroke_path(
             &{
@@ -482,7 +480,7 @@ impl Slider {
                 p.build()
             },
             0.02,
-            Color { a: c.a * 0.8, ..c },
+            semi_white(0.8),
         );
         ui.stroke_options = ui.stroke_options.with_line_cap(LineCap::Square);
         rounded_rect_shadow(
@@ -490,11 +488,11 @@ impl Slider {
             Rect::new(pos.0, pos.1, 0., 0.).feather(Self::RADIUS),
             &ShadowConfig {
                 radius: Self::RADIUS,
-                base: 0.7 * c.a,
+                base: 0.7,
                 ..Default::default()
             },
         );
-        ui.fill_circle(pos.0, pos.1, Self::RADIUS, c);
+        ui.fill_circle(pos.0, pos.1, Self::RADIUS, WHITE);
     }
 }
 
@@ -546,7 +544,9 @@ pub struct Ui<'a> {
 
     pub text_painter: &'a mut TextPainter,
 
-    model_stack: Vec<Matrix>,
+    pub transform: Matrix,
+    pub gl_transform: Mat4,
+    scissor: Option<(i32, i32, i32, i32)>,
     touches: Option<Vec<Touch>>,
 
     vertex_buffers: VertexBuffers<Vertex, u16>,
@@ -554,6 +554,8 @@ pub struct Ui<'a> {
     fill_options: FillOptions,
     stroke_tess: StrokeTessellator,
     pub stroke_options: StrokeOptions,
+
+    pub alpha: f32,
 }
 
 impl<'a> Ui<'a> {
@@ -570,7 +572,9 @@ impl<'a> Ui<'a> {
 
             text_painter,
 
-            model_stack: vec![Matrix::identity()],
+            transform: Matrix::identity(),
+            gl_transform: Mat4::IDENTITY,
+            scissor: None,
             touches: None,
 
             vertex_buffers: VertexBuffers::new(),
@@ -578,6 +582,8 @@ impl<'a> Ui<'a> {
             fill_options: FillOptions::default(),
             stroke_tess: StrokeTessellator::new(),
             stroke_options: StrokeOptions::default(),
+
+            alpha: 1.,
         }
     }
 
@@ -601,7 +607,7 @@ impl<'a> Ui<'a> {
     }
 
     pub fn builder<T: IntoShading>(&self, shading: T) -> VertexBuilder<T::Target> {
-        VertexBuilder::new(self.get_matrix(), shading.into_shading())
+        VertexBuilder::new(self.transform, shading.into_shading(), self.alpha)
     }
 
     pub fn fill_rect(&mut self, rect: Rect, shading: impl IntoShading) {
@@ -616,51 +622,51 @@ impl<'a> Ui<'a> {
     }
 
     fn set_tolerance(&mut self) {
-        let tol = 0.15 / (self.model_stack.last().unwrap().transform_vector(&Vector::new(1., 0.)).norm() * screen_width() / 2.);
+        let tol = 0.15 / (self.transform.transform_vector(&Vector::new(1., 0.)).norm() * screen_width() / 2.);
         self.fill_options.tolerance = tol;
         self.stroke_options.tolerance = tol;
     }
 
-    pub fn fill_path(&mut self, path: impl IntoIterator<Item = PathEvent>, shading: impl IntoShading) {
+    fn draw_lyon<T: Shading>(&mut self, shading: T, f: impl FnOnce(&mut Self, ShadedConstructor<T>)) {
         self.set_tolerance();
-        let shaded = ShadedConstructor(self.get_matrix(), shading.into_shading());
+        let shaded = ShadedConstructor(self.transform, shading.into_shading(), self.alpha);
         let tex = shaded.1.texture();
-        self.fill_tess
-            .tessellate(path, &self.fill_options, &mut BuffersBuilder::new(&mut self.vertex_buffers, shaded))
-            .unwrap();
+        f(self, shaded);
         self.emit_lyon(tex);
+    }
+
+    pub fn fill_path(&mut self, path: impl IntoIterator<Item = PathEvent>, shading: impl IntoShading) {
+        self.draw_lyon(shading.into_shading(), |this, shaded| {
+            this.fill_tess
+                .tessellate(path, &this.fill_options, &mut BuffersBuilder::new(&mut this.vertex_buffers, shaded))
+                .unwrap();
+        });
     }
 
     pub fn fill_circle(&mut self, x: f32, y: f32, radius: f32, shading: impl IntoShading) {
-        self.set_tolerance();
-        let shaded = ShadedConstructor(self.get_matrix(), shading.into_shading());
-        let tex = shaded.1.texture();
-        self.fill_tess
-            .tessellate_circle(lm::point(x, y), radius, &self.fill_options, &mut BuffersBuilder::new(&mut self.vertex_buffers, shaded))
-            .unwrap();
-        self.emit_lyon(tex);
+        self.draw_lyon(shading.into_shading(), |this, shaded| {
+            this.fill_tess
+                .tessellate_circle(lm::point(x, y), radius, &this.fill_options, &mut BuffersBuilder::new(&mut this.vertex_buffers, shaded))
+                .unwrap();
+        });
     }
 
     pub fn stroke_circle(&mut self, x: f32, y: f32, radius: f32, width: f32, shading: impl IntoShading) {
-        self.set_tolerance();
-        let shaded = ShadedConstructor(self.get_matrix(), shading.into_shading());
-        let tex = shaded.1.texture();
-        self.stroke_options.line_width = width;
-        self.stroke_tess
-            .tessellate_circle(lm::point(x, y), radius, &self.stroke_options, &mut BuffersBuilder::new(&mut self.vertex_buffers, shaded))
-            .unwrap();
-        self.emit_lyon(tex);
+        self.draw_lyon(shading.into_shading(), |this, shaded| {
+            this.stroke_options.line_width = width;
+            this.stroke_tess
+                .tessellate_circle(lm::point(x, y), radius, &this.stroke_options, &mut BuffersBuilder::new(&mut this.vertex_buffers, shaded))
+                .unwrap();
+        });
     }
 
     pub fn stroke_path(&mut self, path: &Path, width: f32, shading: impl IntoShading) {
-        self.set_tolerance();
-        let shaded = ShadedConstructor(self.get_matrix(), shading.into_shading());
-        let tex = shaded.1.texture();
-        self.stroke_options.line_width = width;
-        self.stroke_tess
-            .tessellate_path(path, &self.stroke_options, &mut BuffersBuilder::new(&mut self.vertex_buffers, shaded))
-            .unwrap();
-        self.emit_lyon(tex);
+        self.draw_lyon(shading.into_shading(), |this, shaded| {
+            this.stroke_options.line_width = width;
+            this.stroke_tess
+                .tessellate_path(path, &this.stroke_options, &mut BuffersBuilder::new(&mut this.vertex_buffers, shaded))
+                .unwrap();
+        });
     }
 
     fn emit_lyon(&mut self, texture: Option<Texture2D>) {
@@ -668,10 +674,6 @@ impl<'a> Ui<'a> {
         gl.texture(texture);
         gl.draw_mode(DrawMode::Triangles);
         gl.geometry(&std::mem::take(&mut self.vertex_buffers.vertices), &std::mem::take(&mut self.vertex_buffers.indices));
-    }
-
-    pub fn get_matrix(&self) -> Matrix {
-        *self.model_stack.last().unwrap()
     }
 
     pub fn screen_rect(&self) -> Rect {
@@ -691,88 +693,114 @@ impl<'a> Ui<'a> {
     }
 
     pub fn vec_to_global(&self, vec: (f32, f32)) -> (f32, f32) {
-        let r = self.model_stack.last().unwrap().transform_vector(&Vector::new(vec.0, vec.1));
+        let r = self.transform.transform_vector(&Vector::new(vec.0, vec.1));
         (r.x, r.y)
     }
 
     pub fn to_global(&self, pt: (f32, f32)) -> (f32, f32) {
-        let r = self.model_stack.last().unwrap().transform_point(&Point::new(pt.0, pt.1));
+        let r = self.transform.transform_point(&Point::new(pt.0, pt.1));
         (r.x, r.y)
     }
 
     pub fn to_local(&self, pt: (f32, f32)) -> (f32, f32) {
-        let r = self
-            .model_stack
-            .last()
-            .unwrap()
-            .try_inverse()
-            .unwrap()
-            .transform_point(&Point::new(pt.0, pt.1));
+        let r = self.transform.try_inverse().unwrap().transform_point(&Point::new(pt.0, pt.1));
         (r.x, r.y)
     }
 
     pub fn dx(&mut self, x: f32) {
-        self.model_stack.last_mut().unwrap().append_translation_mut(&Vector::new(x, 0.));
+        self.transform.append_translation_mut(&Vector::new(x, 0.));
     }
 
     pub fn dy(&mut self, y: f32) {
-        self.model_stack.last_mut().unwrap().append_translation_mut(&Vector::new(0., y));
+        self.transform.append_translation_mut(&Vector::new(0., y));
     }
 
     #[inline]
-    pub fn with<R>(&mut self, model: Matrix, f: impl FnOnce(&mut Self) -> R) -> R {
-        let model = self.model_stack.last().unwrap() * model;
-        self.model_stack.push(model);
+    pub fn alpha<R>(&mut self, alpha: f32, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = self.alpha;
+        self.alpha = old * alpha;
         let res = f(self);
-        self.model_stack.pop();
+        self.alpha = old;
+        res
+    }
+
+    #[inline]
+    pub fn with<R>(&mut self, transform: Matrix, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = self.transform;
+        self.transform = old * transform;
+        let res = f(self);
+        self.transform = old;
         res
     }
 
     #[inline]
     pub fn scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-        let model = *self.model_stack.last().unwrap();
-        self.model_stack.push(model);
+        let old = self.transform;
         let res = f(self);
-        self.model_stack.pop();
+        self.transform = old;
         res
     }
 
     #[inline]
     pub fn abs_scope<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.model_stack.push(Matrix::identity());
+        let old = self.transform;
+        self.transform = Matrix::identity();
         let res = f(self);
-        self.model_stack.pop();
+        self.transform = old;
+        res
+    }
+
+    #[inline]
+    pub fn with_gl<R>(&mut self, transform: Mat4, f: impl FnOnce(&mut Self) -> R) -> R {
+        let old = self.gl_transform;
+        // self.gl_transform = old * transform;
+        let gl = unsafe { get_internal_gl() }.quad_gl;
+        gl.push_model_matrix(transform);
+        let res = f(self);
+        self.gl_transform = old;
+        unsafe { get_internal_gl() }.flush();
+        gl.pop_model_matrix();
         res
     }
 
     #[inline]
     pub fn apply<R>(&mut self, f: impl FnOnce(&mut Ui) -> R) -> R {
-        unsafe { get_internal_gl() }
-            .quad_gl
-            .push_model_matrix(nalgebra_to_glm(self.model_stack.last().unwrap()));
+        unsafe { get_internal_gl() }.quad_gl.push_model_matrix(nalgebra_to_glm(&self.transform));
         let res = f(self);
         unsafe { get_internal_gl() }.quad_gl.pop_model_matrix();
         res
     }
 
-    pub fn scissor(&mut self, rect: Option<Rect>) {
+    pub fn scissor<R>(&mut self, rect: Rect, f: impl FnOnce(&mut Ui) -> R) -> R {
         let igl = unsafe { get_internal_gl() };
         let gl = igl.quad_gl;
-        if let Some(rect) = rect {
-            let rect = self.rect_to_global(rect);
-            let vp = get_viewport();
-            let screen_height = gl
-                .get_active_render_pass()
-                .map(|it| it.texture(igl.quad_context).height as f32)
-                .unwrap_or_else(screen_height);
-            let pt = (
-                vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
-                (screen_height - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
-            );
-            gl.scissor(Some((pt.0 as _, pt.1 as _, (rect.w * vp.2 as f32 / 2.) as _, (rect.h * vp.2 as f32 / 2.) as _)));
-        } else {
-            gl.scissor(None);
-        }
+        let rect = self.rect_to_global(rect);
+        let vp = get_viewport();
+        let pt = (
+            vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
+            (screen_height() - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
+        );
+
+        let old = self.scissor;
+        self.scissor = {
+            let mut l = pt.0 as i32;
+            let mut t = pt.1 as i32;
+            let mut r = (pt.0 + rect.w * vp.2 as f32 / 2.) as i32;
+            let mut b = (pt.1 + rect.h * vp.2 as f32 / 2.) as i32;
+            if let Some((l0, t0, w0, h0)) = old {
+                l = l.max(l0);
+                t = t.max(t0);
+                r = r.min(l0 + w0);
+                b = b.min(t0 + h0);
+            }
+            Some((l, t, r - l, b - t))
+        };
+
+        gl.scissor(self.scissor);
+        let res = f(self);
+        self.scissor = old;
+        gl.scissor(old);
+        res
     }
 
     pub fn text<'s, 'ui>(&'ui mut self, text: impl Into<Cow<'s, str>>) -> DrawText<'a, 's, 'ui> {
@@ -832,7 +860,7 @@ impl<'a> Ui<'a> {
     }
 
     pub fn background(&self) -> Color {
-        Color::from_hex(0xff546e7a)
+        Color::from_hex(0xff2a323c)
     }
 
     pub fn button(&mut self, id: &str, rect: Rect, text: impl Into<String>) -> bool {
@@ -888,7 +916,7 @@ impl<'a> Ui<'a> {
         if if params.password {
             self.button(&id, r, &"*".repeat(value.chars().count()))
         } else {
-            self.button(&id, r, value.as_str())
+            self.button(&id, r, value.lines().next().unwrap_or_default())
         } {
             request_input_full(&id, value, params.password);
         }
@@ -990,27 +1018,26 @@ impl<'a> Ui<'a> {
         (width, sh)
     }
 
-    pub fn avatar(&mut self, cx: f32, cy: f32, r: f32, c: Color, t: f32, avatar: Result<Option<SafeTexture>, SafeTexture>) -> Rect {
+    pub fn avatar(&mut self, cx: f32, cy: f32, r: f32, t: f32, avatar: Result<Option<SafeTexture>, SafeTexture>) -> Rect {
         rounded_rect_shadow(
             self,
             Rect::new(cx - r, cy - r, r * 2., r * 2.),
             &ShadowConfig {
                 radius: r,
-                base: c.a,
                 ..Default::default()
             },
         );
         let rect = Rect::new(cx - r, cy - r, r * 2., r * 2.);
         match avatar {
             Ok(Some(avatar)) => {
-                self.fill_circle(cx, cy, r, (*avatar, rect, ScaleType::CropCenter, c));
+                self.fill_circle(cx, cy, r, (*avatar, rect));
             }
             Ok(None) => {
                 self.loading(
                     cx,
                     cy,
                     t,
-                    c,
+                    WHITE,
                     LoadingParams {
                         radius: r * 0.6,
                         width: 0.008,
@@ -1019,11 +1046,11 @@ impl<'a> Ui<'a> {
                 );
             }
             Err(icon) => {
-                self.fill_circle(cx, cy, r, semi_black(c.a * 0.2));
-                self.fill_circle(cx, cy, r, (*icon, rect.feather(-0.025), ScaleType::CropCenter, c));
+                self.fill_circle(cx, cy, r, semi_black(0.2));
+                self.fill_circle(cx, cy, r, (*icon, rect.feather(-0.025), ScaleType::CropCenter, WHITE));
             }
         }
-        self.stroke_circle(cx, cy, r, 0.004, c);
+        self.stroke_circle(cx, cy, r, 0.004, WHITE);
         rect
     }
 
@@ -1077,14 +1104,14 @@ impl<'a> Ui<'a> {
 
     #[inline]
     pub fn back_rect(&self) -> Rect {
-        Rect::new(-0.97, -self.top + 0.04, 0.1, 0.1)
+        Rect::new(-0.97, -self.top + 0.04, 0.08, 0.08)
     }
 
     #[inline]
-    pub fn tab_rects<'b>(&mut self, c: Color, t: f32, it: impl IntoIterator<Item = (&'b mut DRectButton, Cow<'b, str>, bool)>) {
+    pub fn tab_rects<'b>(&mut self, t: f32, it: impl IntoIterator<Item = (&'b mut DRectButton, Cow<'b, str>, bool)>) {
         let mut r = Rect::new(-0.92, -self.top + 0.18, 0.2, 0.11);
         for (btn, text, chosen) in it {
-            btn.render_text(self, r, t, c.a, text, 0.5, chosen);
+            btn.render_text(self, r, t, text, 0.5, chosen);
             r.y += 0.125;
         }
     }
@@ -1107,9 +1134,9 @@ impl<'a> Ui<'a> {
 
     pub fn main_sub_colors(use_black: bool, alpha: f32) -> (Color, Color) {
         if use_black {
-            (semi_black(alpha), Color::new(0.3, 0.3, 0.3, alpha))
+            (semi_black(alpha), semi_black(alpha * 0.64))
         } else {
-            (semi_white(alpha), Color::new(0.8, 0.8, 0.8, alpha))
+            (semi_white(alpha), semi_white(alpha * 0.64))
         }
     }
 }

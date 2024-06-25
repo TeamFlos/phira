@@ -28,6 +28,7 @@ delete = Delete
 rate = Rate
 exercise = Exercise
 offset = Adjust offset
+unlock = Play unlock video
 
 edit-cancel = Cancel
 edit-save = Save
@@ -38,13 +39,17 @@ edit-saved = Saved
 edit-preview-invalid = Preview time out of bounds
 edit-tags = Edit tags
 edit-downloaded = You can't edit downloaded chart
+edit-overwrite = Overwrite
+edit-overwrite-confirm = Are you sure to overwrite this chart with the imported one? (This will only sync to online platform after clicking "Update")
+edit-overwrite-success = Overwritten
+edit-overwrite-failed = Failed to overwrite
 
 edit-upload = Upload
 edit-update = Update
 
+upload-not-saved = You haven't saved the chart, do you want to save it now?
 upload-login-first = Please login first
 upload-builtin = Built-in beatmaps cannot be uploaded
-upload-downloaded = Downloaded beatmaps cannot be uploaded
 upload-rules = Upload rules
 upload-rules-content =
   Before uploading, you need to confirm that:
@@ -53,12 +58,11 @@ upload-rules-content =
   3. The content of the beatmap (including music, illustrations, text, etc.) must comply with other laws and regulations of the People's Republic of China, and must not violate the law or contain bad information
   4. I authorize the use of the content I provide for public promotion by Phira. Any other use requires my additional permission
   5. The final interpretation rights of this rule belong to TeamFlos
-upload-cancel = Cancel
-upload-confirm = Confirm
 uploading = Uploading
 upload-chart-failed = Failed to upload beatmap
 upload-success = Uploaded successfully, please wait for review!
 upload-failed = Upload failed
+upload-confirm-clear-ldb = Since the current chart file is different from the remote chart file, the leaderboard of this chart will be cleared after uploading, are you sure to continue?
 
 ldb = Leaderboard
 ldb-load-failed = Failed to load leaderboard

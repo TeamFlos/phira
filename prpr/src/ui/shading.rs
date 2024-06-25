@@ -5,7 +5,7 @@ use crate::{
 use macroquad::prelude::*;
 
 pub trait Shading {
-    fn new_vertex(&self, mat: &Matrix, p: &Point) -> Vertex;
+    fn new_vertex(&self, mat: &Matrix, p: &Point, alpha: f32) -> Vertex;
     fn texture(&self) -> Option<Texture2D>;
 }
 
@@ -17,12 +17,13 @@ pub struct GradientShading {
 }
 
 impl Shading for GradientShading {
-    fn new_vertex(&self, mat: &Matrix, p: &Point) -> Vertex {
+    fn new_vertex(&self, mat: &Matrix, p: &Point, alpha: f32) -> Vertex {
         let t = mat.transform_point(p);
-        let color = {
+        let mut color = {
             let (dx, dy) = (p.x - self.origin.0, p.y - self.origin.1);
             Color::tween(&self.color, &self.color_end, dx * self.vector.0 + dy * self.vector.1)
         };
+        color.a *= alpha;
 
         Vertex::new(t.x, t.y, 0., 0., 0., color)
     }
@@ -38,14 +39,24 @@ pub struct TextureShading {
 }
 
 impl Shading for TextureShading {
-    fn new_vertex(&self, mat: &Matrix, p: &Point) -> Vertex {
+    fn new_vertex(&self, mat: &Matrix, p: &Point, alpha: f32) -> Vertex {
         let t = mat.transform_point(p);
         let (_, tr, dr) = self.texture;
         let ux = (p.x - dr.x) / dr.w;
         let uy = (p.y - dr.y) / dr.h;
-        let ux = ux.clamp(0., 1.);
-        let uy = uy.clamp(0., 1.);
-        Vertex::new(t.x, t.y, 0., tr.x + tr.w * ux, tr.y + tr.h * uy, self.color)
+        // let ux = ux.clamp(0., 1.);
+        // let uy = uy.clamp(0., 1.);
+        Vertex::new(
+            t.x,
+            t.y,
+            0.,
+            tr.x + tr.w * ux,
+            tr.y + tr.h * uy,
+            Color {
+                a: self.color.a * alpha,
+                ..self.color
+            },
+        )
     }
 
     fn texture(&self) -> Option<Texture2D> {
@@ -61,9 +72,10 @@ pub struct RadialShading {
 }
 
 impl Shading for RadialShading {
-    fn new_vertex(&self, mat: &Matrix, p: &Point) -> Vertex {
+    fn new_vertex(&self, mat: &Matrix, p: &Point, alpha: f32) -> Vertex {
         let e = (p - self.origin).norm() / self.radius;
-        let color = Color::tween(&self.color, &self.color_end, e);
+        let mut color = Color::tween(&self.color, &self.color_end, e);
+        color.a *= alpha;
         let t = mat.transform_point(p);
         Vertex::new(t.x, t.y, 0., 0., 0., color)
     }

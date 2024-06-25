@@ -12,7 +12,7 @@ use crate::{
     scene::show_message,
     task::Task,
     time::TimeManager,
-    ui::{Dialog, MessageHandle, RectButton, Ui},
+    ui::{RectButton, Dialog, MessageHandle, Ui},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -25,7 +25,7 @@ pub struct RecordUpdateState {
     pub best: bool,
     pub improvement: u32,
     pub gain_exp: f32,
-    pub new_rks: f32,
+    pub new_rks: Option<f32>,
 }
 
 pub struct EndingScene {
@@ -58,6 +58,8 @@ pub struct EndingScene {
 
     btn_retry: RectButton,
     btn_proceed: RectButton,
+
+    tr_start: f32,
 }
 
 impl EndingScene {
@@ -75,6 +77,7 @@ impl EndingScene {
         bgm: AudioClip,
         upload_fn: Option<UploadFn>,
         player_rks: Option<f32>,
+        historic_best: u32,
         record_data: Option<Vec<u8>>,
         record: Option<SimpleRecord>,
     ) -> Result<Self> {
@@ -107,7 +110,7 @@ impl EndingScene {
                     best: true,
                     improvement: result.score,
                     gain_exp: 0.,
-                    new_rks: 0.,
+                    new_rks: Some(0.),
                 })
             },
             rated: upload_task.is_some(),
@@ -129,6 +132,8 @@ impl EndingScene {
 
             btn_retry: RectButton::new(),
             btn_proceed: RectButton::new(),
+
+            tr_start: f32::NAN,
         })
     }
 }
@@ -200,6 +205,7 @@ impl Scene for EndingScene {
                                 if pos == 1 {
                                     RE_UPLOAD.with(|it| *it.borrow_mut() = true);
                                 }
+                                false
                             })
                             .show();
                     }
@@ -222,6 +228,7 @@ impl Scene for EndingScene {
         let gl = unsafe { get_internal_gl() }.quad_gl;
         let res = &self.result;
         cam.render_target = self.target;
+        let sr = ui.screen_rect();
         set_camera(&cam);
         draw_background(*self.background);
 
@@ -385,7 +392,7 @@ impl Scene for EndingScene {
         draw_text_aligned(
             ui,
             &if let Some(state) = &self.update_state {
-                format!("{:.2}", state.new_rks)
+                format!("{:.2}", state.new_rks.unwrap())
             } else if let Some(rks) = &self.player_rks {
                 format!("{rks:.2}")
             } else {

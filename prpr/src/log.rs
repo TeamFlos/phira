@@ -1,8 +1,7 @@
-use chrono::Utc;
 use colored::Colorize;
 use miniquad::{debug, error, info, trace, warn};
 use tracing::{field::Visit, Level, Subscriber};
-use tracing_subscriber::{prelude::*, Layer};
+use tracing_subscriber::{filter, prelude::*, Layer};
 
 struct CustomLayer;
 
@@ -29,7 +28,7 @@ where
         let meta = event.metadata();
 
         #[cfg(not(target_os = "android"))]
-        let mut msg = format!("{:.6?} ", Utc::now()).bright_black().to_string()
+        let mut msg = format!("{:.6?} ", chrono::Utc::now()).bright_black().to_string()
             + &match *meta.level() {
                 Level::TRACE => "TRACE".bright_black(),
                 Level::DEBUG => "DEBUG".magenta(),
@@ -72,5 +71,13 @@ where
 }
 
 pub fn register() {
-    tracing_subscriber::registry().with(CustomLayer).init();
+    tracing_subscriber::registry()
+        .with(CustomLayer)
+        .with(
+            filter::Targets::new()
+                .with_target("hyper", Level::INFO)
+                .with_target("rustls", Level::INFO)
+                .with_default(Level::TRACE),
+        )
+        .init();
 }

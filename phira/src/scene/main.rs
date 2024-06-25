@@ -10,13 +10,14 @@ use crate::{
 };
 use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
+use once_cell::sync::Lazy;
 use prpr::{
     core::ResPackInfo,
     ext::{unzip_into, RectExt, SafeTexture},
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, RectButton, Ui, UI_AUDIO},
+    ui::{button_hit, FontArc, RectButton, Ui, UI_AUDIO},
 };
 use sasa::{AudioClip, Music};
 use std::{
@@ -67,7 +68,7 @@ pub struct MainScene {
 
 impl MainScene {
     // shall be call exactly once
-    pub async fn new() -> Result<Self> {
+    pub async fn new(fallback: FontArc) -> Result<Self> {
         Self::init().await?;
 
         #[cfg(feature = "closed")]
@@ -88,7 +89,7 @@ impl MainScene {
         #[cfg(not(feature = "closed"))]
         let bgm = None;
 
-        let mut sf = Self::new_inner(bgm).await?;
+        let mut sf = Self::new_inner(bgm, fallback).await?;
         sf.pages.push(Box::new(HomePage::new().await?));
         Ok(sf)
     }
@@ -115,8 +116,8 @@ impl MainScene {
         Ok(())
     }
 
-    async fn new_inner(bgm: Option<Music>) -> Result<Self> {
-        let state = SharedState::new().await?;
+    async fn new_inner(bgm: Option<Music>, fallback: FontArc) -> Result<Self> {
+        let state = SharedState::new(fallback).await?;
         let icon_user = load_texture("user.png").await?;
         MP_PANEL.with(|it| *it.borrow_mut() = Some(MPPanel::new(icon_user.into())));
         Ok(Self {
@@ -374,41 +375,50 @@ impl Scene for MainScene {
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
+
+        STRIPE_MATERIAL.set_uniform("time", ((tm.real_time() as f64 * 0.025) % (std::f64::consts::PI * 2.)) as f32);
+        gl_use_material(*STRIPE_MATERIAL);
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
+        gl_use_default_material();
+
         let s = &mut self.state;
         s.update(tm);
 
-        // 1. title
+        // 1. page
         if s.fader.transiting() {
             let pos = self.pages.len() - 2;
-            s.fader.reset();
-            s.fader.render_title(ui, &mut s.painter, s.t, &self.pages[pos].label());
-        }
-        s.fader
-            .for_sub(|f| f.render_title(ui, &mut s.painter, s.t, &self.pages.last().unwrap().label()));
-
-        // 2. page
-        if s.fader.transiting() {
-            let pos = self.pages.len() - 2;
+            let old = s.fader.distance;
+            s.fader.distance *= -0.6;
             self.pages[pos].render(ui, s)?;
+            s.fader.distance = old;
         }
         s.fader.sub = true;
         s.fader.reset();
         self.pages.last_mut().unwrap().render(ui, s)?;
         s.fader.sub = false;
 
+        // 2. title
+        if s.fader.transiting() {
+            let pos = self.pages.len() - 2;
+            s.fader.reset();
+            s.fader.render_title(ui, s.t, &self.pages[pos].label());
+        }
+        s.fader.for_sub(|f| f.render_title(ui, s.t, &self.pages.last().unwrap().label()));
+
+        self.pages.last_mut().unwrap().render_top(ui, s)?;
+
         // 3. back
         if self.pages.len() >= 2 {
             let mut r = ui.back_rect();
             self.btn_back.set(ui, r);
-            ui.scissor(Some(r));
-            r.y += match self.pages.len() {
-                1 => 1.,
-                2 => s.fader.for_sub(|f| f.progress(s.t)),
-                _ => 0.,
-            } * r.h;
-            ui.fill_rect(r, (*self.icon_back, r));
-            ui.scissor(None);
+            ui.scissor(r, |ui| {
+                r.y += match self.pages.len() {
+                    1 => 1.,
+                    2 => s.fader.for_sub(|f| f.progress(s.t)),
+                    _ => 0.,
+                } * r.h;
+                ui.fill_rect(r, (*self.icon_back, r));
+            });
         }
 
         if get_data().config.mp_enabled {
@@ -445,4 +455,56 @@ impl Scene for MainScene {
         }
         res
     }
+}
+
+static STRIPE_MATERIAL: Lazy<Material> = Lazy::new(|| {
+    load_material(
+        shader::VERTEX,
+        shader::FRAGMENT,
+        MaterialParams {
+            uniforms: vec![("time".to_owned(), UniformType::Float1)],
+            ..Default::default()
+        },
+    )
+    .unwrap()
+});
+
+mod shader {
+    pub const VERTEX: &str = r#"#version 100
+attribute vec3 position;
+attribute vec2 texcoord;
+attribute vec4 color0;
+
+varying lowp vec4 color;
+varying lowp vec2 pos0;
+varying lowp vec2 uv;
+
+uniform mat4 Model;
+uniform mat4 Projection;
+
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    color = color0 / 255.0;
+    pos0 = position.xy;
+    uv = texcoord;
+}"#;
+
+    pub const FRAGMENT: &str = r#"#version 100
+precision highp float;
+
+varying lowp vec4 color;
+varying lowp vec2 pos0;
+varying lowp vec2 uv;
+
+uniform sampler2D Texture;
+uniform float time;
+
+void main() {
+    float angle = 0.66;
+    float w = sin(angle) * pos0.y + cos(angle) * pos0.x - time;
+    float t = mod(w, 0.02);
+    float p = step(t, 0.012) * 0.07;
+    gl_FragColor = texture2D(Texture, uv);
+    gl_FragColor += (vec4(1.0) - gl_FragColor) * p;
+}"#;
 }

@@ -6,7 +6,7 @@ use crate::{
         Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, JudgeLine, JudgeLineCache,
         JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
     },
-    ext::NotNanExt,
+    ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
     judge::JudgeStatus,
 };
@@ -384,11 +384,7 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
                     res.map_value(|v| v * factor);
                     Ok(res)
                 }
-                let factor = if rpe.texture == "line.png" {
-                    1.
-                } else {
-                    2.57 / RPE_WIDTH /*TODO tweak*/
-                };
+                let factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
                 rpe.extended
                     .as_ref()
                     .map(|e| -> Result<_> {
@@ -443,12 +439,12 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
             }
         } else {
             JudgeLineKind::Texture(
-                image::load_from_memory(
+                SafeTexture::from(image::load_from_memory(
                     &fs.load_file(&rpe.texture)
                         .await
                         .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
-                )?
-                .into(),
+                )?)
+                .with_mipmap(),
                 rpe.texture.clone(),
             )
         },
@@ -516,7 +512,7 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
             line.notes.as_ref().map(|notes| {
                 notes
                     .iter()
-                    .map(|note| r.time(&note.start_time).not_nan())
+                    .map(|note| r.time(&note.end_time).not_nan())
                     .max()
                     .unwrap_or_default()
             }).unwrap_or_default().max(

@@ -1,4 +1,6 @@
 
+label = 活动
+
 load-list-failed = 加载活动列表失败
 load-failed = 加载活动失败
 load-status-failed = 加载活动状态失败

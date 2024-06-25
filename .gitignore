@@ -19,6 +19,7 @@ inner.rs
 /assets/res
 /test.uml
 /monitor-config.yml
+/.vscode
 
 /prpr-avc/static-lib
 
@@ -42,3 +43,4 @@ inner.rs
 # Test
 
 /log*
+/build_event_debug.sh

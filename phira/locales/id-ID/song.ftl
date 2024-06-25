@@ -44,7 +44,6 @@ edit-update = Update
 
 upload-login-first = Mohon log in terlebih dahulu.
 upload-builtin = Chart bawaan tidak bisa diupload.
-upload-downloaded = Chart yang didownload tidak bisa diupload.
 upload-rules = Aturan mengupload chart
 upload-rules-content =
   Sebelum mengupload, anda harus mengkonfirmasi bahwa:
@@ -53,8 +52,6 @@ upload-rules-content =
   3. Konten chart (termasuk musik, ilustrasi, teks, dll.) harus mematuhi hukum dan peraturan Republik Rakyat Cina, dan tidak boleh melanggar hukum atau mengandung informasi yang tidak benar
   4. Saya mengizinkan penggunaan konten yang saya sediakan untuk promosi publik oleh Phira. Penggunaan lain memerlukan izin tambahan saya
   5. Hak interpretasi akhir dari peraturan ini adalah milik TeamFlos
-upload-cancel = Batal
-upload-confirm = Upload
 uploading = Sedang mengupload...
 upload-chart-failed = Gagal mengupload chart
 upload-success = Upload sukses, mohon tunggu untuk direview!

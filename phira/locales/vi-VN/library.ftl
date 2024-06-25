@@ -1,15 +1,18 @@
 
-local = Nội bộ
-popular = Phổ biến
+label = THƯ VIỆN
+
+local = Đã tải
+popular = Thịnh hành
 
 page = Trang { $current } / { $total }
-prev-page = Trang trước
-next-page = Trang sau
+prev-page = Trước
+next-page = Sau
 
-not-opened = Chưa khả dụng
-failed-to-load-online = Không thể tải biểu đồ trực tuyến
+not-opened = Không có sẵn
+failed-to-load-online = Không thể tải thư viện trực tuyến
 
 import = Nhập
 
-offline-mode = Không thể tải biểu đồ trực tuyến trong chế độ ngoại tuyến
-must-login = Đăng nhập để xem biểu đồ trực tuyến
+offline-mode = Không thể tải thư viện trong chế độ Offline
+
+must-login = Bạn phải đăng nhập để xem thư viện trực tuyến

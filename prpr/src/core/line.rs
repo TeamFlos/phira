@@ -102,12 +102,19 @@ pub struct JudgeLine {
     pub object: Object,
     pub ctrl_obj: RefCell<CtrlObject>,
     pub kind: JudgeLineKind,
+    /// Height Animation, decribes the `height` of the line at a specific time
+    /// 
+    /// The `height` here can be considered as the absolute 'y' coordinate of the notes attached to this line, which is calculated by
+    /// ∫ v(t) dt, where v(t) is the speed of the line at time t.
     pub height: AnimFloat,
     pub incline: AnimFloat,
     pub notes: Vec<Note>,
     pub color: Anim<Color>,
     pub parent: Option<usize>,
     pub z_index: i32,
+    /// Whether to show notes below the line, here below is defined in the time axis, which means the note should already be judged
+    /// 
+    /// TODO: Not sure
     pub show_below: bool,
     pub attach_ui: Option<UIElement>,
 
@@ -177,24 +184,25 @@ impl JudgeLine {
     pub fn render(&self, ui: &mut Ui, res: &mut Resource, lines: &[JudgeLine], bpm_list: &mut BpmList, settings: &ChartSettings, id: usize) {
         let alpha = self.object.alpha.now_opt().unwrap_or(1.0) * res.alpha;
         let color = self.color.now_opt();
+        let line_scaled = (self.object.scale.1.now() - 1.).abs() > 1e-4;
         res.with_model(self.now_transform(res, lines), |res| {
             if res.config.chart_debug {
                 res.apply_model(|_| {
                     ui.text(id.to_string()).pos(0., -0.01).anchor(0.5, 1.).size(0.8).draw();
                 });
             }
-            res.with_model(self.object.now_scale(), |res| {
+            res.with_model(self.object.now_scale(Vector::default()), |res| {
                 res.apply_model(|res| match &self.kind {
                     JudgeLineKind::Normal => {
                         let mut color = color.unwrap_or(res.judge_line_color);
                         color.a *= alpha.max(0.0);
                         let len = res.info.line_length;
-                        draw_line(-len, 0., len, 0., 0.01, color);
+                        draw_line(-len, 0., len, 0., if line_scaled { 0.0076 } else { 0.01 }, color);
                     }
                     JudgeLineKind::Texture(texture, _) => {
                         let mut color = color.unwrap_or(WHITE);
                         color.a = alpha.max(0.0);
-                        let hf = vec2(texture.width() / res.aspect_ratio, texture.height() / res.aspect_ratio);
+                        let hf = vec2(texture.width(), texture.height());
                         draw_texture_ex(
                             **texture,
                             -hf.x / 2.,

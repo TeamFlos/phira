@@ -16,23 +16,24 @@ use std::{
 use sys_locale::get_locale;
 use tracing::warn;
 
-pub static LANGS: [&str; 11] = [
-    "en-US", "fr-FR", "id-ID", "ja-JP", "ko-KR", "pl-PL", "ru-RU", "th-TH", "vi-VN", "zh-CN", "zh-TW",
+pub static LANGS: [&str; 12] = [
+    "en-US", "fr-FR", "id-ID", "ja-JP", "ko-KR", "pl-PL", "pt-BR", "ru-RU", "th-TH", "vi-VN", "zh-CN", "zh-TW",
 ]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_NAMES: [&str; 11] = [
+pub static LANG_NAMES: [&str; 12] = [
     "English",
     "Français",
     "Bahasa Indonesia",
     "日本語",
     "한국어",
     "Polski",
+    "Português",
     "Русский",
     "แบบไทย",
     "Tiếng Việt",
     "简体中文",
     "繁體中文",
 ]; // this should be consistent with the macro below (create_bundles)
-pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 11]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
+pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 12]> = Lazy::new(|| LANGS.map(|lang| lang.parse().unwrap()));
 
 #[macro_export]
 macro_rules! create_bundle {
@@ -61,6 +62,7 @@ macro_rules! create_bundles {
         bundles.push($crate::create_bundle!("ja-JP", $file));
         bundles.push($crate::create_bundle!("ko-KR", $file));
         bundles.push($crate::create_bundle!("pl-PL", $file));
+        bundles.push($crate::create_bundle!("pt-BR", $file));
         bundles.push($crate::create_bundle!("ru-RU", $file));
         bundles.push($crate::create_bundle!("th-TH", $file));
         bundles.push($crate::create_bundle!("vi-VN", $file));
@@ -141,7 +143,7 @@ pub static GENERATION: AtomicU8 = AtomicU8::new(0);
 
 pub struct L10nLocal {
     bundles: &'static L10nBundles,
-    cache: LruCache<&'static str, (usize, &'static Pattern<&'static str>)>,
+    cache: LruCache<Cow<'static, str>, (usize, &'static Pattern<&'static str>)>,
     generation: u8,
 }
 
@@ -154,17 +156,17 @@ impl L10nLocal {
         }
     }
 
-    fn format_with_errors<'s>(&mut self, key: &'static str, args: Option<&'s FluentArgs<'s>>, errors: &mut Vec<FluentError>) -> Cow<'s, str> {
+    fn format_with_errors<'s>(&mut self, key: Cow<'static, str>, args: Option<&'s FluentArgs<'s>>, errors: &mut Vec<FluentError>) -> Cow<'s, str> {
         let gen = GENERATION.load(Ordering::Relaxed);
         if gen > self.generation {
             self.generation = gen;
             self.cache.clear();
         }
-        let (id, pattern) = self.cache.get_or_insert(key, || {
+        let (id, pattern) = self.cache.get_or_insert(key.clone(), || {
             let guard = GLOBAL.order.lock().unwrap();
             if let Some((id, message)) = guard
                 .iter()
-                .filter_map(|id| self.bundles.inner[*id].get_message(key).map(|msg| (*id, msg)))
+                .filter_map(|id| self.bundles.inner[*id].get_message(&key).map(|msg| (*id, msg)))
                 .next()
             {
                 return (id, message.value().unwrap());
@@ -174,9 +176,10 @@ impl L10nLocal {
         unsafe { std::mem::transmute(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
     }
 
-    pub fn format<'s>(&mut self, key: &'static str, args: Option<&'s FluentArgs<'s>>) -> Cow<'s, str> {
+    pub fn format<'s>(&mut self, key: impl Into<Cow<'static, str>>, args: Option<&'s FluentArgs<'s>>) -> Cow<'s, str> {
         let mut errors = Vec::new();
-        let res = self.format_with_errors(key, args, &mut errors);
+        let key: Cow<'static, str> = key.into();
+        let res = self.format_with_errors(key.clone(), args, &mut errors);
         for error in errors {
             warn!("l10n error {key}: {error:?}");
         }

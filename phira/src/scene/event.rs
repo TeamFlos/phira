@@ -2,7 +2,7 @@ prpr::tl_file!("event");
 
 use super::{render_ldb, LdbDisplayItem, ProfileScene};
 use crate::{
-    client::{recv_raw, Client, Event},
+    client::{recv_raw, Client, Event, UserManager},
     icons::Icons,
     page::{EventPage, Fader, Illustration, SFader},
     uml::{parse_uml, Uml},
@@ -12,7 +12,7 @@ use chrono::Utc;
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
-    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     scene::{show_error, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -21,7 +21,7 @@ use prpr::{
 use serde::Deserialize;
 use std::{any::Any, sync::Arc, time::SystemTime};
 
-const DEBUG_MODE: bool = false;
+const DEBUG_MODE: bool = cfg!(feature = "event_debug");
 const LDB_WIDTH: f32 = 0.94;
 const TRANSIT_TIME: f32 = 0.4;
 
@@ -97,7 +97,12 @@ impl EventScene {
             uml_task: if DEBUG_MODE {
                 None
             } else {
-                Some(Task::new(async move { Ok(recv_raw(Client::get(format!("/event/{id}/uml"))).await?.text().await?) }))
+                Some(Task::new(async move {
+                    Ok(recv_raw(Client::get(format!("/event/{id}/uml")).query(&[("version", env!("CARGO_PKG_VERSION"))]))
+                        .await?
+                        .text()
+                        .await?)
+                }))
             },
             uml: Uml::default(),
             last_modified: SystemTime::now(),
@@ -140,6 +145,25 @@ impl EventScene {
 
     fn loading(&self) -> bool {
         self.join_task.is_some()
+    }
+
+    fn join_or(&mut self, rt: f32) {
+        if let Some(status) = &self.status {
+            if status.joined {
+                if (self.event.time_start..self.event.time_end).contains(&Utc::now()) {
+                    if self.ldb_task.is_none() && self.ldb.is_none() {
+                        self.load_ldb();
+                    }
+                    self.side_enter_time = rt;
+                }
+            } else {
+                let id = self.event.id;
+                self.join_task = Some(Task::new(async move {
+                    recv_raw(Client::post(format!("/event/{id}/join"), &())).await?;
+                    Ok(())
+                }));
+            }
+        }
     }
 }
 
@@ -191,22 +215,7 @@ impl Scene for EventScene {
                 return Ok(true);
             }
             if self.btn_join.touch(touch, t) {
-                if let Some(status) = &self.status {
-                    if status.joined {
-                        if (self.event.time_start..self.event.time_end).contains(&Utc::now()) {
-                            if self.ldb_task.is_none() && self.ldb.is_none() {
-                                self.load_ldb();
-                            }
-                            self.side_enter_time = rt;
-                        }
-                    } else {
-                        let id = self.event.id;
-                        self.join_task = Some(Task::new(async move {
-                            recv_raw(Client::post(format!("/event/{id}/join"), &())).await?;
-                            Ok(())
-                        }));
-                    }
-                }
+                self.join_or(rt);
                 return Ok(true);
             }
         }
@@ -218,7 +227,23 @@ impl Scene for EventScene {
             self.last_scroll_handled_touch = false;
         }
 
-        if self.uml.touch(touch, t, rt)? {
+        let mut action = None;
+        if self.uml.touch(touch, t, rt, &mut action)? {
+            if let Some(action) = action {
+                match action.as_str() {
+                    "exit" => {
+                        self.next_scene = Some(NextScene::Pop);
+                    }
+                    "join" => {
+                        self.join_or(rt);
+                    }
+                    x => {
+                        if let Some(url) = x.strip_prefix("open:") {
+                            open_url(url)?;
+                        }
+                    }
+                }
+            }
             return Ok(true);
         }
 
@@ -313,6 +338,9 @@ impl Scene for EventScene {
                         show_error(err.context(tl!("load-ldb-failed")));
                     }
                     Ok(ldb) => {
+                        for item in ldb.iter() {
+                            UserManager::request(item.player);
+                        }
                         self.ldb = Some(ldb);
                     }
                 }
@@ -329,7 +357,7 @@ impl Scene for EventScene {
         let rt = tm.real_time() as f32;
 
         let r = ui.screen_rect();
-        ui.fill_rect(r, self.illu.shading(r, t, 1.));
+        ui.fill_rect(r, self.illu.shading(r, t));
         ui.fill_rect(r, semi_black(0.4));
 
         let p = 1. - (self.scroll.y_scroller.offset / 0.4).clamp(0., 1.);
@@ -357,7 +385,17 @@ impl Scene for EventScene {
                     ui.loading(1., pad + 0.05, t, WHITE, ());
                     (2., ui.top * 2. + (pad + 0.05) * 2.)
                 } else {
-                    let h = match self.uml.render(ui, t, rt, 1., &[("t", t), ("o", o), ("top", ui.top)]) {
+                    let h = match self.uml.render(
+                        ui,
+                        t,
+                        rt,
+                        &[
+                            ("t", t),
+                            ("o", o),
+                            ("top", ui.top),
+                            ("joined", self.status.as_ref().map_or(-1., |it| it.joined as u32 as f32)),
+                        ],
+                    ) {
                         Ok((_, h)) => h,
                         Err(e) => {
                             eprintln!("{e:?}");
@@ -380,64 +418,60 @@ impl Scene for EventScene {
                 .draw();
         }
 
-        let p = p * (elapsed / 0.3).min(1.);
-        let c = semi_white(p);
-        let r = Rect::new(1. - 0.24, ui.top - 0.12, 0., 0.).nonuniform_feather(0.19, 0.07);
-        let ct = r.center();
-        if let Some(status) = &self.status {
-            let bc = ui.background();
-            let mut draw = |text, bc| {
-                let oh = r.h;
-                let (r, _) = self.btn_join.render_shadow(ui, r, t, p, |_| Color { a: p, ..bc });
-                ui.text(text)
-                    .pos(ct.x, ct.y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.8 * (1. - (1. - r.h / oh).powf(1.3)))
-                    .max_width(r.w)
-                    .color(c)
-                    .draw();
-            };
-            if status.joined {
-                if Utc::now() > self.event.time_end {
-                    draw(tl!("btn-ended"), semi_black(0.4));
-                } else if Utc::now() < self.event.time_start {
-                    draw(tl!("btn-not-started"), Color::from_hex(0xffe3f2fd));
-                } else {
-                    let (r, _) = self.btn_join.render_shadow(ui, r, t, p, |_| Color {
-                        a: p,
-                        ..Color::from_hex(0xfff57c00)
+        ui.alpha(p * (elapsed / 0.3).min(1.), |ui| {
+            let r = Rect::new(1. - 0.24, ui.top - 0.12, 0., 0.).nonuniform_feather(0.19, 0.07);
+            let ct = r.center();
+            if let Some(status) = &self.status {
+                let bc = ui.background();
+                let mut draw = |text, bc| {
+                    let oh = r.h;
+                    self.btn_join.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, Color { a: p, ..bc });
+                        ui.text(text)
+                            .pos(ct.x, ct.y)
+                            .anchor(0.5, 0.5)
+                            .no_baseline()
+                            .size(0.8 * (1. - (1. - r.h / oh).powf(1.3)))
+                            .max_width(r.w)
+                            .draw();
                     });
-                    let mut text = ui
-                        .text(format!("#{}", status.rank.unwrap()))
-                        .anchor(0., 0.5)
-                        .no_baseline()
-                        .size(0.7)
-                        .color(c);
-                    let w = text.measure().w;
-                    let mut ir = Rect::new(ct.x, ct.y, 0., 0.).feather(r.h / 2. - 0.02);
-                    let w = w + 0.01 + ir.w;
-                    ir.x += (ir.w - w) / 2.;
-                    text.pos(ir.right() + 0.01, ct.y).draw();
-                    ui.fill_rect(ir, (*self.icons.ldb, ir, ScaleType::Fit, c));
+                };
+                if status.joined {
+                    if Utc::now() > self.event.time_end {
+                        draw(tl!("btn-ended"), semi_black(0.4));
+                    } else if Utc::now() < self.event.time_start {
+                        draw(tl!("btn-not-started"), Color::from_hex(0xffe3f2fd));
+                    } else {
+                        self.btn_join
+                            .render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, Color::from_hex(0xfff57c00)));
+                        let mut text = ui.text(format!("#{}", status.rank.unwrap())).anchor(0., 0.5).no_baseline().size(0.7);
+                        let w = text.measure().w;
+                        let mut ir = Rect::new(ct.x, ct.y, 0., 0.).feather(r.h / 2. - 0.02);
+                        let w = w + 0.01 + ir.w;
+                        ir.x += (ir.w - w) / 2.;
+                        text.pos(ir.right() + 0.01, ct.y).draw();
+                        ui.fill_rect(ir, (*self.icons.ldb, ir, ScaleType::Fit));
+                    }
+                } else {
+                    draw(tl!("btn-join"), bc);
                 }
             } else {
-                draw(tl!("btn-join"), bc);
+                self.btn_join.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                });
+                ui.loading(
+                    ct.x,
+                    ct.y,
+                    t,
+                    WHITE,
+                    LoadingParams {
+                        radius: 0.03,
+                        width: 0.008,
+                        ..Default::default()
+                    },
+                );
             }
-        } else {
-            self.btn_join.render_shadow(ui, r, t, p, |_| semi_black(0.4 * p));
-            ui.loading(
-                ct.x,
-                ct.y,
-                t,
-                c,
-                LoadingParams {
-                    radius: 0.03,
-                    width: 0.008,
-                    ..Default::default()
-                },
-            );
-        }
+        });
 
         if !self.side_enter_time.is_nan() {
             let p = ((rt - self.side_enter_time.abs()) / TRANSIT_TIME).min(1.);

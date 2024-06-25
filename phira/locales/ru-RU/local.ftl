@@ -2,6 +2,6 @@
 label = Локальные
 
 import-failed = Ошибка импорта
-import-success = Успешно импортировано
+import-success = Успешный импорт
 
 not-loaded = Загрузка, подождите немного. 

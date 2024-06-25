@@ -1,4 +1,4 @@
-use super::{Anim, Resource};
+use super::Anim;
 use crate::ext::{source_of_image, ScaleType};
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -13,7 +13,7 @@ thread_local! {
 
 pub struct Video {
     video: prpr_avc::Video,
-    _video_file: NamedTempFile,
+    video_file: NamedTempFile,
 
     material: Material,
     tex_y: Texture2D,
@@ -26,7 +26,7 @@ pub struct Video {
     dim: Anim<f32>,
     frame_delta: f64,
     next_frame: usize,
-    ended: bool,
+    pub ended: bool,
 }
 
 fn new_tex(w: u32, h: u32) -> Texture2D {
@@ -71,7 +71,7 @@ impl Video {
 
         Ok(Self {
             video,
-            _video_file: video_file,
+            video_file,
 
             material,
             tex_y,
@@ -86,6 +86,10 @@ impl Video {
             next_frame: 0,
             ended: false,
         })
+    }
+
+    pub fn video_file(&self) -> &NamedTempFile {
+        &self.video_file
     }
 
     pub fn update(&mut self, t: f32) -> Result<()> {
@@ -125,12 +129,12 @@ impl Video {
         Ok(())
     }
 
-    pub fn render(&self, res: &Resource) {
-        if res.time < self.start_time || self.ended {
+    pub fn render(&self, t: f32, aspect_ratio: f32) {
+        if t < self.start_time || self.ended {
             return;
         }
         gl_use_material(self.material);
-        let top = 1. / res.aspect_ratio;
+        let top = 1. / aspect_ratio;
         let r = Rect::new(-1., -top, 2., top * 2.);
         let s = source_of_image(&self.tex_y, r, self.scale_type).unwrap_or_else(|| Rect::new(0., 0., 1., 1.));
         let dim = 1. - self.dim.now();
@@ -177,6 +181,7 @@ uniform sampler2D tex_u;
 uniform sampler2D tex_v;
 
 void main() {
+    float clamp = step(uv.x, 1.0) * step(0.0, uv.x) * step(uv.y, 1.0) * step(0.0, uv.y);
     vec3 yuv = vec3(
         texture2D(tex_y, uv).a,
         texture2D(tex_u, uv).a - 0.5,
@@ -189,6 +194,6 @@ void main() {
         vec3(1.0,   1.772,   0.0  )
     );
 
-    gl_FragColor = vec4(yuv * color_matrix, 1.0) * color;
+    gl_FragColor = vec4(yuv * color_matrix, 1.0) * color * clamp;
 }"#;
 }

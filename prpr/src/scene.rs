@@ -453,7 +453,7 @@ impl Main {
                         match self.scenes.last_mut().unwrap().touch(&mut self.tm, touch) {
                             Ok(val) => !val,
                             Err(err) => {
-                                warn!("failed to handle touch: {:?}", err);
+                                warn!(?err, "failed to handle touch");
                                 last_err = Some(err);
                                 false
                             }

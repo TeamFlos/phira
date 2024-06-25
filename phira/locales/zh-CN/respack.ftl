@@ -1,4 +1,6 @@
 
+label = 资源包
+
 default = 默认
 load-failed = 加载资源包失败
 

@@ -202,10 +202,10 @@ pub fn source_of_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) -> Op
             let exp = rect.w / rect.h;
             let act = tex.width() / tex.height();
             Some(if exp > act {
-                let w = act / exp;
+                let w = exp / act;
                 Rect::new(0.5 - w / 2., 0., w, 1.)
             } else {
-                let h = exp / act;
+                let h = act / exp;
                 Rect::new(0., 0.5 - h / 2., 1., h)
             })
         }
@@ -527,6 +527,39 @@ pub fn parse_time(s: &str) -> Option<f32> {
         res += hrs.parse::<u32>().ok()? as f32 * 3600.;
     }
     Some(res)
+}
+
+pub fn open_url(url: &str) -> Result<()> {
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "android")] {
+            unsafe {
+                let env = miniquad::native::attach_jni_env();
+                let ctx = ndk_context::android_context().context();
+                let class = (**env).GetObjectClass.unwrap()(env, ctx);
+                let method =
+                    (**env).GetMethodID.unwrap()(env, class, b"openUrl\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                let url = std::ffi::CString::new(url.to_owned()).unwrap();
+                (**env).CallVoidMethod.unwrap()(
+                    env,
+                    ctx,
+                    method,
+                    (**env).NewStringUTF.unwrap()(env, url.as_ptr()),
+                );
+            }
+        } else if #[cfg(target_os = "ios")] {
+            unsafe {
+                use crate::objc::*;
+
+                let application: ObjcId = msg_send![class!(UIApplication), sharedApplication];
+                let url: ObjcId = msg_send![class!(NSURL), URLWithString: str_to_ns(url)];
+                let _: () = msg_send![application, openURL: url];
+            }
+        } else {
+            open::that(url)?;
+        }
+    }
+
+    Ok(())
 }
 
 mod shader {

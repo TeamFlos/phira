@@ -4,6 +4,7 @@ use macroquad::texture::load_texture;
 use prpr::ext::SafeTexture;
 
 pub struct Icons {
+    pub icon: SafeTexture,
     pub play: SafeTexture,
     pub medal: SafeTexture,
     pub respack: SafeTexture,
@@ -24,11 +25,14 @@ pub struct Icons {
     pub filter: SafeTexture,
     pub r#mod: SafeTexture,
     pub star: SafeTexture,
+
+    pub r#abstract: SafeTexture,
 }
 
 impl Icons {
     pub async fn new() -> Result<Self> {
         Ok(Self {
+            icon: load_texture("icon.png").await?.into(),
             play: load_texture("resume.png").await?.into(),
             medal: load_texture("medal.png").await?.into(),
             respack: load_texture("respack.png").await?.into(),
@@ -49,6 +53,8 @@ impl Icons {
             filter: SafeTexture::from(load_texture("filter.png").await?).with_mipmap(),
             r#mod: SafeTexture::from(load_texture("mod.png").await?).with_mipmap(),
             star: SafeTexture::from(load_texture("star.png").await?).with_mipmap(),
+
+            r#abstract: load_texture("abstract.jpg").await?.into(),
         })
     }
 }

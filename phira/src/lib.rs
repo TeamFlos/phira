@@ -3,6 +3,7 @@ prpr::tl_file!("common" ttl crate::);
 #[cfg(feature = "closed")]
 mod inner;
 
+mod anim;
 mod charts_view;
 mod client;
 mod data;
@@ -13,8 +14,11 @@ mod mp;
 mod page;
 mod popup;
 mod rate;
+mod resource;
 mod scene;
+mod tabs;
 mod tags;
+mod threed;
 mod uml;
 
 use anyhow::Result;
@@ -22,7 +26,8 @@ use data::Data;
 use macroquad::prelude::*;
 use prpr::{
     build_conf,
-    core::init_assets,
+    core::{init_assets, PGR_FONT},
+    ext::SafeTexture,
     l10n::{set_prefered_locale, GLOBAL, LANGS},
     log,
     scene::{show_error, show_message},
@@ -44,6 +49,18 @@ pub static mut DATA: Option<Data> = None;
 pub async fn load_res(name: &str) -> Vec<u8> {
     let bytes = load_file(name).await.unwrap();
     inner::resolve_data(bytes)
+}
+
+#[allow(unused)]
+pub async fn load_res_tex(name: &str) -> SafeTexture {
+    #[cfg(feature = "closed")]
+    {
+        let bytes = load_res(name).await;
+        let image = image::load_from_memory(&bytes).unwrap();
+        image.into()
+    }
+    #[cfg(not(feature = "closed"))]
+    prpr::ext::BLACK_TEXTURE.clone()
 }
 
 pub fn sync_data() {
@@ -93,6 +110,10 @@ mod dir {
         } else {
             ensure("cache")
         }
+    }
+
+    pub fn bold_font_path() -> Result<String> {
+        Ok(format!("{}/bold.ttf", root()?))
     }
 
     pub fn cache_image_local() -> Result<String> {
@@ -180,10 +201,13 @@ async fn the_main() -> Result<()> {
         anti_addiction_action("startup", Some(format!("phira-{}", me.id)));
     }
 
-    let font = FontArc::try_from_vec(load_file("font.ttf").await?)?;
-    let mut painter = TextPainter::new(font);
+    let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
+    PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font, None)));
 
-    let mut main = Main::new(Box::new(MainScene::new().await?), TimeManager::default(), None).await?;
+    let font = FontArc::try_from_vec(load_file("font.ttf").await?)?;
+    let mut painter = TextPainter::new(font.clone(), None);
+
+    let mut main = Main::new(Box::new(MainScene::new(font).await?), TimeManager::default(), None).await?;
 
     let tm = TimeManager::default();
     let mut fps_time = -1;
@@ -276,7 +300,7 @@ fn show_and_exit(msg: &str) {
 pub extern "C" fn quad_main() {
     macroquad::Window::from_config(build_conf(), async {
         if let Err(err) = the_main().await {
-            error!("Error: {:?}", err);
+            error!(?err, "global error");
         }
     });
 }
@@ -325,15 +349,13 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_: *mut std
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDataPath(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
-    let env = crate::miniquad::native::attach_jni_env();
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDataPath(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
     *DATA_PATH.lock().unwrap() = Some(string_from_java(env, path));
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setTempDir(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
-    let env = crate::miniquad::native::attach_jni_env();
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setTempDir(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
     let path = string_from_java(env, path);
     std::env::set_var("TMPDIR", path.clone());
     *CACHE_DIR.lock().unwrap() = Some(path);
@@ -347,10 +369,8 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDpi(_: *mut std::ffi::c
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setChosenFile(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, file: ndk_sys::jstring) {
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setChosenFile(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, file: ndk_sys::jstring) {
     use prpr::scene::CHOSEN_FILE;
-
-    let env = crate::miniquad::native::attach_jni_env();
     CHOSEN_FILE.lock().unwrap().1 = Some(string_from_java(env, file));
 }
 
@@ -372,10 +392,8 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_: *mut 
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setInputText(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, text: ndk_sys::jstring) {
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_setInputText(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, text: ndk_sys::jstring) {
     use prpr::scene::INPUT_TEXT;
-
-    let env = crate::miniquad::native::attach_jni_env();
     INPUT_TEXT.lock().unwrap().1 = Some(string_from_java(env, text));
 }
 

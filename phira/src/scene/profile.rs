@@ -12,7 +12,7 @@ use anyhow::Result;
 use chrono::Local;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
+    ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
@@ -38,12 +38,15 @@ pub struct ProfileScene {
     user: Option<Arc<User>>,
     user_badges: Vec<String>,
 
+    pf_scroll: Scroll,
+
     background: SafeTexture,
 
     icon_back: SafeTexture,
     icon_user: SafeTexture,
 
     btn_back: RectButton,
+    btn_open_web: DRectButton,
     btn_logout: DRectButton,
     btn_delete: DRectButton,
 
@@ -75,12 +78,15 @@ impl ProfileScene {
             user: None,
             user_badges: Vec::new(),
 
+            pf_scroll: Scroll::new(),
+
             background: TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap()),
 
             icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
             icon_user,
 
             btn_back: RectButton::new(),
+            btn_open_web: DRectButton::new(),
             btn_logout: DRectButton::new(),
             btn_delete: DRectButton::new(),
 
@@ -144,6 +150,7 @@ impl Scene for ProfileScene {
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         let t = tm.now() as f32;
 
+        self.pf_scroll.update(t);
         self.scroll.update(t);
 
         if let Some(task) = &mut self.load_task {
@@ -238,13 +245,23 @@ impl Scene for ProfileScene {
     }
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
+        if self.sf.transiting() {
+            return Ok(true);
+        }
         if self.avatar_task.is_some() {
             return Ok(true);
         }
         let t = tm.now() as f32;
+        if self.pf_scroll.touch(touch, t) {
+            return Ok(true);
+        }
         if self.btn_back.touch(touch) {
             button_hit();
             self.sf.next(t, NextScene::Pop);
+            return Ok(true);
+        }
+        if self.btn_open_web.touch(touch, t) {
+            open_url(&format!("https://phira.moe/user/{}", self.id))?;
             return Ok(true);
         }
         if self.btn_logout.touch(touch, t) {
@@ -306,56 +323,70 @@ impl Scene for ProfileScene {
         ui.fill_path(&r.rounded(radius), ui.background());
 
         if let Some(user) = &self.user {
-            let pad = 0.02;
-            let mw = r.w - pad * 2.;
-            let cx = r.center().x;
-            let radius = 0.12;
-            let r = ui.avatar(cx, r.y + radius + 0.05, radius, WHITE, t, UserManager::opt_avatar(self.id, &self.icon_user));
-            self.avatar_btn.set(ui, r);
-            let r = ui
-                .text(&user.name)
-                .size(0.74)
-                .pos(cx, r.bottom() + 0.03)
-                .anchor(0.5, 0.)
-                .max_width(mw)
-                .color(user.name_color())
-                .draw();
-            let r = ui
-                .text(format!("RKS {:.2}", user.rks))
-                .size(0.5)
-                .pos(cx, r.bottom() + 0.01)
-                .anchor(0.5, 0.)
-                .draw();
-            let mut r = ui
-                .text(user.bio.as_deref().unwrap_or(""))
-                .pos(cx, r.bottom() + 0.01)
-                .anchor(0.5, 0.)
-                .multiline()
-                .max_width(mw)
-                .size(0.4)
-                .draw();
-            if !self.user_badges.is_empty() {
-                r = ui
-                    .text(self.user_badges.join(" "))
-                    .pos(cx, r.bottom() + 0.01)
-                    .anchor(0.5, 0.)
-                    .size(0.5)
-                    .draw();
-            }
-            let r = ui
-                .text(tl!("last-login", "time" => user.last_login.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()))
-                .pos(cx, r.bottom() + 0.01)
-                .anchor(0.5, 0.)
-                .size(0.4)
-                .color(semi_white(0.6))
-                .draw();
-            if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
-                let hw = 0.2;
-                let mut r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
-                self.btn_logout.render_text(ui, r, t, 1., tl!("logout"), 0.6, false);
-                r.y += r.h + 0.02;
-                self.btn_delete.render_text(ui, r, t, 1., tl!("delete"), 0.6, false);
-            }
+            ui.scope(|ui| {
+                ui.dx(r.x);
+                ui.dy(r.y);
+                self.pf_scroll.size((r.w, ui.top - r.y));
+                self.pf_scroll.render(ui, |ui| {
+                    ui.dx(-r.x);
+                    ui.dy(-r.y);
+                    let ow = r.w;
+                    let oy = r.y;
+                    let pad = 0.02;
+                    let mw = r.w - pad * 2.;
+                    let cx = r.center().x;
+                    let radius = 0.12;
+                    let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icon_user));
+                    self.avatar_btn.set(ui, r);
+                    let r = ui
+                        .text(&user.name)
+                        .size(0.74)
+                        .pos(cx, r.bottom() + 0.03)
+                        .anchor(0.5, 0.)
+                        .max_width(mw)
+                        .color(user.name_color())
+                        .draw();
+                    let r = ui
+                        .text(format!("RKS {:.2}", user.rks))
+                        .size(0.5)
+                        .pos(cx, r.bottom() + 0.01)
+                        .anchor(0.5, 0.)
+                        .draw();
+                    let mut r = ui
+                        .text(user.bio.as_deref().unwrap_or(""))
+                        .pos(cx, r.bottom() + 0.01)
+                        .anchor(0.5, 0.)
+                        .multiline()
+                        .max_width(mw)
+                        .size(0.4)
+                        .draw();
+                    if !self.user_badges.is_empty() {
+                        r = ui
+                            .text(self.user_badges.join(" "))
+                            .pos(cx, r.bottom() + 0.01)
+                            .anchor(0.5, 0.)
+                            .size(0.5)
+                            .draw();
+                    }
+                    let r = ui
+                        .text(tl!("last-login", "time" => user.last_login.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()))
+                        .pos(cx, r.bottom() + 0.01)
+                        .anchor(0.5, 0.)
+                        .size(0.4)
+                        .color(semi_white(0.6))
+                        .draw();
+                    let hw = 0.2;
+                    let mut r = Rect::new(r.center().x - hw, r.bottom() + 0.02, hw * 2., 0.1);
+                    self.btn_open_web.render_text(ui, r, t, ttl!("open-in-web"), 0.6, true);
+                    r.y += r.h + 0.02;
+                    if get_data().me.as_ref().map_or(false, |it| it.id == self.id) {
+                        self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
+                        r.y += r.h + 0.02;
+                        self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
+                    }
+                    (ow, r.bottom() - oy + 0.04)
+                });
+            });
         } else {
             ui.loading(r.center().x, (r.y + r.bottom().min(ui.top)) / 2., t, WHITE, ());
         }
@@ -377,33 +408,33 @@ impl Scene for ProfileScene {
                         for i in 0..((n + 1) / 2) {
                             for j in 0..(n - i * 2).min(2) {
                                 let Some(item) = iter.next() else { unreachable!() };
-                                f.render(ui, t, |ui, c| {
+                                f.render(ui, t, |ui| {
                                     let r = Rect::new(j as f32 * r.w / 2. + pad, r.y + ui.top + i as f32 * h, r.w / 2. - pad * 2., h - pad * 2.);
                                     if r.y - o > ui.top * 2. || r.bottom() - o < 0. {
                                         return;
                                     }
                                     item.illu.notify();
-                                    let (r, path) = item
-                                        .btn
-                                        .render_shadow(ui, r, t, c.a, |r| (*item.illu.texture.0, r, ScaleType::CropCenter, c));
-                                    ui.fill_path(&path, semi_black(0.6));
+                                    item.btn.render_shadow(ui, r, t, |ui, path| {
+                                        ui.fill_path(&path, (*item.illu.texture.0, r));
+                                        ui.fill_path(&path, semi_black(0.6));
+                                    });
 
                                     let icon = icon_index(item.record.score as _, item.record.full_combo);
                                     let s = r.h - pad * 2.;
                                     let ir = Rect::new(r.x + pad, r.y + pad, s, s);
-                                    ui.fill_rect(ir, (*self.rank_icons[icon], ir, ScaleType::Fit, c));
+                                    ui.fill_rect(ir, (*self.rank_icons[icon], ir, ScaleType::Fit));
 
                                     let lf = ir.right() + 0.02;
 
                                     if let Some(Ok(name)) = item.name.get().as_ref() {
-                                        ui.text(name).pos(lf, ir.y).max_width(r.right() - lf - 0.03).size(0.56).color(c).draw();
+                                        ui.text(name).pos(lf, ir.y).max_width(r.right() - lf - 0.03).size(0.56).draw();
                                     }
 
                                     ui.text(format!("{:07} {}", item.record.score, if item.record.full_combo { "[FC]" } else { "" }))
                                         .pos(lf, ir.bottom() - 0.02)
                                         .anchor(0., 1.)
                                         .size(0.6)
-                                        .color(Color { a: c.a * 0.6, ..c })
+                                        .color(semi_white(0.6))
                                         .draw();
                                 });
                             }
