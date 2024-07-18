@@ -1,3 +1,5 @@
+//! Time consuming task management.
+
 use std::{
     future::Future,
     sync::{Arc, Mutex, MutexGuard},

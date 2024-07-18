@@ -1,3 +1,5 @@
+//! Directory helper
+
 use anyhow::{bail, Result};
 use std::{
     fs::{File, ReadDir},

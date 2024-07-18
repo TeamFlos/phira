@@ -2,6 +2,7 @@ use super::{AnimFloat, AnimVector, Color, Matrix, Resource, Vector};
 use macroquad::prelude::*;
 use nalgebra::Rotation2;
 
+/// Describes the animation of an in-game object's local coordinate system in the parent coordinate system
 #[derive(Default)]
 pub struct Object {
     pub alpha: AnimFloat,
@@ -72,6 +73,7 @@ impl Object {
     }
 }
 
+/// Describes the animation of an in-game object in its local coordinate system
 #[derive(Default, Clone)]
 pub struct CtrlObject {
     pub alpha: AnimFloat,

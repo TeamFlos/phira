@@ -1,3 +1,6 @@
+//! Configuration module of the playing environment.\
+//! e.g. player name, volume, speed, autoplay, etc.
+
 use bitflags::bitflags;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};

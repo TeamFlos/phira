@@ -1,3 +1,5 @@
+//! File system abstraction
+
 use crate::{ext::spawn_task, info::ChartInfo};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;

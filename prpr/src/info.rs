@@ -1,3 +1,5 @@
+//! Chart metadata
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
