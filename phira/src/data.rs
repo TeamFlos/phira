@@ -119,8 +119,8 @@ impl Data {
             let entry = entry?;
             let filename = entry.file_name();
             let filename = filename.to_str().unwrap();
-            let filename = format!("download/{filename}");
             let Ok(id): Result<i32, _> = filename.parse() else { continue };
+            let filename = format!("download/{filename}");
             if occurred.contains(&filename) {
                 continue;
             }
@@ -138,6 +138,14 @@ impl Data {
                     played_unlock: false,
                 });
             }
+        }
+        let respacks: HashSet<_> = self.respacks.iter().map(|s| s.clone()).collect();
+        for entry in std::fs::read_dir(dir::respacks()?)? {
+            let entry = entry?;
+            let filename = entry.file_name();
+            let filename = filename.to_str().unwrap().to_string();
+            if respacks.contains(&filename) {continue}
+            self.respacks.push(filename);
         }
         if let Some(res_pack_path) = &mut self.config.res_pack_path {
             if res_pack_path.starts_with('/') {
