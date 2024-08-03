@@ -259,7 +259,11 @@ impl ChartsView {
                             format!("download/{}", item.chart.as_ref().unwrap().info.id.unwrap())
                         };
                         std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
-                        data.charts.remove(data.find_chart_by_path(path.as_str()).unwrap());
+
+                        if let Some(chart) = data.find_chart_by_path(path.as_str()) {
+                            data.charts.remove(chart);
+                        }
+
                         save_data()?;
                         NEED_UPDATE.store(true, Ordering::SeqCst);
                     } else {
