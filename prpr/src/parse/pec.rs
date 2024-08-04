@@ -220,8 +220,8 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
             offset = Some(it.take_f32()? / 1000. - 0.15);
         } else {
             let Some(cmd) = it.next() else {
-				return Ok(());
-			};
+                return Ok(());
+            };
             let cs: Vec<_> = cmd.chars().collect();
             if cs.len() > 2 {
                 ptl!(bail "unknown-command", "cmd" => cmd);

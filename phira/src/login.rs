@@ -4,7 +4,8 @@ use crate::{
     client::{Client, LoginParams, User, UserManager},
     get_data_mut,
     page::Fader,
-    save_data, scene::check_read_tos_and_policy,
+    save_data,
+    scene::check_read_tos_and_policy,
 };
 use anyhow::Result;
 use macroquad::prelude::*;

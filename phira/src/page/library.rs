@@ -15,7 +15,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
 use prpr::{
-    ext::{semi_black, JoinToString, RectExt, SafeTexture, ScaleType, LocalTask, poll_future},
+    ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
     task::Task,
     ui::{button_hit, DRectButton, RectButton, Ui},
@@ -362,9 +362,7 @@ impl Page for LibraryPage {
         }
         if self.tabs.selected_mut().view.clicked_special {
             let icons = Arc::clone(&self.icons);
-            self.next_page_task = Some(Box::pin(async move {
-                Ok(NextPage::Overlay(Box::new(CollectionPage::new(icons).await?)))
-            }));
+            self.next_page_task = Some(Box::pin(async move { Ok(NextPage::Overlay(Box::new(CollectionPage::new(icons).await?))) }));
             self.tabs.selected_mut().view.clicked_special = false;
         }
         if let Some(task) = &mut self.next_page_task {
