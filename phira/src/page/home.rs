@@ -11,7 +11,7 @@ use crate::{
     icons::Icons,
     login::Login,
     save_data,
-    scene::{load_tos_and_policy, ProfileScene},
+    scene::ProfileScene,
     sync_data,
     threed::ThreeD,
 };
@@ -355,7 +355,6 @@ impl Page for HomePage {
             self.sf.enter(s.t);
             self.need_back = false;
         }
-        load_tos_and_policy();
         self.fetch_has_new();
         Ok(())
     }

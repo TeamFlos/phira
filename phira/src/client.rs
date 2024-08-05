@@ -19,7 +19,6 @@ pub struct Client;
 
 // const API_URL: &str = "http://localhost:2924";
 const API_URL: &str = "https://api.phira.cn";
-const WEB_URL: &str = "https://phira.moe";
 
 pub fn basic_client_builder() -> ClientBuilder {
     let mut builder = reqwest::ClientBuilder::new();
@@ -213,14 +212,6 @@ impl Client {
             .json()
             .await?;
         Ok(resp.id)
-    }
-    pub async fn get_tos_and_pp(language_id: &str) -> Result<String> {
-        let resp = recv_raw(CLIENT.load().request(Method::GET, WEB_URL.to_owned() + "/tos_and_pp_plaintext_"+ language_id)).await?.text().await?;
-        Ok(resp)
-    }
-    pub async fn get_tos_and_pp_version() -> Result<String> {
-        let resp= recv_raw(CLIENT.load().request(Method::GET, WEB_URL.to_owned() + "/tos_policy_version")).await?.text().await?;
-        Ok(resp)
     }
 }
 
