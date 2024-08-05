@@ -4,7 +4,8 @@ use crate::{
     client::{Client, LoginParams, User, UserManager},
     get_data_mut,
     page::Fader,
-    save_data, scene::check_read_tos_and_policy,
+    save_data,
+    scene::{check_read_tos_and_policy, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -61,6 +62,12 @@ pub struct Login {
     in_reg: bool,
 
     task: Option<(&'static str, Task<Result<Option<User>>>)>,
+    after_accept_tos: Option<NextAction>,
+}
+
+enum NextAction {
+    Login,
+    Register,
 }
 
 impl Login {
@@ -92,6 +99,7 @@ impl Login {
             in_reg: false,
 
             task: None,
+            after_accept_tos: None,
         }
     }
 
@@ -164,6 +172,7 @@ impl Login {
             }
             if self.btn_reg.touch(touch, t) {
                 if !check_read_tos_and_policy() {
+                    self.after_accept_tos = Some(NextAction::Register);
                     return true;
                 }
                 if let Some(error) = self.register() {
@@ -173,6 +182,7 @@ impl Login {
             }
             if self.btn_login.touch(touch, t) {
                 if !check_read_tos_and_policy() {
+                    self.after_accept_tos = Some(NextAction::Login);
                     return true;
                 }
                 let email = self.t_email.clone();
@@ -211,6 +221,30 @@ impl Login {
                 };
                 *tmp = text;
             }
+        }
+        let just_accepted = *JUST_ACCEPTED_TOS.lock().unwrap();
+        if just_accepted {
+            match self.after_accept_tos {
+                Some(NextAction::Login) => {
+                    let email = self.t_email.clone();
+                    let pwd = self.t_pwd.clone();
+                    self.start("login", async move {
+                        Client::login(LoginParams::Password {
+                            email: &email,
+                            password: &pwd,
+                        })
+                        .await?;
+                        Ok(Some(Client::get_me().await?))
+                    });
+                }
+                Some(NextAction::Register) => {
+                    if let Some(error) = self.register() {
+                        show_message(error).error();
+                    }
+                }
+                None => ()
+            }
+            self.after_accept_tos = None;
         }
         if let Some((action, task)) = &mut self.task {
             if let Some(res) = task.take() {
