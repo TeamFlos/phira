@@ -17,12 +17,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::warn;
-use zip::{write::FileOptions, CompressionMethod, ZipArchive, ZipWriter};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
 pub fn update_zip<R: Read + Seek>(zip: &mut ZipArchive<R>, patches: HashMap<String, Vec<u8>>) -> Result<Vec<u8>> {
     let mut buffer = Vec::new();
     let mut w = ZipWriter::new(Cursor::new(&mut buffer));
-    let options = FileOptions::default()
+    let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
         .unix_permissions(0o755);
     for i in 0..zip.len() {
@@ -44,7 +44,6 @@ pub fn update_zip<R: Read + Seek>(zip: &mut ZipArchive<R>, patches: HashMap<Stri
         w.write_all(&data)?;
     }
     w.finish()?;
-    drop(w);
     Ok(buffer)
 }
 
@@ -277,8 +276,8 @@ fn info_from_txt(text: &str) -> Result<ChartInfo> {
     let kvs = it
         .map(|line| -> Result<(&str, String)> {
             let Some((key, value)) = line.split_once(": ") else {
-            bail!("expected \"Key: Value\"");
-        };
+                bail!("expected \"Key: Value\"");
+            };
             Ok((key, value.to_string()))
         })
         .collect::<Result<Vec<_>>>()?;
