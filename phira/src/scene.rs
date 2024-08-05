@@ -38,7 +38,7 @@ use prpr::{
     ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     info::ChartInfo,
-    scene::show_error,
+    scene::{show_error, show_message},
     task::Task,
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
@@ -65,7 +65,7 @@ pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::d
 pub static TOS_AND_POLICY: OnceCell<String> = OnceCell::new();
 pub static TOS_AND_POLICY_VERSION: OnceCell<String> = OnceCell::new();
 pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, /* version */ String)>>>>>> = Lazy::new(Mutex::default);
-
+pub static JUST_ACCEPTED_TOS: Lazy<Mutex<bool>> = Lazy::new(Mutex::default);
 #[derive(Clone)]
 pub struct AssetsChartFileSystem(pub String, pub String);
 
@@ -133,9 +133,9 @@ pub fn check_read_tos_and_policy() -> bool {
     if get_data().read_tos_and_policy_version.is_some() {
         return true;
     }
-    let mut binding = LOAD_TOS_TASK.lock();
-    let tos_task = binding.as_mut().unwrap().deref_mut();
-    if let Some(task) = tos_task {
+    let binding = LOAD_TOS_TASK.lock();
+    let mut tos_task = binding.unwrap();
+    if let Some(task) = &mut *tos_task {
         if let Some(result) = task.take() {
             match result {
                 Ok(Some((string, ver))) => {
@@ -154,16 +154,19 @@ pub fn check_read_tos_and_policy() -> bool {
             *tos_task = None;
         }
     }
-    drop(binding);
-    if let (Some(tos_policy),Some(version)) = (TOS_AND_POLICY.get(), TOS_AND_POLICY_VERSION.get()) {
+    if let (Some(tos_policy), Some(version)) = (TOS_AND_POLICY.get(), TOS_AND_POLICY_VERSION.get()) {
         Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc") + "\n\n" + tos_policy.as_str())
             .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
             .listener(move |pos| match pos {
                 -2 | -1 => true,
-                0 => false,
+                0 => {
+                    show_message(ttl!("warn-deny-tos-policy")).warn();
+                    false
+                }
                 1 => {
                     get_data_mut().read_tos_and_policy_version = Some(version.clone());
                     let _ = save_data();
+                    *JUST_ACCEPTED_TOS.lock().unwrap() = true;
                     false
                 }
                 _ => unreachable!(),
@@ -180,7 +183,7 @@ pub fn load_tos_and_policy() {
     if TOS_AND_POLICY.get().is_some() || TOS_AND_POLICY_VERSION.get().is_some() {
         return;
     }
-    **LOAD_TOS_TASK.lock().as_mut().unwrap() = Some(Task::new(async {
+    *LOAD_TOS_TASK.lock().unwrap() = Some(Task::new(async {
         debug!("checking tos and policy update...");
         let new_version = Client::get_tos_and_pp_version().await?;
         if let Some(current) = &get_data().read_tos_and_policy_version {
@@ -188,14 +191,16 @@ pub fn load_tos_and_policy() {
                 // updated, reset read
                 debug!("has update, new version {new_version}");
                 get_data_mut().read_tos_and_policy_version = None;
-            }
-            else {
+            } else {
                 // no need to download, skipping
                 return Ok(None);
             }
         }
         debug!("loading tos and policy");
         let mut lang = get_data().language.clone().unwrap_or("en-us".to_owned()).to_ascii_lowercase();
+        if lang == "zh-tw" {
+            "zh-cn".clone_into(&mut lang);
+        }
         if lang != "zh-cn" {
             "en-us".clone_into(&mut lang);
         }

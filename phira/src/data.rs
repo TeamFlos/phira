@@ -1,6 +1,6 @@
 use crate::{
     client::{Character, Ptr, User},
-    dir, save_data,
+    dir,
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};

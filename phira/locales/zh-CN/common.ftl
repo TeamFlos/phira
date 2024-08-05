@@ -21,6 +21,7 @@ tos-and-policy-desc = 在使用由 TeamFlos 提供的 Phira 线上服务部分�
 tos-deny = 拒绝
 tos-accept = 同意
 fetch-tos-policy-failed = 获取服务条款和隐私政策内容失败
+warn-deny-tos-policy = 需接受条款才可登录
 
 open-in-web = 在网站中打开
 
