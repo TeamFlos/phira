@@ -17,9 +17,10 @@ chart-unstable = Unstable
 list-empty = Nothing here
 
 tos-and-policy = Terms of Service and Privacy Policy
-tos-and-policy-desc = You must read (by clicking here) and agree to our Terms of Service and Privacy Policy before using Phira online services provided by TeamFlos.
+tos-and-policy-desc = You must read and agree to our Terms of Service and Privacy Policy before using Phira online services provided by TeamFlos.
 tos-deny = Deny
 tos-accept = Accept
+fetch-tos-policy-failed = Failed to fetch Terms of Service and Privacy Policy
 
 open-in-web = Open in Web
 

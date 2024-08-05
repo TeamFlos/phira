@@ -16,21 +16,30 @@ mod song;
 pub use song::{Downloading, SongScene, RECORD_ID};
 
 mod unlock;
+use tracing::{debug, warn};
 pub use unlock::UnlockScene;
 
 mod profile;
 pub use profile::ProfileScene;
 
-use crate::{client::UserManager, data::LocalChart, dir, get_data, get_data_mut, page::Fader, save_data};
+use crate::{
+    client::{Client, UserManager},
+    data::LocalChart,
+    dir, get_data, get_data_mut,
+    page::Fader,
+    save_data, ttl,
+};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use prpr::{
     config::Mods,
     core::{BOLD_FONT, PGR_FONT},
-    ext::{open_url, semi_white, unzip_into, RectExt, SafeTexture},
+    ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     info::ChartInfo,
+    scene::show_error,
+    task::Task,
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
 use std::{
@@ -38,6 +47,7 @@ use std::{
     cell::RefCell,
     fs::File,
     io::{BufReader, Write},
+    ops::DerefMut,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -52,6 +62,9 @@ thread_local! {
 }
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
+pub static TOS_AND_POLICY: OnceCell<String> = OnceCell::new();
+pub static TOS_AND_POLICY_VERSION: OnceCell<String> = OnceCell::new();
+pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, /* version */ String)>>>>>> = Lazy::new(Mutex::default);
 
 #[derive(Clone)]
 pub struct AssetsChartFileSystem(pub String, pub String);
@@ -117,36 +130,79 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
 }
 
 pub fn check_read_tos_and_policy() -> bool {
-    if get_data().read_tos_and_policy {
+    if get_data().read_tos_and_policy_version.is_some() {
         return true;
     }
-
-    let mut opened = false;
-    Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc"))
-        .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
-        .listener(move |pos| match pos {
-            -2 => {
-                opened = true;
-                open_url("https://phira.moe/terms-of-use").unwrap();
-                true
-            }
-            -1 => true,
-            0 => false,
-            1 => {
-                if !opened {
-                    opened = true;
-                    open_url("https://phira.moe/terms-of-use").unwrap();
-                    return true;
+    let mut binding = LOAD_TOS_TASK.lock();
+    let tos_task = binding.as_mut().unwrap().deref_mut();
+    if let Some(task) = tos_task {
+        if let Some(result) = task.take() {
+            match result {
+                Ok(Some((string, ver))) => {
+                    let _ = TOS_AND_POLICY.set(string);
+                    let _ = TOS_AND_POLICY_VERSION.set(ver);
                 }
-                get_data_mut().read_tos_and_policy = true;
-                let _ = save_data();
-                false
+                Ok(None) => {
+                    warn!("should be unreachable");
+                }
+                Err(e) => {
+                    show_error(e.context(ttl!("fetch-tos-policy-failed")));
+                    *tos_task = None;
+                    return false;
+                }
             }
-            _ => unreachable!(),
-        })
-        .show();
-
+            *tos_task = None;
+        }
+    }
+    drop(binding);
+    if let (Some(tos_policy),Some(version)) = (TOS_AND_POLICY.get(), TOS_AND_POLICY_VERSION.get()) {
+        Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc") + "\n\n" + tos_policy.as_str())
+            .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
+            .listener(move |pos| match pos {
+                -2 | -1 => true,
+                0 => false,
+                1 => {
+                    get_data_mut().read_tos_and_policy_version = Some(version.clone());
+                    let _ = save_data();
+                    false
+                }
+                _ => unreachable!(),
+            })
+            .show();
+    } else {
+        warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
+        load_tos_and_policy();
+    }
     false
+}
+
+pub fn load_tos_and_policy() {
+    if TOS_AND_POLICY.get().is_some() || TOS_AND_POLICY_VERSION.get().is_some() {
+        return;
+    }
+    **LOAD_TOS_TASK.lock().as_mut().unwrap() = Some(Task::new(async {
+        debug!("checking tos and policy update...");
+        let new_version = Client::get_tos_and_pp_version().await?;
+        if let Some(current) = &get_data().read_tos_and_policy_version {
+            if current != &new_version {
+                // updated, reset read
+                debug!("has update, new version {new_version}");
+                get_data_mut().read_tos_and_policy_version = None;
+            }
+            else {
+                // no need to download, skipping
+                return Ok(None);
+            }
+        }
+        debug!("loading tos and policy");
+        let mut lang = get_data().language.clone().unwrap_or("en-us".to_owned()).to_ascii_lowercase();
+        if lang != "zh-cn" {
+            "en-us".clone_into(&mut lang);
+        }
+        let res = Client::get_tos_and_pp(&lang).await?;
+        debug!("loaded");
+        Ok(Some((res, new_version)))
+    }));
 }
 
 #[inline]
