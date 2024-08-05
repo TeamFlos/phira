@@ -19,7 +19,6 @@ pub struct Client;
 
 // const API_URL: &str = "http://localhost:2924";
 const API_URL: &str = "https://api.phira.cn";
-const WEB_URL: &str = "https://phira.moe";
 
 pub fn basic_client_builder() -> ClientBuilder {
     let mut builder = reqwest::ClientBuilder::new();
@@ -29,10 +28,14 @@ pub fn basic_client_builder() -> ClientBuilder {
     builder
 }
 
+fn client_locale() -> String {
+    get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string())
+}
+
 fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
     CLIENT_TOKEN.store(access_token.map(str::to_owned).into());
     let mut headers = header::HeaderMap::new();
-    headers.append(header::ACCEPT_LANGUAGE, header::HeaderValue::from_str(&get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string()))?);
+    headers.append(header::ACCEPT_LANGUAGE, header::HeaderValue::from_str(&client_locale())?);
     if let Some(token) = access_token {
         let mut auth_value = header::HeaderValue::from_str(&format!("Bearer {token}"))?;
         auth_value.set_sensitive(true);
@@ -102,7 +105,9 @@ impl Client {
     pub fn clear_cache<T: Object + 'static>(id: i32) -> Result<bool> {
         let map = obtain_map_cache::<T>();
         let mut guard = map.lock().unwrap();
-        let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else { unreachable!() };
+        let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
+            unreachable!()
+        };
         Ok(actual_map.pop(&id).is_some())
     }
 
@@ -110,7 +115,9 @@ impl Client {
         {
             let map = obtain_map_cache::<T>();
             let mut guard = map.lock().unwrap();
-            let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else { unreachable!() };
+            let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
+                unreachable!()
+            };
             if let Some(value) = actual_map.get(&id) {
                 return Ok(Arc::clone(value));
             }
@@ -130,7 +137,7 @@ impl Client {
         let value = Arc::new(value);
         let map = obtain_map_cache::<T>();
         let mut guard = map.lock().unwrap();
-        let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else {
+        let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
             unreachable!()
         };
         actual_map.put(id, Arc::clone(&value));
@@ -214,13 +221,32 @@ impl Client {
             .await?;
         Ok(resp.id)
     }
-    pub async fn get_tos_and_pp(language_id: &str) -> Result<String> {
-        let resp = recv_raw(CLIENT.load().request(Method::GET, WEB_URL.to_owned() + "/tos_and_pp_plaintext_"+ language_id)).await?.text().await?;
-        Ok(resp)
-    }
-    pub async fn get_tos_and_pp_version() -> Result<String> {
-        let resp= recv_raw(CLIENT.load().request(Method::GET, WEB_URL.to_owned() + "/tos_policy_version")).await?.text().await?;
-        Ok(resp)
+
+    /// Returns Some(new_terms, modified) if the terms have been updated.
+    pub async fn fetch_terms(modified: Option<&str>) -> Result<Option<(String, String)>> {
+        let mut req = CLIENT.load().get(format!("{API_URL}/terms/{}.txt", client_locale()));
+        if let Some(modified) = modified {
+            req = req.header(header::IF_MODIFIED_SINCE, header::HeaderValue::from_str(modified)?);
+        }
+        let resp = req.send().await?;
+        if resp.status() == StatusCode::NOT_MODIFIED {
+            return Ok(None);
+        }
+        if !resp.status().is_success() {
+            bail!("failed to fetch terms: {:?}", resp.status());
+        }
+        let new_modified = resp
+            .headers()
+            .get(header::LAST_MODIFIED)
+            .and_then(|it| it.to_str().ok())
+            .map(str::to_owned)
+            .ok_or_else(|| anyhow!("invalid last-modified header"))?;
+        if Some(new_modified.as_str()) == modified {
+            // That mother fucker qiniu does not return NOT_MODIFIED
+            return Ok(None);
+        }
+        let new_terms = resp.text().await?;
+        Ok(Some((new_terms, new_modified)))
     }
 }
 

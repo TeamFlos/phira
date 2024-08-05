@@ -18,7 +18,7 @@ use prpr::{
     ui::{DRectButton, Dialog, Ui},
 };
 use regex::Regex;
-use std::{borrow::Cow, future::Future};
+use std::{borrow::Cow, future::Future, sync::atomic::Ordering};
 
 static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
@@ -171,7 +171,7 @@ impl Login {
                 return true;
             }
             if self.btn_reg.touch(touch, t) {
-                if !check_read_tos_and_policy(true) {
+                if !check_read_tos_and_policy(true, true) {
                     self.after_accept_tos = Some(NextAction::Register);
                     return true;
                 }
@@ -181,7 +181,7 @@ impl Login {
                 return true;
             }
             if self.btn_login.touch(touch, t) {
-                if !check_read_tos_and_policy(true) {
+                if !check_read_tos_and_policy(true, true) {
                     self.after_accept_tos = Some(NextAction::Login);
                     return true;
                 }
@@ -222,8 +222,7 @@ impl Login {
                 *tmp = text;
             }
         }
-        let just_accepted = *JUST_ACCEPTED_TOS.lock().unwrap();
-        if just_accepted {
+        if JUST_ACCEPTED_TOS.fetch_and(false, Ordering::Relaxed) {
             match self.after_accept_tos {
                 Some(NextAction::Login) => {
                     let email = self.t_email.clone();
@@ -242,7 +241,7 @@ impl Login {
                         show_message(error).error();
                     }
                 }
-                None => ()
+                None => (),
             }
             self.after_accept_tos = None;
         }

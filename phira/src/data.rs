@@ -85,7 +85,7 @@ pub struct Data {
     pub accept_invalid_cert: bool,
     // for compatibility
     pub read_tos_and_policy: bool,
-    pub read_tos_and_policy_version: Option<String>,
+    pub terms_modified: Option<String>,
     pub ignored_version: Option<semver::Version>,
     pub character: Option<Character>,
 }
@@ -160,7 +160,7 @@ impl Data {
         }
         if self.read_tos_and_policy {
             debug!("migrating from old version");
-            self.read_tos_and_policy_version = Some("61c95573d1d4e9092fe64e18b4125af48ed73110c395c178543f1f305f5899bd".to_owned());
+            self.terms_modified = Some("Mon, 05 Aug 2024 17:09:39 GMT".to_owned());
             self.read_tos_and_policy = false;
         }
         self.config.init();

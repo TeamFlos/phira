@@ -16,7 +16,6 @@ mod song;
 pub use song::{Downloading, SongScene, RECORD_ID};
 
 mod unlock;
-use tracing::{debug, warn};
 pub use unlock::UnlockScene;
 
 mod profile;
@@ -47,13 +46,13 @@ use std::{
     cell::RefCell,
     fs::File,
     io::{BufReader, Write},
-    ops::DerefMut,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
 };
+use tracing::{info, warn};
 use uuid::Uuid;
 
 thread_local! {
@@ -62,10 +61,9 @@ thread_local! {
 }
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
-pub static TOS_AND_POLICY: OnceCell<String> = OnceCell::new();
-pub static TOS_AND_POLICY_VERSION: OnceCell<String> = OnceCell::new();
-pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, /* version */ String)>>>>>> = Lazy::new(Mutex::default);
-pub static JUST_ACCEPTED_TOS: Lazy<Mutex<bool>> = Lazy::new(Mutex::default);
+pub static TERMS: OnceCell<Option<(String, String)>> = OnceCell::new();
+pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, String)>>>>>> = Lazy::new(Mutex::default);
+pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 #[derive(Clone)]
 pub struct AssetsChartFileSystem(pub String, pub String);
 
@@ -129,21 +127,18 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
         .show();
 }
 
-pub fn check_read_tos_and_policy(change_just_accepted: bool) -> bool {
-    if get_data().read_tos_and_policy_version.is_some() {
-        return true;
-    }
-    let binding = LOAD_TOS_TASK.lock();
-    let mut tos_task = binding.unwrap();
+pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bool {
+    let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
     if let Some(task) = &mut *tos_task {
         if let Some(result) = task.take() {
             match result {
-                Ok(Some((string, ver))) => {
-                    let _ = TOS_AND_POLICY.set(string);
-                    let _ = TOS_AND_POLICY_VERSION.set(ver);
-                }
-                Ok(None) => {
-                    warn!("should be unreachable"); 
+                Ok(res) => {
+                    if res.is_some() {
+                        info!("terms and policy updated");
+                        get_data_mut().terms_modified = None;
+                        let _ = save_data();
+                    }
+                    let _ = TERMS.set(res);
                 }
                 Err(e) => {
                     show_error(e.context(ttl!("fetch-tos-policy-failed")));
@@ -155,62 +150,55 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool) -> bool {
         }
     }
     drop(tos_task);
-    if let (Some(tos_policy), Some(version)) = (TOS_AND_POLICY.get(), TOS_AND_POLICY_VERSION.get()) {
-        Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc") + "\n\n" + tos_policy.as_str())
-            .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
-            .listener(move |pos| match pos {
-                -2 | -1 => true,
-                0 => {
-                    show_message(ttl!("warn-deny-tos-policy")).warn();
-                    false
-                }
-                1 => {
-                    get_data_mut().read_tos_and_policy_version = Some(version.clone());
-                    let _ = save_data();
-                    if change_just_accepted {
-                        *JUST_ACCEPTED_TOS.lock().unwrap() = true;
+    if get_data().terms_modified.is_some() && !strict {
+        return true;
+    }
+    match TERMS.get().clone() {
+        Some(Some((terms, modified))) => {
+            Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str())
+                .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
+                .listener(move |pos| match pos {
+                    -2 | -1 => true,
+                    0 => {
+                        show_message(ttl!("warn-deny-tos-policy")).warn();
+                        false
                     }
-                    false
-                }
-                _ => unreachable!(),
-            })
-            .show();
-    } else {
-        warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
-        load_tos_and_policy();
+                    1 => {
+                        get_data_mut().terms_modified = Some(modified.clone());
+                        let _ = save_data();
+                        if change_just_accepted {
+                            JUST_ACCEPTED_TOS.store(true, Ordering::Relaxed);
+                        }
+                        false
+                    }
+                    _ => unreachable!(),
+                })
+                .show();
+        }
+        Some(None) => {
+            // not modified
+        }
+        None => {
+            warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
+            load_tos_and_policy();
+        }
     }
     false
 }
 
 pub fn load_tos_and_policy() {
-    if TOS_AND_POLICY.get().is_some() || TOS_AND_POLICY_VERSION.get().is_some() {
+    if TERMS.get().is_some() {
         return;
     }
-    *LOAD_TOS_TASK.lock().unwrap() = Some(Task::new(async {
-        debug!("checking tos and policy update...");
-        let new_version = Client::get_tos_and_pp_version().await?;
-        if let Some(current) = &get_data().read_tos_and_policy_version {
-            if current != &new_version {
-                // updated, reset read
-                debug!("has update, new version {new_version}");
-                get_data_mut().read_tos_and_policy_version = None;
-            } else {
-                // no need to download, skipping
-                return Ok(None);
-            }
-        }
-        debug!("loading tos and policy");
-        let mut lang = get_data().language.clone().unwrap_or("en-us".to_owned()).to_ascii_lowercase();
-        if lang == "zh-tw" {
-            "zh-cn".clone_into(&mut lang);
-        }
-        if lang != "zh-cn" {
-            "en-us".clone_into(&mut lang);
-        }
-        let res = Client::get_tos_and_pp(&lang).await?;
-        debug!("loaded");
-        Ok(Some((res, new_version)))
-    }));
+    let mut guard = LOAD_TOS_TASK.lock().unwrap();
+    if guard.is_none() {
+        let modified = get_data().terms_modified.clone();
+        *guard = Some(Task::new(async move {
+            Client::fetch_terms(modified.as_deref())
+                .await
+                .context("failed to fetch terms")
+        }));
+    }
 }
 
 #[inline]
