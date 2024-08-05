@@ -154,6 +154,7 @@ pub fn check_read_tos_and_policy() -> bool {
             *tos_task = None;
         }
     }
+    drop(tos_task);
     if let (Some(tos_policy), Some(version)) = (TOS_AND_POLICY.get(), TOS_AND_POLICY_VERSION.get()) {
         Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc") + "\n\n" + tos_policy.as_str())
             .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])

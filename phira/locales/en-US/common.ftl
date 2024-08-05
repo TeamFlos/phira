@@ -21,7 +21,7 @@ tos-and-policy-desc = You must read and agree to our Terms of Service and Privac
 tos-deny = Deny
 tos-accept = Accept
 fetch-tos-policy-failed = Failed to fetch Terms of Service and Privacy Policy
-warn-deny-tos-policy = Can only login after agreed
+warn-deny-tos-policy = Accept to use online service
 
 open-in-web = Open in Web
 
