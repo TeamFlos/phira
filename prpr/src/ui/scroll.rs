@@ -292,7 +292,9 @@ impl Scroll {
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
-        let Some(matrix) = self.matrix else { return false; };
+        let Some(matrix) = self.matrix else {
+            return false;
+        };
         let pt = touch.position;
         let pt = matrix.transform_point(&Point::new(pt.x, pt.y));
         if touch.phase == TouchPhase::Started && (pt.x < 0. || pt.y < 0. || pt.x > self.size.0 || pt.y > self.size.1) {

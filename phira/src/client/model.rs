@@ -146,7 +146,9 @@ impl<T: Object + 'static> Ptr<T> {
         {
             let map = obtain_map_cache::<T>();
             let mut guard = map.lock().unwrap();
-            let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else { unreachable!() };
+            let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
+                unreachable!()
+            };
             if let Some(value) = actual_map.get(&self.id) {
                 return Ok(Arc::clone(value));
             }

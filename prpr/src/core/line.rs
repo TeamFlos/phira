@@ -103,7 +103,7 @@ pub struct JudgeLine {
     pub ctrl_obj: RefCell<CtrlObject>,
     pub kind: JudgeLineKind,
     /// Height Animation, decribes the `height` of the line at a specific time
-    /// 
+    ///
     /// The `height` here can be considered as the absolute 'y' coordinate of the notes attached to this line, which is calculated by
     /// ∫ v(t) dt, where v(t) is the speed of the line at time t.
     pub height: AnimFloat,
@@ -113,7 +113,7 @@ pub struct JudgeLine {
     pub parent: Option<usize>,
     pub z_index: i32,
     /// Whether to show notes below the line, here below is defined in the time axis, which means the note should already be judged
-    /// 
+    ///
     /// TODO: Not sure
     pub show_below: bool,
     pub attach_ui: Option<UIElement>,

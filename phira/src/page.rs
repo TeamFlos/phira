@@ -192,7 +192,7 @@ pub struct ChartItem {
     pub info: BriefChartInfo,
     pub local_path: Option<String>,
     pub illu: Illustration,
-    pub chart_type: ChartType
+    pub chart_type: ChartType,
 }
 
 #[derive(Clone, Copy)]

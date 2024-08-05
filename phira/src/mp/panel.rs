@@ -784,7 +784,7 @@ impl MPPanel {
                         let o = -(cn as f32 * (w + pad) - pad) / 2.;
                         for j in 0..cn {
                             let r = Rect::new(j as f32 * w + o, i as f32 * h, w, h);
-                            let Some(user) =  iter.next() else { unreachable!() };
+                            let Some(user) = iter.next() else { unreachable!() };
                             ui.avatar(r.x + 0.07, r.center().y, 0.05, t, UserManager::opt_avatar(user.id, &self.icon_user));
                             ui.text(user.name)
                                 .pos(r.x + 0.14, r.center().y)

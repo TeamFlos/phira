@@ -480,7 +480,9 @@ impl Judge {
             let t = time_of(touch);
             let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
             for (line_id, ((line, pos), (idx, st))) in chart.lines.iter_mut().zip(pos.iter()).zip(self.notes.iter_mut()).enumerate() {
-                let Some(pos) = pos[id] else { continue; };
+                let Some(pos) = pos[id] else {
+                    continue;
+                };
                 for id in &idx[*st..] {
                     let note = &mut line.notes[*id as usize];
                     if !matches!(note.judge, JudgeStatus::NotJudged | JudgeStatus::PreJudge) {

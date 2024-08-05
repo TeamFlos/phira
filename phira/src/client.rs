@@ -101,7 +101,9 @@ impl Client {
     pub fn clear_cache<T: Object + 'static>(id: i32) -> Result<bool> {
         let map = obtain_map_cache::<T>();
         let mut guard = map.lock().unwrap();
-        let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else { unreachable!() };
+        let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
+            unreachable!()
+        };
         Ok(actual_map.pop(&id).is_some())
     }
 
@@ -109,7 +111,9 @@ impl Client {
         {
             let map = obtain_map_cache::<T>();
             let mut guard = map.lock().unwrap();
-            let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else { unreachable!() };
+            let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
+                unreachable!()
+            };
             if let Some(value) = actual_map.get(&id) {
                 return Ok(Arc::clone(value));
             }
@@ -129,7 +133,7 @@ impl Client {
         let value = Arc::new(value);
         let map = obtain_map_cache::<T>();
         let mut guard = map.lock().unwrap();
-        let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else {
+        let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
             unreachable!()
         };
         actual_map.put(id, Arc::clone(&value));
