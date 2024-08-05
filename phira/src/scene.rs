@@ -129,7 +129,7 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
         .show();
 }
 
-pub fn check_read_tos_and_policy() -> bool {
+pub fn check_read_tos_and_policy(change_just_accepted: bool) -> bool {
     if get_data().read_tos_and_policy_version.is_some() {
         return true;
     }
@@ -167,7 +167,9 @@ pub fn check_read_tos_and_policy() -> bool {
                 1 => {
                     get_data_mut().read_tos_and_policy_version = Some(version.clone());
                     let _ = save_data();
-                    *JUST_ACCEPTED_TOS.lock().unwrap() = true;
+                    if change_just_accepted {
+                        *JUST_ACCEPTED_TOS.lock().unwrap() = true;
+                    }
                     false
                 }
                 _ => unreachable!(),
