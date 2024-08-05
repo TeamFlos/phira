@@ -116,8 +116,10 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
         .show();
 }
 
-pub fn check_read_tos_and_policy() -> bool {
-    if get_data().read_tos_and_policy {
+
+pub fn check_read_tos_and_policy(change_just_accepted: bool) -> bool {
+    if get_data().read_tos_and_policy_version.is_some() {
+
         return true;
     }
 
@@ -130,13 +132,26 @@ pub fn check_read_tos_and_policy() -> bool {
                 open_url("https://phira.moe/terms-of-use").unwrap();
                 true
             }
-            -1 => true,
-            0 => false,
-            1 => {
-                if !opened {
-                    opened = true;
-                    open_url("https://phira.moe/terms-of-use").unwrap();
-                    return true;
+            *tos_task = None;
+        }
+    }
+    drop(tos_task);
+    if let (Some(tos_policy), Some(version)) = (TOS_AND_POLICY.get(), TOS_AND_POLICY_VERSION.get()) {
+        Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc") + "\n\n" + tos_policy.as_str())
+            .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
+            .listener(move |pos| match pos {
+                -2 | -1 => true,
+                0 => {
+                    show_message(ttl!("warn-deny-tos-policy")).warn();
+                    false
+                }
+                1 => {
+                    get_data_mut().read_tos_and_policy_version = Some(version.clone());
+                    let _ = save_data();
+                    if change_just_accepted {
+                        *JUST_ACCEPTED_TOS.lock().unwrap() = true;
+                    }
+                    false
                 }
                 get_data_mut().read_tos_and_policy = true;
                 let _ = save_data();

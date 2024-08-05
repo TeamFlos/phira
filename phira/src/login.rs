@@ -163,7 +163,8 @@ impl Login {
                 return true;
             }
             if self.btn_reg.touch(touch, t) {
-                if !check_read_tos_and_policy() {
+                if !check_read_tos_and_policy(true) {
+                    self.after_accept_tos = Some(NextAction::Register);
                     return true;
                 }
                 if let Some(error) = self.register() {
@@ -172,7 +173,8 @@ impl Login {
                 return true;
             }
             if self.btn_login.touch(touch, t) {
-                if !check_read_tos_and_policy() {
+                if !check_read_tos_and_policy(true) {
+                    self.after_accept_tos = Some(NextAction::Login);
                     return true;
                 }
                 let email = self.t_email.clone();
