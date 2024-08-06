@@ -17,9 +17,11 @@ chart-unstable = 未上架
 list-empty = 空空如也
 
 tos-and-policy = 《服務條款》和《隱私政策》
-tos-and-policy-desc = 在使用由 TeamFlos 提供的 Phira 線上服務部分之前，你必須 *點擊此處* 閱讀並同意我們的《服務條款》和《隱私政策》。
+tos-and-policy-desc = 在使用由 TeamFlos 提供的 Phira 線上服務部分之前，你必須閱讀並同意我們的《服務條款》和《隱私政策》。
 tos-deny = 拒絕
 tos-accept = 同意
+fetch-tos-policy-failed = 獲取服務條款和隱私條款內容失敗
+warn-deny-tos-policy = 請接受條款以使用線上服務
 
 open-in-web = 在網站中打開
 
