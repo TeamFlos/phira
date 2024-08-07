@@ -2471,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "phira-main"
-version = "0.6.2"
+version = "0.6.3-pre1"
 dependencies = [
  "phira",
 ]
@@ -2646,7 +2646,7 @@ dependencies = [
 
 [[package]]
 name = "prpr"
-version = "0.6.2"
+version = "0.6.3-pre1"
 dependencies = [
  "ahash",
  "anyhow",

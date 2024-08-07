@@ -1,7 +1,4 @@
 [workspace]
-version = "0.6.3-pre1"
-edition = "2021"
-license = "GPL-3.0-only"
 members = [
 	"prpr",
 	"prpr-avc",
@@ -11,6 +8,11 @@ members = [
 	"phira-monitor",
 ]
 resolver = "2"
+
+[workspace.package]
+version = "0.6.3-pre1"
+edition = "2021"
+license = "GPL-3.0-only"
 
 [workspace.dependencies]
 tokio = "=1.36.0"
