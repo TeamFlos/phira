@@ -9,6 +9,9 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+tokio = "=1.36.0"
+
 [profile.release]
 opt-level = 2
 strip = true

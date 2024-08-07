@@ -39,12 +39,19 @@ regex = "1.7.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
-symphonia = { version = "0.5", features = ["flac", "mp3", "ogg", "vorbis", "wav", "pcm"] }
+symphonia = { version = "0.5", features = [
+	"flac",
+	"mp3",
+	"ogg",
+	"vorbis",
+	"wav",
+	"pcm",
+] }
 sys-locale = "0.3.1"
 tempfile = "3.3.0"
 tracing = "0.1.37"
 unic-langid = { version = "0.9.1", features = ["macros"] }
-zip = { version = "2.1.6", default-features = false, features = ["deflate"] }
+zip = { version = "0.6.4", default-features = false, features = ["deflate"] }
 
 byteorder = "1.4.3"
 chrono = { version = "0.4.24", features = ["serde"] }
@@ -63,6 +70,10 @@ colored = { version = "=2.0.0", optional = true }
 
 prpr-avc = { path = "../prpr-avc", optional = true }
 
+ahash = "=0.8.6"
+cfg-expr = "=0.15.4"
+system-deps = "=6.1.2"
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = "0.14.1"
 open = "5.0.0"
@@ -76,16 +87,18 @@ block = "0.1.6"
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
 ndk-context = "0.1"
-sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = ["oboe"] }
+sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = [
+	"oboe",
+] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 sasa = { git = "https://github.com/Mivik/sasa" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { version = "1.23", features = ["rt-multi-thread", "fs"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-tokio = "1.23"
+tokio = { workspace = true }
 web-sys = { version = "0.3", features = [
 	"Location",
 	"Performance",
