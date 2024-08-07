@@ -20,7 +20,7 @@ arc-swap = "1.6.0"
 base64 = "0.22.1"
 bitflags = "2.2.1"
 bytes = "1.4.0"
-cacache = { version = "*", default-features = false, features = [
+cacache = { version = "12.0.0", default-features = false, features = [
     "tokio-runtime",
 ] }
 chrono = { version = "0.4.23", features = ["serde"] }
