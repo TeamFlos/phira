@@ -1,8 +1,8 @@
 [package]
 name = "phira"
-version = "0.6.3-pre1"
-edition = "2021"
-license = "GPL-3.0-only"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["lib", "cdylib"]

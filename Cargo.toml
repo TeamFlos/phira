@@ -1,4 +1,7 @@
 [workspace]
+version = "0.6.3-pre1"
+edition = "2021"
+license = "GPL-3.0-only"
 members = [
 	"prpr",
 	"prpr-avc",
