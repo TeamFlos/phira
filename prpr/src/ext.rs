@@ -1,3 +1,5 @@
+//! Miscellaneous utilities.
+
 use crate::{
     config::Config,
     core::{Matrix, Point, Vector},

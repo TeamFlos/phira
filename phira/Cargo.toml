@@ -1,8 +1,8 @@
 [package]
 name = "phira"
-version = "0.6.2"
-edition = "2021"
-license = "GPL-3.0-only"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["lib", "cdylib"]
@@ -17,14 +17,16 @@ event_debug = []
 [dependencies]
 anyhow = "1.0"
 arc-swap = "1.6.0"
-base64 = "0.21"
+base64 = "0.22.1"
 bitflags = "2.2.1"
 bytes = "1.4.0"
-cacache = { version = "*", default-features = false, features = ["tokio-runtime"] }
+cacache = { version = "12.0.0", default-features = false, features = [
+    "tokio-runtime",
+] }
 chrono = { version = "0.4.23", features = ["serde"] }
 futures-util = "0.3.25"
 hex = "0.4.3"
-image = "*"
+image = "0.24.0"
 lru = "0.12.1"
 lyon = "*"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
@@ -35,7 +37,7 @@ pollster = "0.3.0"
 prpr = { path = "../prpr", features = ["log"] }
 rand = "0.8.5"
 regex = "1.7.0"
-reqwest = { version = "0.11", features = ["json", "stream", "gzip"] }
+reqwest = { version = "0.12.5", features = ["json", "stream", "gzip"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_yaml = "0.9.17"
@@ -43,7 +45,7 @@ sha2 = "*"
 smallvec = "1.10.0"
 tap = "1.0.1"
 tempfile = "3.10.0"
-tokio = { version = "*", features = ["rt-multi-thread", "sync"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
 tracing = "0.1.37"
 walkdir = "2.3.3"
 zip = "0.6.4"
@@ -52,14 +54,16 @@ zstd = "0.13"
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp" }
 uuid = { version = "1.3.3", features = ["v4"] }
-logos = "0.13.0"
+logos = "0.14.0"
 semver = { version = "1.0.20", features = ["serde"] }
 async-trait = "0.1.76"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
 ndk-context = "0.1"
-sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = ["oboe"] }
+sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = [
+    "oboe",
+] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 sasa = { git = "https://github.com/Mivik/sasa" }

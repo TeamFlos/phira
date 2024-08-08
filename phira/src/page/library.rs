@@ -152,7 +152,7 @@ impl LibraryPage {
     }
 
     pub fn load_online(&mut self) {
-        if !check_read_tos_and_policy() {
+        if !check_read_tos_and_policy(false, false) {
             return;
         }
         if get_data().config.offline_mode {

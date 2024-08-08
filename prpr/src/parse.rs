@@ -1,3 +1,5 @@
+//! Chart parsers
+
 mod extra;
 pub use extra::parse_extra;
 

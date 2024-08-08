@@ -1,3 +1,15 @@
+//! Core module for prpr, submodules:
+//!   - [crate::core::anim]
+//!   - [crate::core::chart]
+//!   - [crate::core::effect]
+//!   - [crate::core::line]
+//!   - [crate::core::note]
+//!   - [crate::core::object]
+//!   - [crate::core::render]
+//!   - [crate::core::resource]
+//!   - [crate::core::smooth]
+//!   - [crate::core::tween]
+
 pub use macroquad::color::Color;
 
 pub const NOTE_WIDTH_RATIO_BASE: f32 = 0.13175016;

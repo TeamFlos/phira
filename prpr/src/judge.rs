@@ -1,3 +1,5 @@
+//! Judgement system
+
 use crate::{
     config::Config,
     core::{BadNote, Chart, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
