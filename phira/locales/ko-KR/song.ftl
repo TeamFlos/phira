@@ -28,6 +28,7 @@ delete = 삭제
 rate = 평점
 exercise = 연습
 offset = 오프셋 조정
+unlock = 해금 영상 재생
 
 edit-cancel = 취소
 edit-save = 저장
@@ -38,10 +39,15 @@ edit-saved = 저장 완료
 edit-preview-invalid = 미리보기 시간이 범위를 벗어났습니다.
 edit-tags = 태그 편집
 edit-downloaded = 다운로드된 비트맵은 편집할 수 없습니다.
+edit-overwrite = 덮어쓰기
+edit-overwrite-confirm = 이 차트를 가져온 차트로 덮어쓰시겠습니까? (이 작업은 "업데이트"를 클릭해야 온라인 플랫폼에 동기화됩니다)
+edit-overwrite-success = 덮어쓰기 완료
+edit-overwrite-failed = 덮어쓰기 실패
 
 edit-upload = 업로드
 edit-update = 업데이트
 
+upload-not-saved = 차트를 저장하지 않았습니다. 지금 저장하시겠습니까?
 upload-login-first = 로그인이 필요합니다.
 upload-builtin = 기본 비트맵은 업로드할 수 없습니다.
 upload-rules = 업로드 규칙
@@ -56,6 +62,7 @@ uploading = 업로드 중
 upload-chart-failed = 비트맵 업로드 실패
 upload-success = 업로드 성공, 검토를 기다려주세요!
 upload-failed = 업로드 실패
+upload-confirm-clear-ldb = 현재 차트 파일이 원격 차트 파일과 다르기 때문에 업로드 후 이 차트의 리더보드가 초기화됩니다. 계속하시겠습니까?
 
 ldb = 리더보드
 ldb-load-failed = 리더보드 로드 실패
@@ -72,8 +79,8 @@ info-rating = 평점
 info-type = 타입
 info-tags = 태그
 
-reviewed = Reviewed
-unreviewed = Unreviewed
+reviewed = 검토됨
+unreviewed = 검토되지 않음
 
 review-approve = 승인
 review-deny = 거부

@@ -1,3 +1,5 @@
+//! Time manager for music time and real time synchronization.
+
 use crate::config::Config;
 
 pub struct TimeManager {

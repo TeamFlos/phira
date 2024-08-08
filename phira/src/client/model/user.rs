@@ -85,7 +85,8 @@ impl Roles {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -96,7 +97,6 @@ pub struct User {
     pub bio: Option<String>,
     pub exp: i64,
     pub rks: f32,
-    #[serde(default)]
     pub roles: i32,
 
     pub joined: DateTime<Utc>,

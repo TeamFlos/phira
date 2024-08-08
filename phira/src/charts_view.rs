@@ -2,7 +2,7 @@ use crate::{
     client::Chart,
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{ChartItem, Fader, Illustration},
+    page::{ChartItem, ChartType, Fader, Illustration},
     save_data,
     scene::{render_release_to_refresh, SongScene, MP_PANEL},
 };
@@ -67,6 +67,7 @@ impl ChartDisplayItem {
                     }
                 },
                 local_path: None,
+                chart_type: ChartType::Downloaded,
             }),
             if chart.stable_request {
                 Some('+')
@@ -258,7 +259,11 @@ impl ChartsView {
                             format!("download/{}", item.chart.as_ref().unwrap().info.id.unwrap())
                         };
                         std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
-                        data.charts.remove(data.find_chart_by_path(path.as_str()).unwrap());
+
+                        if let Some(chart) = data.find_chart_by_path(path.as_str()) {
+                            data.charts.remove(chart);
+                        }
+
                         save_data()?;
                         NEED_UPDATE.store(true, Ordering::SeqCst);
                     } else {

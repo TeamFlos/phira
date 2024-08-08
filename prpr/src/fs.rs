@@ -1,3 +1,5 @@
+//! File system abstraction
+
 use crate::{ext::spawn_task, info::ChartInfo};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -275,8 +277,8 @@ fn info_from_txt(text: &str) -> Result<ChartInfo> {
     let kvs = it
         .map(|line| -> Result<(&str, String)> {
             let Some((key, value)) = line.split_once(": ") else {
-            bail!("expected \"Key: Value\"");
-        };
+                bail!("expected \"Key: Value\"");
+            };
             Ok((key, value.to_string()))
         })
         .collect::<Result<Vec<_>>>()?;

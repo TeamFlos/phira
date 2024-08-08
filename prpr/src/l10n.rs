@@ -1,3 +1,5 @@
+//! Localization utilities.
+
 pub use fluent::{fluent_args, FluentBundle, FluentResource};
 pub use once_cell::sync::Lazy;
 pub use unic_langid::{langid, LanguageIdentifier};

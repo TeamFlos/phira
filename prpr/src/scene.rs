@@ -1,3 +1,5 @@
+//! Scene management module.
+
 crate::tl_file!("scene" ttl);
 
 mod ending;

@@ -1,3 +1,15 @@
+//! Binary serialization and deserialization for prpr data structures.
+//! Currently:
+//!   - [crate::core::Chart]
+//!   - [crate::core::ChartSettings]
+//!   - [crate::core::JudgeLine]
+//!   - [crate::core::Note]
+//!   - [crate::core::Object]
+//!   - [crate::core::CtrlObject]
+//!   - [crate::core::Anim]
+//!   - [crate::core::Keyframe]
+//!   - [macroquad::prelude::Color]
+
 use crate::{
     core::{
         Anim, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, JudgeLine, JudgeLineCache, JudgeLineKind,
