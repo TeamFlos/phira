@@ -114,6 +114,7 @@ struct RPENote {
     position_x: f32,
     y_offset: f32,
     alpha: u16, // some alpha has 256...
+    hitsound: Option<String>,
     size: f32,
     speed: f32,
     is_fake: u8,
