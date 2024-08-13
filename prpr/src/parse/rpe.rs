@@ -38,7 +38,6 @@ fn f32_one() -> f32 {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RPEEvent<T = f32> {
-    // TODO linkgroup
     #[serde(default = "f32_zero")]
     easing_left: f32,
     #[serde(default = "f32_one")]
@@ -66,7 +65,6 @@ struct RPECtrlEvent {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RPESpeedEvent {
-    // TODO linkgroup
     start_time: Triple,
     end_time: Triple,
     start: f32,
@@ -100,6 +98,7 @@ struct RPEExtendedEvents {
     scale_y_events: Option<Vec<RPEEvent>>,
     incline_events: Option<Vec<RPEEvent>>,
     paint_events: Option<Vec<RPEEvent>>,
+    gif_events: Option<Vec<RPEEvent>>,
 }
 
 #[derive(Deserialize)]
