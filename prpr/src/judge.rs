@@ -480,7 +480,9 @@ impl Judge {
             let t = time_of(touch);
             let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
             for (line_id, ((line, pos), (idx, st))) in chart.lines.iter_mut().zip(pos.iter()).zip(self.notes.iter_mut()).enumerate() {
-                let Some(pos) = pos[id] else { continue; };
+                let Some(pos) = pos[id] else {
+                    continue;
+                };
                 for id in &idx[*st..] {
                     let note = &mut line.notes[*id as usize];
                     if !matches!(note.judge, JudgeStatus::NotJudged | JudgeStatus::PreJudge) {
@@ -539,7 +541,17 @@ impl Judge {
                                 judgements.push((if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good }, line_id, id, Some(t)));
                             }
                             NoteKind::Hold { .. } => {
-                                play_sfx(&mut res.sfx_click, &res.config);
+                                if note.hitsound.is_some() {
+                                    if note.hitsound == Some("flick.mp3".to_string()) {
+                                        play_sfx(&mut res.sfx_flick, &res.config)
+                                    } else if note.hitsound == Some("drag.mp3".to_string()) {
+                                        play_sfx(&mut res.sfx_drag, &res.config)
+                                    } else {
+                                        // TODO: Support loading sfx from chart file
+                                    }
+                                } else {
+                                    play_sfx(&mut res.sfx_click, &res.config)
+                                }
                                 self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
                                 note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f32::INFINITY);
                             }
@@ -601,7 +613,17 @@ impl Judge {
                             ));
                         }
                         NoteKind::Hold { .. } => {
-                            play_sfx(&mut res.sfx_click, &res.config);
+                            if note.hitsound.is_some() {
+                                if note.hitsound == Some("flick.mp3".to_string()) {
+                                    play_sfx(&mut res.sfx_flick, &res.config)
+                                } else if note.hitsound == Some("drag.mp3".to_string()) {
+                                    play_sfx(&mut res.sfx_drag, &res.config)
+                                } else {
+                                    // TODO: Support loading sfx from chart file
+                                }
+                            } else {
+                                play_sfx(&mut res.sfx_click, &res.config)
+                            }
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
                             note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f32::INFINITY);
                         }
@@ -764,13 +786,25 @@ impl Judge {
                 }
                 _ => false,
             } {
-                if let Some(sfx) = match note.kind {
-                    NoteKind::Click => Some(&mut res.sfx_click),
-                    NoteKind::Drag => Some(&mut res.sfx_drag),
-                    NoteKind::Flick => Some(&mut res.sfx_flick),
-                    _ => None,
-                } {
-                    play_sfx(sfx, &res.config);
+                if note.hitsound.is_some() {
+                    if note.hitsound == Some("flick.mp3".to_string()) {
+                        play_sfx(&mut res.sfx_flick, &res.config)
+                    } else if note.hitsound == Some("drag.mp3".to_string()) {
+                        play_sfx(&mut res.sfx_drag, &res.config)
+                    } else if note.hitsound == Some("tap.mp3".to_string()) {
+                        play_sfx(&mut res.sfx_click, &res.config)
+                    } else {
+                        // TODO: Support loading sfx from chart file
+                    }
+                } else {
+                    if let Some(sfx) = match note.kind {
+                        NoteKind::Click => Some(&mut res.sfx_click),
+                        NoteKind::Drag => Some(&mut res.sfx_drag),
+                        NoteKind::Flick => Some(&mut res.sfx_flick),
+                        _ => None,
+                    } {
+                        play_sfx(sfx, &res.config);
+                    }
                 }
             }
         }
@@ -808,7 +842,17 @@ impl Judge {
                     break;
                 }
                 note.judge = if matches!(note.kind, NoteKind::Hold { .. }) {
-                    play_sfx(&mut res.sfx_click, &res.config);
+                    if note.hitsound.is_some() {
+                        if note.hitsound == Some("flick.mp3".to_string()) {
+                            play_sfx(&mut res.sfx_flick, &res.config)
+                        } else if note.hitsound == Some("drag.mp3".to_string()) {
+                            play_sfx(&mut res.sfx_drag, &res.config)
+                        } else {
+                            // TODO: Support loading sfx from chart file
+                        }
+                    } else {
+                        play_sfx(&mut res.sfx_click, &res.config)
+                    }
                     self.judgements.borrow_mut().push((t, line_id as _, *id, Err(true)));
                     JudgeStatus::Hold(true, t, (t - note.time) / spd, false, f32::INFINITY)
                 } else {
@@ -825,25 +869,37 @@ impl Judge {
         }
         for (line_id, id) in judgements.into_iter() {
             self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
-            let (note_transform, note_kind) = {
+            let (note_transform, note_kind, note_hitsound) = {
                 let line = &mut chart.lines[line_id];
                 let note = &mut line.notes[id as usize];
                 let nt = if matches!(note.kind, NoteKind::Hold { .. }) { t } else { note.time };
                 line.object.set_time(nt);
                 note.object.set_time(nt);
-                (note.object.now(res), note.kind.clone())
+                (note.object.now(res), note.kind.clone(), note.hitsound.clone())
             };
             let line = &chart.lines[line_id];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
                 res.emit_at_origin(line.notes[id as usize].rotation(line), res.res_pack.info.fx_perfect())
             });
-            if let Some(sfx) = match note_kind {
-                NoteKind::Click => Some(&mut res.sfx_click),
-                NoteKind::Drag => Some(&mut res.sfx_drag),
-                NoteKind::Flick => Some(&mut res.sfx_flick),
-                _ => None,
-            } {
-                play_sfx(sfx, &res.config);
+            if note_hitsound.is_some() {
+                if note_hitsound == Some("flick.mp3".to_string()) {
+                    play_sfx(&mut res.sfx_flick, &res.config)
+                } else if note_hitsound == Some("drag.mp3".to_string()) {
+                    play_sfx(&mut res.sfx_drag, &res.config)
+                } else if note_hitsound == Some("tap.mp3".to_string()) {
+                    play_sfx(&mut res.sfx_click, &res.config)
+                } else {
+                    // TODO: Support loading sfx from chart file
+                }
+            } else {
+                if let Some(sfx) = match note_kind {
+                    NoteKind::Click => Some(&mut res.sfx_click),
+                    NoteKind::Drag => Some(&mut res.sfx_drag),
+                    NoteKind::Flick => Some(&mut res.sfx_flick),
+                    _ => None,
+                } {
+                    play_sfx(sfx, &res.config);
+                }
             }
         }
     }

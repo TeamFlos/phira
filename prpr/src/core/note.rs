@@ -28,6 +28,7 @@ impl NoteKind {
 pub struct Note {
     pub object: Object,
     pub kind: NoteKind,
+    pub hitsound: Option<String>,
     pub time: f32,
     pub height: f32,
     pub speed: f32,
