@@ -114,7 +114,7 @@ struct RPENote {
     position_x: f32,
     y_offset: f32,
     alpha: u16, // some alpha has 256...
-    hitsound: Option<String>,
+    hitsound: Option<String>, // TODO implement this feature
     size: f32,
     speed: f32,
     is_fake: u8,
@@ -126,6 +126,7 @@ struct RPENote {
 struct RPEJudgeLine {
     // TODO group
     // TODO bpmfactor
+    // TODO gif
     #[serde(rename = "Name")]
     name: String,
     #[serde(rename = "Texture")]
@@ -136,6 +137,8 @@ struct RPEJudgeLine {
     extended: Option<RPEExtendedEvents>,
     notes: Option<Vec<RPENote>>,
     is_cover: u8,
+    #[serde(rename = "isGif")]
+    is_gif: bool,
     #[serde(default)]
     z_order: i32,
     #[serde(rename = "attachUI")]
