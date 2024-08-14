@@ -176,6 +176,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
                     4 => NoteKind::Flick,
                     _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
                 },
+                hitsound: None,
                 time,
                 speed: if pgr.kind == 3 {
                     speed.set_time(time);

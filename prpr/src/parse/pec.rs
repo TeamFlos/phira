@@ -263,6 +263,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                             ..Default::default()
                         },
                         kind,
+                        hitsound: None,
                         time,
                         height: 0.0,
                         speed: 1.0,

@@ -327,6 +327,7 @@ impl BinaryData for Note {
                 3 => NoteKind::Drag,
                 _ => bail!("invalid note kind"),
             },
+            hitsound: None,
             time: r.time()?,
             height: r.read()?,
             speed: if r.read()? { r.read::<f32>()? } else { 1. },
