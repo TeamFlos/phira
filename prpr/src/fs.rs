@@ -341,7 +341,7 @@ pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<(
                     background: String,
                     charter: String,
                     composer: Option<String>,
-                    illustrator: Option<String>,
+                    illustration: Option<String>,
                     song: String,
                 }
                 if let Ok(mut meta) = serde_json::from_value::<RPEMeta>(value["META"].take()) {
@@ -352,7 +352,7 @@ pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<(
                     if let Some(val) = meta.composer {
                         info.composer = val;
                     }
-                    if let Some(val) = meta.illustrator {
+                    if let Some(val) = meta.illustration {
                         info.illustrator = val;
                     }
                     if illustration.is_none() {
