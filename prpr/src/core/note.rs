@@ -1,12 +1,9 @@
-use std::{borrow::BorrowMut, rc::Rc};
-
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
 pub use crate::{
     judge::{HitSound, JudgeStatus},
     parse::RPE_HEIGHT,
 };
 use macroquad::prelude::*;
-use sasa::{PlaySfxParams, Sfx};
 
 const HOLD_PARTICLE_INTERVAL: f32 = 0.15;
 const FADEOUT_TIME: f32 = 0.16;

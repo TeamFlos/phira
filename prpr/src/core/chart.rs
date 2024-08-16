@@ -2,7 +2,7 @@ use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIEleme
 use crate::{fs::FileSystem, judge::JudgeStatus, ui::Ui};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
-use sasa::{AudioClip, Sfx};
+use sasa::AudioClip;
 use std::{cell::RefCell, collections::HashMap};
 use tracing::warn;
 
