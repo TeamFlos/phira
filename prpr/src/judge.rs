@@ -19,11 +19,11 @@ use tracing::debug;
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
 pub const LIMIT_PERFECT: f32 = 0.08;
 pub const LIMIT_GOOD: f32 = 0.16;
-pub const LIMIT_BAD: f32 = 0.22;
+pub const LIMIT_BAD: f32 = 0.18;
 pub const UP_TOLERANCE: f32 = 0.05;
 pub const DIST_FACTOR: f32 = 0.2;
 
-const EARLY_OFFSET: f32 = 0.07;
+const EARLY_OFFSET: f32 = 0.05;
 
 pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     if config.volume_sfx <= 1e-2 {
