@@ -7,6 +7,7 @@ not-opened = 敬請期待
 not-logged-in = 未登入
 
 failed-to-update = 載入使用者資訊失敗
+note-try-login-again = 提示：請嘗試重新登入
 
 update = v{ $version } 更新
 update-desc =
