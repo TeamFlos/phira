@@ -4,10 +4,10 @@ use super::process_lines;
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind,
-        Object, HEIGHT_RATIO, HitSound
+        Object, HEIGHT_RATIO,
     },
     ext::NotNanExt,
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
 };
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -159,30 +159,26 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
     pgr.into_iter()
         .map(|pgr| {
             let time = pgr.time * r;
+            let kind = match pgr.kind {
+                1 => NoteKind::Click,
+                2 => NoteKind::Drag,
+                3 => {
+                    let end_time = (pgr.time + pgr.hold_time) * r;
+                    height.set_time(end_time);
+                    let end_height = height.now();
+                    NoteKind::Hold { end_time, end_height }
+                }
+                4 => NoteKind::Flick,
+                _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
+            };
+            let hitsound = HitSound::default_from_kind(&kind);
             Ok(Note {
                 object: Object {
                     translation: AnimVector(AnimFloat::fixed(pgr.position_x * (2. * 9. / 160.)), AnimFloat::default()),
                     ..Default::default()
                 },
-                kind: match pgr.kind {
-                    1 => NoteKind::Click,
-                    2 => NoteKind::Drag,
-                    3 => {
-                        let end_time = (pgr.time + pgr.hold_time) * r;
-                        height.set_time(end_time);
-                        let end_height = height.now();
-                        NoteKind::Hold { end_time, end_height }
-                    }
-                    4 => NoteKind::Flick,
-                    _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
-                },
-                hitsound: match pgr.kind {
-                    1 => HitSound::Click,
-                    2 => HitSound::Drag,
-                    3 => HitSound::Click,
-                    4 => HitSound::Flick,
-                    _ => HitSound::Click
-                },
+                kind,
+                hitsound,
                 time,
                 speed: if pgr.kind == 3 {
                     speed.set_time(time);

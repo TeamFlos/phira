@@ -8,7 +8,7 @@ use crate::{
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
 };
 use anyhow::{Context, Result};
 use macroquad::prelude::{Color, WHITE};
@@ -112,7 +112,7 @@ struct RPENote {
     end_time: Triple,
     position_x: f32,
     y_offset: f32,
-    alpha: u16, // some alpha has 256...
+    alpha: u16,               // some alpha has 256...
     hitsound: Option<String>, // TODO implement this feature
     size: f32,
     speed: f32,
@@ -284,6 +284,36 @@ fn parse_notes(r: &mut BpmList, rpe: Vec<RPENote>, height: &mut AnimFloat) -> Re
             height.set_time(time);
             let note_height = height.now();
             let y_offset = note.y_offset * 2. / RPE_HEIGHT * note.speed;
+            let kind = match note.kind {
+                1 => NoteKind::Click,
+                2 => {
+                    let end_time = r.time(&note.end_time);
+                    height.set_time(end_time);
+                    NoteKind::Hold {
+                        end_time,
+                        end_height: height.now(),
+                    }
+                }
+                3 => NoteKind::Flick,
+                4 => NoteKind::Drag,
+                _ => ptl!(bail "unknown-note-type", "type" => note.kind),
+            };
+            let hitsound = match note.hitsound {
+                Some(s) => {
+                    // TODO: RPE doc needed...
+                    if s == "flick.mp3" {
+                        HitSound::Flick
+                    } else if s == "tap.mp3" {
+                        HitSound::Click
+                    } else if s == "drag.mp3" {
+                        HitSound::Drag
+                    } else {
+                        // TODO: implement this feature
+                        unimplemented!()
+                    }
+                }
+                None => HitSound::default_from_kind(&kind),
+            };
             Ok(Note {
                 object: Object {
                     alpha: if note.visible_time >= time {
@@ -307,33 +337,8 @@ fn parse_notes(r: &mut BpmList, rpe: Vec<RPENote>, height: &mut AnimFloat) -> Re
                     ),
                     ..Default::default()
                 },
-                kind: match note.kind {
-                    1 => NoteKind::Click,
-                    2 => {
-                        let end_time = r.time(&note.end_time);
-                        height.set_time(end_time);
-                        NoteKind::Hold {
-                            end_time,
-                            end_height: height.now(),
-                        }
-                    }
-                    3 => NoteKind::Flick,
-                    4 => NoteKind::Drag,
-                    _ => ptl!(bail "unknown-note-type", "type" => note.kind),
-                },
-                hitsound: match note.hitsound {
-                    None => match note.kind{
-                        1 => crate::core::HitSound::Click,
-                        2 => crate::core::HitSound::Click,
-                        3 => crate::core::HitSound::Flick,
-                        4 => crate::core::HitSound::Drag,
-                        _ => ptl!(bail "unknown-note-type", "type" => note.kind),
-                    }
-                    Some(_) => {
-                        // TODO
-                        crate::core::HitSound::Click
-                    }
-                },
+                kind,
+                hitsound,
                 time,
                 height: note_height,
                 speed: note.speed,

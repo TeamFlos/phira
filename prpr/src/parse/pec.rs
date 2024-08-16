@@ -3,10 +3,11 @@ crate::tl_file!("parser" ptl);
 use super::{process_lines, RPE_TWEEN_MAP};
 use crate::{
     core::{
-        Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, HitSound, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, TweenId, EPS
+        Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind,
+        Object, TweenId, EPS,
     },
     ext::NotNanExt,
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
 };
 use anyhow::{bail, Context, Result};
 use std::cell::RefCell;
@@ -219,8 +220,8 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
             offset = Some(it.take_f32()? / 1000. - 0.15);
         } else {
             let Some(cmd) = it.next() else {
-				return Ok(());
-			};
+                return Ok(());
+            };
             let cs: Vec<_> = cmd.chars().collect();
             if cs.len() > 2 {
                 ptl!(bail "unknown-command", "cmd" => cmd);
@@ -256,19 +257,14 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         1 => true,
                         _ => ptl!(bail "expected-01"),
                     };
+                    let hitsound = HitSound::default_from_kind(&kind);
                     line.notes.push(Note {
                         object: Object {
                             translation: AnimVector(AnimFloat::fixed(position_x), AnimFloat::default()),
                             ..Default::default()
                         },
-                        kind: kind.clone(),
-                        hitsound: match kind {
-                            NoteKind::Click => HitSound::Click,
-                            NoteKind::Drag => HitSound::Drag,
-                            NoteKind::Flick => HitSound::Flick,
-                            NoteKind::Hold { end_time: _, end_height: _ } => HitSound::Click,
-                            _ => HitSound::Click
-                        },
+                        kind,
+                        hitsound,
                         time,
                         height: 0.0,
                         speed: 1.0,

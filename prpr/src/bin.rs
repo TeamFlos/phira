@@ -15,7 +15,7 @@ use crate::{
         Anim, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, JudgeLine, JudgeLineCache, JudgeLineKind,
         Keyframe, Note, NoteKind, Object, StaticTween, Tweenable, UIElement,
     },
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
     parse::process_lines,
 };
 use anyhow::{bail, Result};
@@ -315,19 +315,22 @@ impl BinaryData for CtrlObject {
 
 impl BinaryData for Note {
     fn read_binary<R: Read>(r: &mut BinaryReader<R>) -> Result<Self> {
-        Ok(Self {
-            object: r.read()?,
-            kind: match r.read::<u8>()? {
-                0 => NoteKind::Click,
-                1 => NoteKind::Hold {
-                    end_time: r.read()?,
-                    end_height: r.read()?,
-                },
-                2 => NoteKind::Flick,
-                3 => NoteKind::Drag,
-                _ => bail!("invalid note kind"),
+        let object = r.read()?;
+        let kind = match r.read::<u8>()? {
+            0 => NoteKind::Click,
+            1 => NoteKind::Hold {
+                end_time: r.read()?,
+                end_height: r.read()?,
             },
-            hitsound: crate::core::HitSound::Click, // TODO
+            2 => NoteKind::Flick,
+            3 => NoteKind::Drag,
+            _ => bail!("invalid note kind"),
+        };
+        let hitsound = HitSound::default_from_kind(&kind);
+        Ok(Self {
+            object,
+            kind,
+            hitsound,
             time: r.time()?,
             height: r.read()?,
             speed: if r.read()? { r.read::<f32>()? } else { 1. },
