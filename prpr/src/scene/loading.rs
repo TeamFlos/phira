@@ -102,17 +102,7 @@ impl LoadingScene {
         if info.tip.is_none() {
             info.tip = Some(crate::config::TIPS.choose(&mut thread_rng()).unwrap().to_owned());
         }
-        let future = Box::pin(GameScene::new(
-            mode,
-            info.clone(),
-            config,
-            fs,
-            player,
-            background.clone(),
-            illustration.clone(),
-            upload_fn,
-            update_fn,
-        ));
+        let future = Box::pin(GameScene::new(mode, info.clone(), config, fs, player, background.clone(), illustration.clone(), upload_fn, update_fn));
         let charter = Regex::new(r"\[!:[0-9]+:([^:]*)\]").unwrap().replace_all(&info.charter, "$1").to_string();
 
         Ok(Self {

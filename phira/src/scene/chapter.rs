@@ -236,11 +236,17 @@ impl Scene for ChapterScene {
                     line_length: 6.,
                     offset: dir
                         .read("offset")
-                        .map(|d| f32::from_be_bytes(d.get(0..4).map(|first4| {
-                            let mut result = <[u8;4]>::default();
-                            result.copy_from_slice(first4);
-                            result
-                        }).unwrap_or_default()))
+                        .map(|d| {
+                            f32::from_be_bytes(
+                                d.get(0..4)
+                                    .map(|first4| {
+                                        let mut result = <[u8; 4]>::default();
+                                        result.copy_from_slice(first4);
+                                        result
+                                    })
+                                    .unwrap_or_default(),
+                            )
+                        })
                         .unwrap_or_default(),
                     tip: None,
                     tags: Vec::new(),
