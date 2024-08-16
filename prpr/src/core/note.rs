@@ -1,6 +1,9 @@
+use std::{borrow::BorrowMut, rc::Rc};
+
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
 use crate::{judge::JudgeStatus, parse::RPE_HEIGHT};
 use macroquad::prelude::*;
+use sasa::{PlaySfxParams, Sfx};
 
 const HOLD_PARTICLE_INTERVAL: f32 = 0.15;
 const FADEOUT_TIME: f32 = 0.16;
@@ -25,10 +28,34 @@ impl NoteKind {
     }
 }
 
+pub enum HitSound {
+    Click,
+    Flick,
+    Drag,
+    FromString(String),
+}
+
+impl HitSound {
+    pub fn play(&mut self, res: &mut Resource) {
+        if res.config.volume_sfx <= 1e-2 {
+            return;
+        }
+        match self {
+            HitSound::Click => &mut res.sfx_click,
+            HitSound::Drag => &mut res.sfx_drag,
+            HitSound::Flick => &mut res.sfx_flick,
+            HitSound::FromString(sfx) => &mut res.sfx_click, // TODO: Use external sfx
+        }
+        .play(PlaySfxParams {
+            amplifier: res.config.volume_sfx,
+        });
+    }
+}
+
 pub struct Note {
     pub object: Object,
     pub kind: NoteKind,
-    pub hitsound: Option<String>,
+    pub hitsound: HitSound,
     pub time: f32,
     pub height: f32,
     pub speed: f32,

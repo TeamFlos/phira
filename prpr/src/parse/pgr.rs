@@ -4,7 +4,7 @@ use super::process_lines;
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind,
-        Object, HEIGHT_RATIO,
+        Object, HEIGHT_RATIO, HitSound
     },
     ext::NotNanExt,
     judge::JudgeStatus,
@@ -176,7 +176,13 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
                     4 => NoteKind::Flick,
                     _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
                 },
-                hitsound: None,
+                hitsound: match pgr.kind {
+                    1 => HitSound::Click,
+                    2 => HitSound::Drag,
+                    3 => HitSound::Click,
+                    4 => HitSound::Flick,
+                    _ => HitSound::Click
+                },
                 time,
                 speed: if pgr.kind == 3 {
                     speed.set_time(time);

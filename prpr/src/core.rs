@@ -35,7 +35,7 @@ pub use line::{JudgeLine, JudgeLineCache, JudgeLineKind, UIElement};
 
 mod note;
 use macroquad::prelude::set_pc_assets_folder;
-pub use note::{BadNote, Note, NoteKind, RenderConfig};
+pub use note::{BadNote, HitSound, Note, NoteKind, RenderConfig};
 
 mod object;
 pub use object::{CtrlObject, Object};

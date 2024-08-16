@@ -321,7 +321,19 @@ fn parse_notes(r: &mut BpmList, rpe: Vec<RPENote>, height: &mut AnimFloat) -> Re
                     4 => NoteKind::Drag,
                     _ => ptl!(bail "unknown-note-type", "type" => note.kind),
                 },
-                hitsound: note.hitsound,
+                hitsound: match note.hitsound {
+                    None => match note.kind{
+                        1 => crate::core::HitSound::Click,
+                        2 => crate::core::HitSound::Click,
+                        3 => crate::core::HitSound::Flick,
+                        4 => crate::core::HitSound::Drag,
+                        _ => ptl!(bail "unknown-note-type", "type" => note.kind),
+                    }
+                    Some(_) => {
+                        // TODO
+                        crate::core::HitSound::Click
+                    }
+                },
                 time,
                 height: note_height,
                 speed: note.speed,

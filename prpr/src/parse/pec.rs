@@ -3,8 +3,7 @@ crate::tl_file!("parser" ptl);
 use super::{process_lines, RPE_TWEEN_MAP};
 use crate::{
     core::{
-        Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind,
-        Object, TweenId, EPS,
+        Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, HitSound, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, TweenId, EPS
     },
     ext::NotNanExt,
     judge::JudgeStatus,
@@ -262,8 +261,14 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                             translation: AnimVector(AnimFloat::fixed(position_x), AnimFloat::default()),
                             ..Default::default()
                         },
-                        kind,
-                        hitsound: None,
+                        kind: kind.clone(),
+                        hitsound: match kind {
+                            NoteKind::Click => HitSound::Click,
+                            NoteKind::Drag => HitSound::Drag,
+                            NoteKind::Flick => HitSound::Flick,
+                            NoteKind::Hold { end_time: _, end_height: _ } => HitSound::Click,
+                            _ => HitSound::Click
+                        },
                         time,
                         height: 0.0,
                         speed: 1.0,
