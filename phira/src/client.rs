@@ -28,10 +28,14 @@ pub fn basic_client_builder() -> ClientBuilder {
     builder
 }
 
+fn client_locale() -> String {
+    get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string())
+}
+
 fn build_client(access_token: Option<&str>) -> Result<Arc<reqwest::Client>> {
     CLIENT_TOKEN.store(access_token.map(str::to_owned).into());
     let mut headers = header::HeaderMap::new();
-    headers.append(header::ACCEPT_LANGUAGE, header::HeaderValue::from_str(&get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string()))?);
+    headers.append(header::ACCEPT_LANGUAGE, header::HeaderValue::from_str(&client_locale())?);
     if let Some(token) = access_token {
         let mut auth_value = header::HeaderValue::from_str(&format!("Bearer {token}"))?;
         auth_value.set_sensitive(true);
@@ -216,6 +220,33 @@ impl Client {
             .json()
             .await?;
         Ok(resp.id)
+    }
+
+    /// Returns Some(new_terms, modified) if the terms have been updated.
+    pub async fn fetch_terms(modified: Option<&str>) -> Result<Option<(String, String)>> {
+        let mut req = CLIENT.load().get(format!("{API_URL}/terms/{}.txt", client_locale()));
+        if let Some(modified) = modified {
+            req = req.header(header::IF_MODIFIED_SINCE, header::HeaderValue::from_str(modified)?);
+        }
+        let resp = req.send().await?;
+        if resp.status() == StatusCode::NOT_MODIFIED {
+            return Ok(None);
+        }
+        if !resp.status().is_success() {
+            bail!("failed to fetch terms: {:?}", resp.status());
+        }
+        let new_modified = resp
+            .headers()
+            .get(header::LAST_MODIFIED)
+            .and_then(|it| it.to_str().ok())
+            .map(str::to_owned)
+            .ok_or_else(|| anyhow!("invalid last-modified header"))?;
+        if Some(new_modified.as_str()) == modified {
+            // That mother fucker qiniu does not return NOT_MODIFIED
+            return Ok(None);
+        }
+        let new_terms = resp.text().await?;
+        Ok(Some((new_terms, new_modified)))
     }
 }
 

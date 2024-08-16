@@ -15,6 +15,7 @@ use std::{
     ops::DerefMut,
     path::Path,
 };
+use tracing::debug;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,7 +83,9 @@ pub struct Data {
     pub respacks: Vec<String>,
     pub respack_id: usize,
     pub accept_invalid_cert: bool,
+    // for compatibility
     pub read_tos_and_policy: bool,
+    pub terms_modified: Option<String>,
     pub ignored_version: Option<semver::Version>,
     pub character: Option<Character>,
 }
@@ -154,6 +157,11 @@ impl Data {
                 // for compatibility
                 *res_pack_path = "chart.zip".to_owned();
             }
+        }
+        if self.read_tos_and_policy {
+            debug!("migrating from old version");
+            self.terms_modified = Some("Mon, 05 Aug 2024 17:09:39 GMT".to_owned());
+            self.read_tos_and_policy = false;
         }
         self.config.init();
         Ok(())

@@ -50,6 +50,12 @@ impl Dir {
     }
 
     #[inline]
+    pub fn remove_dir_all(&self, p: impl AsRef<Path>) -> Result<()> {
+        std::fs::remove_dir_all(self.join(p)?)?;
+        Ok(())
+    }
+
+    #[inline]
     pub fn open_dir(&self, p: impl AsRef<Path>) -> Result<Self> {
         Self::new(self.join(p)?)
     }
