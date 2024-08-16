@@ -31,7 +31,7 @@ pub enum HitSound {
     Click,
     Flick,
     Drag,
-    // TODO: Customized
+    Custom(String),
 }
 
 impl HitSound {
@@ -41,6 +41,11 @@ impl HitSound {
             HitSound::Click => play_sfx(&mut res.sfx_click, &res.config),
             HitSound::Flick => play_sfx(&mut res.sfx_flick, &res.config),
             HitSound::Drag => play_sfx(&mut res.sfx_drag, &res.config),
+            HitSound::Custom(s) => {
+                if let Some(sfx) = res.extra_sfxs.get_mut(s) {
+                    play_sfx(sfx, &res.config);
+                }
+            }
         }
     }
 

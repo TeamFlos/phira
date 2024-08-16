@@ -11,7 +11,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 use tracing::warn;
 
 #[derive(Deserialize)]
@@ -251,5 +251,5 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         .map(|(id, pgr)| parse_judge_line(pgr, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
         .collect::<Result<Vec<_>>>()?;
     process_lines(&mut lines);
-    Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra))
+    Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra, HashMap::new()))
 }

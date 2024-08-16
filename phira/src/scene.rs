@@ -193,11 +193,7 @@ pub fn load_tos_and_policy() {
     let mut guard = LOAD_TOS_TASK.lock().unwrap();
     if guard.is_none() {
         let modified = get_data().terms_modified.clone();
-        *guard = Some(Task::new(async move {
-            Client::fetch_terms(modified.as_deref())
-                .await
-                .context("failed to fetch terms")
-        }));
+        *guard = Some(Task::new(async move { Client::fetch_terms(modified.as_deref()).await.context("failed to fetch terms") }));
     }
 }
 

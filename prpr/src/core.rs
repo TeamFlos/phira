@@ -25,7 +25,7 @@ mod anim;
 pub use anim::{Anim, AnimFloat, AnimVector, Keyframe};
 
 mod chart;
-pub use chart::{Chart, ChartExtra, ChartSettings};
+pub use chart::{Chart, ChartExtra, ChartSettings, HitSoundMap};
 
 mod effect;
 pub use effect::{Effect, Uniform};
@@ -44,7 +44,7 @@ mod render;
 pub use render::{copy_fbo, internal_id, MSRenderTarget};
 
 mod resource;
-pub use resource::{NoteStyle, ParticleEmitter, ResPackInfo, Resource, ResourcePack, DPI_VALUE};
+pub use resource::{NoteStyle, ParticleEmitter, ResPackInfo, Resource, ResourcePack, BUFFER_SIZE, DPI_VALUE};
 
 mod smooth;
 pub use smooth::Smooth;

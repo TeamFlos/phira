@@ -10,7 +10,7 @@ use crate::{
     judge::{HitSound, JudgeStatus},
 };
 use anyhow::{bail, Context, Result};
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 use tracing::warn;
 
 trait Take {
@@ -377,5 +377,6 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
             ..Default::default()
         },
         extra,
+        HashMap::new(),
     ))
 }

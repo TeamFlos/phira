@@ -255,6 +255,14 @@ impl GameScene {
         )
         .await
         .context("Failed to load resources")?;
+
+        // Prepare extra sfx from chart.hitsounds
+        chart.hitsounds.drain().for_each(|(name, clip)| {
+            if let Ok(clip) = res.create_sfx(clip) {
+                res.extra_sfxs.insert(name, clip);
+            }
+        });
+
         let exercise_range = (chart.offset + info_offset + res.config.offset)..res.track_length;
 
         let judge = Judge::new(&chart);

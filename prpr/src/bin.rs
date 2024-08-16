@@ -23,6 +23,7 @@ use byteorder::{LittleEndian as LE, ReadBytesExt, WriteBytesExt};
 use macroquad::{prelude::Color, texture::Texture2D};
 use std::{
     cell::RefCell,
+    collections::HashMap,
     io::{Read, Write},
     ops::Deref,
     rc::Rc,
@@ -465,7 +466,7 @@ impl BinaryData for Chart {
         let mut lines = r.array()?;
         process_lines(&mut lines);
         let settings = r.read()?;
-        Ok(Chart::new(offset, lines, BpmList::new(vec![(0., 60.)]), settings, ChartExtra::default()))
+        Ok(Chart::new(offset, lines, BpmList::new(vec![(0., 60.)]), settings, ChartExtra::default(), HashMap::new()))
     }
 
     fn write_binary<W: Write>(&self, w: &mut BinaryWriter<W>) -> Result<()> {

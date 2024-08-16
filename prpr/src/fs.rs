@@ -273,7 +273,7 @@ fn info_from_kv<'a>(it: impl Iterator<Item = (&'a str, String)>, csv: bool) -> R
 }
 
 fn info_from_txt(text: &str) -> Result<ChartInfo> {
-    let mut it = text.lines().filter(|it| {!it.is_empty()}).peekable();
+    let mut it = text.lines().filter(|it| !it.is_empty()).peekable();
     let first = it.next();
     if first != Some("#") && first != Some("\u{feff}#") {
         bail!("expected the first line to be #");

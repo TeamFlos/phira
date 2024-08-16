@@ -12,10 +12,11 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
+    core::BOLD_FONT,
     ext::{poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, take_input},
-    ui::{DRectButton, Scroll, Slider, Ui}, core::BOLD_FONT,
+    ui::{DRectButton, Scroll, Slider, Ui},
 };
 use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
@@ -186,7 +187,12 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
 
     let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
     let (first, text) = text.split_once('\n').unwrap();
-    let tr = ui.text(first).pos(ct.x, ir.bottom() + 0.03).anchor(0.5, 0.).size(0.6).draw_using(&BOLD_FONT);
+    let tr = ui
+        .text(first)
+        .pos(ct.x, ir.bottom() + 0.03)
+        .anchor(0.5, 0.)
+        .size(0.6)
+        .draw_using(&BOLD_FONT);
 
     let r = ui
         .text(text.trim())
