@@ -14,6 +14,7 @@ color-events-parse-failed = Failed to parse color events
 illustration-load-failed = Failed to load illustration at { $path }
 
 judge-line-location-name = In judge line #{ $jlid } ({ $name })
+hitsound-missing = Hitsound `{ $name }` is missing
 
 # pgr
 event-not-contiguous = Events should be contiguous

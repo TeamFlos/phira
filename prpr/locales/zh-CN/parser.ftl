@@ -14,6 +14,7 @@ color-events-parse-failed = color 事件解析失败
 illustration-load-failed = 位于 { $path } 的插图加载失败
 
 judge-line-location-name = #{ $jlid } ({ $name }) 判定线中
+hitsound-missing = 缺少打击音 `{ $name }`
 
 # pgr
 event-not-contiguous = 事件应当连续

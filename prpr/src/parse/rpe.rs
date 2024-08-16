@@ -316,7 +316,12 @@ async fn parse_notes(
                     HitSound::Drag
                 } else {
                     if hitsounds.get(&s).is_none() {
-                        hitsounds.insert(s.clone(), AudioClip::new(fs.load_file(&s).await?)?);
+                        let data = fs.load_file(&s).await;
+                        if let Ok(data) = data {
+                            hitsounds.insert(s.clone(), AudioClip::new(data)?);
+                        } else {
+                            ptl!(bail "hitsound-missing", "name" => s);
+                        }
                     }
                     HitSound::Custom(String::from_str(&s)?)
                 }
