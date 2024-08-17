@@ -452,7 +452,7 @@ impl Page for HomePage {
                             let _ = save_data();
                             sync_data();
                         }
-                        show_error(err.context(tl!("failed-to-update")));
+                        show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
                     }
                     Ok(val) => {
                         get_data_mut().me = Some(val);
