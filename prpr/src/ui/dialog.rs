@@ -15,7 +15,7 @@ pub struct Dialog {
     buttons: Vec<String>,
     /// listener function returns `false` to close the dialog, `true` to keep it open
     /// the parameter is the *index* of the button clicked, `-1` for outside click, `-2` for text
-    listener: Option<Box<dyn FnMut(i32) -> bool>>,
+    listener: Option<Box<dyn FnMut(&mut Dialog, i32) -> bool>>,
 
     text_btn: RectButton,
 
@@ -67,7 +67,7 @@ impl Dialog {
             title: tl!("error").to_string(),
             message: error.clone(),
             buttons: vec![tl!("error-copy").to_string(), tl!("ok").to_string()],
-            listener: Some(Box::new(move |pos| {
+            listener: Some(Box::new(move |_dialog, pos| {
                 if pos == 0 {
                     unsafe { get_internal_gl() }.quad_context.clipboard_set(&error);
                     show_message(tl!("error-copied")).ok();
@@ -86,17 +86,25 @@ impl Dialog {
     }
 
     pub fn message(mut self, message: impl Into<String>) -> Self {
-        self.message = message.into();
+        self.set_message(message);
         self
+    }
+
+    pub fn set_message(&mut self, message: impl Into<String>) {
+        self.message = message.into();
     }
 
     pub fn buttons(mut self, buttons: Vec<String>) -> Self {
-        self.buttons = buttons;
-        self.rect_buttons = vec![DRectButton::new(); self.buttons.len()];
+        self.set_buttons(buttons);
         self
     }
 
-    pub fn listener(mut self, f: impl FnMut(i32) -> bool + 'static) -> Self {
+    pub fn set_buttons(&mut self, buttons: Vec<String>) {
+        self.buttons = buttons;
+        self.rect_buttons = vec![DRectButton::new(); self.buttons.len()];
+    }
+
+    pub fn listener(mut self, f: impl FnMut(&mut Dialog, i32) -> bool + 'static) -> Self {
         self.listener = Some(Box::new(f));
         self
     }
@@ -110,18 +118,21 @@ impl Dialog {
         let mut exit = false;
         for (index, btn) in self.rect_buttons.iter_mut().enumerate() {
             if btn.touch(touch, t) {
-                if let Some(listener) = self.listener.as_mut() {
-                    if !listener(index as i32) {
+                if let Some(mut listener) = self.listener.take() {
+                    if !listener(self, index as i32) {
                         exit = true;
                     }
+                    self.listener = Some(listener);
+                    break;
                 }
             }
         }
         if self.text_btn.touch(touch) {
-            if let Some(listener) = self.listener.as_mut() {
-                if !listener(-2) {
+            if let Some(mut listener) = self.listener.take() {
+                if !listener(self, -2) {
                     exit = true;
                 }
+                self.listener = Some(listener);
             }
         }
         if exit {
@@ -134,10 +145,11 @@ impl Dialog {
         {
             true
         } else {
-            if let Some(listener) = self.listener.as_mut() {
-                if listener(-1) {
+            if let Some(mut listener) = self.listener.take() {
+                if listener(self, -1) {
                     return true;
                 }
+                self.listener = Some(listener);
             }
             false
         }

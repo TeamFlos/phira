@@ -118,7 +118,7 @@ pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem + Send + Sync + 'st
 pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res: Arc<AtomicBool>) {
     Dialog::plain(title.into(), content.into())
         .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-        .listener(move |id| {
+        .listener(move |_dialog, id| {
             if id == 1 {
                 res.store(true, Ordering::SeqCst);
             }
@@ -155,23 +155,60 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
     }
     match TERMS.get().clone() {
         Some(Some((terms, modified))) => {
-            Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str())
-                .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
-                .listener(move |pos| match pos {
+            let content = ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str();
+            let lines = content.split('\n').collect::<Vec<_>>();
+            let pages = lines.chunks(10).map(|it| it.join("\n")).collect::<Vec<_>>();
+            let pages_len = pages.len();
+            let mut page = 0;
+            let gen_buttons = move |page: usize| {
+                let mut btns = vec![ttl!("tos-deny").into_owned()];
+                let mut btn_ids = vec![0u8];
+                if page != 0 {
+                    btns.push(ttl!("tos-prev-page").into_owned());
+                    btn_ids.push(1);
+                }
+                if page != pages_len - 1 {
+                    btns.push(ttl!("tos-next-page").into_owned());
+                    btn_ids.push(2);
+                } else {
+                    btns.push(ttl!("tos-accept").into_owned());
+                    btn_ids.push(3);
+                }
+                (btns, btn_ids)
+            };
+            let (btns, mut btn_ids) = gen_buttons(page);
+            Dialog::plain(ttl!("tos-and-policy"), &pages[page])
+                .buttons(btns)
+                .listener(move |dialog, pos| match pos {
                     -2 | -1 => true,
-                    0 => {
-                        show_message(ttl!("warn-deny-tos-policy")).warn();
-                        false
-                    }
-                    1 => {
-                        get_data_mut().terms_modified = Some(modified.clone());
-                        let _ = save_data();
-                        if change_just_accepted {
-                            JUST_ACCEPTED_TOS.store(true, Ordering::Relaxed);
+                    _ => {
+                        match btn_ids[pos as usize] {
+                            0 => {
+                                show_message(ttl!("warn-deny-tos-policy")).warn();
+                                return false;
+                            }
+                            1 => {
+                                page -= 1;
+                            }
+                            2 => {
+                                page += 1;
+                            }
+                            3 => {
+                                get_data_mut().terms_modified = Some(modified.clone());
+                                let _ = save_data();
+                                if change_just_accepted {
+                                    JUST_ACCEPTED_TOS.store(true, Ordering::Relaxed);
+                                }
+                                return false;
+                            }
+                            _ => unreachable!(),
                         }
-                        false
+                        let (btns, new_btn_ids) = gen_buttons(page);
+                        btn_ids = new_btn_ids;
+                        dialog.set_buttons(btns);
+                        dialog.set_message(&pages[page]);
+                        true
                     }
-                    _ => unreachable!(),
                 })
                 .show();
         }
@@ -193,11 +230,7 @@ pub fn load_tos_and_policy() {
     let mut guard = LOAD_TOS_TASK.lock().unwrap();
     if guard.is_none() {
         let modified = get_data().terms_modified.clone();
-        *guard = Some(Task::new(async move {
-            Client::fetch_terms(modified.as_deref())
-                .await
-                .context("failed to fetch terms")
-        }));
+        *guard = Some(Task::new(async move { Client::fetch_terms(modified.as_deref()).await.context("failed to fetch terms") }));
     }
 }
 

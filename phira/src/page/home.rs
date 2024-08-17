@@ -533,7 +533,7 @@ impl Page for HomePage {
                                 tl!("update-ignore").into_owned(),
                                 tl!("update-go").into_owned(),
                             ])
-                            .listener(move |pos| {
+                            .listener(move |_dialog, pos| {
                                 match pos {
                                     1 => {
                                         get_data_mut().ignored_version = Some(ver.version.clone());
