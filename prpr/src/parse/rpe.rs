@@ -3,18 +3,20 @@ crate::tl_file!("parser" ptl);
 use super::{process_lines, RPE_TWEEN_MAP};
 use crate::{
     core::{
-        Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, HitSoundMap, JudgeLine,
-        JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
+        Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GifFrames, HitSoundMap,
+        JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS,
+        HEIGHT_RATIO,
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
     judge::{HitSound, JudgeStatus},
 };
 use anyhow::{Context, Result};
+use image::{codecs::gif, AnimationDecoder, DynamicImage};
 use macroquad::prelude::{Color, WHITE};
 use sasa::AudioClip;
 use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr, time::Duration};
 
 pub const RPE_WIDTH: f32 = 1350.;
 pub const RPE_HEIGHT: f32 = 900.;
@@ -137,8 +139,8 @@ struct RPEJudgeLine {
     extended: Option<RPEExtendedEvents>,
     notes: Option<Vec<RPENote>>,
     is_cover: u8,
-    #[serde(rename = "isGif")]
-    is_gif: bool,
+    // #[serde(rename = "isGif")]
+    // is_gif: bool,
     #[serde(default)]
     z_order: i32,
     #[serde(rename = "attachUI")]
@@ -474,8 +476,31 @@ async fn parse_judge_line(
                     parse_events(r, events, Some(-1.), bezier_map).with_context(|| ptl!("paint-events-parse-failed"))?,
                     RefCell::default(),
                 )
-            } else if let Some(events) = rpe.extended.as_ref().and_then(|e| e.text_events.as_ref()) {
-                JudgeLineKind::Text(parse_events(r, events, Some(String::new()), bezier_map).with_context(|| ptl!("text-events-parse-failed"))?)
+            } else if let Some(extended) = rpe.extended.as_ref() {
+                if let Some(events) = extended.gif_events.as_ref() {
+                    let data = fs
+                        .load_file(&rpe.texture)
+                        .await
+                        .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
+                    let decoder = gif::GifDecoder::new(&data[..])?;
+                    let frames = GifFrames::new(
+                        decoder
+                            .into_frames()
+                            .map(|frame| -> (u128, SafeTexture) {
+                                let frame = frame.unwrap();
+                                let delay: Duration = frame.delay().into();
+                                (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
+                            })
+                            .collect(),
+                    );
+                    // TODO: process events
+                    let events = parse_events(r, events, Some(0.), bezier_map).with_context(|| ptl!("gif-events-parse-failed"))?;
+                    JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
+                } else if let Some(events) = extended.text_events.as_ref() {
+                    JudgeLineKind::Text(parse_events(r, events, Some(String::new()), bezier_map).with_context(|| ptl!("text-events-parse-failed"))?)
+                } else {
+                    JudgeLineKind::Normal
+                }
             } else {
                 JudgeLineKind::Normal
             }

@@ -379,6 +379,7 @@ impl BinaryData for JudgeLine {
             1 => JudgeLineKind::Texture(Texture2D::empty().into(), r.read()?),
             2 => JudgeLineKind::Text(r.read()?),
             3 => JudgeLineKind::Paint(r.read()?, RefCell::default()),
+            4 => unimplemented!(),
             _ => bail!("invalid judge line kind"),
         };
         let height = r.read()?;
@@ -427,6 +428,9 @@ impl BinaryData for JudgeLine {
             JudgeLineKind::Paint(events, _) => {
                 w.write_val(3_u8)?;
                 w.write(events)?;
+            }
+            JudgeLineKind::TextureGif(..) => {
+                bail!("gif texture binary not supported");
             }
         }
         w.write(&self.height)?;
