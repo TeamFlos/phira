@@ -13,7 +13,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
-    ext::{poll_future, semi_white, LocalTask, RectExt, SafeTexture},
+    ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, take_input},
     ui::{DRectButton, Scroll, Slider, Ui},
@@ -21,6 +21,8 @@ use prpr::{
 use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
+const INTERACT_WIDTH: f32 = 0.26;
+const STATUS_PAGE: &str = "https://status.phira.cn";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SettingListType {
@@ -258,7 +260,7 @@ fn render_switch(ui: &mut Ui, r: Rect, t: f32, btn: &mut DRectButton, on: bool) 
 #[inline]
 fn right_rect(w: f32) -> Rect {
     let rh = ITEM_HEIGHT * 2. / 3.;
-    Rect::new(w - 0.3, (ITEM_HEIGHT - rh) / 2., 0.26, rh)
+    Rect::new(w - 0.3, (ITEM_HEIGHT - rh) / 2., INTERACT_WIDTH, rh)
 }
 
 struct GeneralList {
@@ -266,6 +268,7 @@ struct GeneralList {
 
     lang_btn: ChooseButton,
     offline_btn: DRectButton,
+    server_status_btn: DRectButton,
     mp_btn: DRectButton,
     mp_addr_btn: DRectButton,
     lowq_btn: DRectButton,
@@ -288,6 +291,7 @@ impl GeneralList {
                         .unwrap_or_default(),
                 ),
             offline_btn: DRectButton::new(),
+            server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
             mp_addr_btn: DRectButton::new(),
             lowq_btn: DRectButton::new(),
@@ -310,6 +314,10 @@ impl GeneralList {
         }
         if self.offline_btn.touch(touch, t) {
             config.offline_mode ^= true;
+            return Ok(Some(true));
+        }
+        if self.server_status_btn.touch(touch, t) {
+            let _ = open_url(STATUS_PAGE);
             return Ok(Some(true));
         }
         if self.mp_btn.touch(touch, t) {
@@ -379,6 +387,10 @@ impl GeneralList {
         item! {
             render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
+        }
+        item! {
+            render_title(ui, tl!("item-server-status"), Some(tl!("item-server-status-sub")));
+            self.server_status_btn.render_text(ui, rr, t, tl!("check-status"), 0.5, true);
         }
         item! {
             render_title(ui, tl!("item-mp"), Some(tl!("item-mp-sub")));
