@@ -353,3 +353,21 @@ pub fn render_release_to_refresh(ui: &mut Ui, cx: f32, off: f32) {
         .color(semi_white(p * 0.8))
         .draw();
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ops::DerefMut;
+
+    use fs::load_info;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_parse_chart() -> Result<()> {
+        // Put the chart in phira(workspace, not crate)/test which is ignored by git
+        let mut fs = fs_from_path("../../../test")?;
+        let info = load_info(fs.as_mut()).await?;
+        let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
+        Ok(())
+    }
+}
