@@ -1,5 +1,5 @@
 
-del-confirm = 確認刪除？
+del-confirm = 你確定要刪除嗎？
 del-confirm-content = 該操作無法撤銷。
 
 cancel = 取消

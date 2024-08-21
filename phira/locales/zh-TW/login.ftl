@@ -4,7 +4,7 @@ login-sub = 登入以加入活躍的線上社區
 back-login = 返回登入
 register = 註冊
 
-email = 電郵地址
+email = 電子郵件位址
 username = 使用者名稱
 password = 密碼
 
@@ -24,4 +24,4 @@ action-failed = { $action ->
   *[other] _
 }
 
-email-sent = 驗證電郵已發送至您的電郵地址，請前往驗證後登入。
+email-sent = 驗證信已發送至您的電子郵件位址，請前往驗證後登入。
