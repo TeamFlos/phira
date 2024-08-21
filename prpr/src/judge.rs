@@ -480,7 +480,9 @@ impl Judge {
             let t = time_of(touch);
             let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
             for (line_id, ((line, pos), (idx, st))) in chart.lines.iter_mut().zip(pos.iter()).zip(self.notes.iter_mut()).enumerate() {
-                let Some(pos) = pos[id] else { continue; };
+                let Some(pos) = pos[id] else {
+                    continue;
+                };
                 for id in &idx[*st..] {
                     let note = &mut line.notes[*id as usize];
                     if !matches!(note.judge, JudgeStatus::NotJudged | JudgeStatus::PreJudge) {
@@ -489,18 +491,19 @@ impl Judge {
                     if !click && matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. }) {
                         continue;
                     }
-                    let dt = (note.time - t) / spd;
+                    let mut dt = (note.time - t) / spd;
                     if dt >= closest.3 {
                         break;
                     }
-                    let dt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
+                    let mut rt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
+                    dt = dt.abs();
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
                     let dist = (x.now() - pos.x).abs();
                     if dist > X_DIFF_MAX {
                         continue;
                     }
-                    if dt
+                    if rt
                         > if matches!(note.kind, NoteKind::Click) {
                             LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)
                         } else {
@@ -509,13 +512,15 @@ impl Judge {
                     {
                         continue;
                     }
-                    let dt = if matches!(note.kind, NoteKind::Flick | NoteKind::Drag) {
-                        dt + LIMIT_GOOD
-                    } else {
-                        dt
-                    };
-                    let key = dt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
-                    if key < closest.3 {
+
+                    if matches!(note.kind, NoteKind::Flick | NoteKind::Drag) {
+                        rt += LIMIT_PERFECT;
+                        dt += LIMIT_PERFECT;
+                    }
+
+                    let key = rt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
+
+                    if key <= closest.3 {
                         closest = (Some((line_id, *id)), dist, dt, key);
                     }
                 }
@@ -549,7 +554,7 @@ impl Judge {
                         // prevent extra judgements
                         if matches!(note.judge, JudgeStatus::NotJudged) {
                             // keep the note after bad judgement
-                            line.notes[id as usize].judge = JudgeStatus::PreJudge;
+                            note.judge = JudgeStatus::PreJudge;
                             judgements.push((Judgement::Bad, line_id, id, None));
                         }
                     }
@@ -714,6 +719,7 @@ impl Judge {
             let line = &chart.lines[line_id];
             let note = &line.notes[id as usize];
             let line_tr = line.now_transform(res, &chart.lines);
+
             self.commit(
                 t,
                 judgement,
@@ -743,7 +749,7 @@ impl Judge {
                     if !matches!(note.kind, NoteKind::Hold { .. }) {
                         bad_notes.push(BadNote {
                             time: t,
-                            kind: note.kind.clone(),
+                            kind: note.kind,
                             matrix: {
                                 let mut mat = line_tr;
                                 if !note.above {
@@ -831,7 +837,7 @@ impl Judge {
                 let nt = if matches!(note.kind, NoteKind::Hold { .. }) { t } else { note.time };
                 line.object.set_time(nt);
                 note.object.set_time(nt);
-                (note.object.now(res), note.kind.clone())
+                (note.object.now(res), note.kind)
             };
             let line = &chart.lines[line_id];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
