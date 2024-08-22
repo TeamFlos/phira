@@ -16,6 +16,7 @@ use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
 use macroquad::prelude::{Color, WHITE};
 use sasa::AudioClip;
 use serde::Deserialize;
+use tracing::debug;
 use std::{cell::RefCell, collections::HashMap, future::IntoFuture, rc::Rc, str::FromStr, time::Duration};
 
 pub const RPE_WIDTH: f32 = 1350.;
@@ -527,15 +528,17 @@ async fn parse_judge_line(
                     .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
                 let frames = GifFrames::new(tokio::spawn(async move {
                     let decoder = gif::GifDecoder::new(&data[..])?;
-                    Ok::<std::vec::Vec<(u128, SafeTexture)>, ImageError>(decoder
-                        .into_frames()
-                        .map(|frame| -> (u128, SafeTexture) {
+                    debug!("decoding gif");
+                    Ok::<std::vec::Vec<_>, ImageError>(decoder
+                        .into_frames().collect()
+                        )
+                }).into_future().await??.into_iter().map(|frame| -> (u128, SafeTexture) {
                             let frame = frame.unwrap();
                             let delay: Duration = frame.delay().into();
                             (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
                         })
-                        .collect())
-                }).into_future().await??);
+                        .collect());
+                debug!("gif decoded");
                 let events = parse_gif_events(r, events, bezier_map, &frames).with_context(|| ptl!("gif-events-parse-failed"))?;
                 JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
             } else {
