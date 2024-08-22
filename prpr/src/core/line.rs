@@ -67,6 +67,10 @@ impl GifFrames {
         let time = (prog * self.total_time as f32) as u128;
         self.get_time_frame(time)
     }
+
+    pub fn total_time(&self) -> u128 {
+        self.total_time
+    }
 }
 
 #[derive(Default)]

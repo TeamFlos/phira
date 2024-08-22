@@ -280,6 +280,40 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
     Ok(AnimFloat::new(kfs))
 }
 
+fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], bezier_map: &BezierMap, gif: &GifFrames) -> Result<Anim<f32>> {
+    let mut kfs = Vec::new();
+    if rpe[0].start_time.beats() != 0.0 {
+        kfs.push(Keyframe::new(0.0, 0.0, 2));
+    }
+    let mut next_rep_time: u128 = 0;
+    for e in rpe {
+        while r.time(&e.start_time) > next_rep_time as f32 / 1000. {
+            kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
+            kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
+            next_rep_time += gif.total_time();
+        }
+        let stop_prog = 1. - (next_rep_time as f32 - r.time(&e.start_time) * 1000.) / gif.total_time() as f32;
+        kfs.push(Keyframe::new(r.time(&e.start_time), stop_prog, 0));
+        kfs.push(Keyframe {
+            time: r.time(&e.start_time),
+            value: e.start.clone().into(),
+            tween: {
+                let tween = RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
+                if e.bezier != 0 {
+                    Rc::clone(&bezier_map[&bezier_key(e)])
+                } else if e.easing_left.abs() < EPS && (e.easing_right - 1.0).abs() < EPS {
+                    StaticTween::get_rc(tween)
+                } else {
+                    Rc::new(ClampedTween::new(tween, e.easing_left..e.easing_right))
+                }
+            },
+        });
+        kfs.push(Keyframe::new(r.time(&e.end_time), e.end.clone().into(), 2));
+        next_rep_time = (r.time(&e.end_time) * 1000. + gif.total_time() as f32 * (1. - e.end.clone().into())).round() as u128;
+    }
+    Ok(Anim::new(kfs))
+}
+
 async fn parse_notes(
     r: &mut BpmList,
     rpe: Vec<RPENote>,
@@ -502,8 +536,7 @@ async fn parse_judge_line(
                         })
                         .collect(),
                 );
-                // TODO: process events
-                let events = parse_events(r, events, Some(0.), bezier_map).with_context(|| ptl!("gif-events-parse-failed"))?;
+                let events = parse_gif_events(r, events, bezier_map, &frames).with_context(|| ptl!("gif-events-parse-failed"))?;
                 JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
             } else {
                 JudgeLineKind::Texture(
