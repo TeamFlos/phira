@@ -477,32 +477,44 @@ async fn parse_judge_line(
                     RefCell::default(),
                 )
             } else if let Some(extended) = rpe.extended.as_ref() {
-                if let Some(events) = extended.gif_events.as_ref() {
-                    let data = fs
-                        .load_file(&rpe.texture)
-                        .await
-                        .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
-                    let decoder = gif::GifDecoder::new(&data[..])?;
-                    let frames = GifFrames::new(
-                        decoder
-                            .into_frames()
-                            .map(|frame| -> (u128, SafeTexture) {
-                                let frame = frame.unwrap();
-                                let delay: Duration = frame.delay().into();
-                                (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
-                            })
-                            .collect(),
-                    );
-                    // TODO: process events
-                    let events = parse_events(r, events, Some(0.), bezier_map).with_context(|| ptl!("gif-events-parse-failed"))?;
-                    JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
-                } else if let Some(events) = extended.text_events.as_ref() {
+                if let Some(events) = extended.text_events.as_ref() {
                     JudgeLineKind::Text(parse_events(r, events, Some(String::new()), bezier_map).with_context(|| ptl!("text-events-parse-failed"))?)
                 } else {
                     JudgeLineKind::Normal
                 }
             } else {
                 JudgeLineKind::Normal
+            }
+        } else if let Some(extended) = rpe.extended.as_ref() {
+            if let Some(events) = extended.gif_events.as_ref() {
+                let data = fs
+                    .load_file(&rpe.texture)
+                    .await
+                    .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
+                let decoder = gif::GifDecoder::new(&data[..])?;
+                let frames = GifFrames::new(
+                    decoder
+                        .into_frames()
+                        .map(|frame| -> (u128, SafeTexture) {
+                            let frame = frame.unwrap();
+                            let delay: Duration = frame.delay().into();
+                            (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
+                        })
+                        .collect(),
+                );
+                // TODO: process events
+                let events = parse_events(r, events, Some(0.), bezier_map).with_context(|| ptl!("gif-events-parse-failed"))?;
+                JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
+            } else {
+                JudgeLineKind::Texture(
+                    SafeTexture::from(image::load_from_memory(
+                        &fs.load_file(&rpe.texture)
+                            .await
+                            .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
+                    )?)
+                    .with_mipmap(),
+                    rpe.texture.clone(),
+                )
             }
         } else {
             JudgeLineKind::Texture(
