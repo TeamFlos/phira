@@ -236,9 +236,6 @@ impl GameScene {
             _ => {}
         }
 
-        // Magic, [ext::poll_future] lag for unknwon reason without this
-        tokio::time::sleep(Duration::from_millis(1000)).await;
-
         let (mut chart, chart_bytes, chart_format) = Self::load_chart(fs.deref_mut(), &info).await?;
         let effects = std::mem::take(&mut chart.extra.global_effects);
         if config.fxaa {

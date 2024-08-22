@@ -12,11 +12,11 @@ use crate::{
     judge::{HitSound, JudgeStatus},
 };
 use anyhow::{Context, Result};
-use image::{codecs::gif, AnimationDecoder, DynamicImage};
+use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
 use macroquad::prelude::{Color, WHITE};
 use sasa::AudioClip;
 use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr, time::Duration};
+use std::{cell::RefCell, collections::HashMap, future::IntoFuture, rc::Rc, str::FromStr, time::Duration};
 
 pub const RPE_WIDTH: f32 = 1350.;
 pub const RPE_HEIGHT: f32 = 900.;
@@ -525,17 +525,17 @@ async fn parse_judge_line(
                     .load_file(&rpe.texture)
                     .await
                     .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
-                let decoder = gif::GifDecoder::new(&data[..])?;
-                let frames = GifFrames::new(
-                    decoder
+                let frames = GifFrames::new(tokio::spawn(async move {
+                    let decoder = gif::GifDecoder::new(&data[..])?;
+                    Ok::<std::vec::Vec<(u128, SafeTexture)>, ImageError>(decoder
                         .into_frames()
                         .map(|frame| -> (u128, SafeTexture) {
                             let frame = frame.unwrap();
                             let delay: Duration = frame.delay().into();
                             (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
                         })
-                        .collect(),
-                );
+                        .collect())
+                }).into_future().await??);
                 let events = parse_gif_events(r, events, bezier_map, &frames).with_context(|| ptl!("gif-events-parse-failed"))?;
                 JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
             } else {
