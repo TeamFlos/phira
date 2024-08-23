@@ -7,11 +7,11 @@ use crate::{
         Object, HEIGHT_RATIO,
     },
     ext::NotNanExt,
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
 };
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 use tracing::warn;
 
 #[derive(Deserialize)]
@@ -159,23 +159,26 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
     pgr.into_iter()
         .map(|pgr| {
             let time = pgr.time * r;
+            let kind = match pgr.kind {
+                1 => NoteKind::Click,
+                2 => NoteKind::Drag,
+                3 => {
+                    let end_time = (pgr.time + pgr.hold_time) * r;
+                    height.set_time(end_time);
+                    let end_height = height.now();
+                    NoteKind::Hold { end_time, end_height }
+                }
+                4 => NoteKind::Flick,
+                _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
+            };
+            let hitsound = HitSound::default_from_kind(&kind);
             Ok(Note {
                 object: Object {
                     translation: AnimVector(AnimFloat::fixed(pgr.position_x * (2. * 9. / 160.)), AnimFloat::default()),
                     ..Default::default()
                 },
-                kind: match pgr.kind {
-                    1 => NoteKind::Click,
-                    2 => NoteKind::Drag,
-                    3 => {
-                        let end_time = (pgr.time + pgr.hold_time) * r;
-                        height.set_time(end_time);
-                        let end_height = height.now();
-                        NoteKind::Hold { end_time, end_height }
-                    }
-                    4 => NoteKind::Flick,
-                    _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
-                },
+                kind,
+                hitsound,
                 time,
                 speed: if pgr.kind == 3 {
                     speed.set_time(time);
@@ -248,5 +251,5 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         .map(|(id, pgr)| parse_judge_line(pgr, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
         .collect::<Result<Vec<_>>>()?;
     process_lines(&mut lines);
-    Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra))
+    Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra, HashMap::new()))
 }

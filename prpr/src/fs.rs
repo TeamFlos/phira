@@ -253,6 +253,7 @@ fn info_from_kv<'a>(it: impl Iterator<Item = (&'a str, String)>, csv: bool) -> R
             warn!("global alpha is ignored");
             continue;
         }
+        let mut deprecate = String::new();
         *match key {
             "Name" => &mut info.name,
             "Music" | "Song" => &mut info.music,
@@ -262,14 +263,17 @@ fn info_from_kv<'a>(it: impl Iterator<Item = (&'a str, String)>, csv: bool) -> R
             "Illustrator" => &mut info.illustrator,
             "Artist" | "Composer" | "Musician" => &mut info.composer,
             "Charter" | "Designer" => &mut info.charter,
-            _ => bail!("Unknown key: {key}"),
+            "LastEditTime" => &mut deprecate,
+            "Length" => &mut deprecate,
+            "EditTime" => &mut deprecate,
+            _ => &mut deprecate,
         } = value;
     }
     Ok(info)
 }
 
 fn info_from_txt(text: &str) -> Result<ChartInfo> {
-    let mut it = text.lines().peekable();
+    let mut it = text.lines().filter(|it| !it.is_empty()).peekable();
     let first = it.next();
     if first != Some("#") && first != Some("\u{feff}#") {
         bail!("expected the first line to be #");
@@ -337,7 +341,7 @@ pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<(
                     background: String,
                     charter: String,
                     composer: Option<String>,
-                    illustrator: Option<String>,
+                    illustration: Option<String>,
                     song: String,
                 }
                 if let Ok(mut meta) = serde_json::from_value::<RPEMeta>(value["META"].take()) {
@@ -348,7 +352,7 @@ pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<(
                     if let Some(val) = meta.composer {
                         info.composer = val;
                     }
-                    if let Some(val) = meta.illustrator {
+                    if let Some(val) = meta.illustration {
                         info.illustrator = val;
                     }
                     if illustration.is_none() {

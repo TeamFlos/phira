@@ -43,5 +43,6 @@ inner.rs
 
 # Test
 
+/test
 /log*
 /build_event_debug.sh

@@ -10,10 +10,13 @@ incline-events-parse-failed = incline 事件解析失败
 paint-events-parse-failed = paint 事件解析失败
 text-events-parse-failed = text 事件解析失败
 color-events-parse-failed = color 事件解析失败
+gif-events-parse-failed = gif 事件解析失败
 
 illustration-load-failed = 位于 { $path } 的插图加载失败
+gif-load-failed = 位于 { $path } 的 gif 加载失败
 
 judge-line-location-name = #{ $jlid } ({ $name }) 判定线中
+hitsound-missing = 缺少打击音 `{ $name }`
 
 # pgr
 event-not-contiguous = 事件应当连续

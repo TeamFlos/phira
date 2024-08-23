@@ -37,6 +37,7 @@ use std::{
     process::{Command, Stdio},
     rc::Rc,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 use tracing::{debug, warn};
 
@@ -234,6 +235,7 @@ impl GameScene {
             }
             _ => {}
         }
+
         let (mut chart, chart_bytes, chart_format) = Self::load_chart(fs.deref_mut(), &info).await?;
         let effects = std::mem::take(&mut chart.extra.global_effects);
         if config.fxaa {
@@ -255,6 +257,14 @@ impl GameScene {
         )
         .await
         .context("Failed to load resources")?;
+
+        // Prepare extra sfx from chart.hitsounds
+        chart.hitsounds.drain().for_each(|(name, clip)| {
+            if let Ok(clip) = res.create_sfx(clip) {
+                res.extra_sfxs.insert(name, clip);
+            }
+        });
+
         let exercise_range = (chart.offset + info_offset + res.config.offset)..res.track_length;
 
         let judge = Judge::new(&chart);
