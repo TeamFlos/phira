@@ -452,6 +452,7 @@ impl Page for HomePage {
                             let _ = save_data();
                             sync_data();
                         }
+                        // TODO: better error handling
                         show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
                     }
                     Ok(val) => {

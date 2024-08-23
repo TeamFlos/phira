@@ -129,7 +129,6 @@ struct RPENote {
 struct RPEJudgeLine {
     // TODO group
     // TODO bpmfactor
-    // TODO gif
     #[serde(rename = "Name")]
     name: String,
     #[serde(rename = "Texture")]
@@ -140,8 +139,6 @@ struct RPEJudgeLine {
     extended: Option<RPEExtendedEvents>,
     notes: Option<Vec<RPENote>>,
     is_cover: u8,
-    // #[serde(rename = "isGif")]
-    // is_gif: bool,
     #[serde(default)]
     z_order: i32,
     #[serde(rename = "attachUI")]
@@ -310,6 +307,8 @@ fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], 
         kfs.push(Keyframe::new(r.time(&e.end_time), e.end.clone().into(), 2));
         next_rep_time = (r.time(&e.end_time) * 1000. + gif.total_time() as f32 * (1. - e.end.clone().into())).round() as u128;
     }
+
+    // TODO maybe a better approach?
     const GIF_MAX_TIME: f32 = 2000.;
     while GIF_MAX_TIME > next_rep_time as f32 / 1000. {
         kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
