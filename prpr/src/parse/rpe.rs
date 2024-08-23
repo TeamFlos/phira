@@ -16,8 +16,8 @@ use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
 use macroquad::prelude::{Color, WHITE};
 use sasa::AudioClip;
 use serde::Deserialize;
-use tracing::debug;
 use std::{cell::RefCell, collections::HashMap, future::IntoFuture, rc::Rc, str::FromStr, time::Duration};
+use tracing::debug;
 
 pub const RPE_WIDTH: f32 = 1350.;
 pub const RPE_HEIGHT: f32 = 900.;
@@ -283,9 +283,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
 
 fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], bezier_map: &BezierMap, gif: &GifFrames) -> Result<Anim<f32>> {
     let mut kfs = Vec::new();
-    if rpe[0].start_time.beats() != 0.0 {
-        kfs.push(Keyframe::new(0.0, 0.0, 2));
-    }
+    kfs.push(Keyframe::new(0.0, 0.0, 2));
     let mut next_rep_time: u128 = 0;
     for e in rpe {
         while r.time(&e.start_time) > next_rep_time as f32 / 1000. {
@@ -311,6 +309,12 @@ fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], 
         });
         kfs.push(Keyframe::new(r.time(&e.end_time), e.end.clone().into(), 2));
         next_rep_time = (r.time(&e.end_time) * 1000. + gif.total_time() as f32 * (1. - e.end.clone().into())).round() as u128;
+    }
+    const GIF_MAX_TIME: f32 = 2000.;
+    while GIF_MAX_TIME > next_rep_time as f32 / 1000. {
+        kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
+        kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
+        next_rep_time += gif.total_time();
     }
     Ok(Anim::new(kfs))
 }
@@ -526,18 +530,22 @@ async fn parse_judge_line(
                     .load_file(&rpe.texture)
                     .await
                     .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
-                let frames = GifFrames::new(tokio::spawn(async move {
-                    let decoder = gif::GifDecoder::new(&data[..])?;
-                    debug!("decoding gif");
-                    Ok::<std::vec::Vec<_>, ImageError>(decoder
-                        .into_frames().collect()
-                        )
-                }).into_future().await??.into_iter().map(|frame| -> (u128, SafeTexture) {
-                            let frame = frame.unwrap();
-                            let delay: Duration = frame.delay().into();
-                            (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
-                        })
-                        .collect());
+                let frames = GifFrames::new(
+                    tokio::spawn(async move {
+                        let decoder = gif::GifDecoder::new(&data[..])?;
+                        debug!("decoding gif");
+                        Ok::<std::vec::Vec<_>, ImageError>(decoder.into_frames().collect())
+                    })
+                    .into_future()
+                    .await??
+                    .into_iter()
+                    .map(|frame| -> (u128, SafeTexture) {
+                        let frame = frame.unwrap();
+                        let delay: Duration = frame.delay().into();
+                        (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
+                    })
+                    .collect(),
+                );
                 debug!("gif decoded");
                 let events = parse_gif_events(r, events, bezier_map, &frames).with_context(|| ptl!("gif-events-parse-failed"))?;
                 JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
