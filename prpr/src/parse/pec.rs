@@ -7,10 +7,10 @@ use crate::{
         Object, TweenId, EPS,
     },
     ext::NotNanExt,
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
 };
 use anyhow::{bail, Context, Result};
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
 use tracing::warn;
 
 trait Take {
@@ -257,12 +257,14 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         1 => true,
                         _ => ptl!(bail "expected-01"),
                     };
+                    let hitsound = HitSound::default_from_kind(&kind);
                     line.notes.push(Note {
                         object: Object {
                             translation: AnimVector(AnimFloat::fixed(position_x), AnimFloat::default()),
                             ..Default::default()
                         },
                         kind,
+                        hitsound,
                         time,
                         height: 0.0,
                         speed: 1.0,
@@ -375,5 +377,6 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
             ..Default::default()
         },
         extra,
+        HashMap::new(),
     ))
 }
