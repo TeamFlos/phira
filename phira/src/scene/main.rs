@@ -335,24 +335,26 @@ impl Scene for MainScene {
                     self.import_task = Some(Task::new(import_chart(file)));
                 }
                 "_import_respack" => {
+                    let root = dir::respacks()?;
+                    let dir = prpr::dir::Dir::new(&root)?;
+                    let mut dir_id = String::new();
                     let item: Result<ResPackItem> = (|| {
-                        let root = dir::respacks()?;
-                        let dir = prpr::dir::Dir::new(&root)?;
-                        let mut id = Uuid::new_v4();
-                        while dir.exists(id.to_string())? {
-                            id = Uuid::new_v4();
+                        let mut uuid = Uuid::new_v4();
+                        while dir.exists(uuid.to_string())? {
+                            uuid = Uuid::new_v4();
                         }
-                        let id = id.to_string();
-                        dir.create_dir_all(&id)?;
-                        let dir = dir.open_dir(&id)?;
+                        dir_id = uuid.to_string();
+                        dir.create_dir_all(&dir_id)?;
+                        let dir = dir.open_dir(&dir_id)?;
                         unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
                         let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;
-                        get_data_mut().respacks.push(id.clone());
+                        get_data_mut().respacks.push(dir_id.clone());
                         save_data()?;
-                        Ok(ResPackItem::new(Some(format!("{root}/{id}").into()), config.name))
+                        Ok(ResPackItem::new(Some(format!("{root}/{dir_id}").into()), config.name))
                     })();
                     match item {
                         Err(err) => {
+                            dir.remove_dir_all(&dir_id)?;
                             show_error(err.context(itl!("import-respack-failed")));
                         }
                         Ok(item) => {

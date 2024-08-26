@@ -9,10 +9,10 @@ dl-cancel = 取消
 dl-status-fetch = 載入資訊
 dl-status-song = 下載歌曲
 dl-status-chart = 下載譜面
-dl-status-extract = 解壓縮中...
+dl-status-extract = 解壓縮中…
 dl-status-illustration = 下載插圖
 dl-status-assets = 下載資源
-dl-status-saving = 保存中...
+dl-status-saving = 保存中…
 dl-failed = 下載失敗
 dl-success = 下載完成
 
@@ -32,7 +32,7 @@ unlock = 播放解鎖動畫
 
 edit-cancel = 取消
 edit-save = 保存
-edit-saving = 保存中...
+edit-saving = 保存中…
 edit-load-file-failed = 載入外部文件失敗
 edit-save-failed = 保存失敗
 edit-saved = 保存成功
@@ -58,7 +58,7 @@ upload-rules-content =
   3. 譜面內容（包括音樂、插圖、文字等）須符合中華人民共和國其他法律與法規，不得違法或包含不良信息
   4. 上傳者上傳即同意譜面可用於 Phira 的公開宣傳，其他方式利用仍需譜師許可
   5. 本須知最終解釋權歸 TeamFlos 所有
-uploading = 上傳中...
+uploading = 上傳中…
 upload-chart-failed = 上傳譜面失敗
 upload-success = 上傳成功，請等待審核！
 upload-failed = 上傳失敗
@@ -76,7 +76,7 @@ info-charter = 譜師
 info-difficulty = 難度
 info-desc = 簡介
 info-rating = 評分
-info-type = 種類
+info-type = 類型
 info-tags = 標籤
 
 reviewed = 已審核
@@ -90,7 +90,7 @@ review-passed = 已通過，譜面已過審
 review-denied = 已拒絕
 review-deleted = 已刪除
 review-action-failed = 執行審核操作失敗
-review-doing = 執行操作中...
+review-doing = 執行操作中…
 review-not-loaded = 資訊尚未載入完成，請稍等
 review-edit-tags = 編輯標籤
 review-edit-tags-failed = 編輯標籤失敗

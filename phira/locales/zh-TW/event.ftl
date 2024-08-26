@@ -11,7 +11,7 @@ scroll-down-for-more = 下滑查看更多
 
 btn-join = 參加
 btn-not-started = 尚未開始
-btn-ongoing = 進行中...
+btn-ongoing = 進行中
 btn-ended = 已結束
 
 ldb = 排行榜

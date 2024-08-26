@@ -452,7 +452,8 @@ impl Page for HomePage {
                             let _ = save_data();
                             sync_data();
                         }
-                        show_error(err.context(tl!("failed-to-update")));
+                        // TODO: better error handling
+                        show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
                     }
                     Ok(val) => {
                         get_data_mut().me = Some(val);
@@ -533,7 +534,7 @@ impl Page for HomePage {
                                 tl!("update-ignore").into_owned(),
                                 tl!("update-go").into_owned(),
                             ])
-                            .listener(move |pos| {
+                            .listener(move |_dialog, pos| {
                                 match pos {
                                     1 => {
                                         get_data_mut().ignored_version = Some(ver.version.clone());

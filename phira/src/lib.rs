@@ -292,7 +292,7 @@ async fn the_main() -> Result<()> {
 fn show_and_exit(msg: &str) {
     prpr::ui::Dialog::simple(msg)
         .buttons(vec!["确定".to_owned()])
-        .listener(|_| std::process::exit(0))
+        .listener(|_, _| std::process::exit(0))
         .show();
 }
 

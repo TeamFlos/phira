@@ -1,5 +1,8 @@
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
-use crate::{judge::JudgeStatus, parse::RPE_HEIGHT};
+pub use crate::{
+    judge::{HitSound, JudgeStatus},
+    parse::RPE_HEIGHT,
+};
 use macroquad::prelude::*;
 
 const HOLD_PARTICLE_INTERVAL: f32 = 0.15;
@@ -28,6 +31,7 @@ impl NoteKind {
 pub struct Note {
     pub object: Object,
     pub kind: NoteKind,
+    pub hitsound: HitSound,
     pub time: f32,
     pub height: f32,
     pub speed: f32,

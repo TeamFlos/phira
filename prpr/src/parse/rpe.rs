@@ -3,17 +3,21 @@ crate::tl_file!("parser" ptl);
 use super::{process_lines, RPE_TWEEN_MAP};
 use crate::{
     core::{
-        Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, JudgeLine, JudgeLineCache,
-        JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
+        Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GifFrames, HitSoundMap,
+        JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS,
+        HEIGHT_RATIO,
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
 };
 use anyhow::{Context, Result};
+use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
 use macroquad::prelude::{Color, WHITE};
+use sasa::AudioClip;
 use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, future::IntoFuture, rc::Rc, str::FromStr, time::Duration};
+use tracing::debug;
 
 pub const RPE_WIDTH: f32 = 1350.;
 pub const RPE_HEIGHT: f32 = 900.;
@@ -38,7 +42,6 @@ fn f32_one() -> f32 {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RPEEvent<T = f32> {
-    // TODO linkgroup
     #[serde(default = "f32_zero")]
     easing_left: f32,
     #[serde(default = "f32_one")]
@@ -66,7 +69,6 @@ struct RPECtrlEvent {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RPESpeedEvent {
-    // TODO linkgroup
     start_time: Triple,
     end_time: Triple,
     start: f32,
@@ -100,6 +102,7 @@ struct RPEExtendedEvents {
     scale_y_events: Option<Vec<RPEEvent>>,
     incline_events: Option<Vec<RPEEvent>>,
     paint_events: Option<Vec<RPEEvent>>,
+    gif_events: Option<Vec<RPEEvent>>,
 }
 
 #[derive(Deserialize)]
@@ -113,7 +116,8 @@ struct RPENote {
     end_time: Triple,
     position_x: f32,
     y_offset: f32,
-    alpha: u16, // some alpha has 256...
+    alpha: u16,               // some alpha has 256...
+    hitsound: Option<String>, // TODO implement this feature
     size: f32,
     speed: f32,
     is_fake: u8,
@@ -274,61 +278,132 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
     Ok(AnimFloat::new(kfs))
 }
 
-fn parse_notes(r: &mut BpmList, rpe: Vec<RPENote>, height: &mut AnimFloat) -> Result<Vec<Note>> {
-    rpe.into_iter()
-        .map(|note| {
-            let time = r.time(&note.start_time);
-            height.set_time(time);
-            let note_height = height.now();
-            let y_offset = note.y_offset * 2. / RPE_HEIGHT * note.speed;
-            Ok(Note {
-                object: Object {
-                    alpha: if note.visible_time >= time {
-                        if note.alpha >= 255 {
-                            AnimFloat::default()
+fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], bezier_map: &BezierMap, gif: &GifFrames) -> Result<Anim<f32>> {
+    let mut kfs = Vec::new();
+    kfs.push(Keyframe::new(0.0, 0.0, 2));
+    let mut next_rep_time: u128 = 0;
+    for e in rpe {
+        while r.time(&e.start_time) > next_rep_time as f32 / 1000. {
+            kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
+            kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
+            next_rep_time += gif.total_time();
+        }
+        let stop_prog = 1. - (next_rep_time as f32 - r.time(&e.start_time) * 1000.) / gif.total_time() as f32;
+        kfs.push(Keyframe::new(r.time(&e.start_time), stop_prog, 0));
+        kfs.push(Keyframe {
+            time: r.time(&e.start_time),
+            value: e.start.clone().into(),
+            tween: {
+                let tween = RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
+                if e.bezier != 0 {
+                    Rc::clone(&bezier_map[&bezier_key(e)])
+                } else if e.easing_left.abs() < EPS && (e.easing_right - 1.0).abs() < EPS {
+                    StaticTween::get_rc(tween)
+                } else {
+                    Rc::new(ClampedTween::new(tween, e.easing_left..e.easing_right))
+                }
+            },
+        });
+        kfs.push(Keyframe::new(r.time(&e.end_time), e.end.clone().into(), 2));
+        next_rep_time = (r.time(&e.end_time) * 1000. + gif.total_time() as f32 * (1. - e.end.clone().into())).round() as u128;
+    }
+
+    // TODO maybe a better approach?
+    const GIF_MAX_TIME: f32 = 2000.;
+    while GIF_MAX_TIME > next_rep_time as f32 / 1000. {
+        kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
+        kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
+        next_rep_time += gif.total_time();
+    }
+    Ok(Anim::new(kfs))
+}
+
+async fn parse_notes(
+    r: &mut BpmList,
+    rpe: Vec<RPENote>,
+    fs: &mut dyn FileSystem,
+    height: &mut AnimFloat,
+    hitsounds: &mut HitSoundMap,
+) -> Result<Vec<Note>> {
+    let mut notes = Vec::new();
+    for note in rpe {
+        let time: f32 = r.time(&note.start_time);
+        height.set_time(time);
+        let note_height = height.now();
+        let y_offset = note.y_offset * 2. / RPE_HEIGHT * note.speed;
+        let kind = match note.kind {
+            1 => NoteKind::Click,
+            2 => {
+                let end_time = r.time(&note.end_time);
+                height.set_time(end_time);
+                NoteKind::Hold {
+                    end_time,
+                    end_height: height.now(),
+                }
+            }
+            3 => NoteKind::Flick,
+            4 => NoteKind::Drag,
+            _ => ptl!(bail "unknown-note-type", "type" => note.kind),
+        };
+        let hitsound = match note.hitsound {
+            Some(s) => {
+                // TODO: RPE doc needed...
+                if s == "flick.mp3" {
+                    HitSound::Flick
+                } else if s == "tap.mp3" {
+                    HitSound::Click
+                } else if s == "drag.mp3" {
+                    HitSound::Drag
+                } else {
+                    if hitsounds.get(&s).is_none() {
+                        let data = fs.load_file(&s).await;
+                        if let Ok(data) = data {
+                            hitsounds.insert(s.clone(), AudioClip::new(data)?);
                         } else {
-                            AnimFloat::fixed(note.alpha as f32 / 255.)
-                        }
-                    } else {
-                        let alpha = note.alpha.min(255) as f32 / 255.;
-                        AnimFloat::new(vec![Keyframe::new(0.0, 0.0, 0), Keyframe::new(time - note.visible_time, alpha, 0)])
-                    },
-                    translation: AnimVector(AnimFloat::fixed(note.position_x / (RPE_WIDTH / 2.)), AnimFloat::fixed(y_offset)),
-                    scale: AnimVector(
-                        if note.size == 1.0 {
-                            AnimFloat::default()
-                        } else {
-                            AnimFloat::fixed(note.size)
-                        },
-                        AnimFloat::default(),
-                    ),
-                    ..Default::default()
-                },
-                kind: match note.kind {
-                    1 => NoteKind::Click,
-                    2 => {
-                        let end_time = r.time(&note.end_time);
-                        height.set_time(end_time);
-                        NoteKind::Hold {
-                            end_time,
-                            end_height: height.now(),
+                            ptl!(bail "hitsound-missing", "name" => s);
                         }
                     }
-                    3 => NoteKind::Flick,
-                    4 => NoteKind::Drag,
-                    _ => ptl!(bail "unknown-note-type", "type" => note.kind),
+                    HitSound::Custom(String::from_str(&s)?)
+                }
+            }
+            None => HitSound::default_from_kind(&kind),
+        };
+        notes.push(Note {
+            object: Object {
+                alpha: if note.visible_time >= time {
+                    if note.alpha >= 255 {
+                        AnimFloat::default()
+                    } else {
+                        AnimFloat::fixed(note.alpha as f32 / 255.)
+                    }
+                } else {
+                    let alpha = note.alpha.min(255) as f32 / 255.;
+                    AnimFloat::new(vec![Keyframe::new(0.0, 0.0, 0), Keyframe::new(time - note.visible_time, alpha, 0)])
                 },
-                time,
-                height: note_height,
-                speed: note.speed,
+                translation: AnimVector(AnimFloat::fixed(note.position_x / (RPE_WIDTH / 2.)), AnimFloat::fixed(y_offset)),
+                scale: AnimVector(
+                    if note.size == 1.0 {
+                        AnimFloat::default()
+                    } else {
+                        AnimFloat::fixed(note.size)
+                    },
+                    AnimFloat::default(),
+                ),
+                ..Default::default()
+            },
+            kind,
+            hitsound,
+            time,
+            height: note_height,
+            speed: note.speed,
 
-                above: note.above == 1,
-                multiple_hint: false,
-                fake: note.is_fake != 0,
-                judge: JudgeStatus::NotJudged,
-            })
+            above: note.above == 1,
+            multiple_hint: false,
+            fake: note.is_fake != 0,
+            judge: JudgeStatus::NotJudged,
         })
-        .collect()
+    }
+    Ok(notes)
 }
 
 fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
@@ -344,7 +419,14 @@ fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
     )
 }
 
-async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs: &mut dyn FileSystem, bezier_map: &BezierMap) -> Result<JudgeLine> {
+async fn parse_judge_line(
+    r: &mut BpmList,
+    rpe: RPEJudgeLine,
+    max_time: f32,
+    fs: &mut dyn FileSystem,
+    bezier_map: &BezierMap,
+    hitsounds: &mut HitSoundMap,
+) -> Result<JudgeLine> {
     let event_layers: Vec<_> = rpe.event_layers.into_iter().flatten().collect();
     fn events_with_factor(
         r: &mut BpmList,
@@ -364,7 +446,7 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
         Ok(res)
     }
     let mut height = parse_speed_events(r, &event_layers, max_time)?;
-    let mut notes = parse_notes(r, rpe.notes.unwrap_or_default(), &mut height)?;
+    let mut notes = parse_notes(r, rpe.notes.unwrap_or_default(), fs, &mut height, hitsounds).await?;
     let cache = JudgeLineCache::new(&mut notes);
     Ok(JudgeLine {
         object: Object {
@@ -432,10 +514,50 @@ async fn parse_judge_line(r: &mut BpmList, rpe: RPEJudgeLine, max_time: f32, fs:
                     parse_events(r, events, Some(-1.), bezier_map).with_context(|| ptl!("paint-events-parse-failed"))?,
                     RefCell::default(),
                 )
-            } else if let Some(events) = rpe.extended.as_ref().and_then(|e| e.text_events.as_ref()) {
-                JudgeLineKind::Text(parse_events(r, events, Some(String::new()), bezier_map).with_context(|| ptl!("text-events-parse-failed"))?)
+            } else if let Some(extended) = rpe.extended.as_ref() {
+                if let Some(events) = extended.text_events.as_ref() {
+                    JudgeLineKind::Text(parse_events(r, events, Some(String::new()), bezier_map).with_context(|| ptl!("text-events-parse-failed"))?)
+                } else {
+                    JudgeLineKind::Normal
+                }
             } else {
                 JudgeLineKind::Normal
+            }
+        } else if let Some(extended) = rpe.extended.as_ref() {
+            if let Some(events) = extended.gif_events.as_ref() {
+                let data = fs
+                    .load_file(&rpe.texture)
+                    .await
+                    .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
+                let frames = GifFrames::new(
+                    tokio::spawn(async move {
+                        let decoder = gif::GifDecoder::new(&data[..])?;
+                        debug!("decoding gif");
+                        Ok::<std::vec::Vec<_>, ImageError>(decoder.into_frames().collect())
+                    })
+                    .into_future()
+                    .await??
+                    .into_iter()
+                    .map(|frame| -> (u128, SafeTexture) {
+                        let frame = frame.unwrap();
+                        let delay: Duration = frame.delay().into();
+                        (delay.as_millis(), SafeTexture::from(DynamicImage::ImageRgba8(frame.into_buffer())))
+                    })
+                    .collect(),
+                );
+                debug!("gif decoded");
+                let events = parse_gif_events(r, events, bezier_map, &frames).with_context(|| ptl!("gif-events-parse-failed"))?;
+                JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
+            } else {
+                JudgeLineKind::Texture(
+                    SafeTexture::from(image::load_from_memory(
+                        &fs.load_file(&rpe.texture)
+                            .await
+                            .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
+                    )?)
+                    .with_mipmap(),
+                    rpe.texture.clone(),
+                )
             }
         } else {
             JudgeLineKind::Texture(
@@ -504,6 +626,7 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
     fn vec<T>(v: &Option<Vec<T>>) -> impl Iterator<Item = &T> {
         v.iter().flat_map(|it| it.iter())
     }
+    let mut hitsounds = HashMap::new();
     #[rustfmt::skip]
     let max_time = *rpe
         .judge_line_list
@@ -540,11 +663,11 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
     for (id, rpe) in rpe.judge_line_list.into_iter().enumerate() {
         let name = rpe.name.clone();
         lines.push(
-            parse_judge_line(&mut r, rpe, max_time, fs, &bezier_map)
+            parse_judge_line(&mut r, rpe, max_time, fs, &bezier_map, &mut hitsounds)
                 .await
                 .with_context(move || ptl!("judge-line-location-name", "jlid" => id, "name" => name))?,
         );
     }
     process_lines(&mut lines);
-    Ok(Chart::new(rpe.meta.offset as f32 / 1000.0, lines, r, ChartSettings::default(), extra))
+    Ok(Chart::new(rpe.meta.offset as f32 / 1000.0, lines, r, ChartSettings::default(), extra, hitsounds))
 }
