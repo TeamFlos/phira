@@ -198,7 +198,9 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
             error!("unreachable")
         }
         None => {
-            warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
+            if !strict {
+                warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
+            }
             load_tos_and_policy(strict, true);
         }
     }
