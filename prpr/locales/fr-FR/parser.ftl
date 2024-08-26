@@ -10,10 +10,13 @@ incline-events-parse-failed = Échec de l'analyse des événements d'inclinaison
 paint-events-parse-failed = Échec de l'analyse des événements de peinture
 text-events-parse-failed = Échec de l'analyse des événements de texte
 color-events-parse-failed = Échec de l'analyse des événements de couleur
+gif-events-parse-failed = Échec de l'analyse des événements GIF
 
 illustration-load-failed = Échec du chargement de l'illustration à { $path }
+gif-load-failed = Échec du chargement du gif à { $path }
 
 judge-line-location-name = À la ligne de jugement #{ $jlid } ({ $name })
+hitsound-missing = Le son de frappe `{ $name }` est manquant
 
 # pgr
 event-not-contiguous = Les événements doivent être contigus
