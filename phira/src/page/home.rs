@@ -355,7 +355,7 @@ impl Page for HomePage {
             self.sf.enter(s.t);
             self.need_back = false;
         }
-        load_tos_and_policy();
+        load_tos_and_policy(false, false);
         self.fetch_has_new();
         Ok(())
     }

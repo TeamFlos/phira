@@ -160,7 +160,7 @@ impl Data {
         }
         if self.read_tos_and_policy {
             debug!("migrating from old version");
-            self.terms_modified = Some("Mon, 05 Aug 2024 17:09:39 GMT".to_owned());
+            self.terms_modified = Some("Mon, 05 Aug 2024 17:32:41 GMT".to_owned());
             self.read_tos_and_policy = false;
         }
         self.config.init();

@@ -37,7 +37,7 @@ use prpr::{
     ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     info::ChartInfo,
-    scene::{show_error, show_message},
+    scene::{show_error, show_message, FullLoadingView},
     task::Task,
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
@@ -49,10 +49,11 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
+        mpsc::{self, Sender},
         Arc, Mutex,
-    },
+    }, time::Duration,
 };
-use tracing::{info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 thread_local! {
@@ -62,7 +63,7 @@ thread_local! {
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
 pub static TERMS: OnceCell<Option<(String, String)>> = OnceCell::new();
-pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, String)>>>>>> = Lazy::new(Mutex::default);
+pub static LOAD_TOS_TASK: Lazy<Mutex<Option<(Task<Result<Option<(String, String)>>>, Sender<Arc<()>>)>>> = Lazy::new(Mutex::default);
 pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 #[derive(Clone)]
 pub struct AssetsChartFileSystem(pub String, pub String);
@@ -128,32 +129,13 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
 }
 
 pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bool {
-    let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
-    if let Some(task) = &mut *tos_task {
-        if let Some(result) = task.take() {
-            match result {
-                Ok(res) => {
-                    if res.is_some() {
-                        info!("terms and policy updated");
-                        get_data_mut().terms_modified = None;
-                        let _ = save_data();
-                    }
-                    let _ = TERMS.set(res);
-                }
-                Err(e) => {
-                    show_error(e.context(ttl!("fetch-tos-policy-failed")));
-                    *tos_task = None;
-                    return false;
-                }
-            }
-            *tos_task = None;
-        }
+    if let Some(value) = dispatch_tos_task() {
+        return value;
     }
-    drop(tos_task);
     if get_data().terms_modified.is_some() && !strict {
         return true;
     }
-    match TERMS.get().clone() {
+    match TERMS.get() {
         Some(Some((terms, modified))) => {
             let content = ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str();
             let lines = content.split('\n').collect::<Vec<_>>();
@@ -213,24 +195,71 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
                 .show();
         }
         Some(None) => {
-            // not modified
+            error!("unreachable")
         }
         None => {
             warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
-            load_tos_and_policy();
+            load_tos_and_policy(strict, true);
         }
     }
     false
 }
 
-pub fn load_tos_and_policy() {
+pub fn dispatch_tos_task() -> Option<bool> {
+    let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
+    if let Some((task, _)) = &mut *tos_task {
+        if let Some(result) = task.take() {
+            match result {
+                Ok(res) => {
+                    if res.is_some() {
+                        info!("terms and policy loaded");
+                        get_data_mut().terms_modified = None;
+                        let _ = save_data();
+                        TERMS.set(res);
+                    }
+                    // don't load None into it, 
+                    // or it can't be updated when `strict` is true.
+                }
+                Err(e) => {
+                    show_error(e.context(ttl!("fetch-tos-policy-failed")));
+                    *tos_task = None;
+                    return Some(false);
+                }
+            }
+            *tos_task = None;
+        }
+    }
+    drop(tos_task);
+    None
+}
+/// use the return value to add a loading screen
+pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
     if TERMS.get().is_some() {
         return;
     }
     let mut guard = LOAD_TOS_TASK.lock().unwrap();
     if guard.is_none() {
         let modified = get_data().terms_modified.clone();
-        *guard = Some(Task::new(async move { Client::fetch_terms(modified.as_deref()).await.context("failed to fetch terms") }));
+        let loading = show_loading.then(|| FullLoadingView::begin());
+        let (tx, rx) = mpsc::channel();
+        *guard = Some((
+            Task::new(async move {
+                let mut modified = modified.as_deref();
+                if strict {
+                    modified = None
+                }
+                let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                if let Ok(v) = rx.try_recv() {
+                    let v: Arc<()> = v;
+                    drop(v);
+                }
+                drop(loading);
+                dispatch_tos_task();
+                ret
+            }),
+            tx,
+        ));
     }
 }
 
