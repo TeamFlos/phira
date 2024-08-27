@@ -5,7 +5,7 @@ use crate::{
     get_data_mut,
     page::Fader,
     save_data,
-    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS, LOAD_TOS_TASK},
+    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS, JUST_LOADED_TOS, LOAD_TOS_TASK},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -110,10 +110,6 @@ impl Login {
 
     pub fn enter(&mut self, t: f32) {
         self.fader.sub(t);
-        dispatch_tos_task();
-        if let Some((_, tx)) = LOAD_TOS_TASK.lock().unwrap().as_mut() {
-            let _ = tx.send(FullLoadingView::begin());
-        }
     }
 
     pub fn dismiss(&mut self, t: f32) {

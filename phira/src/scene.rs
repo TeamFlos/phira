@@ -49,11 +49,10 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        mpsc::{self, Sender},
         Arc, Mutex,
     }, time::Duration,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 thread_local! {
@@ -63,8 +62,9 @@ thread_local! {
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
 pub static TERMS: OnceCell<Option<(String, String)>> = OnceCell::new();
-pub static LOAD_TOS_TASK: Lazy<Mutex<Option<(Task<Result<Option<(String, String)>>>, Sender<Arc<()>>)>>> = Lazy::new(Mutex::default);
+pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, String)>>>>>> = Lazy::new(Mutex::default);
 pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
+pub static JUST_LOADED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 #[derive(Clone)]
 pub struct AssetsChartFileSystem(pub String, pub String);
 
@@ -209,7 +209,7 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
 
 pub fn dispatch_tos_task() -> Option<bool> {
     let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
-    if let Some((task, _)) = &mut *tos_task {
+    if let Some(task) = &mut *tos_task {
         if let Some(result) = task.take() {
             match result {
                 Ok(res) => {
@@ -217,7 +217,7 @@ pub fn dispatch_tos_task() -> Option<bool> {
                         info!("terms and policy loaded");
                         get_data_mut().terms_modified = None;
                         let _ = save_data();
-                        TERMS.set(res);
+                        let _ = TERMS.set(res);
                     }
                     // don't load None into it, 
                     // or it can't be updated when `strict` is true.
@@ -242,9 +242,8 @@ pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
     let mut guard = LOAD_TOS_TASK.lock().unwrap();
     if guard.is_none() {
         let modified = get_data().terms_modified.clone();
-        let loading = show_loading.then(|| FullLoadingView::begin());
-        let (tx, rx) = mpsc::channel();
-        *guard = Some((
+        let loading = show_loading.then(|| FullLoadingView::begin_text(ttl!("loading_tos_policy")));
+        *guard = Some(
             Task::new(async move {
                 let mut modified = modified.as_deref();
                 if strict {
@@ -252,16 +251,11 @@ pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
                 }
                 let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
                 tokio::time::sleep(Duration::from_secs(10)).await;
-                if let Ok(v) = rx.try_recv() {
-                    let v: Arc<()> = v;
-                    drop(v);
-                }
                 drop(loading);
-                dispatch_tos_task();
+                JUST_LOADED_TOS.store(true, Ordering::Relaxed);
                 ret
             }),
-            tx,
-        ));
+        );
     }
 }
 
