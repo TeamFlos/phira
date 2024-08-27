@@ -50,7 +50,7 @@ use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
-    }, time::Duration,
+    },
 };
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -250,7 +250,6 @@ pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
                     modified = None
                 }
                 let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
-                tokio::time::sleep(Duration::from_secs(10)).await;
                 drop(loading);
                 JUST_LOADED_TOS.store(true, Ordering::Relaxed);
                 ret
