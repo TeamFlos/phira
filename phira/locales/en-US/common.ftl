@@ -22,6 +22,7 @@ tos-deny = Deny
 tos-accept = Accept
 tos-prev-page = Prev Page
 tos-next-page = Next Page
+loading_tos_policy = Loading Terms of Service and Privacy Policy
 fetch-tos-policy-failed = Failed to fetch Terms of Service and Privacy Policy
 warn-deny-tos-policy = Accept to use online service
 

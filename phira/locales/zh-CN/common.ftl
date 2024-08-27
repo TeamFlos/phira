@@ -22,6 +22,7 @@ tos-deny = 拒绝
 tos-accept = 同意
 tos-prev-page = 上一页
 tos-next-page = 下一页
+loading_tos_policy = 正在获取服务条款和隐私政策内容
 fetch-tos-policy-failed = 获取服务条款和隐私政策内容失败
 warn-deny-tos-policy = 需接受条款才可使用线上服务
 
