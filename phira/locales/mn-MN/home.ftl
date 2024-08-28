@@ -11,8 +11,8 @@ note-try-login-again = Note: Дахин нэвтрэхийг оролдоно у
 
 update = v{ $version } Шинэчлэлт
 update-desc =
-  Date: { $date }
-  Description: { $desc }
+  Огноо: { $date }
+  Тайлбар: { $desc }
 update-ignore = Шинэчлэлтийг үл тоох
 update-go = Шинэчлэх
 
