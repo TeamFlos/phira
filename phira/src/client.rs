@@ -1,5 +1,6 @@
 mod model;
 pub use model::*;
+use tracing::debug;
 
 use crate::{anti_addiction_action, get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
@@ -241,6 +242,7 @@ impl Client {
             .and_then(|it| it.to_str().ok())
             .map(str::to_owned)
             .ok_or_else(|| anyhow!("invalid last-modified header"))?;
+        debug!("{new_modified} {modified:?}");
         if Some(new_modified.as_str()) == modified {
             // That mother fucker qiniu does not return NOT_MODIFIED
             return Ok(None);

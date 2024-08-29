@@ -8,7 +8,7 @@ use crate::{
     icons::Icons,
     popup::Popup,
     rate::RateDialog,
-    scene::{check_read_tos_and_policy, ChartOrder, ORDERS},
+    scene::{check_read_tos_and_policy, ChartOrder, JUST_LOADED_TOS, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
 };
@@ -427,7 +427,9 @@ impl Page for LibraryPage {
             self.current_page = 0;
             self.load_online();
         }
-
+        if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
+            check_read_tos_and_policy(false, false);
+        }
         Ok(())
     }
 

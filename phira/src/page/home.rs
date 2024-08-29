@@ -11,7 +11,7 @@ use crate::{
     icons::Icons,
     login::Login,
     save_data,
-    scene::{load_tos_and_policy, ProfileScene},
+    scene::{check_read_tos_and_policy, load_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
     sync_data,
     threed::ThreeD,
 };
@@ -31,7 +31,7 @@ use prpr::{
 };
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, sync::{atomic::Ordering, Arc}};
 use tap::Tap;
 use tracing::{info, warn};
 
@@ -355,7 +355,6 @@ impl Page for HomePage {
             self.sf.enter(s.t);
             self.need_back = false;
         }
-        load_tos_and_policy();
         self.fetch_has_new();
         Ok(())
     }
@@ -602,6 +601,9 @@ impl Page for HomePage {
                 }
                 self.char_fetch_task = None;
             }
+        }
+        if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
+            check_read_tos_and_policy(true, true);
         }
 
         Ok(())
