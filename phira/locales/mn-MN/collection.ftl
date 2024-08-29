@@ -1,6 +1,6 @@
 
-label = Цуглуулагууд
+label = Цуглуулгууд
 
-wait-for-more = Илүү их юм ирнэ...
+wait-for-more = Үргэлжлэл бий...
 
 name-c1 = Future Relics
