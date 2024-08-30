@@ -13,7 +13,7 @@ update = Đã có phiên bản { $version }
 update-desc =
   Phát hành: { $date }
   Nội dung cập nhật: { $desc }
-update-ignore = Bỏ qua bản này
+update-ignore = Bỏ qua
 update-go = Cập nhật
 
 change-char = Thay đổi nhân vật

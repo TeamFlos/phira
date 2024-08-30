@@ -4,9 +4,9 @@ label = THƯ VIỆN
 local = Đã tải
 popular = Thịnh hành
 
-page = Trang{ $current } / { $total }
-prev-page = Trang trước
-next-page = Trang sau
+page = Trang { $current } / { $total }
+prev-page = Trước
+next-page = Sau
 
 not-opened = Chưa có sẵn
 failed-to-load-online = Không thể tải thư viện
