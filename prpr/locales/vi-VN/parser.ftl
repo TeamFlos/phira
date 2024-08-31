@@ -1,6 +1,6 @@
 
 # general
-unknown-note-type = Note không xác định: { $type }
+unknown-note-type = Loại Note không xác định: { $type }
 json-parse-failed = Không thể phân tích JSON
 judge-line-location = Tại judge line #{ $jlid }
 
