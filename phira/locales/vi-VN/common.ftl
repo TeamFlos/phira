@@ -25,7 +25,7 @@ tos-next-page = Trang sau
 fetch-tos-policy-failed = Không thể duyệt Điều khoản dịch vụ và Chính sách bảo mật
 warn-deny-tos-policy = Chấp nhận sử dụng dịch vụ
 
-open-in-web = Mở bằng trình duyệt
+open-in-web = Xem trên Web
 
 main-character-name = Shee
 main-character-intro = TODO

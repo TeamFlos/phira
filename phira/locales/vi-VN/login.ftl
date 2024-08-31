@@ -1,7 +1,7 @@
 
 login = Đăng nhập
 login-sub = Đăng nhập để tham gia cùng với cộng đồng Phira lành mạnh!
-back-login = Quay lại đăng nhập
+back-login = Quay lại
 register = Tạo tài khoản
 
 email = Email

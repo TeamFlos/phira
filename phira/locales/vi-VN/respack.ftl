@@ -10,5 +10,5 @@ info-content =
   Tác giả: { $author }
   Mô tả: { $desc }
 
-cant-delete-builtin = Không thể xoá respack mặc định
-deleted = Đã xoá
+cant-delete-builtin = Không thể xoá Respack mặc định
+deleted = Đã xoá Respack
