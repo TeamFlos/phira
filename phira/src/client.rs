@@ -22,7 +22,14 @@ pub struct Client;
 const API_URL: &str = "https://api.phira.cn";
 
 pub fn basic_client_builder() -> ClientBuilder {
-    let mut builder = reqwest::ClientBuilder::new();
+    let policy = reqwest::redirect::Policy::custom(|attempt| {
+        if let Some(_cid) = attempt.url().as_str().strip_prefix("anys://") {
+            attempt.stop()
+        } else {
+            attempt.follow()
+        }
+    });
+    let mut builder = reqwest::ClientBuilder::new().redirect(policy);
     if get_data().accept_invalid_cert {
         builder = builder.danger_accept_invalid_certs(true);
     }

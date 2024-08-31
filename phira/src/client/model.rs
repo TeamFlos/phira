@@ -14,14 +14,17 @@ mod record;
 pub use record::*;
 
 mod user;
+use reqwest::Url;
+use tracing::debug;
 pub use user::*;
 
-use super::{basic_client_builder, Client, CLIENT_TOKEN};
+use super::{basic_client_builder, Client, API_URL, CLIENT_TOKEN};
 use crate::{
     dir,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
 };
 use anyhow::{bail, Result};
+use async_recursion::async_recursion;
 use bytes::Bytes;
 use image::DynamicImage;
 use lru::LruCache;
@@ -174,6 +177,8 @@ impl<'de, T: Object + 'static> Deserialize<'de> for Ptr<T> {
 
 pub static CACHE_DIR: Lazy<String> = Lazy::new(|| format!("{}/http-cache", dir::cache().unwrap_or_else(|_| ".".to_owned())));
 
+const ENABLE_P2P: bool = true;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct File {
@@ -181,7 +186,16 @@ pub struct File {
 }
 impl File {
     fn request(&self) -> reqwest::RequestBuilder {
-        let req = basic_client_builder().build().unwrap().get(&self.url);
+        let mut req = basic_client_builder().build().unwrap().get(&self.url);
+        if ENABLE_P2P {
+            if let Some(path) = self.url.strip_prefix(API_URL) {
+                if let Some(rest_path) = path.strip_prefix("/files/") {
+                    debug!("p2p: {}", rest_path);
+                    let url = format!("{}/anys/{}", API_URL, rest_path);
+                    req = basic_client_builder().build().unwrap().get(url);
+                }
+            }
+        }
         if let Some(token) = CLIENT_TOKEN.load().as_ref() {
             req.header("Authorization", format!("Bearer {token}"))
         } else {
@@ -189,12 +203,24 @@ impl File {
         }
     }
 
+    #[async_recursion]
     pub async fn fetch(&self) -> Result<Bytes> {
         match cacache::read(&*CACHE_DIR, &self.url).await {
             Ok(data) => Ok(data.into()),
             Err(cacache::Error::EntryNotFound(..)) => {
                 let resp = self.request().send().await?;
-                if !resp.status().is_success() {
+                if resp.status().is_redirection() {
+                    let p2p_url = resp.headers().get("location").unwrap().to_str().unwrap().to_owned();
+                    if let Some(cid) = p2p_url.strip_prefix("anys://") {
+                        let cid = cid.to_owned();
+                        // TODO: Move to settings (add client config)
+                        const ANYS_URL: &str = "https://anys.mivik.moe";
+                        let new_url = format!("{}/{}", ANYS_URL, cid);
+                        return File { url: new_url }.fetch().await;
+                    } else {
+                        bail!("illegal p2p redirection: {}", p2p_url);
+                    }
+                } else if !resp.status().is_success() {
                     bail!("{}", resp.text().await?);
                 }
                 let bytes = resp.error_for_status()?.bytes().await?;
