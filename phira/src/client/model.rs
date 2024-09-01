@@ -24,7 +24,6 @@ use crate::{
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
 };
 use anyhow::{bail, Result};
-use async_recursion::async_recursion;
 use bytes::Bytes;
 use image::DynamicImage;
 use lru::LruCache;
