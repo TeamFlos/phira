@@ -22,6 +22,11 @@ item-lowq = Low quality mode
 item-lowq-sub = Enable this if the UI is laggy
 item-insecure = Insecure mode
 item-insecure-sub = Enable this if you can't use online functionalities. Makes your connection insecure!
+item-enable-anys = Enable Anys
+item-enable-anys-sub = Utilize Anys gateway to enhance connection quality
+item-anys-gateway = Anys gateway
+item-anys-gateway-sub = Anys gateway address
+item-anys-gateway-invalid = Invalid gateway address
 
 item-adjust = Automatic time adjustment
 item-adjust-sub = Adjusts time dynamically to sync the music and beatmap
