@@ -5,7 +5,7 @@ use crate::{
     get_data_mut,
     page::Fader,
     save_data,
-    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS, JUST_LOADED_TOS, LOAD_TOS_TASK},
+    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -13,7 +13,7 @@ use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{semi_black, semi_white, RectExt},
-    scene::{request_input, request_password, return_input, show_error, show_message, take_input, FullLoadingView},
+    scene::{request_input, request_password, return_input, show_error, show_message, take_input},
     task::Task,
     ui::{DRectButton, Dialog, Ui},
 };

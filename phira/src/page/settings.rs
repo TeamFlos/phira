@@ -274,6 +274,7 @@ struct GeneralList {
     mp_addr_btn: DRectButton,
     lowq_btn: DRectButton,
     insecure_btn: DRectButton,
+    enable_anys_btn: DRectButton,
     anys_gateway_btn: DRectButton,
 }
 
@@ -298,6 +299,7 @@ impl GeneralList {
             mp_addr_btn: DRectButton::new(),
             lowq_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
+            enable_anys_btn: DRectButton::new(),
             anys_gateway_btn: DRectButton::new(),
         }
     }
@@ -339,8 +341,12 @@ impl GeneralList {
             data.accept_invalid_cert ^= true;
             return Ok(Some(true));
         }
+        if self.enable_anys_btn.touch(touch, t) {
+            data.enable_anys ^= true;
+            return Ok(Some(true));
+        }
         if self.anys_gateway_btn.touch(touch, t) {
-            request_input("anys_gateway", &data.settings.anys_gateway);
+            request_input("anys_gateway", &data.anys_gateway);
             return Ok(Some(true));
         }
         Ok(None)
@@ -368,7 +374,7 @@ impl GeneralList {
                     show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
                     return Ok(false);
                 } else {
-                    data.settings.anys_gateway = text.trim_end_matches('/').to_string();
+                    data.anys_gateway = text.trim_end_matches('/').to_string();
                     return Ok(true);
                 }
             } else {
@@ -392,7 +398,6 @@ impl GeneralList {
 
         let data = get_data();
         let config = &data.config;
-        let settings = &data.settings;
         item! {
             let rt = render_title(ui, tl!("item-lang"), None);
             let w = 0.06;
@@ -425,8 +430,12 @@ impl GeneralList {
             render_switch(ui, rr, t, &mut self.insecure_btn, data.accept_invalid_cert);
         }
         item! {
+            render_title(ui, tl!("item-enable-anys"), Some(tl!("item-enable-anys-sub")));
+            render_switch(ui, rr, t, &mut self.enable_anys_btn, data.enable_anys);
+        }
+        item! {
             render_title(ui, tl!("item-anys-gateway"), Some(tl!("item-anys-gateway-sub")));
-            self.anys_gateway_btn.render_text(ui, rr, t, &settings.anys_gateway, 0.4, false);
+            self.anys_gateway_btn.render_text(ui, rr, t, &data.anys_gateway, 0.4, false);
         }
         self.lang_btn.render_top(ui, t, 1.);
         (w, h)

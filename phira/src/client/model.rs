@@ -176,8 +176,6 @@ impl<'de, T: Object + 'static> Deserialize<'de> for Ptr<T> {
 
 pub static CACHE_DIR: Lazy<String> = Lazy::new(|| format!("{}/http-cache", dir::cache().unwrap_or_else(|_| ".".to_owned())));
 
-const ENABLE_P2P: bool = true;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct File {
@@ -186,11 +184,11 @@ pub struct File {
 impl File {
     fn request(&self) -> reqwest::RequestBuilder {
         let mut req = basic_client_builder().build().unwrap().get(&self.url);
-        if ENABLE_P2P {
+        // TODO: thread safety?
+        if get_data().enable_anys {
             if let Some(path) = self.url.strip_prefix(API_URL) {
                 if let Some(rest_path) = path.strip_prefix("/files/") {
-                    debug!("p2p: {}", rest_path);
-                    let url = format!("{}/anys/{}", API_URL, rest_path);
+                    let url = format!("{API_URL}/anys/{rest_path}");
                     req = basic_client_builder().build().unwrap().get(url);
                 }
             }
@@ -215,7 +213,7 @@ impl File {
                     if let Some(cid) = p2p_url.strip_prefix("anys://") {
                         let cid = cid.to_owned();
                         let data = get_data();
-                        let new_url = format!("{}/{}", data.settings.anys_gateway, cid);
+                        let new_url = format!("{}/{}", data.anys_gateway, cid);
                         debug!("p2p redirection: {} -> {}", p2p_url, new_url);
                         resp = fetch_raw(&File { url: new_url }).await?
                     } else {
