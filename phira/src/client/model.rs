@@ -14,7 +14,7 @@ mod record;
 pub use record::*;
 
 mod user;
-use reqwest::Url;
+use reqwest::{Response, Url};
 use tracing::debug;
 pub use user::*;
 
@@ -203,12 +203,14 @@ impl File {
         }
     }
 
-    #[async_recursion]
     pub async fn fetch(&self) -> Result<Bytes> {
+        async fn fetch_raw(f: &File) -> Result<Response> {
+            Ok(f.request().send().await?)
+        }
         match cacache::read(&*CACHE_DIR, &self.url).await {
             Ok(data) => Ok(data.into()),
             Err(cacache::Error::EntryNotFound(..)) => {
-                let resp = self.request().send().await?;
+                let mut resp = fetch_raw(self).await?;
                 if resp.status().is_redirection() {
                     let p2p_url = resp.headers().get("location").unwrap().to_str().unwrap().to_owned();
                     if let Some(cid) = p2p_url.strip_prefix("anys://") {
@@ -216,16 +218,19 @@ impl File {
                         // TODO: Move to settings (add client config)
                         const ANYS_URL: &str = "https://anys.mivik.moe";
                         let new_url = format!("{}/{}", ANYS_URL, cid);
-                        return File { url: new_url }.fetch().await;
+                        debug!("p2p redirection: {} -> {}", p2p_url, new_url);
+                        resp = fetch_raw(&File { url: new_url }).await?
                     } else {
                         bail!("illegal p2p redirection: {}", p2p_url);
                     }
-                } else if !resp.status().is_success() {
-                    bail!("{}", resp.text().await?);
                 }
-                let bytes = resp.error_for_status()?.bytes().await?;
-                cacache::write(&*CACHE_DIR, &self.url, &bytes).await?;
-                Ok(bytes)
+                if !resp.status().is_success() {
+                    bail!("{}", resp.text().await?);
+                } else {
+                    let bytes = resp.error_for_status()?.bytes().await?;
+                    cacache::write(&*CACHE_DIR, &self.url, &bytes).await?;
+                    Ok(bytes)
+                }
             }
             Err(err) => Err(err.into()),
         }
