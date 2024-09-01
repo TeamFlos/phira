@@ -20,7 +20,7 @@ pub use user::*;
 
 use super::{basic_client_builder, Client, API_URL, CLIENT_TOKEN};
 use crate::{
-    dir,
+    dir, get_data,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
 };
 use anyhow::{bail, Result};
@@ -214,9 +214,8 @@ impl File {
                     let p2p_url = resp.headers().get("location").unwrap().to_str().unwrap().to_owned();
                     if let Some(cid) = p2p_url.strip_prefix("anys://") {
                         let cid = cid.to_owned();
-                        // TODO: Move to settings (add client config)
-                        const ANYS_URL: &str = "https://anys.mivik.moe";
-                        let new_url = format!("{}/{}", ANYS_URL, cid);
+                        let data = get_data();
+                        let new_url = format!("{}/{}", data.settings.anys_gateway, cid);
                         debug!("p2p redirection: {} -> {}", p2p_url, new_url);
                         resp = fetch_raw(&File { url: new_url }).await?
                     } else {

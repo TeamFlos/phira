@@ -1,6 +1,6 @@
 use crate::{
     client::{Character, Ptr, User},
-    dir,
+    dir, settings::ClientSettings,
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -76,6 +76,7 @@ pub struct Data {
     pub charts: Vec<LocalChart>,
     pub local_records: HashMap<String, Option<SimpleRecord>>,
     pub config: Config,
+    pub settings: ClientSettings,
     pub message_check_time: Option<DateTime<Utc>>,
     pub language: Option<String>,
     pub theme: usize,

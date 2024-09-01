@@ -16,6 +16,7 @@ mod popup;
 mod rate;
 mod resource;
 mod scene;
+mod settings;
 mod tabs;
 mod tags;
 mod threed;
