@@ -24,7 +24,7 @@ item-insecure = 不安全模式
 item-insecure-sub = 當無法使用線上功能時可嘗試該功能。這會使得你的連線不安全！
 item-enable-anys = 啟用 Anys
 item-enable-anys-sub = 使用 Anys 閘道以提升連線品質
-item-anys-gateway = Anys 閘道器
+item-anys-gateway = Anys 閘道
 item-anys-gateway-sub = Anys 閘道位址
 item-anys-gateway-invalid = 無效的閘道位址
 
