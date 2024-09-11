@@ -22,7 +22,7 @@ tos-deny = Deny
 tos-accept = Accept
 tos-prev-page = Back
 tos-next-page = Next
-loading_tos_policy = Loading the ToS and Privacy Policy...
+loading_tos_policy = Loading the ToS and Privacy Policy…
 fetch-tos-policy-failed = Failed to fetch Terms of Service and Privacy Policy.
 warn-deny-tos-policy = You must accept to use Phira's online services.
 
