@@ -11,7 +11,7 @@ reconnect = Reconnecting…
 create-room = Create Room
 create-room-success = Room created.
 create-room-failed = Failed to create room.
-create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, 0-9, -, and _.
+create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, a-z, 0-9, -, and _.
 
 join-room = Join Room
 join-room-invalid-id = Invalid room ID.
