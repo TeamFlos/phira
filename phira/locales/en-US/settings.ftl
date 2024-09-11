@@ -9,45 +9,45 @@ about = Info
 
 item-lang = Language
 item-offline = Offline Mode
-item-offline-sub = Disables all online functionality.
+item-offline-sub = Disable all online functionality.
 item-server-status = Server Status
-item-server-status-sub = Opens the server status page in your browser.
+item-server-status-sub = Open the server status page in your browser.
 check-status = Open
 item-mp = Multiplayer
-item-mp-sub = Enables multiplayer functionality.
+item-mp-sub = Enable multiplayer functionality.
 item-mp-addr = Multiplayer Server
-item-mp-addr-sub = Allows you to connect to a custom multiplayer server.
+item-mp-addr-sub = Connect to a custom multiplayer server.
 item-mp-addr-invalid = Invalid server address.
 item-lowq = Low Resolution Mode
-item-lowq-sub = Lowers the quality of the UI.
+item-lowq-sub = Lower the quality of the UI, increasing peformance.
 item-insecure = Insecure Connection
-item-insecure-sub = Enables old devices to use online functionality.
+item-insecure-sub = Enable old devices to use online functionality.
 item-enable-anys = Enable Anys
-item-enable-anys-sub = Allows you to use an Anys gateway to improve network stability.
+item-enable-anys-sub = Use an Anys gateway to improve network stability.
 item-anys-gateway = Anys Gateway
-item-anys-gateway-sub = Allows you to use a custom Anys gateway address.
+item-anys-gateway-sub = Use a custom Anys gateway address.
 item-anys-gateway-invalid = Invalid gateway address.
 
 item-adjust = Automatic Time Adjustment
-item-adjust-sub = Adjusts the audio and chart offset dynamically.
+item-adjust-sub = Adjust the audio and chart offset dynamically.
 item-music = Music Volume
 item-sfx = SFX Volume
 item-bgm = BGM Volume
 item-cali = Adjust Offset
 
 item-show-acc = Real-Time Accuracy
-item-dc-pause = Pause Confirmation (2x)
+item-dc-pause = Double-Tap to Pause
 item-dhint = Simultaneous Hint
-item-dhint-sub = Highlights notes that are meant to be hit at the same time.
+item-dhint-sub = Highlight notes that are meant to be hit at the same time.
 item-opt = Chart Optimization
-item-opt-sub = Significantly increases peformance, but can cause incorrected/unintended behavior.
+item-opt-sub = Significantly increase peformance while playing. (If unintended behavior arises, disable this.)
 item-speed = Speed
 item-note-size = Note Size
 
 item-chart-debug = Show Line ID
-item-chart-debug-sub = Displays the IDs and orientation of lines.
+item-chart-debug-sub = Display the IDs and orientation of lines.
 item-touch-debug = Show Touch Points
-item-touch-debug-sub = Displays user touch points.
+item-touch-debug-sub = Display user touch points.
 
 load-cali-failed = Failed to load calibration audio.
 
@@ -58,7 +58,7 @@ about-content =
 
   BiliBili Account: @Phira官方
   QQ Guild: r48eajexth
-  Discord Server: gqpR3bTSsP
+  Discord Server: discord.gg/gqpR3bTSsP
   
   We recommend joining either the QQ guild or the Discord server to get live updates and recieve assistance.
   
