@@ -12,7 +12,7 @@ edit-avatar-failed = Failed to update avatar.
 
 uploading-avatar = Uploading avatar...
 
-load-record-failed = Failed to load scores.
+load-record-failed = Failed to load records.
 
 last-login = Last login: { $time }
 badge-admin = Admin
