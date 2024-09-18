@@ -8,7 +8,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
-use miniquad::{gl::GLuint, Texture, TextureWrap};
+use miniquad::{gl::{GLuint, GL_LINEAR}, Texture, TextureWrap};
 use sasa::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;
 use std::{
@@ -175,7 +175,7 @@ impl ResourcePack {
     pub async fn load(fs: &mut dyn FileSystem) -> Result<Self> {
         macro_rules! load_tex {
             ($path:literal) => {
-                SafeTexture::from(image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?).with_mipmap()
+                SafeTexture::from(image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?).with_filter(GL_LINEAR)
             };
         }
         let info: ResPackInfo = serde_yaml::from_str(&String::from_utf8(fs.load_file("info.yml").await.context("Missing info.yml")?)?)?;
