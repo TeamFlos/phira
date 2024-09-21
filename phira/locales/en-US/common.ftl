@@ -1,11 +1,11 @@
 
-del-confirm = Are you sure to delete?
-del-confirm-content = This operation can not be undone.
+del-confirm = Delete
+del-confirm-content = This action is irreversable.  Press "Confirm" to continue.
 
 cancel = Cancel
 confirm = Confirm
 
-release-to-refresh = Release to refresh
+release-to-refresh = Release to refresh.
 
 switch-on = On
 switch-off = Off
@@ -14,19 +14,19 @@ chart-ranked = Ranked
 chart-special = Special
 chart-unstable = Unstable
 
-list-empty = Nothing here
+list-empty = Nothing here.
 
-tos-and-policy = Terms of Service and Privacy Policy
-tos-and-policy-desc = You must read and agree to our Terms of Service and Privacy Policy before using Phira online services provided by TeamFlos.
+tos-and-policy = ToS & Privacy Policy
+tos-and-policy-desc = You must read and accept the Terms of Service and Privacy Policy before using Phira's online services.
 tos-deny = Deny
 tos-accept = Accept
-tos-prev-page = Prev Page
-tos-next-page = Next Page
-loading_tos_policy = Loading Terms of Service and Privacy Policy
-fetch-tos-policy-failed = Failed to fetch Terms of Service and Privacy Policy
-warn-deny-tos-policy = Accept to use online service
+tos-prev-page = Back
+tos-next-page = Next
+loading_tos_policy = Loading the ToS and Privacy Policy…
+fetch-tos-policy-failed = Failed to fetch Terms of Service and Privacy Policy.
+warn-deny-tos-policy = You must accept to use Phira's online services.
 
-open-in-web = Open in Web
+open-in-web = View in Web
 
 main-character-name = Shee
-main-character-intro = TODO
+main-character-intro = To be added.
