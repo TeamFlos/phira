@@ -25,4 +25,4 @@ Be free to create issues if there's any problem with the current translation.
 
 ## Star History
 
-[![Stargazers over time](https://starchart.cc/TeamFlos/phira.svg)](https://starchart.cc/TeamFlos/phira)
+[![Stargazers over time](https://starchart.cc/TeamFlos/phira.svg?variant=adaptive)](https://starchart.cc/TeamFlos/phira)
