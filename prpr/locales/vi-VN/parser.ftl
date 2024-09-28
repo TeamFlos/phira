@@ -1,42 +1,45 @@
 
 # general
-unknown-note-type = Loại note không xác định: { $type }
-json-parse-failed = Không thể phân tích cú pháp JSON
-judge-line-location = Ở judge line #{ $jlid }
+unknown-note-type = Loại Note không xác định: { $type }
+json-parse-failed = Không thể phân tích JSON
+judge-line-location = Tại judge line #{ $jlid }
 
 # rpe
 type-events-parse-failed = Không thể phân tích sự kiện { $type }
-incline-events-parse-failed = Không thể phân tích sự kiện incline
-paint-events-parse-failed = Không thể phân tích sự kiện paint
-text-events-parse-failed = Không thể phân tích các sự kiện chữ
-color-events-parse-failed = Không thể phân tích các sự kiện màu
+incline-events-parse-failed = Không thể phân tích các sự kiện incline
+paint-events-parse-failed = Không thể phân tích các sự kiện paint
+text-events-parse-failed = Không thể phân tích các sự kiện text
+color-events-parse-failed = Không thể phân tích các sự kiện color
+gif-events-parse-failed = Không thể phân tích các sự kiện GIF
 
-illustration-load-failed = Không thể tải ảnh minh hoạ tại { $path }
+illustration-load-failed = Không thể lấy ảnh minh hoạ tại { $path }
+gif-load-failed = Không thể lấy ảnh GIF tại { $path }
 
-judge-line-location-name = Ở judge line #{ $jlid } ({ $name })
+judge-line-location-name = Tại judge line #{ $jlid } ({ $name })
+hitsound-missing = Hitsound `{ $name }` bị thiếu
 
 # pgr
-event-not-contiguous = Các sự kiện nên liền kề nhau
+event-not-contiguous = Các sự kiện phải liên tiếp nhau
 
 alpha-events-parse-failed = Không thể phân tích các sự kiện alpha
 rotate-events-parse-failed = Không thể phân tích các sự kiện rotate
 move-events-parse-failed = Không thể phân tích các sự kiện move
 
 # pec
-unexpected-eol = Cuối dòng không mong đợi
-expected-f32 = f32 không mong đợi
-expected-usize = usize không mong đợi
-expected-tween = tween không mong đợi
+unexpected-eol = EOL không mong đợi
+expected-f32 = f32 dự kiến
+expected-usize = usize dự kiến
+expected-tween = tween dự kiến
 
-no-notes-inserted = Không có note nào được thêm vào
+no-notes-inserted = Không có note nào được thêm cả
 unknown-command = Lệnh không xác định: { $cmd }
-bp-error = Các sự kiện Bpm (bp) phải liền kề và nằm ở phần đầu của tệp
-expected-01 = Expected 0 / 1 (real note / fake note)
+bp-error = Các sự kiện Bpm (bp) phải liền kề và nằm tại phần đầu của tệp
+expected-01 = 0 / 1 dự kiến (note thật / note giả)
 unexpected-extra = Nội dung bổ sung không mong đợi: { $next }
-line-location = Ở line #{ $lid }
+line-location = Tại line #{ $lid }
 
 # extra
-shader-load-failed = Không thể tải shader tại { $path }
-shader-not-found = Không thể tìm thấy shader cài sẵn { $shader }
-effect-location = Hiệu ứng #{ $id }
+shader-load-failed = Không thể nạp shader tại { $path }
+shader-not-found = Không tìm thấy shader cài sẵn { $shader }
+effect-location = Hiệu ứng tại #{ $id }
 video-load-failed = Không thể đọc video tại { $path }
