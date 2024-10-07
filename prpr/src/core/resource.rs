@@ -8,13 +8,20 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
-use miniquad::{gl::GLuint, Texture, TextureWrap};
+use miniquad::{gl::{GLuint, GL_LINEAR}, Texture, TextureWrap};
 use sasa::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;
-use std::{cell::RefCell, collections::BTreeMap, ops::DerefMut, path::Path, sync::atomic::AtomicU32};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, HashMap},
+    ops::DerefMut,
+    path::Path,
+    sync::atomic::AtomicU32,
+};
 
 pub const MAX_SIZE: usize = 64; // needs tweaking
 pub static DPI_VALUE: AtomicU32 = AtomicU32::new(250);
+pub const BUFFER_SIZE: usize = 1024;
 
 #[inline]
 fn default_scale() -> f32 {
@@ -168,7 +175,7 @@ impl ResourcePack {
     pub async fn load(fs: &mut dyn FileSystem) -> Result<Self> {
         macro_rules! load_tex {
             ($path:literal) => {
-                SafeTexture::from(image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?).with_mipmap()
+                SafeTexture::from(image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?).with_filter(GL_LINEAR)
             };
         }
         let info: ResPackInfo = serde_yaml::from_str(&String::from_utf8(fs.load_file("info.yml").await.context("Missing info.yml")?)?)?;
@@ -333,6 +340,8 @@ impl NoteBuffer {
     }
 }
 
+pub type SfxMap = HashMap<String, Sfx>;
+
 pub struct Resource {
     pub config: Config,
     pub info: ChartInfo,
@@ -366,6 +375,8 @@ pub struct Resource {
     pub sfx_click: Sfx,
     pub sfx_drag: Sfx,
     pub sfx_flick: Sfx,
+
+    pub extra_sfxs: SfxMap,
 
     pub chart_target: Option<MSRenderTarget>,
     pub no_effect: bool,
@@ -424,7 +435,7 @@ impl Resource {
         let mut audio = create_audio_manger(&config)?;
         let music = AudioClip::new(fs.load_file(&info.music).await?)?;
         let track_length = music.length();
-        let buffer_size = Some(1024);
+        let buffer_size = Some(BUFFER_SIZE);
         let sfx_click = audio.create_sfx(res_pack.sfx_click.clone(), buffer_size)?;
         let sfx_drag = audio.create_sfx(res_pack.sfx_drag.clone(), buffer_size)?;
         let sfx_flick = audio.create_sfx(res_pack.sfx_flick.clone(), buffer_size)?;
@@ -471,6 +482,7 @@ impl Resource {
             sfx_click,
             sfx_drag,
             sfx_flick,
+            extra_sfxs: SfxMap::new(),
 
             chart_target: None,
             no_effect,
@@ -479,6 +491,10 @@ impl Resource {
 
             model_stack: vec![Matrix::identity()],
         })
+    }
+
+    pub fn create_sfx(&mut self, clip: AudioClip) -> Result<Sfx> {
+        self.audio.create_sfx(clip, Some(BUFFER_SIZE))
     }
 
     pub fn emit_at_origin(&mut self, rotation: f32, color: Color) {

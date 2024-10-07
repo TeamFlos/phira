@@ -2,15 +2,15 @@
 multiplayer = 多人遊戲
 
 connect = 連線
-connect-must-login = 登入後才能進入多人遊戲
+connect-must-login = 登入後才可進入多人遊戲
 connect-success = 連線成功
 connect-failed = 連線失敗
 connect-authenticate-failed = 身分驗證失敗
-reconnect = 斷線重連中...
+reconnect = 斷線重連中…
 
-create-room = 創建房間
-create-room-success = 房間已創建
-create-room-failed = 創建房間失敗
+create-room = 建立房間
+create-room-success = 房間已建立
+create-room-failed = 建立房間失敗
 create-invalid-id = 房間 ID 應由不多於 20 個大小寫英文字母、數字以及 -_ 組成
 
 join-room = 加入房間
@@ -60,7 +60,7 @@ select-chart-local = 不能選擇本地譜面
 select-chart-failed = 選擇譜面失敗
 select-chart-not-now = 你現在不能選擇譜面
 
-msg-create-room = `{ $user }` 創建了房間
+msg-create-room = `{ $user }` 建立了房間
 msg-join-room = `{ $user }` 加入了房間
 msg-leave-room = `{ $user }` 離開了房間
 msg-new-host = `{ $user }` 成為了新的房主

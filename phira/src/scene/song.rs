@@ -962,7 +962,7 @@ impl SongScene {
                 if self.info_edit.as_ref().unwrap().updated && !UPLOAD_NOT_SAVED.load(Ordering::SeqCst) {
                     Dialog::simple(tl!("upload-not-saved"))
                         .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                        .listener(|pos| {
+                        .listener(|_dialog, pos| {
                             if pos == 1 {
                                 UPLOAD_NOT_SAVED.store(true, Ordering::SeqCst);
                             }
@@ -979,7 +979,7 @@ impl SongScene {
                         self.update_cksum_passed = None;
                         Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
                             .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                            .listener(|pos| {
+                            .listener(|_dialog, pos| {
                                 if pos == 1 {
                                     CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
                                 }
@@ -1633,7 +1633,7 @@ impl Scene for SongScene {
                         let error = format!("{err:?}");
                         Dialog::plain(tl!("failed-to-play"), error)
                             .buttons(vec![tl!("play-cancel").into_owned(), tl!("play-switch-to-offline").into_owned()])
-                            .listener(move |pos| {
+                            .listener(move |_dialog, pos| {
                                 if pos == 1 {
                                     get_data_mut().config.offline_mode = true;
                                     let _ = save_data();
@@ -1847,7 +1847,7 @@ impl Scene for SongScene {
                         } else {
                             Dialog::simple(tl!("upload-confirm-clear-ldb"))
                                 .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                                .listener(move |pos| {
+                                .listener(move |_dialog, pos| {
                                     if pos == 1 {
                                         CONFIRM_CKSUM.store(true, Ordering::Relaxed);
                                     }
@@ -2019,7 +2019,7 @@ impl Scene for SongScene {
                 CONFIRM_OVERWRITE.store(false, Ordering::SeqCst);
                 Dialog::simple(tl!("edit-overwrite-confirm"))
                     .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                    .listener(move |pos| {
+                    .listener(move |_dialog, pos| {
                         if pos == 1 {
                             CONFIRM_OVERWRITE.store(true, Ordering::SeqCst);
                         }

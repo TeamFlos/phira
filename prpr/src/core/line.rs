@@ -39,11 +39,46 @@ impl UIElement {
     }
 }
 
+pub struct GifFrames {
+    /// time of each frame in milliseconds
+    frames: Vec<(u128, SafeTexture)>,
+    /// milliseconds
+    total_time: u128,
+}
+
+impl GifFrames {
+    pub fn new(frames: Vec<(u128, SafeTexture)>) -> Self {
+        let total_time = frames.iter().map(|(time, _)| *time).sum();
+        Self { frames, total_time }
+    }
+
+    pub fn get_time_frame(&self, time: u128) -> &SafeTexture {
+        let mut time = time % self.total_time;
+        for (t, frame) in &self.frames {
+            if time < *t {
+                return frame;
+            }
+            time -= t;
+        }
+        &self.frames.last().unwrap().1
+    }
+
+    pub fn get_prog_frame(&self, prog: f32) -> &SafeTexture {
+        let time = (prog * self.total_time as f32) as u128;
+        self.get_time_frame(time)
+    }
+
+    pub fn total_time(&self) -> u128 {
+        self.total_time
+    }
+}
+
 #[derive(Default)]
 pub enum JudgeLineKind {
     #[default]
     Normal,
     Texture(SafeTexture, String),
+    TextureGif(Anim<f32>, GifFrames, String),
     Text(Anim<String>),
     Paint(Anim<f32>, RefCell<(Option<RenderPass>, bool)>),
 }
@@ -103,7 +138,7 @@ pub struct JudgeLine {
     pub ctrl_obj: RefCell<CtrlObject>,
     pub kind: JudgeLineKind,
     /// Height Animation, decribes the `height` of the line at a specific time
-    /// 
+    ///
     /// The `height` here can be considered as the absolute 'y' coordinate of the notes attached to this line, which is calculated by
     /// ∫ v(t) dt, where v(t) is the speed of the line at time t.
     pub height: AnimFloat,
@@ -113,7 +148,7 @@ pub struct JudgeLine {
     pub parent: Option<usize>,
     pub z_index: i32,
     /// Whether to show notes below the line, here below is defined in the time axis, which means the note should already be judged
-    /// 
+    ///
     /// TODO: Not sure
     pub show_below: bool,
     pub attach_ui: Option<UIElement>,
@@ -139,6 +174,9 @@ impl JudgeLine {
                 anim.set_time(res.time);
             }
             JudgeLineKind::Paint(anim, ..) => {
+                anim.set_time(res.time);
+            }
+            JudgeLineKind::TextureGif(anim, ..) => {
                 anim.set_time(res.time);
             }
             _ => {}
@@ -205,6 +243,24 @@ impl JudgeLine {
                         let hf = vec2(texture.width(), texture.height());
                         draw_texture_ex(
                             **texture,
+                            -hf.x / 2.,
+                            -hf.y / 2.,
+                            color,
+                            DrawTextureParams {
+                                dest_size: Some(hf),
+                                flip_y: true,
+                                ..Default::default()
+                            },
+                        );
+                    }
+                    JudgeLineKind::TextureGif(anim, frames, _) => {
+                        let t = anim.now_opt().unwrap_or(0.0);
+                        let frame = frames.get_prog_frame(t);
+                        let mut color = color.unwrap_or(WHITE);
+                        color.a = alpha.max(0.0);
+                        let hf = vec2(frame.width(), frame.height());
+                        draw_texture_ex(
+                            **frame,
                             -hf.x / 2.,
                             -hf.y / 2.,
                             color,
