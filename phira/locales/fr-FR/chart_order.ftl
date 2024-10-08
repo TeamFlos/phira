@@ -1,6 +1,6 @@
 time = Temps
-rev-time = Temps (déc)
+rev-time = Temps (déc.)
 name = Nom
-rev-name = Nom (déc)
+rev-name = Nom (déc.)
 rating = Note
-rev-rating = Note (déc)
+rev-rating = Note (déc.)
