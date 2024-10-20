@@ -243,7 +243,7 @@ impl File {
             }
             .load_image()
             .await
-        } else if self.url.starts_with("https://files.phira.cn/") || self.url.starts_with("https://api.phira.cn/files/") {
+        } else if self.url.starts_with("https://files.phira.cn/") || self.url.starts_with("https://phira.5wyxi.com/files/") {
             File {
                 url: format!("{}.thumbnail", self.url),
             }
