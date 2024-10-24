@@ -16,4 +16,4 @@ update-desc =
 update-ignore = Шинэчлэлтийг үл тоох
 update-go = Шинэчлэх
 
-change-char = Дүрийг Солих
+change-char = Дүрийг нь Солих

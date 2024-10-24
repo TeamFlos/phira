@@ -2,7 +2,7 @@
 label = ТОХИРГОО
 
 general = Ерөнхий
-audio = Аудио
+audio = Дуу
 chart = Бийтмап
 debug = Дибаг
 about = Мэдээлэл
