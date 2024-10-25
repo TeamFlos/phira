@@ -18,7 +18,7 @@ dl-success = Загружено
 
 guest = Гость
 
-warn-unrated = Эта игра не засчитывается
+warn-unrated = Эта игра не будет засчитываться
 failed-to-play = Ошибка запуска онлайн-режима
 play-cancel = Отмена
 play-switch-to-offline = Переключиться в оффлайн-режим
