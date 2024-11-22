@@ -1,5 +1,5 @@
-time = Sớm nhất
-rev-time = Muộn nhất
+time = Mới nhất
+rev-time = Cũ nhất
 name = A-Z
 rev-name = Z-A
 rating = Hay nhất

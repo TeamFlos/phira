@@ -5,14 +5,14 @@ local = Đã tải
 popular = Thịnh hành
 
 page = Trang { $current } / { $total }
-prev-page = Trước
-next-page = Sau
+prev-page = Trang trước
+next-page = Trang sau
 
-not-opened = Không có sẵn
-failed-to-load-online = Không thể tải thư viện trực tuyến
+not-opened = Chưa có sẵn
+failed-to-load-online = Không thể tải thư viện
 
 import = Nhập
 
-offline-mode = Không thể tải thư viện trong chế độ Offline
+offline-mode = Bạn đang bật chế độ Offline
 
-must-login = Bạn phải đăng nhập để xem thư viện trực tuyến
+must-login = Bạn phải đăng nhập để xem thư viện
