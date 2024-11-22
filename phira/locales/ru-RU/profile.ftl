@@ -12,7 +12,7 @@ edit-avatar-failed = Ошибка обновления фото профиля
 
 uploading-avatar = Загрузка... 
 
-load-record-failed = Failed to load records
+load-record-failed = Не удалось загрузить запись
 
 last-login = Был(а) в сети { $time }
 badge-admin = Админ

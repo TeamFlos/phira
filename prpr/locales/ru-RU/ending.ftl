@@ -1,5 +1,5 @@
 
-uploading = Заргузка результатов…
+uploading = Загрузка результатов…
 uploaded = Результаты загружены
 upload-failed = Ошибка загрузки
 upload-cancel = Отменить загрузку
