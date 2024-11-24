@@ -22,6 +22,11 @@ item-lowq = 低画质模式
 item-lowq-sub = 建议在画面卡顿时启用
 item-insecure = 不安全模式
 item-insecure-sub = 当无法使用在线功能时可尝试该功能。这会使得你的连接不安全！
+item-enable-anys = 启用 Anys
+item-enable-anys-sub = 使用 Anys 网关以提升连接质量
+item-anys-gateway = Anys 网关
+item-anys-gateway-sub = Anys 网关地址
+item-anys-gateway-invalid = 无效的网关地址
 
 item-adjust = 自动对齐时间
 item-adjust-sub = 自动调整延迟以同步音乐和谱面

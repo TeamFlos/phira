@@ -1,7 +1,4 @@
-use crate::{
-    client::{Character, Ptr, User},
-    dir,
-};
+use crate::{client::{Character, Ptr, User}, dir};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prpr::{
@@ -69,6 +66,10 @@ pub struct LocalChart {
     pub played_unlock: bool,
 }
 
+fn default_anys_gateway() -> String {
+    "https://anys.mivik.moe".to_string()
+}
+
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Data {
@@ -88,6 +89,10 @@ pub struct Data {
     pub terms_modified: Option<String>,
     pub ignored_version: Option<semver::Version>,
     pub character: Option<Character>,
+
+    pub enable_anys: bool,
+    #[serde(default = "default_anys_gateway")]
+    pub anys_gateway: String,
 }
 
 impl Data {

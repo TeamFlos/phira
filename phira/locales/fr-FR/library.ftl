@@ -5,8 +5,8 @@ local = Local
 popular = Populaire
 
 page = Page { $current } / { $total }
-prev-page = Page précédente
-next-page = Page suivante
+prev-page = Page préc.
+next-page = Page suiv.
 
 not-opened = Pas encore disponible
 failed-to-load-online = Échec du chargement des partitions en ligne
