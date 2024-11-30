@@ -1,3 +1,5 @@
+//! UI utilities.
+
 mod billboard;
 pub use billboard::{BillBoard, Message, MessageHandle, MessageKind};
 

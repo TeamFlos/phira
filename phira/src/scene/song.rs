@@ -1,13 +1,16 @@
 prpr::tl_file!("song");
 
-use super::{confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, UnlockScene};
+use super::{
+    confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, UnlockScene,
+    ASSET_CHART_INFO,
+};
 use crate::{
     charts_view::NEED_UPDATE,
     client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{local_illustration, thumbnail_path, ChartItem, Fader, Illustration, SFader},
+    page::{local_illustration, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader},
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -313,6 +316,7 @@ pub struct SongScene {
 
     update_cksum_passed: Option<bool>,
     update_cksum_task: Option<Task<Result<bool>>>,
+    chart_type: ChartType,
 }
 
 impl SongScene {
@@ -483,6 +487,7 @@ impl SongScene {
 
             update_cksum_passed: None,
             update_cksum_task: None,
+            chart_type: chart.chart_type,
         }
     }
 
@@ -957,7 +962,7 @@ impl SongScene {
                 if self.info_edit.as_ref().unwrap().updated && !UPLOAD_NOT_SAVED.load(Ordering::SeqCst) {
                     Dialog::simple(tl!("upload-not-saved"))
                         .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                        .listener(|pos| {
+                        .listener(|_dialog, pos| {
                             if pos == 1 {
                                 UPLOAD_NOT_SAVED.store(true, Ordering::SeqCst);
                             }
@@ -974,7 +979,7 @@ impl SongScene {
                         self.update_cksum_passed = None;
                         Dialog::plain(tl!("upload-rules"), tl!("upload-rules-content"))
                             .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                            .listener(|pos| {
+                            .listener(|_dialog, pos| {
                                 if pos == 1 {
                                     CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
                                 }
@@ -1279,13 +1284,28 @@ impl Scene for SongScene {
         let _res = match res.downcast::<Option<f32>>() {
             Ok(offset) => {
                 if let Some(offset) = *offset {
-                    let dir = prpr::dir::Dir::new(format!("{}/{}", dir::charts()?, self.local_path.as_ref().unwrap()))?;
-                    let mut info: ChartInfo = serde_yaml::from_reader(&dir.open("info.yml")?)?;
-                    info.offset = offset;
-                    dir.create("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
-                    let path = thumbnail_path(self.local_path.as_ref().unwrap())?;
-                    if path.exists() {
-                        std::fs::remove_file(path)?;
+                    let dir = format!("{}/{}", dir::charts()?, self.local_path.as_ref().unwrap().replace(':', "_"));
+                    let path = std::path::Path::new(&dir);
+                    if !path.exists() {
+                        std::fs::create_dir_all(path)?;
+                    }
+                    let dir = prpr::dir::Dir::new(dir)?;
+                    match self.chart_type {
+                        ChartType::Integrated => {
+                            dir.create("offset")?.write_all(&offset.to_be_bytes())?;
+                            if let Ok(Some(info)) = ASSET_CHART_INFO.lock().as_deref_mut() {
+                                info.offset = offset;
+                            }
+                        }
+                        _ => {
+                            let mut info: ChartInfo = serde_yaml::from_reader(&dir.open("info.yml")?)?;
+                            info.offset = offset;
+                            dir.create("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
+                            let path = thumbnail_path(self.local_path.as_ref().unwrap())?;
+                            if path.exists() {
+                                std::fs::remove_file(path)?;
+                            }
+                        }
                     }
                     show_message(tl!("edit-saved")).ok();
                 }
@@ -1613,7 +1633,7 @@ impl Scene for SongScene {
                         let error = format!("{err:?}");
                         Dialog::plain(tl!("failed-to-play"), error)
                             .buttons(vec![tl!("play-cancel").into_owned(), tl!("play-switch-to-offline").into_owned()])
-                            .listener(move |pos| {
+                            .listener(move |_dialog, pos| {
                                 if pos == 1 {
                                     get_data_mut().config.offline_mode = true;
                                     let _ = save_data();
@@ -1827,7 +1847,7 @@ impl Scene for SongScene {
                         } else {
                             Dialog::simple(tl!("upload-confirm-clear-ldb"))
                                 .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                                .listener(move |pos| {
+                                .listener(move |_dialog, pos| {
                                     if pos == 1 {
                                         CONFIRM_CKSUM.store(true, Ordering::Relaxed);
                                     }
@@ -1999,7 +2019,7 @@ impl Scene for SongScene {
                 CONFIRM_OVERWRITE.store(false, Ordering::SeqCst);
                 Dialog::simple(tl!("edit-overwrite-confirm"))
                     .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                    .listener(move |pos| {
+                    .listener(move |_dialog, pos| {
                         if pos == 1 {
                             CONFIRM_OVERWRITE.store(true, Ordering::SeqCst);
                         }

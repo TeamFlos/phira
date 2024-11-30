@@ -9,6 +9,14 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+version = "0.6.5"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[workspace.dependencies]
+tokio = "=1.36.0"
+
 [profile.release]
 opt-level = 2
 strip = true

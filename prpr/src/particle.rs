@@ -1,13 +1,13 @@
-// This is from https://raw.githubusercontent.com/not-fl3/macroquad/master/particles/src/lib.rs
-// We can't use macroquad-particles directly, since it implicitly depends on quad-snd (which is
-// obviously a mistake) and that conflicts with kira.
+//! This is from https://raw.githubusercontent.com/not-fl3/macroquad/master/particles/src/lib.rs
+//! We can't use macroquad-particles directly, since it implicitly depends on quad-snd (which is
+//! obviously a mistake) and that conflicts with kira.
 
-// Edits:
-// 1. nanoserde related parts are removed for simplicity's sake.
-// 2. apply_viewport
-// 3. clippy
-// 4. time can be customized by input argument
-// 5. Remove EmittersCache
+//! Edits:
+//! 1. nanoserde related parts are removed for simplicity's sake.
+//! 2. apply_viewport
+//! 3. clippy
+//! 4. time can be customized by input argument
+//! 5. Remove EmittersCache
 
 use macroquad::prelude::*;
 use macroquad::window::miniquad::*;

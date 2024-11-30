@@ -10,10 +10,13 @@ incline-events-parse-failed = Failed to parse incline events
 paint-events-parse-failed = Failed to parse paint events
 text-events-parse-failed = Failed to parse text events
 color-events-parse-failed = Failed to parse color events
+gif-events-parse-failed = Failed to parse gif events
 
 illustration-load-failed = Failed to load illustration at { $path }
+gif-load-failed = Failed to load gif at { $path }
 
 judge-line-location-name = In judge line #{ $jlid } ({ $name })
+hitsound-missing = Hitsound `{ $name }` is missing
 
 # pgr
 event-not-contiguous = Events should be contiguous

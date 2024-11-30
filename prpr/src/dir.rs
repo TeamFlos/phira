@@ -1,3 +1,5 @@
+//! Directory helper
+
 use anyhow::{bail, Result};
 use std::{
     fs::{File, ReadDir},
@@ -44,6 +46,12 @@ impl Dir {
     #[inline]
     pub fn create_dir_all(&self, p: impl AsRef<Path>) -> Result<()> {
         std::fs::create_dir_all(self.join(p)?)?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn remove_dir_all(&self, p: impl AsRef<Path>) -> Result<()> {
+        std::fs::remove_dir_all(self.join(p)?)?;
         Ok(())
     }
 

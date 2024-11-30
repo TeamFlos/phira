@@ -21,16 +21,24 @@ pub use unlock::UnlockScene;
 mod profile;
 pub use profile::ProfileScene;
 
-use crate::{client::UserManager, data::LocalChart, dir, get_data, get_data_mut, page::Fader, save_data};
+use crate::{
+    client::{Client, UserManager},
+    data::LocalChart,
+    dir, get_data, get_data_mut,
+    page::Fader,
+    save_data, ttl,
+};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use prpr::{
     config::Mods,
     core::{BOLD_FONT, PGR_FONT},
-    ext::{open_url, semi_white, unzip_into, RectExt, SafeTexture},
+    ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     info::ChartInfo,
+    scene::{show_error, show_message, FullLoadingView},
+    task::Task,
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
 use std::{
@@ -44,6 +52,7 @@ use std::{
         Arc, Mutex,
     },
 };
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 thread_local! {
@@ -52,7 +61,10 @@ thread_local! {
 }
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
-
+pub static TERMS: OnceCell<Option<(String, String)>> = OnceCell::new();
+pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, String)>>>>>> = Lazy::new(Mutex::default);
+pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
+pub static JUST_LOADED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 #[derive(Clone)]
 pub struct AssetsChartFileSystem(pub String, pub String);
 
@@ -107,7 +119,7 @@ pub fn fs_from_path(path: &str) -> Result<Box<dyn FileSystem + Send + Sync + 'st
 pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res: Arc<AtomicBool>) {
     Dialog::plain(title.into(), content.into())
         .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-        .listener(move |id| {
+        .listener(move |_dialog, id| {
             if id == 1 {
                 res.store(true, Ordering::SeqCst);
             }
@@ -116,37 +128,134 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
         .show();
 }
 
-pub fn check_read_tos_and_policy() -> bool {
-    if get_data().read_tos_and_policy {
+pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bool {
+    if let Some(value) = dispatch_tos_task() {
+        return value;
+    }
+    if get_data().terms_modified.is_some() && !strict {
         return true;
     }
-
-    let mut opened = false;
-    Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc"))
-        .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
-        .listener(move |pos| match pos {
-            -2 => {
-                opened = true;
-                open_url("https://phira.moe/terms-of-use").unwrap();
-                true
-            }
-            -1 => true,
-            0 => false,
-            1 => {
-                if !opened {
-                    opened = true;
-                    open_url("https://phira.moe/terms-of-use").unwrap();
-                    return true;
+    match TERMS.get() {
+        Some(Some((terms, modified))) => {
+            let content = ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str();
+            let lines = content.split('\n').collect::<Vec<_>>();
+            let pages = lines.chunks(10).map(|it| it.join("\n")).collect::<Vec<_>>();
+            let pages_len = pages.len();
+            let mut page = 0;
+            let gen_buttons = move |page: usize| {
+                let mut btns = vec![ttl!("tos-deny").into_owned()];
+                let mut btn_ids = vec![0u8];
+                if page != 0 {
+                    btns.push(ttl!("tos-prev-page").into_owned());
+                    btn_ids.push(1);
                 }
-                get_data_mut().read_tos_and_policy = true;
-                let _ = save_data();
-                false
+                if page != pages_len - 1 {
+                    btns.push(ttl!("tos-next-page").into_owned());
+                    btn_ids.push(2);
+                } else {
+                    btns.push(ttl!("tos-accept").into_owned());
+                    btn_ids.push(3);
+                }
+                (btns, btn_ids)
+            };
+            let (btns, mut btn_ids) = gen_buttons(page);
+            Dialog::plain(ttl!("tos-and-policy"), &pages[page])
+                .buttons(btns)
+                .listener(move |dialog, pos| match pos {
+                    -2 | -1 => true,
+                    _ => {
+                        match btn_ids[pos as usize] {
+                            0 => {
+                                show_message(ttl!("warn-deny-tos-policy")).warn();
+                                return false;
+                            }
+                            1 => {
+                                page -= 1;
+                            }
+                            2 => {
+                                page += 1;
+                            }
+                            3 => {
+                                get_data_mut().terms_modified = Some(modified.clone());
+                                let _ = save_data();
+                                if change_just_accepted {
+                                    JUST_ACCEPTED_TOS.store(true, Ordering::Relaxed);
+                                }
+                                return false;
+                            }
+                            _ => unreachable!(),
+                        }
+                        let (btns, new_btn_ids) = gen_buttons(page);
+                        btn_ids = new_btn_ids;
+                        dialog.set_buttons(btns);
+                        dialog.set_message(&pages[page]);
+                        true
+                    }
+                })
+                .show();
+        }
+        Some(None) => {
+            error!("unreachable")
+        }
+        None => {
+            if !strict {
+                warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
             }
-            _ => unreachable!(),
-        })
-        .show();
-
+            load_tos_and_policy(strict, true);
+        }
+    }
     false
+}
+
+pub fn dispatch_tos_task() -> Option<bool> {
+    let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
+    if let Some(task) = &mut *tos_task {
+        if let Some(result) = task.take() {
+            match result {
+                Ok(res) => {
+                    if res.is_some() {
+                        info!("terms and policy loaded");
+                        get_data_mut().terms_modified = None;
+                        let _ = save_data();
+                        let _ = TERMS.set(res);
+                    }
+                    // don't load None into it, 
+                    // or it can't be updated when `strict` is true.
+                }
+                Err(e) => {
+                    show_error(e.context(ttl!("fetch-tos-policy-failed")));
+                    *tos_task = None;
+                    return Some(false);
+                }
+            }
+            *tos_task = None;
+        }
+    }
+    drop(tos_task);
+    None
+}
+/// use the return value to add a loading screen
+pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
+    if TERMS.get().is_some() {
+        return;
+    }
+    let mut guard = LOAD_TOS_TASK.lock().unwrap();
+    if guard.is_none() {
+        let modified = get_data().terms_modified.clone();
+        let loading = show_loading.then(|| FullLoadingView::begin_text(ttl!("loading_tos_policy")));
+        *guard = Some(
+            Task::new(async move {
+                let mut modified = modified.as_deref();
+                if strict {
+                    modified = None
+                }
+                let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
+                drop(loading);
+                JUST_LOADED_TOS.store(true, Ordering::Relaxed);
+                ret
+            }),
+        );
+    }
 }
 
 #[inline]
@@ -304,4 +413,22 @@ pub fn render_release_to_refresh(ui: &mut Ui, cx: f32, off: f32) {
         .size(0.8)
         .color(semi_white(p * 0.8))
         .draw();
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::DerefMut;
+
+    use fs::load_info;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_parse_chart() -> Result<()> {
+        // Put the chart in phira(workspace, not crate)/test which is ignored by git
+        let mut fs = fs_from_path("../../../test")?;
+        let info = load_info(fs.as_mut()).await?;
+        let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
+        Ok(())
+    }
 }

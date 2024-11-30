@@ -202,7 +202,7 @@ impl Scene for EndingScene {
                         let error = format!("{:?}", err.context(tl!("upload-failed")));
                         Dialog::plain(tl!("upload-failed"), error)
                             .buttons(vec![tl!("upload-cancel").to_string(), tl!("upload-retry").to_string()])
-                            .listener(move |pos| {
+                            .listener(move |_dialog, pos| {
                                 if pos == 1 {
                                     RE_UPLOAD.with(|it| *it.borrow_mut() = true);
                                 }

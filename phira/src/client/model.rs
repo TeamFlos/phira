@@ -14,11 +14,13 @@ mod record;
 pub use record::*;
 
 mod user;
+use reqwest::{Response, Url};
+use tracing::debug;
 pub use user::*;
 
-use super::{basic_client_builder, Client, CLIENT_TOKEN};
+use super::{basic_client_builder, Client, API_URL, CLIENT_TOKEN};
 use crate::{
-    dir,
+    dir, get_data,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
 };
 use anyhow::{bail, Result};
@@ -146,7 +148,9 @@ impl<T: Object + 'static> Ptr<T> {
         {
             let map = obtain_map_cache::<T>();
             let mut guard = map.lock().unwrap();
-            let Some(actual_map) = guard.downcast_mut::<ObjectMap::<T>>() else { unreachable!() };
+            let Some(actual_map) = guard.downcast_mut::<ObjectMap<T>>() else {
+                unreachable!()
+            };
             if let Some(value) = actual_map.get(&self.id) {
                 return Ok(Arc::clone(value));
             }
@@ -179,7 +183,16 @@ pub struct File {
 }
 impl File {
     fn request(&self) -> reqwest::RequestBuilder {
-        let req = basic_client_builder().build().unwrap().get(&self.url);
+        let mut req = basic_client_builder().build().unwrap().get(&self.url);
+        // TODO: thread safety?
+        if get_data().enable_anys {
+            if let Some(path) = self.url.strip_prefix(API_URL) {
+                if let Some(rest_path) = path.strip_prefix("/files/") {
+                    let url = format!("{API_URL}/anys/{rest_path}");
+                    req = basic_client_builder().build().unwrap().get(url);
+                }
+            }
+        }
         if let Some(token) = CLIENT_TOKEN.load().as_ref() {
             req.header("Authorization", format!("Bearer {token}"))
         } else {
@@ -188,16 +201,32 @@ impl File {
     }
 
     pub async fn fetch(&self) -> Result<Bytes> {
+        async fn fetch_raw(f: &File) -> Result<Response> {
+            Ok(f.request().send().await?)
+        }
         match cacache::read(&*CACHE_DIR, &self.url).await {
             Ok(data) => Ok(data.into()),
             Err(cacache::Error::EntryNotFound(..)) => {
-                let resp = self.request().send().await?;
+                let mut resp = fetch_raw(self).await?;
+                if resp.status().is_redirection() {
+                    let p2p_url = resp.headers().get("location").unwrap().to_str().unwrap().to_owned();
+                    if let Some(cid) = p2p_url.strip_prefix("anys://") {
+                        let cid = cid.to_owned();
+                        let data = get_data();
+                        let new_url = format!("{}/{}", data.anys_gateway, cid);
+                        debug!("p2p redirection: {} -> {}", p2p_url, new_url);
+                        resp = fetch_raw(&File { url: new_url }).await?
+                    } else {
+                        bail!("illegal p2p redirection: {}", p2p_url);
+                    }
+                }
                 if !resp.status().is_success() {
                     bail!("{}", resp.text().await?);
+                } else {
+                    let bytes = resp.error_for_status()?.bytes().await?;
+                    cacache::write(&*CACHE_DIR, &self.url, &bytes).await?;
+                    Ok(bytes)
                 }
-                let bytes = resp.error_for_status()?.bytes().await?;
-                cacache::write(&*CACHE_DIR, &self.url, &bytes).await?;
-                Ok(bytes)
             }
             Err(err) => Err(err.into()),
         }
@@ -214,7 +243,7 @@ impl File {
             }
             .load_image()
             .await
-        } else if self.url.starts_with("https://files.phira.cn/") || self.url.starts_with("https://api.phira.cn/files/") {
+        } else if self.url.starts_with("https://files.phira.cn/") || self.url.starts_with("https://phira.5wyxi.com/files/") {
             File {
                 url: format!("{}.thumbnail", self.url),
             }

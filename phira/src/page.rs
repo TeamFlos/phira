@@ -100,6 +100,7 @@ pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
             info: it.info.clone(),
             local_path: Some(it.local_path.clone()),
             illu: local_illustration(it.local_path.clone(), tex.clone(), false),
+            chart_type: ChartType::Imported,
         })
         .collect();
     order.0.apply(&mut res);
@@ -191,6 +192,14 @@ pub struct ChartItem {
     pub info: BriefChartInfo,
     pub local_path: Option<String>,
     pub illu: Illustration,
+    pub chart_type: ChartType,
+}
+
+#[derive(Clone, Copy)]
+pub enum ChartType {
+    Downloaded,
+    Imported,
+    Integrated,
 }
 
 // srange name, isn't it?

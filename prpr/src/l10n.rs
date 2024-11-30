@@ -1,9 +1,11 @@
+//! Localization utilities.
+
 pub use fluent::{fluent_args, FluentBundle, FluentResource};
 pub use once_cell::sync::Lazy;
 pub use unic_langid::{langid, LanguageIdentifier};
 
 use fluent::{FluentArgs, FluentError};
-use fluent_syntax::ast::Pattern;
+use fluent_syntax::ast::{Message, Pattern};
 use lru::LruCache;
 use std::{
     borrow::Cow,
@@ -162,18 +164,25 @@ impl L10nLocal {
             self.generation = gen;
             self.cache.clear();
         }
-        let (id, pattern) = self.cache.get_or_insert(key.clone(), || {
-            let guard = GLOBAL.order.lock().unwrap();
-            if let Some((id, message)) = guard
-                .iter()
-                .filter_map(|id| self.bundles.inner[*id].get_message(&key).map(|msg| (*id, msg)))
-                .next()
-            {
-                return (id, message.value().unwrap());
+        if let Some((id, pattern)) = {
+            let get_result = self.cache.get(&key);
+            if get_result.is_none() {
+                let guard = GLOBAL.order.lock().unwrap();
+                guard
+                    .iter()
+                    .filter_map(|id| self.bundles.inner[*id].get_message(&key).map(|msg| (*id, msg)))
+                    .next()
+                    .map(|(id, message)| (id, message.value().unwrap()))
+                    .map(|val| self.cache.get_or_insert(key.clone(), || val))
+            } else {
+                get_result
             }
-            panic!("no translation found for {key}");
-        });
-        unsafe { std::mem::transmute(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
+        } {
+            unsafe { std::mem::transmute(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
+        } else {
+            warn!("no translation found for {key}, returning key");
+            key
+        }
     }
 
     pub fn format<'s>(&mut self, key: impl Into<Cow<'static, str>>, args: Option<&'s FluentArgs<'s>>) -> Cow<'s, str> {

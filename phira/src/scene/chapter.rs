@@ -3,9 +3,10 @@ prpr::tl_file!("chapter");
 use crate::{
     anim::Anim,
     data::BriefChartInfo,
+    dir,
     icons::Icons,
     load_res_tex,
-    page::{ChartItem, Illustration, SFader},
+    page::{ChartItem, ChartType, Illustration, SFader},
     resource::rtl,
 };
 use anyhow::Result;
@@ -202,8 +203,15 @@ impl Scene for ChapterScene {
                     },
                     illu: Illustration::from_done(chart.illu.clone()),
                     local_path: Some(local_path.clone()),
+                    chart_type: ChartType::Integrated,
                 };
                 let info = &item.info;
+                let dir = format!("{}/{}", dir::charts()?, item.local_path.as_ref().unwrap().replace(':', "_"));
+                let path = std::path::Path::new(&dir);
+                if !path.exists() {
+                    std::fs::create_dir_all(path)?;
+                }
+                let dir = prpr::dir::Dir::new(dir)?;
                 *ASSET_CHART_INFO.lock().unwrap() = Some(ChartInfo {
                     id: None,
                     uploader: None,
@@ -226,7 +234,20 @@ impl Scene for ChapterScene {
                     aspect_ratio: 16. / 9.,
                     background_dim: 0.6,
                     line_length: 6.,
-                    offset: 0.,
+                    offset: dir
+                        .read("offset")
+                        .map(|d| {
+                            f32::from_be_bytes(
+                                d.get(0..4)
+                                    .map(|first4| {
+                                        let mut result = <[u8; 4]>::default();
+                                        result.copy_from_slice(first4);
+                                        result
+                                    })
+                                    .unwrap_or_default(),
+                            )
+                        })
+                        .unwrap_or_default(),
                     tip: None,
                     tags: Vec::new(),
 

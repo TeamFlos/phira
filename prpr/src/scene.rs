@@ -1,3 +1,5 @@
+//! Scene management module.
+
 crate::tl_file!("scene" ttl);
 
 mod ending;
@@ -18,7 +20,12 @@ use crate::{
 use anyhow::{Error, Result};
 use cfg_if::cfg_if;
 use macroquad::prelude::*;
-use std::{any::Any, cell::RefCell, sync::Mutex};
+use std::{
+    any::Any,
+    borrow::Cow,
+    cell::RefCell,
+    sync::{Arc, Mutex},
+};
 use tracing::warn;
 
 #[derive(Default)]
@@ -37,6 +44,27 @@ pub enum NextScene {
 thread_local! {
     pub static BILLBOARD: RefCell<(BillBoard, TimeManager)> = RefCell::new((BillBoard::new(), TimeManager::default()));
     pub static DIALOG: RefCell<Option<Dialog>> = RefCell::new(None);
+    pub static FULL_LOADING: RefCell<Option<FullLoadingView>> = RefCell::new(None);
+}
+
+pub struct FullLoadingView {
+    keep_alive: Arc<()>,
+    text: Option<Cow<'static, str>>,
+}
+
+impl FullLoadingView {
+    pub fn begin() -> Arc<()> {
+        Self::begin_inner(None)
+    }
+    pub fn begin_text(text: Cow<'static, str>) -> Arc<()> {
+        Self::begin_inner(Some(text))
+    }
+    fn begin_inner(text: Option<Cow<'static, str>>) -> Arc<()> {
+        let arc = Arc::new(());
+        let ret = arc.clone();
+        FULL_LOADING.replace(Some(Self { keep_alive: arc, text }));
+        ret
+    }
 }
 
 #[inline]
@@ -430,7 +458,7 @@ impl Main {
         Judge::on_new_frame();
         let mut touches = Judge::get_touches();
         touches.iter_mut().for_each(f);
-        if !touches.is_empty() {
+        if !(touches.is_empty() || FULL_LOADING.with(|it| it.borrow().is_some())) {
             let now = self.tm.now();
             let delta = (now - self.last_update_time) / touches.len() as f64;
             let start_time = self.tm.start_time;
@@ -502,6 +530,25 @@ impl Main {
                     dialog.render(&mut ui, self.tm.now() as _);
                 }
             });
+            let remove = FULL_LOADING.with(|it| {
+                if let Some(loading) = it.borrow_mut().as_mut() {
+                    if Arc::strong_count(&loading.keep_alive) > 1 {
+                        if let Some(text) = loading.text.as_ref() {
+                            ui.full_loading(text.clone(), self.tm.now() as _);
+                        }
+                        else {
+                            ui.full_loading_simple(self.tm.now() as _);
+                        }
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }
+                false
+            });
+            if remove {
+                FULL_LOADING.take();
+            }
             pop_camera_state();
         }
         Ok(())

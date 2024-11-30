@@ -2,7 +2,7 @@ use crate::{anim::Anim, Result};
 use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, RectExt},
-    ui::{rounded_rect_shadow, RectButton, ShadowConfig, Ui, button_hit},
+    ui::{button_hit, rounded_rect_shadow, RectButton, ShadowConfig, Ui},
 };
 use std::borrow::Cow;
 

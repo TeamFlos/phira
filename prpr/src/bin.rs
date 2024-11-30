@@ -1,9 +1,21 @@
+//! Binary serialization and deserialization for prpr data structures.
+//! Currently:
+//!   - [crate::core::Chart]
+//!   - [crate::core::ChartSettings]
+//!   - [crate::core::JudgeLine]
+//!   - [crate::core::Note]
+//!   - [crate::core::Object]
+//!   - [crate::core::CtrlObject]
+//!   - [crate::core::Anim]
+//!   - [crate::core::Keyframe]
+//!   - [macroquad::prelude::Color]
+
 use crate::{
     core::{
         Anim, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, JudgeLine, JudgeLineCache, JudgeLineKind,
         Keyframe, Note, NoteKind, Object, StaticTween, Tweenable, UIElement,
     },
-    judge::JudgeStatus,
+    judge::{HitSound, JudgeStatus},
     parse::process_lines,
 };
 use anyhow::{bail, Result};
@@ -11,6 +23,7 @@ use byteorder::{LittleEndian as LE, ReadBytesExt, WriteBytesExt};
 use macroquad::{prelude::Color, texture::Texture2D};
 use std::{
     cell::RefCell,
+    collections::HashMap,
     io::{Read, Write},
     ops::Deref,
     rc::Rc,
@@ -303,18 +316,22 @@ impl BinaryData for CtrlObject {
 
 impl BinaryData for Note {
     fn read_binary<R: Read>(r: &mut BinaryReader<R>) -> Result<Self> {
-        Ok(Self {
-            object: r.read()?,
-            kind: match r.read::<u8>()? {
-                0 => NoteKind::Click,
-                1 => NoteKind::Hold {
-                    end_time: r.read()?,
-                    end_height: r.read()?,
-                },
-                2 => NoteKind::Flick,
-                3 => NoteKind::Drag,
-                _ => bail!("invalid note kind"),
+        let object = r.read()?;
+        let kind = match r.read::<u8>()? {
+            0 => NoteKind::Click,
+            1 => NoteKind::Hold {
+                end_time: r.read()?,
+                end_height: r.read()?,
             },
+            2 => NoteKind::Flick,
+            3 => NoteKind::Drag,
+            _ => bail!("invalid note kind"),
+        };
+        let hitsound = HitSound::default_from_kind(&kind);
+        Ok(Self {
+            object,
+            kind,
+            hitsound,
             time: r.time()?,
             height: r.read()?,
             speed: if r.read()? { r.read::<f32>()? } else { 1. },
@@ -362,6 +379,7 @@ impl BinaryData for JudgeLine {
             1 => JudgeLineKind::Texture(Texture2D::empty().into(), r.read()?),
             2 => JudgeLineKind::Text(r.read()?),
             3 => JudgeLineKind::Paint(r.read()?, RefCell::default()),
+            4 => unimplemented!(),
             _ => bail!("invalid judge line kind"),
         };
         let height = r.read()?;
@@ -411,6 +429,9 @@ impl BinaryData for JudgeLine {
                 w.write_val(3_u8)?;
                 w.write(events)?;
             }
+            JudgeLineKind::TextureGif(..) => {
+                bail!("gif texture binary not supported");
+            }
         }
         w.write(&self.height)?;
         w.array(&self.notes)?;
@@ -449,7 +470,7 @@ impl BinaryData for Chart {
         let mut lines = r.array()?;
         process_lines(&mut lines);
         let settings = r.read()?;
-        Ok(Chart::new(offset, lines, BpmList::new(vec![(0., 60.)]), settings, ChartExtra::default()))
+        Ok(Chart::new(offset, lines, BpmList::new(vec![(0., 60.)]), settings, ChartExtra::default(), HashMap::new()))
     }
 
     fn write_binary<W: Write>(&self, w: &mut BinaryWriter<W>) -> Result<()> {

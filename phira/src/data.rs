@@ -1,7 +1,4 @@
-use crate::{
-    client::{Character, Ptr, User},
-    dir,
-};
+use crate::{client::{Character, Ptr, User}, dir};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prpr::{
@@ -15,6 +12,7 @@ use std::{
     ops::DerefMut,
     path::Path,
 };
+use tracing::debug;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,6 +66,10 @@ pub struct LocalChart {
     pub played_unlock: bool,
 }
 
+fn default_anys_gateway() -> String {
+    "https://anys.mivik.moe".to_string()
+}
+
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Data {
@@ -82,9 +84,15 @@ pub struct Data {
     pub respacks: Vec<String>,
     pub respack_id: usize,
     pub accept_invalid_cert: bool,
+    // for compatibility
     pub read_tos_and_policy: bool,
+    pub terms_modified: Option<String>,
     pub ignored_version: Option<semver::Version>,
     pub character: Option<Character>,
+
+    pub enable_anys: bool,
+    #[serde(default = "default_anys_gateway")]
+    pub anys_gateway: String,
 }
 
 impl Data {
@@ -119,8 +127,8 @@ impl Data {
             let entry = entry?;
             let filename = entry.file_name();
             let filename = filename.to_str().unwrap();
-            let filename = format!("download/{filename}");
             let Ok(id): Result<i32, _> = filename.parse() else { continue };
+            let filename = format!("download/{filename}");
             if occurred.contains(&filename) {
                 continue;
             }
@@ -139,11 +147,26 @@ impl Data {
                 });
             }
         }
+        let respacks: HashSet<_> = self.respacks.iter().map(|s| s.clone()).collect();
+        for entry in std::fs::read_dir(dir::respacks()?)? {
+            let entry = entry?;
+            let filename = entry.file_name();
+            let filename = filename.to_str().unwrap().to_string();
+            if respacks.contains(&filename) {
+                continue;
+            }
+            self.respacks.push(filename);
+        }
         if let Some(res_pack_path) = &mut self.config.res_pack_path {
             if res_pack_path.starts_with('/') {
                 // for compatibility
                 *res_pack_path = "chart.zip".to_owned();
             }
+        }
+        if self.read_tos_and_policy {
+            debug!("migrating from old version");
+            self.terms_modified = Some("Mon, 05 Aug 2024 17:32:41 GMT".to_owned());
+            self.read_tos_and_policy = false;
         }
         self.config.init();
         Ok(())

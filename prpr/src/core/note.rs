@@ -1,5 +1,8 @@
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
-use crate::{judge::JudgeStatus, parse::RPE_HEIGHT};
+pub use crate::{
+    judge::{HitSound, JudgeStatus},
+    parse::RPE_HEIGHT,
+};
 use macroquad::prelude::*;
 
 const HOLD_PARTICLE_INTERVAL: f32 = 0.15;
@@ -28,6 +31,7 @@ impl NoteKind {
 pub struct Note {
     pub object: Object,
     pub kind: NoteKind,
+    pub hitsound: HitSound,
     pub time: f32,
     pub height: f32,
     pub speed: f32,
@@ -187,7 +191,7 @@ impl Note {
         if config.invisible_time.is_finite() && self.time - config.invisible_time < res.time {
             return;
         }
-        let scale = (if self.multiple_hint {
+        let scale = (if res.config.double_hint && self.multiple_hint {
             res.res_pack.note_style_mh.click.width() / res.res_pack.note_style.click.width()
         } else {
             1.0

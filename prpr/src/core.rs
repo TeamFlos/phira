@@ -1,3 +1,15 @@
+//! Core module for prpr, submodules:
+//!   - [crate::core::anim]
+//!   - [crate::core::chart]
+//!   - [crate::core::effect]
+//!   - [crate::core::line]
+//!   - [crate::core::note]
+//!   - [crate::core::object]
+//!   - [crate::core::render]
+//!   - [crate::core::resource]
+//!   - [crate::core::smooth]
+//!   - [crate::core::tween]
+
 pub use macroquad::color::Color;
 
 pub const NOTE_WIDTH_RATIO_BASE: f32 = 0.13175016;
@@ -13,17 +25,17 @@ mod anim;
 pub use anim::{Anim, AnimFloat, AnimVector, Keyframe};
 
 mod chart;
-pub use chart::{Chart, ChartExtra, ChartSettings};
+pub use chart::{Chart, ChartExtra, ChartSettings, HitSoundMap};
 
 mod effect;
 pub use effect::{Effect, Uniform};
 
 mod line;
-pub use line::{JudgeLine, JudgeLineCache, JudgeLineKind, UIElement};
+pub use line::{GifFrames, JudgeLine, JudgeLineCache, JudgeLineKind, UIElement};
 
 mod note;
 use macroquad::prelude::set_pc_assets_folder;
-pub use note::{BadNote, Note, NoteKind, RenderConfig};
+pub use note::{BadNote, HitSound, Note, NoteKind, RenderConfig};
 
 mod object;
 pub use object::{CtrlObject, Object};
@@ -32,7 +44,7 @@ mod render;
 pub use render::{copy_fbo, internal_id, MSRenderTarget};
 
 mod resource;
-pub use resource::{NoteStyle, ParticleEmitter, ResPackInfo, Resource, ResourcePack, DPI_VALUE};
+pub use resource::{NoteStyle, ParticleEmitter, ResPackInfo, Resource, ResourcePack, BUFFER_SIZE, DPI_VALUE};
 
 mod smooth;
 pub use smooth::Smooth;

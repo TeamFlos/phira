@@ -16,13 +16,15 @@ use prpr::{
     ui::{DRectButton, Dialog, Scroll, Ui},
 };
 use sasa::{AudioManager, PlaySfxParams, Sfx};
+use serde_yaml::Error;
 use std::{
+    borrow::Cow,
     fs::File,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    }, borrow::Cow,
+    },
 };
 
 fn build_emitter(pack: &ResourcePack) -> Result<ParticleEmitter> {
@@ -84,15 +86,41 @@ impl ResPackPage {
         MainScene::take_imported_respack();
         let dir = dir::respacks()?;
         let mut items = vec![ResPackItem::new(None, tl!("default").into_owned())];
-        for path in &get_data().respacks {
-            let p = format!("{dir}/{path}");
-            let p = Path::new(&p);
-            if !p.is_dir() {
-                continue;
-            }
-            let info: ResPackInfo = serde_yaml::from_reader(File::open(p.join("info.yml"))?)?;
-            items.push(ResPackItem::new(Some(p.to_owned()), info.name));
-        }
+        let data = get_data_mut();
+        data.respacks = data
+            .respacks
+            .clone()
+            .into_iter()
+            .filter(|path| -> bool {
+                let p = format!("{dir}/{path}");
+                let p = Path::new(&p);
+                if !p.is_dir() {
+                    return false;
+                }
+                let cfg = File::open(p.join("info.yml"));
+                match cfg {
+                    Err(_) => {
+                        let _ = std::fs::remove_dir_all(p);
+                        false
+                    }
+                    Ok(cfg) => {
+                        let info: Result<ResPackInfo, Error> = serde_yaml::from_reader(cfg);
+                        match info {
+                            Err(_) => {
+                                let _ = std::fs::remove_dir_all(p);
+                                false
+                            }
+                            Ok(info) => {
+                                items.push(ResPackItem::new(Some(p.to_owned()), info.name));
+                                true
+                            }
+                        }
+                    }
+                }
+            })
+            .collect();
+        save_data()?;
+
         let index = get_data().respack_id;
         items[index].load();
         let delete_btn = DRectButton::new().with_delta(-0.004).with_elevation(0.);
@@ -149,7 +177,7 @@ impl Page for ResPackPage {
                 tl!("info"),
                 tl!("info-content", "name" => item.name.clone(), "author" => info.author.clone(), "desc" => info.description.clone()),
             )
-            .listener(|index| index == -2)
+            .listener(|_dialog, pos| pos == -2)
             .show();
             return Ok(true);
         }

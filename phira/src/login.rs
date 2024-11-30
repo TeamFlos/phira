@@ -4,7 +4,8 @@ use crate::{
     client::{Client, LoginParams, User, UserManager},
     get_data_mut,
     page::Fader,
-    save_data, scene::check_read_tos_and_policy,
+    save_data,
+    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -17,7 +18,7 @@ use prpr::{
     ui::{DRectButton, Dialog, Ui},
 };
 use regex::Regex;
-use std::{borrow::Cow, future::Future};
+use std::{borrow::Cow, future::Future, sync::atomic::Ordering};
 
 static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
@@ -61,6 +62,12 @@ pub struct Login {
     in_reg: bool,
 
     task: Option<(&'static str, Task<Result<Option<User>>>)>,
+    after_accept_tos: Option<NextAction>,
+}
+
+enum NextAction {
+    Login,
+    Register,
 }
 
 impl Login {
@@ -92,6 +99,7 @@ impl Login {
             in_reg: false,
 
             task: None,
+            after_accept_tos: None,
         }
     }
 
@@ -163,7 +171,8 @@ impl Login {
                 return true;
             }
             if self.btn_reg.touch(touch, t) {
-                if !check_read_tos_and_policy() {
+                if !check_read_tos_and_policy(true, true) {
+                    self.after_accept_tos = Some(NextAction::Register);
                     return true;
                 }
                 if let Some(error) = self.register() {
@@ -172,7 +181,8 @@ impl Login {
                 return true;
             }
             if self.btn_login.touch(touch, t) {
-                if !check_read_tos_and_policy() {
+                if !check_read_tos_and_policy(true, true) {
+                    self.after_accept_tos = Some(NextAction::Login);
                     return true;
                 }
                 let email = self.t_email.clone();
@@ -196,6 +206,7 @@ impl Login {
         if let Some(done) = self.fader.done(t) {
             self.show = !done;
         }
+        dispatch_tos_task();
         if let Some((id, text)) = take_input() {
             'tmp: {
                 let tmp = match id.as_str() {
@@ -211,6 +222,29 @@ impl Login {
                 };
                 *tmp = text;
             }
+        }
+        if JUST_ACCEPTED_TOS.fetch_and(false, Ordering::Relaxed) {
+            match self.after_accept_tos {
+                Some(NextAction::Login) => {
+                    let email = self.t_email.clone();
+                    let pwd = self.t_pwd.clone();
+                    self.start("login", async move {
+                        Client::login(LoginParams::Password {
+                            email: &email,
+                            password: &pwd,
+                        })
+                        .await?;
+                        Ok(Some(Client::get_me().await?))
+                    });
+                }
+                Some(NextAction::Register) => {
+                    if let Some(error) = self.register() {
+                        show_message(error).error();
+                    }
+                }
+                None => (),
+            }
+            self.after_accept_tos = None;
         }
         if let Some((action, task)) = &mut self.task {
             if let Some(res) = task.take() {

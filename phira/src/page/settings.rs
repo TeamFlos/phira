@@ -12,14 +12,18 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{poll_future, semi_white, LocalTask, RectExt, SafeTexture},
+    core::BOLD_FONT,
+    ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, take_input},
-    ui::{DRectButton, Scroll, Slider, Ui}, core::BOLD_FONT,
+    ui::{DRectButton, Scroll, Slider, Ui},
 };
+use reqwest::Url;
 use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
+const INTERACT_WIDTH: f32 = 0.26;
+const STATUS_PAGE: &str = "https://status.phira.cn";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SettingListType {
@@ -186,7 +190,12 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
 
     let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
     let (first, text) = text.split_once('\n').unwrap();
-    let tr = ui.text(first).pos(ct.x, ir.bottom() + 0.03).anchor(0.5, 0.).size(0.6).draw_using(&BOLD_FONT);
+    let tr = ui
+        .text(first)
+        .pos(ct.x, ir.bottom() + 0.03)
+        .anchor(0.5, 0.)
+        .size(0.6)
+        .draw_using(&BOLD_FONT);
 
     let r = ui
         .text(text.trim())
@@ -252,7 +261,7 @@ fn render_switch(ui: &mut Ui, r: Rect, t: f32, btn: &mut DRectButton, on: bool) 
 #[inline]
 fn right_rect(w: f32) -> Rect {
     let rh = ITEM_HEIGHT * 2. / 3.;
-    Rect::new(w - 0.3, (ITEM_HEIGHT - rh) / 2., 0.26, rh)
+    Rect::new(w - 0.3, (ITEM_HEIGHT - rh) / 2., INTERACT_WIDTH, rh)
 }
 
 struct GeneralList {
@@ -260,10 +269,13 @@ struct GeneralList {
 
     lang_btn: ChooseButton,
     offline_btn: DRectButton,
+    server_status_btn: DRectButton,
     mp_btn: DRectButton,
     mp_addr_btn: DRectButton,
     lowq_btn: DRectButton,
     insecure_btn: DRectButton,
+    enable_anys_btn: DRectButton,
+    anys_gateway_btn: DRectButton,
 }
 
 impl GeneralList {
@@ -282,10 +294,13 @@ impl GeneralList {
                         .unwrap_or_default(),
                 ),
             offline_btn: DRectButton::new(),
+            server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
             mp_addr_btn: DRectButton::new(),
             lowq_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
+            enable_anys_btn: DRectButton::new(),
+            anys_gateway_btn: DRectButton::new(),
         }
     }
 
@@ -306,6 +321,10 @@ impl GeneralList {
             config.offline_mode ^= true;
             return Ok(Some(true));
         }
+        if self.server_status_btn.touch(touch, t) {
+            let _ = open_url(STATUS_PAGE);
+            return Ok(Some(true));
+        }
         if self.mp_btn.touch(touch, t) {
             config.mp_enabled ^= true;
             return Ok(Some(true));
@@ -320,6 +339,14 @@ impl GeneralList {
         }
         if self.insecure_btn.touch(touch, t) {
             data.accept_invalid_cert ^= true;
+            return Ok(Some(true));
+        }
+        if self.enable_anys_btn.touch(touch, t) {
+            data.enable_anys ^= true;
+            return Ok(Some(true));
+        }
+        if self.anys_gateway_btn.touch(touch, t) {
+            request_input("anys_gateway", &data.anys_gateway);
             return Ok(Some(true));
         }
         Ok(None)
@@ -340,6 +367,14 @@ impl GeneralList {
                     return Ok(false);
                 } else {
                     data.config.mp_address = text;
+                    return Ok(true);
+                }
+            } else if id == "anys_gateway" {
+                if let Err(err) = Url::parse(&text) {
+                    show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
+                    return Ok(false);
+                } else {
+                    data.anys_gateway = text.trim_end_matches('/').to_string();
                     return Ok(true);
                 }
             } else {
@@ -375,6 +410,10 @@ impl GeneralList {
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
         }
         item! {
+            render_title(ui, tl!("item-server-status"), Some(tl!("item-server-status-sub")));
+            self.server_status_btn.render_text(ui, rr, t, tl!("check-status"), 0.5, true);
+        }
+        item! {
             render_title(ui, tl!("item-mp"), Some(tl!("item-mp-sub")));
             render_switch(ui, rr, t, &mut self.mp_btn, config.mp_enabled);
         }
@@ -389,6 +428,14 @@ impl GeneralList {
         item! {
             render_title(ui, tl!("item-insecure"), Some(tl!("item-insecure-sub")));
             render_switch(ui, rr, t, &mut self.insecure_btn, data.accept_invalid_cert);
+        }
+        item! {
+            render_title(ui, tl!("item-enable-anys"), Some(tl!("item-enable-anys-sub")));
+            render_switch(ui, rr, t, &mut self.enable_anys_btn, data.enable_anys);
+        }
+        item! {
+            render_title(ui, tl!("item-anys-gateway"), Some(tl!("item-anys-gateway-sub")));
+            self.anys_gateway_btn.render_text(ui, rr, t, &data.anys_gateway, 0.4, false);
         }
         self.lang_btn.render_top(ui, t, 1.);
         (w, h)

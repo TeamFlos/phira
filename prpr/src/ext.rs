@@ -1,3 +1,5 @@
+//! Miscellaneous utilities.
+
 use crate::{
     config::Config,
     core::{Matrix, Point, Vector},
@@ -10,7 +12,7 @@ use lyon::{
     path::{builder::BorderRadii, Path, Winding},
 };
 use macroquad::prelude::*;
-use miniquad::{BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
+use miniquad::{gl::GLenum, BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
 use once_cell::sync::Lazy;
 use ordered_float::{Float, NotNan};
 use sasa::AudioManager;
@@ -104,6 +106,17 @@ impl SafeTexture {
             glBindTexture(GL_TEXTURE_2D, id);
             glGenerateMipmap(GL_TEXTURE_2D);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as _);
+        }
+        self
+    }
+
+    pub fn with_filter(self, filter: GLenum) -> Self{
+        let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
+        unsafe {
+            use miniquad::gl::*;
+            glBindTexture(GL_TEXTURE_2D, id);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter as _);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter as _);
         }
         self
     }
