@@ -16,7 +16,7 @@ illustration-load-failed = 位於 { $path } 的插圖載入失敗
 gif-load-failed = 位於 { $path } 的 gif 載入失敗
 
 judge-line-location-name = #{ $jlid } ({ $name }) 判定線中
-hitsound-missing = 缺少打擊音 `{ $name }`
+hitsound-missing = 缺少打擊音效 `{ $name }`
 
 # pgr
 event-not-contiguous = 事件應當連續
