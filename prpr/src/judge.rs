@@ -20,6 +20,8 @@ pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
 pub const LIMIT_PERFECT: f32 = 0.08;
 pub const LIMIT_GOOD: f32 = 0.16;
 pub const LIMIT_BAD: f32 = 0.22;
+pub const NOTE_NORMAL_SIZE: f32 = (175. / 1350.) * (16. / 9.);
+pub const NOTE_EXPAND_SIZE: f32 = (0.21 / (16. / 9.) * 2.) - NOTE_NORMAL_SIZE;
 pub const UP_TOLERANCE: f32 = 0.05;
 pub const DIST_FACTOR: f32 = 0.2;
 
@@ -363,7 +365,6 @@ impl Judge {
             self.auto_play_update(res, chart);
             return;
         }
-        const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
         let spd = res.config.speed;
 
         #[cfg(not(target_os = "windows"))]
@@ -512,7 +513,7 @@ impl Judge {
                 continue;
             }
             let t = time_of(touch);
-            let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
+            let mut closest = (None, f32::INFINITY, LIMIT_BAD, LIMIT_BAD + (f32::INFINITY / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
             for (line_id, ((line, pos), (idx, st))) in chart.lines.iter_mut().zip(pos.iter()).zip(self.notes.iter_mut()).enumerate() {
                 let Some(pos) = pos[id] else {
                     continue;
@@ -533,7 +534,7 @@ impl Judge {
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
                     let dist = (x.now() - pos.x).abs();
-                    if dist > X_DIFF_MAX {
+                    if dist > (note.object.scale.0.now_opt().unwrap_or(1.) * NOTE_NORMAL_SIZE) + NOTE_EXPAND_SIZE {
                         continue;
                     }
                     if dt
@@ -661,7 +662,13 @@ impl Judge {
                         let x = &mut note.object.translation.0;
                         x.set_time(t);
                         let x = x.now();
-                        if self.key_down_count == 0 && !pos.iter().any(|it| it.map_or(false, |it| (it.x - x).abs() <= X_DIFF_MAX)) {
+                        if self.key_down_count == 0
+                            && !pos.iter().any(|it| {
+                                it.map_or(false, |it| {
+                                    (it.x - x).abs() <= (note.object.scale.0.now_opt().unwrap_or(1.) * NOTE_NORMAL_SIZE) + NOTE_EXPAND_SIZE
+                                })
+                            })
+                        {
                             if t > *up_time + UP_TOLERANCE {
                                 note.judge = JudgeStatus::Judged;
                                 judgements.push((Judgement::Miss, line_id, *id, None));
@@ -698,7 +705,8 @@ impl Judge {
                     || pos.iter().any(|it| {
                         it.map_or(false, |it| {
                             let dx = (it.x - x).abs();
-                            dx <= X_DIFF_MAX && dt <= (LIMIT_BAD - LIMIT_PERFECT * (dx - 0.9).max(0.))
+                            dx <= (note.object.scale.0.now_opt().unwrap_or(1.) * NOTE_NORMAL_SIZE) + NOTE_EXPAND_SIZE
+                                && dt <= (LIMIT_BAD - LIMIT_PERFECT * (dx - 0.9).max(0.))
                         })
                     })
                 {

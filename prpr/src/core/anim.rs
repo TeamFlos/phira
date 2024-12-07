@@ -86,10 +86,10 @@ impl<T: Tweenable> Anim<T> {
         self.cursor + 1 >= self.keyframes.len()
     }
 
-    pub fn set_time(&mut self, time: f32) {
+    pub fn set_time(&mut self, time: f32) -> &mut Self {
         if self.keyframes.is_empty() || time == self.time {
             self.time = time;
-            return;
+            return self;
         }
         while let Some(kf) = self.keyframes.get(self.cursor + 1) {
             if kf.time > time {
@@ -104,6 +104,7 @@ impl<T: Tweenable> Anim<T> {
         if let Some(next) = &mut self.next {
             next.set_time(time);
         }
+        self
     }
 
     fn now_opt_inner(&self) -> Option<T> {
