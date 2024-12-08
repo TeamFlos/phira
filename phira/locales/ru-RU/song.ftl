@@ -28,6 +28,7 @@ delete = Удалить
 rate = Оценить
 exercise = Практика
 offset = Задержка
+unlock = Проиграть катсцену
 
 edit-cancel = Отмена
 edit-save = Сохранить
