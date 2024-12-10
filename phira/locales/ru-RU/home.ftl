@@ -7,6 +7,7 @@ not-opened = Не доступно
 not-logged-in = Гость
 
 failed-to-update = Ошибка при обновлении информации о пользователе. 
+note-try-login-again = Примечание : Попробуйте перевойти в аккаунт. 
 
 update = Новое обновление : v { $version } 
 update-desc =
