@@ -22,6 +22,11 @@ item-lowq = Độ phân giải thấp
 item-lowq-sub = Bật tính năng này nếu giao diện trò chơi của bạn bị lag
 item-insecure = Kết nối không an toàn
 item-insecure-sub = Hãy bật nếu bạn không thể sử dụng các tác vụ trực tuyến. Làm kết nối của bạn không an toàn!
+item-enable-anys = Bật Anys
+item-enable-anys-sub = Sử dụng cổng Anys để nâng cao chất lượng kết nối
+item-anys-gateway = Cổng Anys
+item-anys-gateway-sub = Địa chỉ Anys
+item-anys-gateway-invalid = Địa chỉ không xác định
 
 item-adjust = Tự động điều chỉnh
 item-adjust-sub = Điều chỉnh thời gian linh hoạt để đồng bộ nhạc với beatmap

@@ -55,9 +55,9 @@ upload-rules-content =
   Trước khi tải lên, bạn phải đồng ý rằng:
   1. ! Chart này được tạo ra bởi tôi, Chart hợp tác cần quyền tải lên của TẤT CẢ những tác giả đã hợp tác, nếu không bạn có thể sẽ phải đối mặt với việc bị cấm tải lên.
   2. Nên sử dụng ảnh đại diện và ID có khả năng nhận biết cao; Nếu ID hoặc ảnh đại diện bạn sử dụng trong Phira khá khác so với video điểm số tự tạo trên nền tảng (cụ thể là BiliBili), thì bạn cần có chú thích bổ sung, đồng thời vui lòng thêm ngôn ngữ ưa thích của bạn vào phần mô tả của biểu đồ (nếu không phải zh-CN).
- 3. Nội dung của Chart (bao gồm âm nhạc, minh họa, văn bản, v.v.) phải tuân thủ các luật và quy định khác của Cộng hòa Nhân dân Trung Hoa và không được vi phạm pháp luật hoặc chứa thông tin xấu.
- 4. Tôi cho phép Phira sử dụng nội dung tôi cung cấp để quảng bá công khai. Bất kỳ việc sử dụng nào khác đều cần có sự cho phép bổ sung của tôi.
- 5. Quyền giải thích cuối cùng của quy tắc này thuộc về TeamFlos.
+  3. Nội dung của Chart (bao gồm âm nhạc, minh họa, văn bản, v.v.) phải tuân thủ các luật và quy định khác của Cộng hòa Nhân dân Trung Hoa và không được vi phạm pháp luật hoặc chứa thông tin xấu.
+  4. Tôi cho phép Phira sử dụng nội dung tôi cung cấp để quảng bá công khai. Bất kỳ việc sử dụng nào khác đều cần có sự cho phép bổ sung của tôi.
+  5. Quyền giải thích cuối cùng của quy tắc này thuộc về TeamFlos.
 uploading = Đang tải lên
 upload-chart-failed = Không thể tải lên Chart
 upload-success = Tải lên thành công, hãy chờ đến khi nó được duyệt!

@@ -4,7 +4,7 @@ logged-out = Đã đăng xuất
 
 delete = Xoá tài khoản
 delete-failed = Không thể xoá tài khoản
-delete-req-sent = Yêu cầu xoá tài khoản đã được gửi, tạm biệt.
+delete-req-sent = Yêu cầu xoá đã được gửi, tạm biệt bạn.
 
 load-user-failed = Không thể lấy thông tin của bạn
 edit-avatar-success = Đã cập nhật ảnh đại diện
