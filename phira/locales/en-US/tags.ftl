@@ -1,22 +1,22 @@
 
-filter = Filter by tags
-edit = Edit tags
+filter = Filter by Tags
+edit = Edit Tags
 
-invalid-tag = Invalid tag
+invalid-tag = Invalid tags.
 
-wanted = Wanted
-unwanted = Unwanted
+wanted = Desired Tags
+unwanted = Undesired Tags
 
 cancel = Cancel
 confirm = Confirm
 
-filter-by-rating = Filter by rating
+filter-by-rating = Filter by Rating
 
 regular = Regular
 troll = Troll
 plain = Plain
 visual = Visual
 
-filter-me = Uploaded by me
+filter-me = Uploaded by Self
 filter-unreviewed = Unreviewed
-filter-stabilize = Stabilize request
+filter-stabilize = Stabilization Request
