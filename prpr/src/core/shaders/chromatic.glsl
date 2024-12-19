@@ -18,7 +18,7 @@ void main() {
   vec3 c = vec3(0.0);
   vec2 offset = (uv - vec2(0.5)) * vec2(1, -1);
   int sample_count = int(sampleCount);
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < 64; ++i) {
     if (i >= sample_count) break;
     float t = 2.0 * float(i) / float(sample_count - 1); // range 0.0->2.0
     vec3 slice = vec3(1.0 - t, 1.0 - abs(t - 1.0), t - 1.0);
