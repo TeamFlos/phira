@@ -92,7 +92,7 @@ impl L10nGlobal {
         let locale_lang = get_locale().unwrap_or_else(|| String::from("en-US"));
         let locale_lang: LanguageIdentifier = locale_lang.parse().unwrap_or_else(|_| {
             warn!("Invalid locale detected, defaulting to en-US");
-            //Debug log: send lang tag to log
+            // Debug log: send lang tag to log
             warn!("Locale detected: {:?}", locale_lang);
             langid!("en-US")
         });
