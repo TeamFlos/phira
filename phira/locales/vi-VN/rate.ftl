@@ -1,11 +1,11 @@
 
 rate = Đánh giá
-filter = Lọc theo đánh giá
+filter = Lọc theo xếp hạng
 
-cancel = Hủy
+cancel = Huỷ bỏ
 confirm = OK
 
-lower-bound = Thấp
-upper-bound = Cao
+lower-bound = Đánh giá thấp
+upper-bound = Đánh giá cao
 
 filter-by-tags = Lọc theo thẻ
