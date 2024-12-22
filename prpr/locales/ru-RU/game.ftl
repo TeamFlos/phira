@@ -1,6 +1,6 @@
 
 to = to
-adjust-offset = Настрока задержки
+adjust-offset = Настройка задержки
 offset-cancel = Отмена
 offset-reset = Сброс
 offset-save = Сохранить
