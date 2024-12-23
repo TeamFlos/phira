@@ -428,6 +428,8 @@ impl GameScene {
                             .draw_using(&PGR_FONT);
                     });
             }
+            // magic to make score visible, refer to phira/src/rate.rs#L219
+            ui.text("").draw_using(&PGR_FONT);
             let lf = -1. + margin;
             let bt = -top - eps * 2.8 + (1. - p) * 0.4;
             let ct = ui.text(&res.info.name).measure().center();
