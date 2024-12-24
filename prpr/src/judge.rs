@@ -853,37 +853,23 @@ impl Judge {
             }
         }
         for (line_id, id) in judgements.into_iter() {
-            self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
-            let (note_transform, note_hitsound, note_kind) = {
+            let (note_transform, note_hitsound) = {
                 let line = &mut chart.lines[line_id];
                 let note = &mut line.notes[id as usize];
                 let nt = if matches!(note.kind, NoteKind::Hold { .. }) { t } else { note.time };
                 line.object.set_time(nt);
                 note.object.set_time(nt);
-                (note.object.now(res), note.hitsound.clone(), note.kind.clone())
+                (note.object.now(res), note.hitsound.clone())
             };
             let line = &chart.lines[line_id];
-            match note_kind {
-                NoteKind::Click => {
-                    //self.commit(t, judge_type, line_id as _, id, 0.);
-                    res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                        res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
-        
-                    });
-                }
-                NoteKind::Hold { .. } => {
-                    //self.commit(t, judge_type, line_id as _, id, 0.);
-                }
-                _ => {
-                    //self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
-                    res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                        res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
-        
-                    });
-                },
-            };
             if !matches!(chart.lines[line_id].notes[id as usize].kind, NoteKind::Hold { .. }) {
+                self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
+                    res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
+                        res.emit_at_origin(line.notes[id as usize].rotation(line), res.res_pack.info.fx_perfect())
+                    });
                 note_hitsound.play(res);
+            } else {
+                self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
             }
         }
     }
@@ -984,13 +970,13 @@ pub struct PlayResult {
 
 pub fn icon_index(score: u32, full_combo: bool) -> usize {
     match (score, full_combo) {
+        (1000000, _) => 7,
+        (_, true) => 6,
         (x, _) if x < 700000 => 0,
         (x, _) if x < 820000 => 1,
         (x, _) if x < 880000 => 2,
         (x, _) if x < 920000 => 3,
         (x, _) if x < 960000 => 4,
-        (1000000, _) => 7,
         (_, false) => 5,
-        (_, true) => 6,
     }
 }

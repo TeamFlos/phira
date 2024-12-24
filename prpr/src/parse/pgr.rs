@@ -8,7 +8,6 @@ use crate::{
     },
     ext::NotNanExt,
     judge::{HitSound, JudgeStatus},
-    info::ChartFormat,
 };
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -182,7 +181,7 @@ fn parse_move_events_fv1(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimVector> {
     Ok(AnimVector(AnimFloat::new(kf1), AnimFloat::new(kf2)))
 }
 
-fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mut AnimFloat, above: bool) -> Result<Vec<Note>> {
+fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &mut AnimFloat, above: bool) -> Result<Vec<Note>> {
     // is_sorted is unstable...
     if pgr.is_empty() {
         return Ok(Vec::new());
@@ -196,10 +195,9 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
                 2 => NoteKind::Drag,
                 3 => {
                     let end_time = (pgr.time + pgr.hold_time) * r;
-                    height.set_time(end_time);
-                    let end_height = height.now();
                     height.set_time(time);
                     let start_height = height.now();
+                    let end_height = start_height + (pgr.hold_time * pgr.speed * r / HEIGHT_RATIO);
                     NoteKind::Hold { end_time, end_height, start_height }
                 }
                 4 => NoteKind::Flick,
@@ -255,7 +253,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
         color: Anim::default(),
         parent: None,
         z_index: 0,
-        show_below: true,
+        show_below: false,
         attach_ui: None,
 
         cache,

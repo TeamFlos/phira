@@ -16,7 +16,7 @@ use crate::{
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
     judge::Judge,
-    parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
+    parse::{parse_extra, parse_pec, parse_phigros, parse_phigros_fv1, parse_rpe},
     task::Task,
     time::TimeManager,
     ui::{RectButton, TextPainter, Ui},
@@ -192,7 +192,11 @@ impl GameScene {
                     if text.contains("\"META\"") {
                         ChartFormat::Rpe
                     } else {
-                        ChartFormat::Pgr
+                        if text.starts_with("{\"formatVersion\":3") {
+                            ChartFormat::Pgr
+                        } else {
+                            ChartFormat::Pgr1
+                        }
                     }
                 } else {
                     ChartFormat::Pec
@@ -204,6 +208,7 @@ impl GameScene {
         let mut chart = match format {
             ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, extra).await,
             ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), extra),
+            ChartFormat::Pgr1 => parse_phigros_fv1(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pbc => {
                 let mut r = BinaryReader::new(Cursor::new(&bytes));
@@ -449,7 +454,7 @@ impl GameScene {
 
             let hw = 0.003;
             let height = eps * 1.2;
-            let dest = 2. * res.time / res.track_length;
+            let dest = (2. * res.time / res.track_length).max(0.).min(2.);
             ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
             ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
         });

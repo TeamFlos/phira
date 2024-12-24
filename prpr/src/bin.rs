@@ -355,6 +355,7 @@ impl BinaryData for Note {
                 w.write_val(1_u8)?;
                 w.write_val(end_time)?;
                 w.write_val(end_height)?;
+                w.write_val(start_height)?;
             }
             NoteKind::Flick => w.write_val(2_u8)?,
             NoteKind::Drag => w.write_val(3_u8)?,

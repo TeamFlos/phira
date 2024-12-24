@@ -6,7 +6,7 @@ pub use crate::{
 };
 use macroquad::prelude::*;
 
-const HOLD_PARTICLE_INTERVAL: f32 = 0.15;
+//const HOLD_PARTICLE_INTERVAL: f32 = 0.15;
 const FADEOUT_TIME: f32 = 0.16;
 const BAD_TIME: f32 = 0.5;
 
@@ -250,6 +250,7 @@ impl Note {
                         return;
                     }
                     let end_height = end_height / res.aspect_ratio * spd;
+                    let start_height = start_height / res.aspect_ratio * spd;
 
                     let clip = !config.draw_below && config.settings.hold_partial_cover;
 
@@ -259,7 +260,6 @@ impl Note {
                         let end_spd = self.end_speed * ctrl_obj.y.now_opt().unwrap_or(1.);
                         if end_spd == 0. { return };
                         let time = if res.time >= self.time {res.time} else {self.time};
-                        let start_height = start_height / res.aspect_ratio * spd;
                         let hold_height = end_height - start_height;
                         let hold_line_height = (time - self.time) * end_spd / res.aspect_ratio / HEIGHT_RATIO;
                         bottom + hold_height - hold_line_height
