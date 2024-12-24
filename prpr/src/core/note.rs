@@ -2,6 +2,7 @@ use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object
 pub use crate::{
     judge::{HitSound, JudgeStatus},
     parse::RPE_HEIGHT,
+    core::HEIGHT_RATIO,
 };
 use macroquad::prelude::*;
 
@@ -12,7 +13,7 @@ const BAD_TIME: f32 = 0.5;
 #[derive(Clone, Debug)]
 pub enum NoteKind {
     Click,
-    Hold { end_time: f32, end_height: f32 },
+    Hold { end_time: f32, end_height: f32, start_height: f32 },
     Flick,
     Drag,
 }
@@ -35,12 +36,14 @@ pub struct Note {
     pub time: f32,
     pub height: f32,
     pub speed: f32,
+    pub end_speed: f32,
 
     /// From the other side of the line
     pub above: bool,
     pub multiple_hint: bool,
     pub fake: bool,
     pub judge: JudgeStatus,
+    pub format: bool,
 }
 
 pub struct RenderConfig<'a> {
@@ -134,11 +137,12 @@ impl Note {
         // && self.ctrl_obj.is_default()
     }
 
-    pub fn update(&mut self, res: &mut Resource, parent_rot: f32, parent_tr: &Matrix, ctrl_obj: &mut CtrlObject, line_height: f32) {
+    pub fn update(&mut self, res: &mut Resource, parent_rot: f32, parent_tr: &Matrix, ctrl_obj: &mut CtrlObject, line_height: f32, bpm_list: &mut BpmList) {
         self.object.set_time(res.time);
         if let Some(color) = if let JudgeStatus::Hold(perfect, at, ..) = &mut self.judge {
             if res.time > *at {
-                *at += HOLD_PARTICLE_INTERVAL / res.config.speed;
+                let beat =  30. / bpm_list.now_bpm(self.time);
+                *at = res.time + beat / res.config.speed;
                 Some(if *perfect {
                     res.res_pack.info.fx_perfect()
                 } else {
@@ -207,7 +211,7 @@ impl Note {
 
         let base = height - line_height;
         if !config.draw_below
-            && ((res.time - FADEOUT_TIME >= self.time) || (self.fake && res.time >= self.time) || (self.time > res.time && base <= -1e-5))
+            && ((res.time - FADEOUT_TIME >= self.time) || (self.fake && res.time >= self.time) || (self.time > res.time && base <= -0.0075))
             && !matches!(self.kind, NoteKind::Hold { .. })
         {
             return;
@@ -231,7 +235,7 @@ impl Note {
             NoteKind::Click => {
                 draw(res, *style.click);
             }
-            NoteKind::Hold { end_time, end_height } => {
+            NoteKind::Hold { end_time, end_height, start_height } => {
                 res.with_model(self.now_transform(res, ctrl_obj, 0., 0.), |res| {
                     let style = if res.config.double_hint && self.multiple_hint {
                         &res.res_pack.note_style_mh
@@ -251,14 +255,23 @@ impl Note {
 
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
-                    let top = end_height - line_height;
-                    if res.time < self.time && bottom < -1e-6 && !config.settings.hold_partial_cover {
+                    let top = if self.format {
+                        let end_spd = self.end_speed * ctrl_obj.y.now_opt().unwrap_or(1.);
+                        if end_spd == 0. { return };
+                        let time = if res.time >= self.time {res.time} else {self.time};
+                        let start_height = start_height / res.aspect_ratio * spd;
+                        let hold_height = end_height - start_height;
+                        let hold_line_height = (time - self.time) * end_spd / res.aspect_ratio / HEIGHT_RATIO;
+                        bottom + hold_height - hold_line_height
+                    } else {
+                        end_height - line_height
+                    };
+                    if res.time < self.time && bottom < -1e-6 && !config.settings.hold_partial_cover && !self.format {
                         return;
                     }
                     let tex = &style.hold;
                     let ratio = style.hold_ratio();
                     // body
-                    // TODO (end_height - height) is not always total height
                     draw_tex(
                         res,
                         **(if res.res_pack.info.hold_repeat {

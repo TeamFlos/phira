@@ -854,18 +854,34 @@ impl Judge {
         }
         for (line_id, id) in judgements.into_iter() {
             self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
-            let (note_transform, note_hitsound) = {
+            let (note_transform, note_hitsound, note_kind) = {
                 let line = &mut chart.lines[line_id];
                 let note = &mut line.notes[id as usize];
                 let nt = if matches!(note.kind, NoteKind::Hold { .. }) { t } else { note.time };
                 line.object.set_time(nt);
                 note.object.set_time(nt);
-                (note.object.now(res), note.hitsound.clone())
+                (note.object.now(res), note.hitsound.clone(), note.kind.clone())
             };
             let line = &chart.lines[line_id];
-            res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
-            });
+            match note_kind {
+                NoteKind::Click => {
+                    //self.commit(t, judge_type, line_id as _, id, 0.);
+                    res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
+                        res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
+        
+                    });
+                }
+                NoteKind::Hold { .. } => {
+                    //self.commit(t, judge_type, line_id as _, id, 0.);
+                }
+                _ => {
+                    //self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
+                    res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
+                        res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
+        
+                    });
+                },
+            };
             if !matches!(chart.lines[line_id].notes[id as usize].kind, NoteKind::Hold { .. }) {
                 note_hitsound.play(res);
             }
