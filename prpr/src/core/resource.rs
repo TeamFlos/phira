@@ -44,6 +44,16 @@ fn default_good() -> u32 {
 }
 
 #[inline]
+fn default_perfect_line() -> u32 {
+    0xfffeffa9
+}
+
+#[inline]
+fn default_good_line() -> u32 {
+    0xffa2eeff
+}
+
+#[inline]
 fn default_tinted() -> bool {
     true
 }
@@ -83,6 +93,11 @@ pub struct ResPackInfo {
     #[serde(default = "default_good")]
     pub color_good: u32,
 
+    #[serde(default = "default_perfect_line")]
+    pub color_perfect_line: u32,
+    #[serde(default = "default_good_line")]
+    pub color_good_line: u32,
+
     #[serde(default)]
     pub description: String,
 }
@@ -99,6 +114,22 @@ impl ResPackInfo {
     pub fn fx_good(&self) -> Color {
         if self.hit_fx_tinted {
             Color::from_hex(self.color_good)
+        } else {
+            WHITE
+        }
+    }
+
+    pub fn fx_perfect_line(&self) -> Color {
+        if self.hit_fx_tinted {
+            Color::from_hex(self.color_perfect_line)
+        } else {
+            WHITE
+        }
+    }
+
+    pub fn fx_good_line(&self) -> Color {
+        if self.hit_fx_tinted {
+            Color::from_hex(self.color_good_line)
         } else {
             WHITE
         }
@@ -460,7 +491,7 @@ impl Resource {
             time: 0.,
 
             alpha: 1.,
-            judge_line_color: res_pack.info.fx_perfect(),
+            judge_line_color: res_pack.info.fx_perfect_line(),
 
             camera,
 
