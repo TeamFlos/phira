@@ -209,24 +209,16 @@ impl JudgeLine {
     }
 
     pub fn now_transform(&self, res: &Resource, lines: &[JudgeLine]) -> Matrix {
-        let mut current = self;
-        let mut chain = Vec::new();
-        while let Some(parent_index) = current.parent {
-            if chain.contains(&(parent_index)) {
-                break;
+        fn fetch_pos(line: &JudgeLine, res: &Resource, lines: &[JudgeLine]) -> Vector {
+            if let Some(parent) = line.parent {
+                let parent = &lines[parent];
+                let mut parent_translation = fetch_pos(parent, res, lines);
+                parent_translation += Rotation2::new(parent.object.rotation.now().to_radians()) * line.object.now_translation(res);
+                return parent_translation;
             }
-            chain.push(parent_index);
-            current = &lines[parent_index];
+            line.object.now_translation(res)
         }
-        let last = chain.pop();
-        let mut parent_line = if self.parent.is_none() { self } else { &lines[last.unwrap()] };
-        let mut translation = parent_line.object.now_translation(res);
-        for line in chain.iter().rev() {
-            let line = &lines[*line];
-            translation += Rotation2::new(parent_line.object.rotation.now().to_radians()) * line.object.now_translation(res);
-            parent_line = line;
-        }
-        self.object.now_rotation().append_translation(&translation)
+        self.object.now_rotation().append_translation(&fetch_pos(self, res, lines))
     }
 
     pub fn render(&self, ui: &mut Ui, res: &mut Resource, lines: &[JudgeLine], bpm_list: &mut BpmList, settings: &ChartSettings, id: usize) {
