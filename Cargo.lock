@@ -3078,7 +3078,7 @@ dependencies = [
 [[package]]
 name = "sasa"
 version = "0.1.0"
-source = "git+https://github.com/Mivik/sasa#a8ed07ba4b0635bea22dc36cfa4d9f0c693a08c1"
+source = "git+https://github.com/2278535805/sasa#ef804300b3d19d93634828958cd39b004b111a12"
 dependencies = [
  "anyhow",
  "cpal",
@@ -4302,7 +4302,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

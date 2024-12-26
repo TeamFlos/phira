@@ -87,12 +87,12 @@ block = "0.1.6"
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
 ndk-context = "0.1"
-sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = [
+sasa = { git = "https://github.com/2278535805/sasa", default-features = false, features = [
 	"oboe",
 ] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-sasa = { git = "https://github.com/Mivik/sasa" }
+sasa = { git = "https://github.com/2278535805/sasa" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "fs"] }
