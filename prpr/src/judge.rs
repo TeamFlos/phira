@@ -839,7 +839,7 @@ impl Judge {
                 note.judge = if matches!(note.kind, NoteKind::Hold { .. }) {
                     note.hitsound.play(res);
                     self.judgements.borrow_mut().push((t, line_id as _, *id, Err(true)));
-                    JudgeStatus::Hold(true, t, 0., false, f32::INFINITY)
+                    JudgeStatus::Hold(true, note.time, 0., false, f32::INFINITY)
                 } else {
                     judgements.push((line_id, *id));
                     JudgeStatus::Judged

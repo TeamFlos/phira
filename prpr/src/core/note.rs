@@ -139,7 +139,7 @@ impl Note {
 
     pub fn update(&mut self, res: &mut Resource, parent_rot: f32, parent_tr: &Matrix, ctrl_obj: &mut CtrlObject, line_height: f32, bpm_list: &mut BpmList) {
         self.object.set_time(res.time);
-        if let Some(color) = if let JudgeStatus::Hold(perfect, at, ..) = &mut self.judge {
+        if let Some(color) = if let JudgeStatus::Hold(perfect, ref mut at, ..) = &mut self.judge {
             if res.time >= *at {
                 let beat =  30. / bpm_list.now_bpm(self.time);
                 *at = res.time + beat / res.config.speed;
