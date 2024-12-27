@@ -2420,7 +2420,7 @@ dependencies = [
 
 [[package]]
 name = "phira"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -2471,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "phira-main"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "phira",
 ]
@@ -2646,7 +2646,7 @@ dependencies = [
 
 [[package]]
 name = "prpr"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "ahash",
  "anyhow",
