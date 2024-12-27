@@ -123,6 +123,14 @@ impl BpmList {
         BpmList { elements, cursor: 0 }
     }
 
+    pub fn new_time(ranges: Vec<(f32, f32)>) -> Self {
+        let mut elements = Vec::new();
+        for (time, bpm) in ranges {
+            elements.push((time, time, bpm));
+        }
+        BpmList { elements, cursor: 0 }
+    }
+
     /// Get the time in seconds for a given beats
     pub fn time_beats(&mut self, beats: f32) -> f32 {
         while let Some(kf) = self.elements.get(self.cursor + 1) {
@@ -168,7 +176,7 @@ impl BpmList {
         while self.cursor != 0 && self.elements[self.cursor].1 > time {
             self.cursor -= 1;
         }
-        let (_beats, _start_time, bpm) = &self.elements[self.cursor];
+        let (_, _, bpm) = &self.elements[self.cursor];
         *bpm
     }
 }
