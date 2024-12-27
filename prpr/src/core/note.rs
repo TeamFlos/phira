@@ -137,11 +137,11 @@ impl Note {
         // && self.ctrl_obj.is_default()
     }
 
-    pub fn update(&mut self, res: &mut Resource, parent_rot: f32, parent_tr: &Matrix, ctrl_obj: &mut CtrlObject, line_height: f32, bpm_list: &mut BpmList) {
+    pub fn update(&mut self, res: &mut Resource, parent_rot: f32, parent_tr: &Matrix, ctrl_obj: &mut CtrlObject, line_height: f32, bpm_list: &mut BpmList, index: usize) {
         self.object.set_time(res.time);
         if let Some(color) = if let JudgeStatus::Hold(perfect, ref mut at, ..) = &mut self.judge {
             if res.time >= *at {
-                let beat =  30. / bpm_list.now_bpm(self.time);
+                let beat = if self.format { 30. / bpm_list.now_bpm(index as f32) } else { 30. / bpm_list.now_bpm(self.time) };
                 *at = res.time + beat / res.config.speed;
                 Some(if *perfect {
                     res.res_pack.info.fx_perfect()

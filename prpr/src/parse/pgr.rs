@@ -292,7 +292,7 @@ fn parse_judge_line_fv1(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
 
 pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
     let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
-    let indices: Vec<usize> = (0..1).collect(); // pgr1.judge_line_list.len()
+    let indices: Vec<usize> = (0..pgr.judge_line_list.len()).collect(); // pgr1.judge_line_list.len()
     let mut bpm_values = Vec::new();
     for (index, judge_line) in indices.iter().zip(&pgr.judge_line_list) {
         bpm_values.push((*index as f32, judge_line.bpm));
@@ -325,11 +325,10 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
 pub fn parse_phigros_fv1(source: &str, extra: ChartExtra) -> Result<Chart> {
     let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
     let mut bpm_values = Vec::new();
-    let indices: Vec<usize> = (0..1).collect();
+    let indices: Vec<usize> = (0..pgr.judge_line_list.len()).collect();
     for (index, judge_line) in indices.iter().zip(&pgr.judge_line_list) {
         bpm_values.push((*index as f32, judge_line.bpm));
     }
-    let r = BpmList::new(bpm_values);
 
     let max_time = *pgr
         .judge_line_list
@@ -353,5 +352,5 @@ pub fn parse_phigros_fv1(source: &str, extra: ChartExtra) -> Result<Chart> {
         .map(|(id, pgr)| parse_judge_line_fv1(pgr, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
         .collect::<Result<Vec<_>>>()?;
     process_lines(&mut lines);
-    Ok(Chart::new(pgr.offset, lines, r, ChartSettings::default(), extra,HashMap::new()))
+    Ok(Chart::new(pgr.offset, lines, BpmList::new(bpm_values), ChartSettings::default(), extra,HashMap::new()))
 }

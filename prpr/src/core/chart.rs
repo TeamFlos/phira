@@ -108,8 +108,8 @@ impl Chart {
         // TODO optimize
         let trs = self.lines.iter().map(|it| it.now_transform(res, &self.lines)).collect::<Vec<_>>();
         let mut guard = self.bpm_list.borrow_mut();
-        for (line, tr) in self.lines.iter_mut().zip(trs) {
-            line.update(res, tr, &mut guard);
+        for (index, (line, tr)) in self.lines.iter_mut().zip(trs).enumerate() {
+            line.update(res, tr, &mut guard, index);
         }
         drop(guard);
         for effect in &mut self.extra.effects {
