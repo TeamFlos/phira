@@ -657,6 +657,7 @@ impl ChartList {
 struct DebugList {
     chart_debug_btn: DRectButton,
     touch_debug_btn: DRectButton,
+    new_judge_btn: DRectButton,
 }
 
 impl DebugList {
@@ -664,6 +665,7 @@ impl DebugList {
         Self {
             chart_debug_btn: DRectButton::new(),
             touch_debug_btn: DRectButton::new(),
+            new_judge_btn: DRectButton::new(),
         }
     }
 
@@ -680,6 +682,10 @@ impl DebugList {
         }
         if self.touch_debug_btn.touch(touch, t) {
             config.touch_debug ^= true;
+            return Ok(Some(true));
+        }
+        if self.new_judge_btn.touch(touch, t) {
+            config.new_judge ^= true;
             return Ok(Some(true));
         }
         Ok(None)
@@ -710,6 +716,10 @@ impl DebugList {
         item! {
             render_title(ui, tl!("item-touch-debug"), Some(tl!("item-touch-debug-sub")));
             render_switch(ui, rr, t, &mut self.touch_debug_btn, config.touch_debug);
+        }
+        item! {
+            render_title(ui, "New Judge", None);
+            render_switch(ui, rr, t, &mut self.new_judge_btn, config.new_judge);
         }
         (w, h)
     }

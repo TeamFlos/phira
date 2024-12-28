@@ -50,6 +50,7 @@ pub struct Config {
     pub volume_music: f32,
     pub volume_sfx: f32,
     pub volume_bgm: f32,
+    pub new_judge: bool,
 
     // for compatibility
     autoplay: Option<bool>,
@@ -86,6 +87,7 @@ impl Default for Config {
             volume_music: 1.,
             volume_sfx: 1.,
             volume_bgm: 1.,
+            new_judge: true,
 
             autoplay: None,
         }

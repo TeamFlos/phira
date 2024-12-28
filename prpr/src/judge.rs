@@ -529,6 +529,9 @@ impl Judge {
                     if dt >= closest.3 {
                         break;
                     }
+                    
+                    let dt = if res.config.new_judge {dt} else {if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt }};
+                    
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
                     let dist = (x.now() - pos.x).abs();
@@ -537,7 +540,7 @@ impl Judge {
                     }
                     if dt
                         > if matches!(note.kind, NoteKind::Click) {
-                            LIMIT_GOOD // LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)
+                            if res.config.new_judge {LIMIT_GOOD} else {LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)}
                         } else {
                             LIMIT_GOOD
                         }
@@ -545,7 +548,7 @@ impl Judge {
                         continue;
                     }
                     let dt = if matches!(note.kind, NoteKind::Flick | NoteKind::Drag) {
-                        dt.abs().max(LIMIT_GOOD)
+                        if res.config.new_judge {dt.abs().max(LIMIT_GOOD)} else {dt + LIMIT_GOOD}
                     } else {
                         dt
                     };
@@ -567,7 +570,7 @@ impl Judge {
                     continue;
                 }
                 if click {
-                    if *unattr_drag && dt > LIMIT_PERFECT { // flag drag
+                    if *unattr_drag && dt > LIMIT_PERFECT && res.config.new_judge { // flag drag
                         for line in &mut chart.lines {
                             for note in &mut line.notes {
                                 if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_PERFECT * 0.25 {
