@@ -529,7 +529,6 @@ impl Judge {
                     if dt >= closest.3 {
                         break;
                     }
-                    let dt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
                     let dist = (x.now() - pos.x).abs();
@@ -538,7 +537,7 @@ impl Judge {
                     }
                     if dt
                         > if matches!(note.kind, NoteKind::Click) {
-                            LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)
+                            LIMIT_GOOD // LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)
                         } else {
                             LIMIT_GOOD
                         }
@@ -546,7 +545,7 @@ impl Judge {
                         continue;
                     }
                     let dt = if matches!(note.kind, NoteKind::Flick | NoteKind::Drag) {
-                        dt + LIMIT_GOOD
+                        dt.abs().max(LIMIT_GOOD)
                     } else {
                         dt
                     };
@@ -557,14 +556,31 @@ impl Judge {
                 }
             }
             if let (Some((line_id, id)), _, dt, _) = closest {
+                let unattr_drag = &chart.lines.iter().any(|line| { // Check drag in good range & not flag
+                    line.notes.iter().any(|note| {
+                        matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_GOOD
+                    })
+                });
                 let line = &mut chart.lines[line_id];
                 if matches!(line.notes[id as usize].kind, NoteKind::Drag) {
                     debug!("reject by drag");
                     continue;
                 }
                 if click {
+                    if *unattr_drag && dt > LIMIT_PERFECT { // flag drag
+                        for line in &mut chart.lines {
+                            for note in &mut line.notes {
+                                if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_PERFECT * 0.25 {
+                                    note.attr = true;
+                                    debug!("flag drag");
+                                }
+                            }
+                        }
+                        continue;
+                    }
                     // click & hold
                     let note = &mut line.notes[id as usize];
+                    let dt = dt.abs();
                     if matches!(note.kind, NoteKind::Flick) {
                         continue; // to next loop
                     }
