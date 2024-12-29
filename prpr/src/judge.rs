@@ -19,7 +19,7 @@ use tracing::debug;
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
 pub const LIMIT_PERFECT: f32 = 0.08;
 pub const LIMIT_GOOD: f32 = 0.16;
-pub const LIMIT_BAD: f32 = 0.22;
+pub const LIMIT_BAD: f32 = 0.18;
 pub const UP_TOLERANCE: f32 = 0.05;
 pub const DIST_FACTOR: f32 = 0.2;
 
@@ -555,10 +555,13 @@ impl Judge {
                     }
                 }
             }
-            if let (Some((line_id, id)), _, dt, _) = closest {
-                let unattr_drag = &chart.lines.iter().any(|line| { // Check drag in good range & not flag
-                    line.notes.iter().any(|note| {
-                        matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_GOOD
+            if let (Some((line_id, id)), dist, dt, _) = closest {
+                let unattr_drag = &chart.lines.iter_mut().any(|line| { // Check drag in good range & not flag
+                    line.notes.iter_mut().any(|note| {
+                    let x = &mut note.object.translation.0;
+                    x.set_time(t);
+                    let dist = (dist - x.now()).abs();
+                        matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_GOOD
                     })
                 });
                 let line = &mut chart.lines[line_id];
