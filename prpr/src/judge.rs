@@ -19,7 +19,7 @@ use tracing::debug;
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
 pub const LIMIT_PERFECT: f32 = 0.08;
 pub const LIMIT_GOOD: f32 = 0.16;
-pub const LIMIT_BAD: f32 = 0.22;
+pub const LIMIT_BAD: f32 = 0.18;
 pub const UP_TOLERANCE: f32 = 0.05;
 pub const DIST_FACTOR: f32 = 0.2;
 
@@ -512,7 +512,7 @@ impl Judge {
                 continue;
             }
             let t = time_of(touch);
-            let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
+            let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR, 0.);
             for (line_id, ((line, pos), (idx, st))) in chart.lines.iter_mut().zip(pos.iter()).zip(self.notes.iter_mut()).enumerate() {
                 let Some(pos) = pos[id] else {
                     continue;
@@ -534,13 +534,14 @@ impl Judge {
                     
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
-                    let dist = (x.now() - pos.x).abs();
+                    let posx = pos.x;
+                    let dist = (x.now() - posx).abs();
                     if dist > X_DIFF_MAX {
                         continue;
                     }
                     if dt
                         > if matches!(note.kind, NoteKind::Click) {
-                            if res.config.new_judge {LIMIT_GOOD} else {LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)}
+                            if res.config.new_judge {LIMIT_BAD} else {LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)}
                         } else {
                             LIMIT_GOOD
                         }
@@ -554,19 +555,23 @@ impl Judge {
                     };
                     let key = dt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
                     if key < closest.3 {
-                        closest = (Some((line_id, *id)), dist, dt, key);
+                        closest = (Some((line_id, *id)), dist, dt, key, posx);
                     }
                 }
             }
-            if let (Some((line_id, id)), _, dt, _) = closest {
-                let unattr_drag = &chart.lines.iter().any(|line| { // Check drag in good range & not flag
-                    line.notes.iter().any(|note| {
-                        matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_GOOD
+            if let (Some((line_id, id)), dist, dt, _, posx) = closest {
+                let unattr_drag = &chart.lines.iter_mut().any(|line| { // Check drag in good range & not flag
+                    line.notes.iter_mut().any(|note| {
+                    let x = &mut note.object.translation.0;
+                    x.set_time(t);
+                    let dist2 = (x.now() - posx).abs();
+                    let dist = (dist2 - dist).abs();
+                        matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_GOOD
                     })
                 });
                 let line = &mut chart.lines[line_id];
                 if matches!(line.notes[id as usize].kind, NoteKind::Drag) {
-                    debug!("reject by drag");
+                    //debug!("reject by drag");
                     continue;
                 }
                 if click {
