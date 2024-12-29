@@ -564,7 +564,8 @@ impl Judge {
                     x.set_time(t);
                     let dist2 = (x.now() - posx).abs();
                     let dist = (dist2 - dist).abs();
-                        matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_GOOD
+                    let judge_time = t - note.time;
+                    matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && judge_time >= -LIMIT_GOOD && judge_time <= LIMIT_BAD
                     })
                 });
                 let line = &mut chart.lines[line_id];
@@ -580,7 +581,8 @@ impl Judge {
                                 x.set_time(t);
                                 let dist2 = (x.now() - posx).abs();
                                 let dist = (dist2 - dist).abs();
-                                if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && (note.time - t).abs() <= LIMIT_PERFECT * 0.25 {
+                                let judge_time = t - note.time;
+                                if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && judge_time >= -LIMIT_GOOD && judge_time <= LIMIT_BAD { //LIMIT_PERFECT * 0.25
                                     note.attr = true;
                                     // debug!("flag drag");
                                 }
