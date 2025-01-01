@@ -143,7 +143,7 @@ fn parse_judge_line(mut pec: PECJudgeLine, id: usize, max_time: f32) -> Result<J
         for note in notes {
             height.set_time(note.time);
             note.height = height.now();
-            if let NoteKind::Hold { end_time, end_height,end_speed } = &mut note.kind {
+            if let NoteKind::Hold { end_time, end_height, end_speed: _ } = &mut note.kind {
                 height.set_time(*end_time);
                 *end_height = height.now();
             }
