@@ -61,12 +61,12 @@ async-trait = "0.1.76"
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
 ndk-context = "0.1"
-sasa = { git = "https://github.com/2278535805/sasa", default-features = false, features = [
+sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = [
     "oboe",
 ] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-sasa = { git = "https://github.com/2278535805/sasa" }
+sasa = { git = "https://github.com/Mivik/sasa" }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc = "*"
