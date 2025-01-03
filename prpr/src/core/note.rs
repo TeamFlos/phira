@@ -141,7 +141,7 @@ impl Note {
         self.object.set_time(res.time);
         if let Some(color) = if let JudgeStatus::Hold(perfect, ref mut at, ..) = &mut self.judge {
             if res.time >= *at {
-                let beat = if self.format { 30. / bpm_list.now_bpm(index as f32) } else { 30. / bpm_list.now_bpm(self.time) };
+                let beat = 30. / bpm_list.now_bpm(if self.format { index as f32 } else { self.time });
                 *at = res.time + beat / res.config.speed;
                 Some(if *perfect {
                     res.res_pack.info.fx_perfect()
