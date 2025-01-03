@@ -276,7 +276,7 @@ impl JudgeLine {
                         color.a = alpha.max(0.0);
                         let now = anim.now();
                         res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(1., -1.)), |_| {
-                            draw_text_aligned(ui, &now, 0., 0., (0.5, 0.5), 1., color);
+                            ui.text(&now).pos(0., 0.).anchor(0.5, 0.5).size(1.).color(color).multiline().draw();
                         });
                     }
                     JudgeLineKind::Paint(anim, state) => {
