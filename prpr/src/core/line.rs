@@ -411,7 +411,7 @@ impl JudgeLine {
                         height.set_time(note.time.min(res.time));
                         height.now()
                     };
-                    if agg && note.height - line_height + note.object.translation.1.now() > height_above / note.speed {
+                    if agg && note.height - line_height + note.object.translation.1.now() > height_below / note.speed {
                         break;
                     }
                     note.render(res, &mut config, bpm_list);
