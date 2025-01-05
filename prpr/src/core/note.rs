@@ -3,6 +3,7 @@ pub use crate::{
     judge::{HitSound, JudgeStatus},
     parse::RPE_HEIGHT,
     core::HEIGHT_RATIO,
+    info::ChartFormat,
 };
 use macroquad::prelude::*;
 
@@ -43,7 +44,7 @@ pub struct Note {
     pub fake: bool,
     pub judge: JudgeStatus,
     pub attr: bool,
-    pub format: bool,
+    pub format: ChartFormat,
 }
 
 pub struct RenderConfig<'a> {
@@ -141,7 +142,9 @@ impl Note {
         self.object.set_time(res.time);
         if let Some(color) = if let JudgeStatus::Hold(perfect, ref mut at, ..) = &mut self.judge {
             if res.time >= *at {
-                let beat = 30. / bpm_list.now_bpm(if self.format { index as f32 } else { self.time });
+                let beat = 30. / bpm_list.now_bpm(
+                    if matches!(self.format, ChartFormat::Pgr) { index as f32 } else { self.time }
+                );
                 *at = res.time + beat / res.config.speed;
                 Some(if *perfect {
                     res.res_pack.info.fx_perfect()
@@ -255,7 +258,7 @@ impl Note {
 
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
-                    let top = if self.format {
+                    let top = if matches!(self.format, ChartFormat::Pgr) {
                         let end_spd = end_speed * ctrl_obj.y.now_opt().unwrap_or(1.);
                         if end_spd == 0. { return };
                         let time = if res.time >= self.time {res.time} else {self.time};
@@ -265,7 +268,7 @@ impl Note {
                     } else {
                         end_height - line_height
                     };
-                    if res.time < self.time && bottom < -1e-6 && !config.settings.hold_partial_cover && !self.format {
+                    if res.time < self.time && bottom < -1e-6 && !config.settings.hold_partial_cover && !matches!(self.format, ChartFormat::Pgr) {
                         return;
                     }
                     let tex = &style.hold;

@@ -4,6 +4,7 @@ use crate::{
     ext::{get_viewport, NotNanExt, SafeTexture},
     judge::{JudgeStatus, LIMIT_BAD},
     ui::Ui,
+    info::ChartFormat,
 };
 use macroquad::prelude::*;
 use miniquad::{RenderPass, Texture, TextureParams, TextureWrap};
@@ -386,7 +387,7 @@ impl JudgeLine {
                     height.set_time(note.time.min(res.time));
                     height.now()
                 };
-                if agg && note.height - line_height + note.object.translation.1.now() > height_above / note.speed {
+                if agg && note.height - line_height + note.object.translation.1.now() > height_above / note.speed && matches!(note.format, ChartFormat::Pgr | ChartFormat::Rpe) {
                     break;
                 }
                 note.render(res, &mut config, bpm_list);
@@ -411,7 +412,7 @@ impl JudgeLine {
                         height.set_time(note.time.min(res.time));
                         height.now()
                     };
-                    if agg && note.height - line_height + note.object.translation.1.now() > height_below / note.speed {
+                    if agg && note.height - line_height + note.object.translation.1.now() > height_below / note.speed && matches!(note.format, ChartFormat::Pgr | ChartFormat::Rpe) {
                         break;
                     }
                     note.render(res, &mut config, bpm_list);
