@@ -14,7 +14,7 @@ const BAD_TIME: f32 = 0.5;
 #[derive(Clone, Debug)]
 pub enum NoteKind {
     Click,
-    Hold { end_time: f32, end_height: f32, start_height: f32 },
+    Hold { end_time: f32, end_height: f32, end_speed: f32 },
     Flick,
     Drag,
 }
@@ -37,7 +37,6 @@ pub struct Note {
     pub time: f32,
     pub height: f32,
     pub speed: f32,
-    pub end_speed: f32,
 
     /// From the other side of the line
     pub above: bool,
@@ -238,7 +237,7 @@ impl Note {
             NoteKind::Click => {
                 draw(res, *style.click);
             }
-            NoteKind::Hold { end_time, end_height, start_height } => {
+            NoteKind::Hold { end_time, end_height, end_speed } => {
                 res.with_model(self.now_transform(res, ctrl_obj, 0., 0.), |res| {
                     let style = if res.config.double_hint && self.multiple_hint {
                         &res.res_pack.note_style_mh
@@ -253,19 +252,18 @@ impl Note {
                         return;
                     }
                     let end_height = end_height / res.aspect_ratio * spd;
-                    let start_height = start_height / res.aspect_ratio * spd;
 
                     let clip = !config.draw_below && config.settings.hold_partial_cover;
 
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
                     let top = if matches!(self.format, ChartFormat::Pgr) {
-                        let end_spd = self.end_speed * ctrl_obj.y.now_opt().unwrap_or(1.);
+                        let end_spd = end_speed * ctrl_obj.y.now_opt().unwrap_or(1.);
                         if end_spd == 0. { 
                             return;
                         }
                         let time = if res.time >= self.time {res.time} else {self.time};
-                        let hold_height = end_height - start_height;
+                        let hold_height = end_height - height;
                         let hold_line_height = (time - self.time) * end_spd / res.aspect_ratio / HEIGHT_RATIO;
                         bottom + hold_height - hold_line_height
                     } else {

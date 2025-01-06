@@ -45,7 +45,7 @@ pub struct PgrNote {
     position_x: f32,
     hold_time: f32,
     speed: f32,
-    floor_position: f32,
+    _floor_position: f32,
 }
 
 #[derive(Deserialize)]
@@ -191,15 +191,18 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
     pgr.into_iter()
         .map(|pgr| {
             let time = pgr.time * r;
+            let height = {
+                height.set_time(time);
+                height.now()
+            };
             let kind = match pgr.kind {
                 1 => NoteKind::Click,
                 2 => NoteKind::Drag,
                 3 => {
                     let end_time = (pgr.time + pgr.hold_time) * r;
-                    height.set_time(time);
-                    let start_height = height.now();
-                    let end_height = start_height + (pgr.hold_time * pgr.speed * r / HEIGHT_RATIO);
-                    NoteKind::Hold { end_time, end_height, start_height }
+                    let end_height = height + (pgr.hold_time * pgr.speed * r / HEIGHT_RATIO);
+                    let end_speed = pgr.speed;
+                    NoteKind::Hold { end_time, end_height, end_speed }
                 }
                 4 => NoteKind::Flick,
                 _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
@@ -218,8 +221,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 } else {
                     pgr.speed
                 },
-                end_speed: pgr.speed,
-                height: pgr.floor_position / HEIGHT_RATIO,
+                height,
 
                 above,
                 multiple_hint: false,
