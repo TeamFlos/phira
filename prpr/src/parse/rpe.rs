@@ -401,6 +401,7 @@ async fn parse_notes(
             multiple_hint: false,
             fake: note.is_fake != 0,
             judge: JudgeStatus::NotJudged,
+            attr: false,
         })
     }
     Ok(notes)
