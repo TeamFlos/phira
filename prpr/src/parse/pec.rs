@@ -8,6 +8,7 @@ use crate::{
     },
     ext::NotNanExt,
     judge::{HitSound, JudgeStatus},
+    info::ChartFormat,
 };
 use anyhow::{bail, Context, Result};
 use std::{cell::RefCell, collections::HashMap};
@@ -276,7 +277,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         multiple_hint: false,
                         fake,
                         judge: JudgeStatus::NotJudged,
-                        format: false,
+                        format: ChartFormat::Pec,
                     });
                     if it.next() == Some("#") {
                         last_note!().speed = it.take_f32()?;

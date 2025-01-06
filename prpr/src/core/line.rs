@@ -4,6 +4,7 @@ use crate::{
     ext::{draw_text_aligned, get_viewport, NotNanExt, SafeTexture},
     judge::{JudgeStatus, LIMIT_BAD},
     ui::Ui,
+    info::ChartFormat,
 };
 use macroquad::prelude::*;
 use miniquad::{RenderPass, Texture, TextureParams, TextureWrap};
@@ -157,7 +158,7 @@ pub struct JudgeLine {
 }
 
 impl JudgeLine {
-    pub fn update(&mut self, res: &mut Resource, tr: Matrix, bpm_list: &mut BpmList) {
+    pub fn update(&mut self, res: &mut Resource, tr: Matrix, bpm_list: &mut BpmList, index: usize) {
         // self.object.set_time(res.time); // this is done by chart, chart has to calculate transform for us
         let rot = self.object.rotation.now();
         self.height.set_time(res.time);
@@ -165,7 +166,7 @@ impl JudgeLine {
         let mut ctrl_obj = self.ctrl_obj.borrow_mut();
         self.cache.update_order.retain(|id| {
             let note = &mut self.notes[*id as usize];
-            note.update(res, rot, &tr, &mut ctrl_obj, line_height, bpm_list);
+            note.update(res, rot, &tr, &mut ctrl_obj, line_height, bpm_list, index);
             !note.dead()
         });
         drop(ctrl_obj);
@@ -381,6 +382,14 @@ impl JudgeLine {
             let height_below = -p[0].y.min(p[1].y.min(p[2].y.min(p[3].y))) * res.aspect_ratio;
             let agg = res.config.aggressive;
             for note in self.notes.iter().take(self.cache.not_plain_count).filter(|it| it.above) {
+                let line_height = {
+                    let mut height = self.height.clone();
+                    height.set_time(note.time.min(res.time));
+                    height.now()
+                };
+                if agg && note.height - line_height + note.object.translation.1.now() > height_above / note.speed && matches!(note.format, ChartFormat::Pgr | ChartFormat::Rpe) {
+                    break;
+                }
                 note.render(res, &mut config, bpm_list);
             }
             for index in &self.cache.above_indices {
@@ -398,6 +407,14 @@ impl JudgeLine {
             }
             res.with_model(Matrix::identity().append_nonuniform_scaling(&Vector::new(1.0, -1.0)), |res| {
                 for note in self.notes.iter().take(self.cache.not_plain_count).filter(|it| !it.above) {
+                    let line_height = {
+                        let mut height = self.height.clone();
+                        height.set_time(note.time.min(res.time));
+                        height.now()
+                    };
+                    if agg && note.height - line_height + note.object.translation.1.now() > height_below / note.speed && matches!(note.format, ChartFormat::Pgr | ChartFormat::Rpe) {
+                        break;
+                    }
                     note.render(res, &mut config, bpm_list);
                 }
                 for index in &self.cache.below_indices {

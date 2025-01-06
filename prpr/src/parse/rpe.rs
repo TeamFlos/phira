@@ -10,6 +10,7 @@ use crate::{
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
     judge::{HitSound, JudgeStatus},
+    info::ChartFormat,
 };
 use anyhow::{Context, Result};
 use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
@@ -403,7 +404,7 @@ async fn parse_notes(
             multiple_hint: false,
             fake: note.is_fake != 0,
             judge: JudgeStatus::NotJudged,
-            format: false,
+            format: ChartFormat::Rpe,
         })
     }
     Ok(notes)
