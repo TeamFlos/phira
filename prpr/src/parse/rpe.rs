@@ -668,6 +668,23 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
                 .with_context(move || ptl!("judge-line-location-name", "jlid" => id, "name" => name))?,
         );
     }
+    fn has_cycle(line: &JudgeLine, lines: &[JudgeLine], visited: &mut Vec<usize>) -> Option<usize> {
+        if let Some(parent_index) = line.parent {
+            if visited.contains(&parent_index) {
+                return Some(parent_index);
+            }
+            visited.push(parent_index);
+            return has_cycle(&lines[parent_index], lines, visited);
+        }
+        None
+    }
+    for (i, line) in (&lines).iter().enumerate() {
+        let mut vec = Vec::new();
+        vec.push(i);
+        if let Some(line) = has_cycle(&line, &lines, &mut vec) {
+            ptl!(bail "found infinite recursive parent relations", "line" => line)
+        }
+    }
     process_lines(&mut lines);
     Ok(Chart::new(rpe.meta.offset as f32 / 1000.0, lines, r, ChartSettings::default(), extra, hitsounds))
 }
