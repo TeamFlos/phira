@@ -284,6 +284,12 @@ async fn the_main() -> Result<()> {
             info!("FPS {}", (1. / (t - frame_start)) as u32);
         }
 
+        #[cfg(target_os = "windows")]
+        {
+            macroquad::window::set_fullscreen(get_data().config.windows_fullscreen_mode);
+            macroquad::window::set_multitouch(get_data().config.windows_multitouch_mode);
+        }
+
         next_frame().await;
     }
     Ok(())

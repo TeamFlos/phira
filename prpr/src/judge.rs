@@ -85,6 +85,15 @@ fn get_uptime() -> f64 {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn get_uptime() -> f64 {
+    use std::time::SystemTime;
+    let start = SystemTime::UNIX_EPOCH;
+    let now = SystemTime::now();
+    let duration = now.duration_since(start).expect("Time went backwards");
+    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+}
+
 pub struct FlickTracker {
     threshold: f32,
     last_point: Point,
@@ -266,6 +275,9 @@ pub struct Judge {
 
 static SUBSCRIBER_ID: Lazy<usize> = Lazy::new(register_input_subscriber);
 thread_local! {
+    #[cfg(target_os = "windows")]
+    static TOUCHES: RefCell<(HashMap<u64, Touch>, i32, u32)> = RefCell::default();
+    #[cfg(not(target_os = "windows"))]
     static TOUCHES: RefCell<(Vec<Touch>, i32, u32)> = RefCell::default();
 }
 
@@ -320,6 +332,9 @@ impl Judge {
     }
 
     pub(crate) fn on_new_frame() {
+        #[cfg(target_os = "windows")]
+        let mut handler = Handler(HashMap::new(), 0, 0);
+        #[cfg(not(target_os = "windows"))]
         let mut handler = Handler(Vec::new(), 0, 0);
         repeat_all_miniquad_input(&mut handler, *SUBSCRIBER_ID);
         handler.finalize();
@@ -343,7 +358,22 @@ impl Judge {
     }
 
     pub fn get_touches() -> Vec<Touch> {
-        TOUCHES.with(|it| {
+        #[cfg(target_os = "windows")]
+        let touches = TOUCHES.with(|it| {
+            let guard = it.borrow();
+            let tr = Self::touch_transform(false);
+            guard
+                .0
+                .values()
+                .map(|it| {
+                    let mut it = it.clone();
+                    tr(&mut it);
+                    it
+                })
+                .collect()
+        });
+        #[cfg(not(target_os = "windows"))]
+        let touches = TOUCHES.with(|it| {
             let guard = it.borrow();
             let tr = Self::touch_transform(false);
             guard
@@ -355,7 +385,8 @@ impl Judge {
                     it
                 })
                 .collect()
-        })
+        });
+        touches
     }
 
     pub fn update(&mut self, res: &mut Resource, chart: &mut Chart, bad_notes: &mut Vec<BadNote>) {
@@ -366,40 +397,84 @@ impl Judge {
         const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
         let spd = res.config.speed;
 
-        #[cfg(not(target_os = "windows"))]
         let uptime = get_uptime();
 
         let t = res.time;
         // TODO optimize
         let mut touches: HashMap<u64, Touch> = {
-            let mut touches = touches();
-            let btn = MouseButton::Left;
-            let id = button_to_id(btn);
-            if is_mouse_button_pressed(btn) {
-                let p = mouse_position();
-                touches.push(Touch {
-                    id,
-                    phase: TouchPhase::Started,
-                    position: vec2(p.0, p.1),
-                    time: f64::NEG_INFINITY,
-                });
-            } else if is_mouse_button_down(btn) {
-                let p = mouse_position();
-                touches.push(Touch {
-                    id,
-                    phase: TouchPhase::Moved,
-                    position: vec2(p.0, p.1),
-                    time: f64::NEG_INFINITY,
-                });
-            } else if is_mouse_button_released(btn) {
-                let p = mouse_position();
-                touches.push(Touch {
-                    id,
-                    phase: TouchPhase::Ended,
-                    position: vec2(p.0, p.1),
-                    time: f64::NEG_INFINITY,
-                });
+            #[cfg(not(target_os = "windows"))]
+            {
+                let mut touches = touches();
+                let btn = MouseButton::Left;
+                let id = button_to_id(btn);
+                if is_mouse_button_pressed(btn) {
+                    let p = mouse_position();
+                    touches.push(Touch {
+                        id,
+                        phase: TouchPhase::Started,
+                        position: vec2(p.0, p.1),
+                        time: f64::NEG_INFINITY,
+                    });
+                } else if is_mouse_button_down(btn) {
+                    let p = mouse_position();
+                    touches.push(Touch {
+                        id,
+                        phase: TouchPhase::Moved,
+                        position: vec2(p.0, p.1),
+                        time: f64::NEG_INFINITY,
+                    });
+                } else if is_mouse_button_released(btn) {
+                    let p = mouse_position();
+                    touches.push(Touch {
+                        id,
+                        phase: TouchPhase::Ended,
+                        position: vec2(p.0, p.1),
+                        time: f64::NEG_INFINITY,
+                    });
+                }
             }
+            #[cfg(target_os = "windows")]
+            let touches: Vec<Touch> = match res.config.windows_multitouch_mode {
+                true => TOUCHES
+                    .with(|it| {
+                        let guard = it.borrow();
+                        guard.0.clone()
+                    })
+                    .values()
+                    .cloned()
+                    .collect(),
+                false => {
+                    let mut touches: Vec<Touch> = touches();
+                    let btn = MouseButton::Left;
+                    let id = button_to_id(btn);
+                    if is_mouse_button_pressed(btn) {
+                        let p = mouse_position();
+                        touches.push(Touch {
+                            id,
+                            phase: TouchPhase::Started,
+                            position: vec2(p.0, p.1),
+                            time: f64::NEG_INFINITY,
+                        });
+                    } else if is_mouse_button_down(btn) {
+                        let p = mouse_position();
+                        touches.push(Touch {
+                            id,
+                            phase: TouchPhase::Moved,
+                            position: vec2(p.0, p.1),
+                            time: f64::NEG_INFINITY,
+                        });
+                    } else if is_mouse_button_released(btn) {
+                        let p = mouse_position();
+                        touches.push(Touch {
+                            id,
+                            phase: TouchPhase::Ended,
+                            position: vec2(p.0, p.1),
+                            time: f64::NEG_INFINITY,
+                        });
+                    }
+                    touches
+                }
+            };
             let tr = Self::touch_transform(res.config.flip_x());
             touches
                 .into_iter()
@@ -420,6 +495,44 @@ impl Judge {
             }
             let delta = (t / spd - self.last_time) as f64 / (events.len() + 1) as f64;
             let mut t = self.last_time as f64;
+            #[cfg(target_os = "windows")]
+            for (
+                _,
+                Touch {
+                    id,
+                    phase,
+                    position: p,
+                    time,
+                },
+            ) in events.into_iter()
+            {
+                t += delta;
+                let t = t as f32;
+                let p = to_local(p);
+                match phase {
+                    TouchPhase::Started => {
+                        self.trackers.insert(id, FlickTracker::new(res.dpi, t, p));
+                        touches
+                            .entry(id)
+                            .or_insert_with(|| Touch {
+                                id,
+                                phase: TouchPhase::Started,
+                                position: vec2(p.x, p.y),
+                                time,
+                            })
+                            .phase = TouchPhase::Started;
+                    }
+                    TouchPhase::Moved | TouchPhase::Stationary => {
+                        if let Some(tracker) = self.trackers.get_mut(&id) {
+                            tracker.push(t, p);
+                        }
+                    }
+                    TouchPhase::Ended | TouchPhase::Cancelled => {
+                        self.trackers.remove(&id);
+                    }
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
             for Touch {
                 id,
                 phase,
@@ -460,14 +573,7 @@ impl Judge {
                 it.time = if it.time.is_infinite() {
                     f64::NEG_INFINITY
                 } else {
-                    #[cfg(target_os = "windows")]
-                    {
-                        it.time
-                    }
-                    #[cfg(not(target_os = "windows"))]
-                    {
-                        t as f64 - (uptime - it.time) * spd as f64
-                    }
+                    t as f64 - (uptime - it.time) * spd as f64
                 };
                 it
             })
@@ -888,16 +994,19 @@ impl Judge {
     }
 }
 
-struct Handler(Vec<Touch>, i32, u32);
+struct Handler(HashMap<u64, Touch>, i32, u32);
 impl Handler {
     fn finalize(&mut self) {
         if is_mouse_button_down(MouseButton::Left) {
-            self.0.push(Touch {
-                id: button_to_id(MouseButton::Left),
-                phase: TouchPhase::Moved,
-                position: mouse_position().into(),
-                time: f64::NEG_INFINITY,
-            });
+            self.0.insert(
+                button_to_id(MouseButton::Left),
+                Touch {
+                    id: button_to_id(MouseButton::Left),
+                    phase: TouchPhase::Moved,
+                    position: mouse_position().into(),
+                    time: f64::NEG_INFINITY,
+                },
+            );
         }
     }
 }
@@ -916,30 +1025,41 @@ impl EventHandler for Handler {
     fn update(&mut self, _: &mut miniquad::Context) {}
     fn draw(&mut self, _: &mut miniquad::Context) {}
     fn touch_event(&mut self, _: &mut miniquad::Context, phase: miniquad::TouchPhase, id: u64, x: f32, y: f32, time: f64) {
-        self.0.push(Touch {
-            id,
-            phase: phase.into(),
-            position: vec2(x, y),
-            time,
-        });
+        if !self.0.contains_key(&id) || phase == miniquad::TouchPhase::Ended {
+            self.0.insert(
+                id,
+                Touch {
+                    id,
+                    phase: phase.into(),
+                    position: vec2(x, y),
+                    time,
+                },
+            );
+        }
     }
 
     fn mouse_button_down_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
-        self.0.push(Touch {
-            id: button_to_id(button),
-            phase: TouchPhase::Started,
-            position: vec2(x, y),
-            time: f64::NEG_INFINITY,
-        });
+        self.0.insert(
+            button_to_id(button),
+            Touch {
+                id: button_to_id(button),
+                phase: TouchPhase::Started,
+                position: vec2(x, y),
+                time: f64::NEG_INFINITY,
+            },
+        );
     }
 
     fn mouse_button_up_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
-        self.0.push(Touch {
-            id: button_to_id(button),
-            phase: TouchPhase::Ended,
-            position: vec2(x, y),
-            time: f64::NEG_INFINITY,
-        });
+        self.0.insert(
+            button_to_id(button),
+            Touch {
+                id: button_to_id(button),
+                phase: TouchPhase::Ended,
+                position: vec2(x, y),
+                time: f64::NEG_INFINITY,
+            },
+        );
     }
 
     fn key_down_event(&mut self, _ctx: &mut miniquad::Context, _keycode: KeyCode, _keymods: miniquad::KeyMods, repeat: bool) {

@@ -268,6 +268,8 @@ struct GeneralList {
     icon_lang: SafeTexture,
 
     lang_btn: ChooseButton,
+    windows_fullscreen_btn: DRectButton,
+    windows_multitouch_btn: DRectButton,
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
@@ -293,6 +295,10 @@ impl GeneralList {
                         .and_then(|ident| LANG_IDENTS.iter().position(|it| *it == ident))
                         .unwrap_or_default(),
                 ),
+            #[cfg(target_os = "windows")]
+            windows_fullscreen_btn: DRectButton::new(),
+            #[cfg(target_os = "windows")]
+            windows_multitouch_btn: DRectButton::new(),
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
@@ -316,6 +322,16 @@ impl GeneralList {
         let config = &mut data.config;
         if self.lang_btn.touch(touch, t) {
             return Ok(Some(false));
+        }
+        #[cfg(target_os = "windows")]
+        if self.windows_fullscreen_btn.touch(touch, t) {
+            config.windows_fullscreen_mode ^= true;
+            return Ok(Some(true));
+        }
+        #[cfg(target_os = "windows")]
+        if self.windows_multitouch_btn.touch(touch, t) {
+            config.windows_multitouch_mode ^= true;
+            return Ok(Some(true));
         }
         if self.offline_btn.touch(touch, t) {
             config.offline_mode ^= true;
@@ -404,6 +420,16 @@ impl GeneralList {
             let r = Rect::new(rt + 0.01, (ITEM_HEIGHT - w) / 2., w, w);
             ui.fill_rect(r, (*self.icon_lang, r));
             self.lang_btn.render(ui, rr, t);
+        }
+        #[cfg(target_os = "windows")]
+        item! {
+            render_title(ui, tl!("item-fullscreen"), Some(tl!("item-fullscreen-sub")));
+            render_switch(ui, rr, t, &mut self.windows_fullscreen_btn, config.windows_fullscreen_mode);
+        }
+        #[cfg(target_os = "windows")]
+        item! {
+            render_title(ui, tl!("item-multitouch"), Some(tl!("item-multitouch-sub")));
+            render_switch(ui, rr, t, &mut self.windows_multitouch_btn, config.windows_multitouch_mode);
         }
         item! {
             render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
