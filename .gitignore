@@ -46,3 +46,4 @@ inner.rs
 /test
 /log*
 /build_event_debug.sh
+/.idea
