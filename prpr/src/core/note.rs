@@ -213,7 +213,7 @@ impl Note {
 
         let base = height - line_height;
         if !config.draw_below
-            && ((res.time - FADEOUT_TIME >= self.time) || (self.fake && res.time >= self.time) || (self.time > res.time && base <= -0.0075))
+            && ((res.time - FADEOUT_TIME >= self.time) || (self.fake && res.time >= self.time) || (self.time > res.time && base <= -0.001))
             && !matches!(self.kind, NoteKind::Hold { .. })
         {
             return;
