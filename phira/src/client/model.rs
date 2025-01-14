@@ -14,8 +14,6 @@ mod record;
 pub use record::*;
 
 mod user;
-use reqwest::{Response, Url};
-use tracing::debug;
 pub use user::*;
 
 use super::{basic_client_builder, Client, API_URL, CLIENT_TOKEN};
@@ -28,6 +26,7 @@ use bytes::Bytes;
 use image::DynamicImage;
 use lru::LruCache;
 use once_cell::sync::Lazy;
+use reqwest::Response;
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::{
     any::Any,
@@ -35,6 +34,7 @@ use std::{
     marker::PhantomData,
     sync::{Arc, Mutex},
 };
+use tracing::debug;
 
 pub(crate) type ObjectMap<T> = LruCache<i32, Arc<T>>;
 static CACHES: Lazy<Mutex<HashMap<&'static str, Arc<Mutex<Box<dyn Any + Send + Sync>>>>>> = Lazy::new(Mutex::default);

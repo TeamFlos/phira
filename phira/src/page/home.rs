@@ -11,7 +11,7 @@ use crate::{
     icons::Icons,
     login::Login,
     save_data,
-    scene::{check_read_tos_and_policy, load_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
+    scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
     sync_data,
     threed::ThreeD,
 };
@@ -31,7 +31,10 @@ use prpr::{
 };
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::{borrow::Cow, sync::{atomic::Ordering, Arc}};
+use std::{
+    borrow::Cow,
+    sync::{atomic::Ordering, Arc},
+};
 use tap::Tap;
 use tracing::{info, warn};
 
@@ -94,6 +97,9 @@ pub struct HomePage {
     char_cached_size: f32,
     char_scroll: Scroll,
     char_edit_btn: RectButton,
+
+    #[cfg(feature = "aa")]
+    beian_btn: RectButton,
 }
 
 impl HomePage {
@@ -197,6 +203,9 @@ impl HomePage {
             char_cached_size: 0.,
             char_scroll: Scroll::new().use_clip(ClipType::Clip),
             char_edit_btn: RectButton::new(),
+
+            #[cfg(feature = "aa")]
+            beian_btn: RectButton::new(),
         };
         res.load_char_illu();
 
@@ -412,6 +421,11 @@ impl Page for HomePage {
             } else {
                 self.login.enter(t);
             }
+            return Ok(true);
+        }
+        #[cfg(feature = "aa")]
+        if self.beian_btn.touch(touch) {
+            let _ = open_url("https://beian.miit.gov.cn/#/home");
             return Ok(true);
         }
         if self.char_btn.touch(touch) {
@@ -748,10 +762,23 @@ impl Page for HomePage {
                     .size(0.6)
                     .draw();
             }
+
+            #[cfg(feature = "aa")]
+            {
+                let r = ui.screen_rect();
+                let r = ui
+                    .text("备案号：闽ICP备18008307号-64A")
+                    .pos(r.x + 0.02, r.bottom() - 0.03)
+                    .size(0.5)
+                    .anchor(0., 1.)
+                    .draw();
+                self.beian_btn.set(ui, r);
+            }
         });
 
         self.login.render(ui, t);
         self.sf.render(ui, t);
+
         Ok(())
     }
 

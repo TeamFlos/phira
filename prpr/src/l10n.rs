@@ -5,7 +5,7 @@ pub use once_cell::sync::Lazy;
 pub use unic_langid::{langid, LanguageIdentifier};
 
 use fluent::{FluentArgs, FluentError};
-use fluent_syntax::ast::{Message, Pattern};
+use fluent_syntax::ast::Pattern;
 use lru::LruCache;
 use std::{
     borrow::Cow,
