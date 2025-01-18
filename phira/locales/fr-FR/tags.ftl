@@ -2,7 +2,7 @@
 filter = Filtrer par tags
 edit = Modifier les tags
 
-invalid-tag = tags invalides
+invalid-tag = Tags invalides
 
 wanted = Tags souhaités
 unwanted = Tags indésirables
