@@ -7,18 +7,18 @@ load-chart-failed = Impossible de charger la partition
 
 dl-cancel = Annuler
 dl-status-fetch = Récupération d'informations
-dl-status-song = Téléchargement de la musique
-dl-status-chart = Téléchargement de la partition
-dl-status-extract = Extraction
-dl-status-illustration = Téléchargement de l'illustration
-dl-status-assets = Téléchargement des ressources
-dl-status-saving = Enregistrement
-dl-failed = Échec du téléchargement
-dl-success = Téléchargé
+dl-status-song = Téléchargement de la musique...
+dl-status-chart = Téléchargement de la partition...
+dl-status-extract = Extraction...
+dl-status-illustration = Téléchargement de l'illustration...
+dl-status-assets = Téléchargement des ressources...
+dl-status-saving = Enregistrement...
+dl-failed = Échec du téléchargement...
+dl-success = Téléchargé.
 
 guest = Invité
 
-warn-unrated = Cette partie n'est pas noté
+warn-unrated = Ce jeu n'est pas noté.
 failed-to-play = Impossible de démarrer en mode en ligne
 play-cancel = Annuler
 play-switch-to-offline = Passer en mode hors-ligne
@@ -53,15 +53,17 @@ upload-builtin = Les partitions intégrées ne peuvent pas être publiées
 upload-rules = Règles de publication
 upload-rules-content =
   Avant de publier, vous devez confirmer que :
-  1. Vous avez créé la partition. Les partitions collaboratives nécessitent l'autorisation de publication de TOUS les auteurs de la partition, sous peine d'interdiction permanente de publication
-  2. Il est recommandé d'utiliser un avatar et un ID reconnaissables ; si l'ID ou l'avatar que vous utilisez dans Phira sont trop différent de ceux utilisés sur la plateforme de publication vidéos de score (surtout BiliBili), des notes supplémentaires sont nécessaires ; veuillez également ajouter votre langue de préférence dans la description de la partition (si ce n'est pas zh-CN)
-  3. Le contenu de la partition (y compris la musique, les illustrations, le texte, etc.) doit être conforme aux autres lois et règlements de la République populaire de Chine et ne doit pas enfreindre la loi ou contenir de mauvaises informations
-  4. J'autorise l'utilisation du contenu que je fournis à des fins de promotion publique par Phira. Toute autre utilisation nécessite mon autorisation préalable
-  5. Les droits finaux d'interprétation de cette règle appartiennent à TeamFlos.
-uploading = Publication
-upload-chart-failed = La publication de la partition a échouée
+  1. Vous avez créé la partition ou avez obtenu l'autorisation de tous les créateurs (en termes de collaboration). Le non-respect de cette règle entraînera une interdiction de publier des partitions.
+  2. Si le nom et l'avatar de votre compte Phira ne sont pas les mêmes que ceux de vos autres réseaux sociaux, veuillez le préciser dans la description de la partition.
+  3. Assurez-vous que la partition (y compris l'illustration, l'audio et les éléments de storyboard) est conforme aux Conditions d'utilisation de Phira, aux réglementations de la République populaire de Chine, et ne contient aucune mauvaise information ni ne viole la loi.
+  4. Votre partition peut être utilisée à des fins promotionnelles par Phira. Nous vous contacterons si nous souhaitons utiliser votre partition à d'autres fins.
+  5. Phira se réserve le droit de supprimer votre partition après son approbation (changement des Conditions d'utilisation, des droits d'auteur, etc.).
+  6. L'interprétation finale de ces règles appartient à TeamFlos, Phira et à tout réviseur/modérateur.
+
+uploading = Publication...
+upload-chart-failed = La publication de la partition a échouée.
 upload-success = Publiée avec succès, veuillez attendre la vérification !
-upload-failed = Échec de la publication
+upload-failed = Échec de la publication.
 upload-confirm-clear-ldb = Le fichier actuel de partition est différent de celui des serveurs, le classement de cette partition sera effacé après le téléchargement. Êtes-vous sûr(e) de vouloir continuer ?
 
 ldb = Classement
@@ -77,7 +79,7 @@ info-difficulty = Difficulté
 info-desc = Description
 info-rating = Note
 info-type = Type
-info-tags = Étiquettes
+info-tags = Tags
 
 reviewed = Vérifiée
 unreviewed = Non vérifiée
@@ -89,12 +91,12 @@ review-approved = Approuvée
 review-passed = Acceptée
 review-denied = Refusée
 review-deleted = Supprimée
-review-action-failed = Échec de l'exécution de l'action de vérification
-review-doing = Exécution de l'action
-review-not-loaded = Les informations ne sont pas chargées, veuillez patienter
-review-edit-tags = Modifier les étiquettes
-review-edit-tags-failed = Échec de la modification des étiquettes
-review-edit-tags-done = Étiquettes mises à jour
+review-action-failed = Échec de l'exécution de l'action de vérification.
+review-doing = Exécution de l'action...
+review-not-loaded = Les informations ne sont pas chargées, veuillez patienter...
+review-edit-tags = Modifier les tags
+review-edit-tags-failed = Échec de la modification des tags
+review-edit-tags-done = Tags mis à jour
 
 mods = Mods
 mods-autoplay = Jeu auto
@@ -116,13 +118,13 @@ request-failed = Demande échouée
 stabilize = Stabiliser
 stabilize-warn = L'utilisateur normal ne peut demander de stabiliser la partition qu'une fois tous les 3 jours. Si vous avez des partitions stabilisées, l'intervalle est réduit à 1 jour.
 stabilize-requested = Demande de stabilisation envoyée
-stabilize-failed = Échec de la stabilisation
-stabilize-approve = Approuver stable
-stabilize-approve-ranked = Approuver classé
-stabilize-comment = Commenter stable
+stabilize-failed = Échec de la stabilisation.
+stabilize-approve = Approuver Spécial
+stabilize-approve-ranked = Approuver Stable
+stabilize-comment = Commenter Stable
 stabilize-commented = Commenté
-stabilize-deny = Refuser stable
+stabilize-deny = Refuser Stable
 stabilize-approved = Approuvé
-stabilize-approved-passed = Approvée, la partition est stabilisée
+stabilize-approved-passed = La partition est stabilisée.
 stabilize-denied = Refusé
-stabilize-denied-passed = Refusée, la partition est rejetée
+stabilize-denied-passed = La partition est rejetée.
