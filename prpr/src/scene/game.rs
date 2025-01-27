@@ -123,7 +123,6 @@ pub struct GameScene {
     pub gl: InternalGlContext<'static>,
     player: Option<BasicPlayer>,
     chart_bytes: Vec<u8>,
-    chart_format: ChartFormat,
     info_offset: f32,
     effects: Vec<Effect>,
 
@@ -253,6 +252,7 @@ impl GameScene {
         let info_offset = info.offset;
         let mut res = Resource::new(
             config,
+            chart_format,
             info,
             fs,
             player.as_ref().and_then(|it| it.avatar.clone()),
@@ -286,7 +286,6 @@ impl GameScene {
             gl: unsafe { get_internal_gl() },
             player,
             chart_bytes,
-            chart_format,
             effects,
             info_offset,
 

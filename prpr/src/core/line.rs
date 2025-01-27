@@ -387,7 +387,7 @@ impl JudgeLine {
                     height.set_time(note.time.min(res.time));
                     height.now()
                 };
-                if agg && note.height - line_height + note.object.translation.1.now() > height_above / note.speed && matches!(note.format, ChartFormat::Pgr | ChartFormat::Rpe) {
+                if agg && note.height - line_height + note.object.translation.1.now() > height_above / note.speed && matches!(res.chart_format, ChartFormat::Pgr | ChartFormat::Rpe) {
                     break;
                 }
                 note.render(res, &mut config, bpm_list);
@@ -412,7 +412,7 @@ impl JudgeLine {
                         height.set_time(note.time.min(res.time));
                         height.now()
                     };
-                    if agg && note.height - line_height + note.object.translation.1.now() > height_below / note.speed && matches!(note.format, ChartFormat::Pgr | ChartFormat::Rpe) {
+                    if agg && note.height - line_height + note.object.translation.1.now() > height_below / note.speed && matches!(res.chart_format, ChartFormat::Pgr | ChartFormat::Rpe) {
                         break;
                     }
                     note.render(res, &mut config, bpm_list);

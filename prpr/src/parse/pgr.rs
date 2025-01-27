@@ -8,7 +8,6 @@ use crate::{
     },
     ext::NotNanExt,
     judge::{HitSound, JudgeStatus},
-    info::ChartFormat,
 };
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -227,7 +226,6 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 multiple_hint: false,
                 fake: false,
                 judge: JudgeStatus::NotJudged,
-                format: ChartFormat::Pgr,
             })
         })
         .collect()
