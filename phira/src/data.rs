@@ -67,7 +67,7 @@ pub struct LocalChart {
 }
 
 fn default_anys_gateway() -> String {
-    "https://anys.mivik.moe".to_string()
+    "".to_string()
 }
 
 #[derive(Default, Serialize, Deserialize)]
