@@ -1,8 +1,9 @@
 prpr::tl_file!("song");
 
+#[cfg(feature = "video")]
+use super::UnlockScene;
 use super::{
-    confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, UnlockScene,
-    ASSET_CHART_INFO,
+    confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, ASSET_CHART_INFO,
 };
 use crate::{
     charts_view::NEED_UPDATE,
@@ -912,15 +913,25 @@ impl SongScene {
                 })
             }));
             if is_unlock {
-                let chart = get_data_mut().charts.iter_mut().find(|it| it.local_path == local_path).unwrap();
-                if !chart.played_unlock {
-                    chart.played_unlock = true;
-                    save_data()?;
-                }
-
-                UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                #[cfg(not(feature = "video"))]
+                {
+                    warn!("this build does not support unlock video.");
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
+                }
+                #[cfg(feature = "video")]
+                {
+                    let chart = get_data_mut().charts.iter_mut().find(|it| it.local_path == local_path).unwrap();
+                    if !chart.played_unlock {
+                        chart.played_unlock = true;
+                        save_data()?;
+                    }
+
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                        .await
+                        .map(|it| NextScene::Overlay(Box::new(it)))
+                }
             } else {
                 LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
                     .await
