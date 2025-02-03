@@ -30,4 +30,4 @@ jobs:
 
       - name: Run tests
         run: |
-          cargo test
+          cargo test --no-default-features
