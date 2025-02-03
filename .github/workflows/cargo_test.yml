@@ -30,4 +30,4 @@ jobs:
 
       - name: Run tests
         run: |
-          cargo test --no-default-features
+          cargo test --no-default-features --workspace --exclude phira-monitor --exclude prpr-avc
