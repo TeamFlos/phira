@@ -15,7 +15,7 @@ jobs:
 
       - name: Prepare
         run: |
-          sudo apt-get install alsa-base alsa-utils libglib2.0-dev libasound2t64 libatk-adaptor libgail-common
+          sudo apt-get install librust-alsa-sys-dev libglib2.0-dev libasound2t64 libatk-adaptor libgail-common
 
       - name: Setup Rust
         run: |
