@@ -600,20 +600,24 @@ fn add_bezier<T>(map: &mut BezierMap, event: &RPEEvent<T>) {
     }
 }
 
+macro_rules! process_bezier {
+    ($event_layer:expr, $map:expr, $($field:ident),*) => {
+        $(
+            for event in $event_layer.$field.iter().flatten() {
+                add_bezier($map, event);
+            }
+        )*
+    };
+}
+
 fn get_bezier_map(rpe: &RPEChart) -> BezierMap {
     let mut map = HashMap::new();
     for line in &rpe.judge_line_list {
         for event_layer in line.event_layers.iter().flatten() {
-            for event in event_layer
-                .alpha_events
-                .iter()
-                .chain(event_layer.move_x_events.iter())
-                .chain(event_layer.move_y_events.iter())
-                .chain(event_layer.rotate_events.iter())
-                .flatten()
-            {
-                add_bezier(&mut map, event);
-            }
+            process_bezier!(event_layer, &mut map, alpha_events, move_x_events, move_y_events, rotate_events);
+        }
+        if let Some(ext_layer) = &line.extended {
+            process_bezier!(ext_layer, &mut map, paint_events, scale_x_events, scale_y_events, gif_events, incline_events, text_events, color_events);
         }
     }
     map
