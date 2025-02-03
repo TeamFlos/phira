@@ -1,0 +1,26 @@
+name: Cargo Test
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup toolchain install nightly-2023-02-01
+          rustup default nightly-2023-02-01
+
+      - name: Cache and Test
+        uses: Swatinem/rust-cache@v2
+        run: |
+          cargo test
