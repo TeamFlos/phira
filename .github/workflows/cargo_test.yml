@@ -16,6 +16,7 @@ jobs:
       - name: Prepare
         run: |
           sudo apt-get install libglib2.0-dev
+          sudo apt-get install libasound2 libasound2-dev
 
       - name: Setup Rust
         run: |
