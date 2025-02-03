@@ -15,9 +15,7 @@ jobs:
 
       - name: Prepare
         run: |
-          sudo apt-get install libglib2.0-dev
-          sudo apt-get install libasound2t64
-          apt-get install libatk-adaptor libgail-common
+          sudo apt-get install libglib2.0-dev libasound2t64 libatk-adaptor libgail-common
 
       - name: Setup Rust
         run: |
