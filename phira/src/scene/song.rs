@@ -256,6 +256,9 @@ pub struct SongScene {
     should_delete: Arc<AtomicBool>,
     menu_options: Vec<&'static str>,
 
+    hide_gui_btn: RectButton,
+    hide_gui: bool,
+
     info_edit: Option<ChartInfoEdit>,
     edit_btn: RectButton,
     edit_scroll: Scroll,
@@ -283,6 +286,7 @@ pub struct SongScene {
     info_scroll: Scroll,
 
     review_task: Option<Task<Result<String>>>,
+    report_task: Option<Task<Result<()>>>,
     chart_should_delete: Arc<AtomicBool>,
 
     edit_tags_task: Option<Task<Result<()>>>,
@@ -310,6 +314,7 @@ pub struct SongScene {
     tr_start: f32,
 
     open_web_btn: DRectButton,
+    report_btn: DRectButton,
 
     // Imported chart for overwriting
     overwrite_from: Option<String>,
@@ -409,6 +414,9 @@ impl SongScene {
 
             fetch_best_task,
 
+            hide_gui_btn: RectButton::new(),
+            hide_gui: false,
+
             menu: Popup::new(),
             menu_btn: RectButton::new(),
             need_show_menu: false,
@@ -443,6 +451,8 @@ impl SongScene {
 
             review_task: None,
             chart_should_delete: Arc::default(),
+
+            report_task: None,
 
             edit_tags_task: None,
             tags: TagsDialog::new(false),
@@ -482,6 +492,8 @@ impl SongScene {
             background: Arc::default(),
 
             open_web_btn: DRectButton::new(),
+
+            report_btn: DRectButton::new(),
 
             overwrite_from: None,
             overwrite_task: None,
@@ -917,8 +929,8 @@ impl SongScene {
                 {
                     warn!("this build does not support unlock video.");
                     LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
-                    .await
-                    .map(|it| NextScene::Overlay(Box::new(it)))
+                        .await
+                        .map(|it| NextScene::Overlay(Box::new(it)))
                 }
                 #[cfg(feature = "video")]
                 {
@@ -1089,6 +1101,8 @@ impl SongScene {
             if self.info.id.is_some() {
                 let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
                 self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
+                dy!(r.h + 0.04);
+                self.report_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
                 dy!(r.h + 0.04);
             }
             if let Some(uploader) = &self.info.uploader {
@@ -1368,6 +1382,10 @@ impl Scene for SongScene {
         {
             return Ok(true);
         }
+        if self.hide_gui {
+            self.hide_gui = false;
+            return Ok(true);
+        }
         if self.downloading.is_some() {
             if let Some(dl) = &mut self.downloading {
                 if dl.touch(touch, t) {
@@ -1378,6 +1396,10 @@ impl Scene for SongScene {
             return Ok(false);
         }
         let rt = tm.real_time() as f32;
+        if self.hide_gui_btn.touch(touch) {
+            self.hide_gui = true;
+            return Ok(true);
+        }
         if self.tags.touch(touch, rt) {
             return Ok(true);
         }
@@ -1444,6 +1466,10 @@ impl Scene for SongScene {
                         }
                         if self.open_web_btn.touch(touch, rt) {
                             open_url(&format!("https://phira.moe/chart/{}", self.info.id.unwrap()))?;
+                            return Ok(true);
+                        }
+                        if self.report_btn.touch(touch, rt) {
+                            request_input("report_reason", tl!("report-reason").as_ref());
                             return Ok(true);
                         }
                     }
@@ -2021,6 +2047,19 @@ impl Scene for SongScene {
                         .into())
                     }));
                 }
+                "report-reason" => {
+                    let id = self.info.id.unwrap();
+                    self.report_task = Some(Task::new(async move {
+                        recv_raw(Client::post(
+                            format!("/chart/{id}/report"),
+                            &json!({
+                                "reason": text,
+                            }),
+                        ))
+                        .await?;
+                        Ok(())
+                    }));
+                }
                 _ => return_input(id, text),
             }
         }
@@ -2107,6 +2146,19 @@ impl Scene for SongScene {
                 self.review_task = None;
             }
         }
+        if let Some(task) = &mut self.report_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("report-failed")));
+                    }
+                    Ok(_) => {
+                        show_message(tl!("report-requested")).ok();
+                    }
+                }
+                self.review_task = None;
+            }
+        }
         if let Some(task) = &mut self.edit_tags_task {
             if let Some(res) = task.take() {
                 match res {
@@ -2169,7 +2221,9 @@ impl Scene for SongScene {
         let t = tm.now() as f32;
         ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
-
+        if self.hide_gui {
+            return Ok(());
+        }
         let r = ui.back_rect();
         self.back_btn.set(ui, r);
         ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
@@ -2266,6 +2320,9 @@ impl Scene for SongScene {
                 let s = 0.08;
                 let r = Rect::new(-s, 0., s, s);
                 let cc = semi_white(0.4);
+                ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
+                self.hide_gui_btn.set(ui, r);                
+                ui.dx(-r.w - 0.03);
                 ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
                 self.menu_btn.set(ui, r);
                 if self.need_show_menu {
