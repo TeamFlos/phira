@@ -47,11 +47,9 @@ fn check_langfile() -> Result<(), Box<dyn Error>> {
     let locales_dir = Path::new("locales");
     let zh_cn_dir = locales_dir.join("zh-CN");
     let all_locales: [std::path::PathBuf; 12] = LANGS.map(|x| locales_dir.join(x));
-    // 获取中文基准文件结构
     let zh_cn_files = get_ftl_files(&zh_cn_dir)?;
     let mut inconsistent_languages = Vec::new();
     let mut i = 0;
-    // 遍历所有语言目录
     while i < LANGS.len() {
         let path = all_locales[i].to_owned();
         if path.is_dir() {
@@ -61,25 +59,21 @@ fn check_langfile() -> Result<(), Box<dyn Error>> {
                 continue;
             }
 
-            // 获取当前语言的文件结构
             match get_ftl_files(&path) {
                 Ok(files) => {
                     if files != zh_cn_files {
                         inconsistent_languages.push(lang_code);
                     }
                 }
-                Err(_) => inconsistent_languages.push(lang_code), // 无法读取的目录视为不一致
+                Err(_) => inconsistent_languages.push(lang_code),
             }
         }
     }
 
-    // 输出结果
     if !inconsistent_languages.is_empty() {
         return Err(Box::new(IllegalLanguages {
             languages: inconsistent_languages.iter().map(|x| x.to_string()).collect(),
         }));
-    } else {
-        println!("所有语言文件结构与 zh-CN 一致");
     }
 
     Ok(())
