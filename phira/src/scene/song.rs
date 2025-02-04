@@ -78,6 +78,23 @@ static CONFIRM_OVERWRITE: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
 pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 
+fn fit_in_rect(rect: Rect, texture: &SafeTexture) -> Rect {
+    let w = texture.width();
+    let h = texture.height();
+    let ratio = h / w;
+    let current_size = rect.size();
+    let mut new_size = Vec2::default();
+    if current_size.x < current_size.y / ratio {
+        new_size.x = current_size.x;
+        new_size.y = current_size.x * ratio;
+    } else {
+        new_size.x = current_size.y / ratio;
+        new_size.y = current_size.y;
+    }
+    let center = rect.center();
+    Rect::new(center.x - new_size.x / 2., center.y - new_size.y / 2., new_size.x, new_size.y)
+}
+
 fn create_music(clip: AudioClip) -> Result<Music> {
     let mut music = UI_AUDIO.with(|it| {
         it.borrow_mut().create_music(
@@ -2219,8 +2236,28 @@ impl Scene for SongScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
         let t = tm.now() as f32;
+
         ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
+        if self.hide_gui {
+            let in_rect = fit_in_rect(ui.screen_rect(), &self.illu.texture.1);
+            ui.fill_rect(in_rect, (*self.illu.texture.1, in_rect, ScaleType::Inside));
+        }
+        if let Some(dl) = &mut self.downloading {
+            dl.render(ui, t);
+        }
+        if self.save_task.is_some() {
+            ui.full_loading(tl!("edit-saving"), t);
+        }
+        if self.upload_task.is_some() {
+            ui.full_loading(tl!("uploading"), t);
+        }
+        if self.review_task.is_some() {
+            ui.full_loading(tl!("review-doing"), t);
+        }
+        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() || self.update_cksum_task.is_some() {
+            ui.full_loading("", t);
+        }
         if self.hide_gui {
             return Ok(());
         }
@@ -2321,9 +2358,6 @@ impl Scene for SongScene {
                 let r = Rect::new(-s, 0., s, s);
                 let cc = semi_white(0.4);
                 ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
-                self.hide_gui_btn.set(ui, r);                
-                ui.dx(-r.w - 0.03);
-                ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
                 self.menu_btn.set(ui, r);
                 if self.need_show_menu {
                     self.need_show_menu = false;
@@ -2343,11 +2377,10 @@ impl Scene for SongScene {
                 }
                 ui.fill_rect(r, (*self.icons.r#mod, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                 self.mod_btn.set(ui, r);
+                ui.dx(-r.w - 0.03);
+                ui.fill_rect(r, (*self.icons.invisible, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
+                self.hide_gui_btn.set(ui, r);
             });
-
-            if let Some(dl) = &mut self.downloading {
-                dl.render(ui, t);
-            }
 
             let rt = tm.real_time() as f32;
             if self.side_enter_time.is_finite() {
@@ -2386,18 +2419,6 @@ impl Scene for SongScene {
 
         self.menu.render(ui, t, 1.);
 
-        if self.save_task.is_some() {
-            ui.full_loading(tl!("edit-saving"), t);
-        }
-        if self.upload_task.is_some() {
-            ui.full_loading(tl!("uploading"), t);
-        }
-        if self.review_task.is_some() {
-            ui.full_loading(tl!("review-doing"), t);
-        }
-        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() || self.update_cksum_task.is_some() {
-            ui.full_loading("", t);
-        }
         let rt = tm.real_time() as f32;
         self.tags.render(ui, rt);
         self.rate_dialog.render(ui, rt);
