@@ -26,7 +26,7 @@ fn get_ftl_files(path: &Path) -> Result<HashSet<String>, Box<dyn Error>> {
         let entry = entry?;
         if entry.file_type().is_file() {
             let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "ftl") {
+            if path.extension().map_or(false, |ext| ext == "ftl") {
                 let relative_path = path.strip_prefix(path.parent().unwrap())?;
                 let normalized = relative_path.to_string_lossy().replace('\\', "/");
                 files.insert(normalized);
