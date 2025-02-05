@@ -66,6 +66,9 @@ use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::FileOptions, CompressionMethod, ZipWriter};
 
+mod action_panel;
+use action_panel::ActionPanel;
+
 // Things that need to be reloaded for chart info updates
 type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
 
@@ -225,6 +228,11 @@ impl SideContent {
     }
 }
 
+enum SongSceneMode {
+    Player,
+    Staff,
+}
+
 #[derive(Deserialize)]
 struct StableR {
     status: i8,
@@ -279,6 +287,10 @@ pub struct SongScene {
     info_edit: Option<ChartInfoEdit>,
     edit_btn: RectButton,
     edit_scroll: Scroll,
+
+    action_scroll: Scroll,
+    action_panel: Option<ActionPanel>,
+    scene_mode: SongSceneMode,
 
     mods: Mods,
     mod_btn: RectButton,
@@ -443,6 +455,10 @@ impl SongScene {
             info_edit: None,
             edit_btn: RectButton::new(),
             edit_scroll: Scroll::new(),
+
+            scene_mode: SongSceneMode::Player,
+            action_panel: None,
+            action_scroll: Scroll::new(),
 
             mods,
             mod_btn: RectButton::new(),
@@ -1427,6 +1443,9 @@ impl Scene for SongScene {
             self.menu.touch(touch, t);
             return Ok(true);
         }
+        if self.action_scroll.touch(touch, t) {
+            return Ok(true)
+        }
         if !self.side_enter_time.is_infinite() {
             if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
                 if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
@@ -2261,16 +2280,16 @@ impl Scene for SongScene {
         if self.hide_gui {
             return Ok(());
         }
-        let r = ui.back_rect();
-        self.back_btn.set(ui, r);
-        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
+        let back_r = ui.back_rect();
+        self.back_btn.set(ui, back_r);
+        ui.fill_rect(back_r, (*self.icons.back, back_r, ScaleType::Fit));
 
         ui.alpha::<Result<()>>(((t - self.fade_start) / FADE_IN_TIME).clamp(-1., 0.) + 1., |ui| {
             let r = ui
                 .text(&self.info.name)
-                .max_width(0.57 - r.right())
+                .max_width(0.57 - back_r.right())
                 .size(1.2)
-                .pos(r.right() + 0.02, r.y)
+                .pos(back_r.right() + 0.02, back_r.y)
                 .draw();
             ui.text(&self.info.composer)
                 .size(0.5)
@@ -2329,6 +2348,15 @@ impl Scene for SongScene {
                 r.w += 0.13;
                 self.ldb_btn.set(ui, r);
             }
+            ui.scope(|ui| {
+                ui.dy(back_r.bottom() + 0.05);
+                ui.dx(back_r.right() + 0.02);
+                let size = (0.3,r.top()-back_r.bottom()-0.02);
+                self.action_scroll.size(size);
+                self.action_scroll.render(ui, |ui| {
+                    action_panel::render_action_panel(ui, 0.3)
+                });
+            });
 
             // play button
             let w = 0.26;
@@ -2382,6 +2410,7 @@ impl Scene for SongScene {
                 self.hide_gui_btn.set(ui, r);
             });
 
+            // side content
             let rt = tm.real_time() as f32;
             if self.side_enter_time.is_finite() {
                 let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
