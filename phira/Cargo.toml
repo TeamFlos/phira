@@ -76,3 +76,7 @@ objc-foundation = "*"
 
 [build-dependencies]
 dotenv-build = "0.1"
+
+[dev-dependencies]
+fluent = "0.16.0"
+fluent-syntax = "0.11.0"

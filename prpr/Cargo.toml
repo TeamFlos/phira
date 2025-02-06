@@ -112,3 +112,6 @@ wasm-bindgen-futures = "0.4"
 
 [build-dependencies]
 walkdir = "2.3.2"
+
+[dev-dependencies]
+walkdir = "2.3.2"
