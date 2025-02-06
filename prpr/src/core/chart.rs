@@ -4,7 +4,6 @@ use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use sasa::AudioClip;
 use std::{cell::RefCell, collections::HashMap};
-use tracing::warn;
 
 #[derive(Default)]
 pub struct ChartExtra {
@@ -116,7 +115,7 @@ impl Chart {
         #[cfg(feature = "video")]
         for video in &mut self.extra.videos {
             if let Err(err) = video.update(res.time) {
-                warn!("video error: {err:?}");
+                tracing::warn!("video error: {err:?}");
             }
         }
     }

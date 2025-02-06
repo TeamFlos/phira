@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-crate::tl_file!("game");
+prpr_l10n::tl_file!("game");
 
 use super::{
     draw_background,

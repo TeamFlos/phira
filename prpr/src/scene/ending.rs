@@ -1,4 +1,4 @@
-crate::tl_file!("ending");
+prpr_l10n::tl_file!("ending");
 
 use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{

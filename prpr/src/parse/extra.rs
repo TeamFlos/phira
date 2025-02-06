@@ -1,4 +1,4 @@
-crate::tl_file!("parser" ptl);
+prpr_l10n::tl_file!("parser" ptl);
 
 use super::RPE_TWEEN_MAP;
 use crate::{
@@ -124,6 +124,7 @@ struct ExtEffect {
     global: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct ExtVideo {
     path: String,

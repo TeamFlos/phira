@@ -1,4 +1,4 @@
-crate::tl_file!("chart_info");
+prpr_l10n::tl_file!("chart_info");
 
 use super::Ui;
 use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message};
