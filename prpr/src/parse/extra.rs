@@ -124,6 +124,7 @@ struct ExtEffect {
     global: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct ExtVideo {
     path: String,

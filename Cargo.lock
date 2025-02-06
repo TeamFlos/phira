@@ -2438,6 +2438,8 @@ dependencies = [
  "cacache",
  "chrono",
  "dotenv-build",
+ "fluent",
+ "fluent-syntax",
  "futures-util",
  "hex",
  "image",
@@ -2743,6 +2745,7 @@ dependencies = [
  "sys-locale",
  "tracing",
  "unic-langid",
+ "walkdir",
 ]
 
 [[package]]
