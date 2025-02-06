@@ -1,4 +1,4 @@
-prpr::tl_file!("collection");
+prpr_l10n::tl_file!("collection");
 
 use super::{Illustration, NextPage, Page, SharedState};
 use crate::{icons::Icons, load_res_tex, resource::rtl, scene::ChapterScene};

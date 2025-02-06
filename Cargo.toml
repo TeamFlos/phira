@@ -3,6 +3,7 @@ members = [
 	"prpr",
 	"prpr-avc",
 	"prpr-pbc",
+	"prpr-l10n",
 	"phira",
 	"phira-main",
 	"phira-monitor",

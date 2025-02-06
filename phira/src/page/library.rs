@@ -1,4 +1,4 @@
-prpr::tl_file!("library");
+prpr_l10n::tl_file!("library");
 
 use super::{CollectionPage, NextPage, Page, SharedState};
 use crate::{

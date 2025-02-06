@@ -1,4 +1,4 @@
-prpr::tl_file!("song");
+prpr_l10n::tl_file!("song");
 
 #[cfg(feature = "video")]
 use super::UnlockScene;

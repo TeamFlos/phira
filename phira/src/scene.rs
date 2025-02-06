@@ -1,4 +1,4 @@
-prpr::tl_file!("import" itl);
+prpr_l10n::tl_file!("import" itl);
 
 mod chart_order;
 pub use chart_order::{ChartOrder, ORDERS};

@@ -35,6 +35,7 @@ once_cell = "*"
 openssl = { version = "*", features = ["vendored"] }
 pollster = "0.3.0"
 prpr = { path = "../prpr", features = ["log"], default-features = false }
+prpr-l10n ={ path = "../prpr-l10n" }
 rand = "0.8.5"
 regex = "1.7.0"
 reqwest = { version = "0.12.5", features = ["json", "stream", "gzip"] }
@@ -75,3 +76,7 @@ objc-foundation = "*"
 
 [build-dependencies]
 dotenv-build = "0.1"
+
+[dev-dependencies]
+fluent = "0.16.0"
+fluent-syntax = "0.11.0"

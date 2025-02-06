@@ -1,4 +1,4 @@
-prpr::tl_file!("common" ttl crate::);
+prpr_l10n::tl_file!("common" ttl crate::);
 
 #[cfg(feature = "closed")]
 mod inner;
@@ -28,13 +28,13 @@ use prpr::{
     build_conf,
     core::{init_assets, PGR_FONT},
     ext::SafeTexture,
-    l10n::{set_prefered_locale, GLOBAL, LANGS},
     log,
     scene::{show_error, show_message},
     time::TimeManager,
     ui::{FontArc, TextPainter},
     Main,
 };
+use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
 use scene::MainScene;
 use std::sync::{mpsc, Mutex};
 use tracing::{error, info};
