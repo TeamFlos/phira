@@ -40,10 +40,10 @@ pub static LANG_IDENTS: Lazy<[LanguageIdentifier; 12]> = Lazy::new(|| LANGS.map(
 #[macro_export]
 macro_rules! create_bundle {
     ($locale:literal, $file:literal) => {{
-        let mut bundle = $crate::l10n::FluentBundle::new($crate::l10n::LANG_IDENTS.iter().cloned().collect());
+        let mut bundle = $crate::FluentBundle::new($crate::LANG_IDENTS.iter().cloned().collect());
         bundle
             .add_resource(
-                $crate::l10n::FluentResource::try_new(
+                $crate::FluentResource::try_new(
                     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/locales/", $locale, "/", $file, ".ftl")).to_owned(),
                 )
                 .unwrap(),
@@ -207,10 +207,10 @@ macro_rules! tl_file {
         $crate::tl_file!($file tl);
     };
     ($file:literal $macro_name:ident $($p:tt)*) => {
-        static L10N_BUNDLES: $crate::l10n::Lazy<$crate::l10n::L10nBundles> = $crate::l10n::Lazy::new(|| $crate::create_bundles!($file).into());
+        static L10N_BUNDLES: $crate::Lazy<$crate::L10nBundles> = $crate::Lazy::new(|| $crate::create_bundles!($file).into());
 
         thread_local! {
-            pub static L10N_LOCAL: std::cell::RefCell<$crate::l10n::L10nLocal> = $crate::l10n::L10nLocal::new(&*L10N_BUNDLES).into();
+            pub static L10N_LOCAL: std::cell::RefCell<$crate::L10nLocal> = $crate::L10nLocal::new(&*L10N_BUNDLES).into();
         }
 
         macro_rules! __tl_builder {
@@ -223,7 +223,7 @@ macro_rules! tl_file {
                         $($p)* L10N_LOCAL.with(|it| it.borrow_mut().format($key, Some($args)))
                     };
                     ($d key:expr, $d ($d name:expr => $d value:expr),+) => {
-                        $($p)* L10N_LOCAL.with(|it| it.borrow_mut().format($key, Some(&$crate::l10n::fluent_args![$d($d name => $d value), *])).to_string())
+                        $($p)* L10N_LOCAL.with(|it| it.borrow_mut().format($key, Some(&$crate::fluent_args![$d($d name => $d value), *])).to_string())
                     };
                     (err $d ($d body:tt)*) => {
                         anyhow::Error::msg($macro_name!($d($d body)*))

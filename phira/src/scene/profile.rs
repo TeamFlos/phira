@@ -1,4 +1,4 @@
-prpr::tl_file!("profile");
+prpr_l10n::tl_file!("profile");
 
 use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{

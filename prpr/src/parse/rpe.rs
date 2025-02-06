@@ -1,4 +1,4 @@
-crate::tl_file!("parser" ptl);
+prpr_l10n::tl_file!("parser" ptl);
 
 use super::{process_lines, RPE_TWEEN_MAP};
 use crate::{

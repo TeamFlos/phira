@@ -1,6 +1,6 @@
 //! Scene management module.
 
-crate::tl_file!("scene" ttl);
+prpr_l10n::tl_file!("scene" ttl);
 
 mod ending;
 pub use ending::{EndingScene, RecordUpdateState};

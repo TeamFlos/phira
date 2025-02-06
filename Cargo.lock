@@ -2456,6 +2456,7 @@ dependencies = [
  "phira-mp-common",
  "pollster",
  "prpr",
+ "prpr-l10n",
  "rand",
  "regex",
  "reqwest",
@@ -2697,6 +2698,7 @@ dependencies = [
  "ordered-float 3.9.2",
  "phf",
  "prpr-avc",
+ "prpr-l10n",
  "rand",
  "regex",
  "rfd",
@@ -2728,6 +2730,19 @@ dependencies = [
  "sasa",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "prpr-l10n"
+version = "0.1.0"
+dependencies = [
+ "fluent",
+ "fluent-syntax",
+ "lru 0.9.0",
+ "once_cell",
+ "sys-locale",
+ "tracing",
+ "unic-langid",
 ]
 
 [[package]]
