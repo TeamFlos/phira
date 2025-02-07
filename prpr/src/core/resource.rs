@@ -217,12 +217,16 @@ impl ResourcePack {
         }
         let hit_fx = image::load_from_memory(&fs.load_file("hit_fx.png").await.context("Missing hit_fx.png")?)?.into();
 
-        macro_rules! load_clip {
-            ($path:literal) => {
+        macro_rules! load_clip_or {
+            ($path:literal, $path_or:literal) => {
                 if let Some(sfx) = fs.load_file($path).await.ok().map(|it| AudioClip::new(it)).transpose()? {
                     sfx
                 } else {
-                    AudioClip::new(load_file($path).await?)?
+                    if let Some(sfx) = fs.load_file($path_or).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                        sfx
+                    } else {
+                        AudioClip::new(load_file($path_or).await?)?
+                    }
                 }
             };
         }
@@ -230,10 +234,10 @@ impl ResourcePack {
             info,
             note_style,
             note_style_mh,
-            sfx_click: load_clip!("click.ogg"),
-            sfx_drag: load_clip!("drag.ogg"),
-            sfx_flick: load_clip!("flick.ogg"),
-            ending: load_clip!("ending.ogg"),
+            sfx_click: load_clip_or!("click.ogg", "click.mp3"),
+            sfx_drag: load_clip_or!("drag.ogg", "drag.mp3"),
+            sfx_flick: load_clip_or!("flick.ogg", "flick.mp3"),
+            ending: load_clip_or!("ending.ogg", "ending.mp3"),
             hit_fx,
         })
     }
