@@ -261,7 +261,7 @@ impl Note {
                     }
                     let end_height = end_height / res.aspect_ratio * spd;
 
-                    let clip = !config.draw_below && config.settings.hold_partial_cover;
+                    let clip = false;
 
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
