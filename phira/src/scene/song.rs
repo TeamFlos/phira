@@ -289,7 +289,7 @@ pub struct SongScene {
     edit_scroll: Scroll,
 
     action_scroll: Scroll,
-    action_panel: Option<ActionPanel>,
+    action_panel: ActionPanel,
     scene_mode: SongSceneMode,
 
     mods: Mods,
@@ -457,7 +457,7 @@ impl SongScene {
             edit_scroll: Scroll::new(),
 
             scene_mode: SongSceneMode::Player,
-            action_panel: None,
+            action_panel: ActionPanel::new(),
             action_scroll: Scroll::new(),
 
             mods,
@@ -1135,7 +1135,7 @@ impl SongScene {
                 let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
                 self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
                 dy!(r.h + 0.04);
-                self.report_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
+                self.report_btn.render_text(ui, r, rt, tl!("report"), 0.6, true);
                 dy!(r.h + 0.04);
             }
             if let Some(uploader) = &self.info.uploader {
@@ -1443,6 +1443,7 @@ impl Scene for SongScene {
             self.menu.touch(touch, t);
             return Ok(true);
         }
+        self.action_panel.touch(touch, t);
         if self.action_scroll.touch(touch, t) {
             return Ok(true)
         }
@@ -1586,6 +1587,8 @@ impl Scene for SongScene {
         let rt = tm.real_time() as f32;
         self.tags.update(rt);
         self.rate_dialog.update(rt);
+        self.action_scroll.update(t);
+        self.action_panel.update(tm);
         if self.tags.confirmed.take() == Some(true) {
             let mut tags = self.tags.tags.tags().to_vec();
             tags.push(self.tags.division.to_owned());
@@ -2349,12 +2352,14 @@ impl Scene for SongScene {
                 self.ldb_btn.set(ui, r);
             }
             ui.scope(|ui| {
-                ui.dy(back_r.bottom() + 0.05);
-                ui.dx(back_r.right() + 0.02);
-                let size = (0.3,r.top()-back_r.bottom()-0.02);
+                let pad = 0.05;
+                ui.dy(back_r.bottom() + 0.07);
+                ui.dx(back_r.right() + 0.02 -pad);
+                let size = (0.8,r.top()-back_r.bottom()-0.1);
                 self.action_scroll.size(size);
                 self.action_scroll.render(ui, |ui| {
-                    action_panel::render_action_panel(ui, 0.3)
+                    ui.dx(pad);
+                    self.action_panel.render(ui, 0.8, t)
                 });
             });
 
