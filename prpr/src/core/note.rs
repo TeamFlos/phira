@@ -261,8 +261,6 @@ impl Note {
                     }
                     let end_height = end_height / res.aspect_ratio * spd;
 
-                    let clip = false;
-
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
                     let top = end_height - line_height;
@@ -295,7 +293,7 @@ impl Note {
                             dest_size: Some(vec2(scale * 2., top - bottom)),
                             ..Default::default()
                         },
-                        clip,
+                        false,
                     );
                     // head
                     if res.time < self.time || res.res_pack.info.hold_keep_head {
@@ -313,7 +311,7 @@ impl Note {
                                 dest_size: Some(hf * 2.),
                                 ..Default::default()
                             },
-                            clip,
+                            false,
                         );
                     }
                     // tail
@@ -331,7 +329,7 @@ impl Note {
                             dest_size: Some(hf * 2.),
                             ..Default::default()
                         },
-                        clip,
+                        false,
                     );
                 });
             }
