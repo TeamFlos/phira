@@ -20,6 +20,7 @@ use super::{basic_client_builder, Client, API_URL, CLIENT_TOKEN};
 use crate::{
     dir, get_data,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
+    ttl,
 };
 use anyhow::{bail, Result};
 use bytes::Bytes;

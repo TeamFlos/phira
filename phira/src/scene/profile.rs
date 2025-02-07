@@ -6,7 +6,7 @@ use crate::{
     client::{recv_raw, Client, Record, User, UserManager},
     get_data, get_data_mut,
     page::{Fader, Illustration, SFader},
-    save_data, sync_data,
+    save_data, sync_data, ttl,
 };
 use anyhow::Result;
 use chrono::Local;

@@ -14,8 +14,8 @@ use crate::{
     scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
     sync_data,
     threed::ThreeD,
+    ttl,
 };
-use prpr_l10n::LANG_IDENTS;
 use ::rand::{random, thread_rng, Rng};
 use anyhow::{bail, Context, Result};
 use chrono::NaiveDate;
@@ -29,6 +29,7 @@ use prpr::{
     task::Task,
     ui::{button_hit_large, clip_rounded_rect, ClipType, DRectButton, Dialog, FontArc, RectButton, Scroll, Ui},
 };
+use prpr_l10n::LANG_IDENTS;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use std::{

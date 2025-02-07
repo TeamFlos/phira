@@ -11,6 +11,7 @@ use crate::{
     scene::{check_read_tos_and_policy, ChartOrder, JUST_LOADED_TOS, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
+    ttl,
 };
 use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
@@ -242,11 +243,13 @@ impl LibraryPage {
             let search = self.search_str.clone();
             let mut charts = Vec::new();
             charts.push(ChartDisplayItem::new(None, None));
-            charts.append(&mut s.charts_local
-                .iter()
-                .filter(|it| it.info.name.contains(&search))
-                .map(|it| ChartDisplayItem::new(Some(it.clone()), None))
-                .collect::<Vec<ChartDisplayItem>>()
+            charts.append(
+                &mut s
+                    .charts_local
+                    .iter()
+                    .filter(|it| it.info.name.contains(&search))
+                    .map(|it| ChartDisplayItem::new(Some(it.clone()), None))
+                    .collect::<Vec<ChartDisplayItem>>(),
             );
             list.view.set(s.t, charts);
         }
@@ -504,12 +507,7 @@ impl Page for LibraryPage {
                     self.import_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                     });
-                    ui.text(tl!("import"))
-                        .pos(ct.x, ct.y)
-                        .anchor(0.5, 0.5)
-                        .no_baseline()
-                        .size(0.6)
-                        .draw();
+                    ui.text(tl!("import")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(0.6).draw();
                 } else {
                     self.order_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
