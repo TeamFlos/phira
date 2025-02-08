@@ -249,6 +249,7 @@ impl JudgeInner {
 pub mod inner;
 #[cfg(feature = "closed")]
 use inner::*;
+use crate::core::Note;
 
 #[repr(C)]
 pub struct Judge {
@@ -557,15 +558,21 @@ impl Judge {
                 }
             }
             if let (Some((line_id, id)), dist, dt, _, posx) = closest {
-                let unattr_drag = &chart.lines.iter_mut().any(|line| { // Check drag in good range & not flag
-                    line.notes.iter_mut().any(|note| {
-                        let x = &mut note.object.translation.0;
-                        x.set_time(t);
-                        let dist2 = (x.now() - posx).abs();
-                        let dist = (dist2 - dist).abs();
-                        let judge_time = t - note.time;
-                        matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && judge_time >= -LIMIT_GOOD && judge_time <= LIMIT_BAD
-                    })
+                let drag_or_flick = |note: &mut Note| {
+                    let x = &mut note.object.translation.0;
+                    x.set_time(t);
+                    let dist2 = (x.now() - posx).abs();
+                    let dist = (dist2 - dist).abs();
+                    let judge_time = t - note.time;
+                    matches!(note.kind, NoteKind::Drag | NoteKind::Flick)
+                        && dist <= X_DIFF_MAX
+                        && !note.fake
+                        && !note.attr
+                        && judge_time >= -LIMIT_GOOD
+                        && judge_time <= LIMIT_BAD
+                };
+                let unattr_drag = chart.lines.iter_mut().any(|line| {
+                    line.notes.iter_mut().any(|note| drag_or_flick(note))
                 });
                 let line = &mut chart.lines[line_id];
                 if matches!(line.notes[id as usize].kind, NoteKind::Drag) {
@@ -573,15 +580,10 @@ impl Judge {
                     continue;
                 }
                 if click {
-                    if *unattr_drag && dt > LIMIT_PERFECT { // flag drag
+                    if unattr_drag && dt > LIMIT_PERFECT { // flag drag
                         for line in &mut chart.lines {
                             for note in &mut line.notes {
-                                let x = &mut note.object.translation.0;
-                                x.set_time(t);
-                                let dist2 = (x.now() - posx).abs();
-                                let dist = (dist2 - dist).abs();
-                                let judge_time = t - note.time;
-                                if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && dist <= X_DIFF_MAX && matches!(note.fake, false) && !note.attr && judge_time >= -LIMIT_GOOD && judge_time <= LIMIT_BAD { //LIMIT_PERFECT * 0.25
+                                if drag_or_flick(note) {
                                     note.attr = true;
                                     // debug!("flag drag");
                                 }
