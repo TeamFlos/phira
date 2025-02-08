@@ -2,7 +2,7 @@
 
 use crate::{
     config::Config,
-    core::{BadNote, Chart, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
+    core::{BadNote, Chart, Note, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
     ext::{get_viewport, NotNanExt},
 };
 use macroquad::prelude::{
@@ -249,7 +249,6 @@ impl JudgeInner {
 pub mod inner;
 #[cfg(feature = "closed")]
 use inner::*;
-use crate::core::Note;
 
 #[repr(C)]
 pub struct Judge {
