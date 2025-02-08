@@ -66,6 +66,7 @@ struct PgrJudgeLine {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PgrChart {
+    format_version: u32,
     offset: f32,
     judge_line_list: Vec<PgrJudgeLine>,
 }
@@ -226,7 +227,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
         .collect()
 }
 
-fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
+fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32, format_version: u32) -> Result<JudgeLine> {
     let r = 60. / pgr.bpm / 32.;
     let (mut speed, mut height) = parse_speed_events(r, pgr.speed_events, max_time).context("Failed to parse speed events")?;
     let notes_above = parse_notes(r, pgr.notes_above, &mut speed, &mut height, true).context("Failed to parse notes above")?;
@@ -238,37 +239,13 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
         object: Object {
             alpha: parse_float_events(r, pgr.alpha_events).with_context(|| ptl!("alpha-events-parse-failed"))?,
             rotation: parse_float_events(r, pgr.rotate_events).with_context(|| ptl!("rotate-events-parse-failed"))?,
-            translation: parse_move_events(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
-            ..Default::default()
-        },
-        ctrl_obj: RefCell::default(),
-        kind: JudgeLineKind::Normal,
-        height,
-        incline: AnimFloat::default(),
-        notes,
-        color: Anim::default(),
-        parent: None,
-        z_index: 0,
-        show_below: false,
-        attach_ui: None,
-
-        cache,
-    })
-}
-
-fn parse_judge_line_fv1(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
-    let r = 60. / 32. / pgr.bpm;
-    let (mut speed, mut height) = parse_speed_events(r, pgr.speed_events, max_time).context("Failed to parse speed events")?;
-    let notes_above = parse_notes(r, pgr.notes_above, &mut speed, &mut height, true).context("Failed to parse notes above")?;
-    let mut notes_below = parse_notes(r, pgr.notes_below, &mut speed, &mut height, false).context("Failed to parse notes below")?;
-    let mut notes = notes_above;
-    notes.append(&mut notes_below);
-    let cache = JudgeLineCache::new(&mut notes);
-    Ok(JudgeLine {
-        object: Object {
-            alpha: parse_float_events(r, pgr.alpha_events).with_context(|| ptl!("alpha-events-parse-failed"))?,
-            rotation: parse_float_events(r, pgr.rotate_events).with_context(|| ptl!("rotate-events-parse-failed"))?,
-            translation: parse_move_events_fv1(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
+            translation: {
+                match format_version {
+                    1 => parse_move_events_fv1(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
+                    3 => parse_move_events(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
+                    _ => ptl!(bail "unknown-format-version"),
+                }
+            },
             ..Default::default()
         },
         ctrl_obj: RefCell::default(),
@@ -288,6 +265,7 @@ fn parse_judge_line_fv1(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
 
 pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
     let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
+    let format_version = pgr.format_version;
     let mut bpm_values = Vec::new();
     for (index, judge_line) in pgr.judge_line_list.iter().enumerate() {
         bpm_values.push((index as f32, judge_line.bpm));
@@ -311,40 +289,8 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         .judge_line_list
         .into_iter()
         .enumerate()
-        .map(|(id, pgr)| parse_judge_line(pgr, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
+        .map(|(id, pgr)| parse_judge_line(pgr, max_time, format_version).with_context(|| ptl!("judge-line-location", "jlid" => id)))
         .collect::<Result<Vec<_>>>()?;
     process_lines(&mut lines);
     Ok(Chart::new(pgr.offset, lines, BpmList::new_time(bpm_values), ChartSettings::default(), extra, HashMap::new()))
-}
-
-pub fn parse_phigros_fv1(source: &str, extra: ChartExtra) -> Result<Chart> {
-    let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
-    let mut bpm_values = Vec::new();
-    for (index, judge_line) in pgr.judge_line_list.iter().enumerate() {
-        bpm_values.push((index as f32, judge_line.bpm));
-    }
-
-    let max_time = *pgr
-        .judge_line_list
-        .iter()
-        .map(|line| {
-            line.notes_above
-                .iter()
-                .chain(line.notes_below.iter())
-                .map(|note| note.time.not_nan())
-                .max()
-                .unwrap_or_default()
-                * (60. / line.bpm / 32.)
-        })
-        .max()
-        .unwrap_or_default()
-        + 1.;
-    let mut lines = pgr
-        .judge_line_list
-        .into_iter()
-        .enumerate()
-        .map(|(id, pgr)| parse_judge_line_fv1(pgr, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
-        .collect::<Result<Vec<_>>>()?;
-    process_lines(&mut lines);
-    Ok(Chart::new(pgr.offset, lines, BpmList::new_time(bpm_values), ChartSettings::default(), extra,HashMap::new()))
 }

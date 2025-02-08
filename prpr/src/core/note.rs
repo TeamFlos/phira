@@ -206,7 +206,7 @@ impl Note {
         let mut color = self.object.now_color();
         color.a *= res.alpha * ctrl_obj.alpha.now_opt().unwrap_or(1.);
         let end_spd = self.speed * ctrl_obj.y.now_opt().unwrap_or(1.);
-        let spd = if matches!(res.chart_format, ChartFormat::Pgr | ChartFormat::Pgr1) && matches!(self.kind, NoteKind::Hold { .. }) { 1. } else { end_spd };
+        let spd = if matches!(res.chart_format, ChartFormat::Pgr) && matches!(self.kind, NoteKind::Hold { .. }) { 1. } else { end_spd };
 
         let line_height = config.line_height / res.aspect_ratio * spd;
         let height = self.height / res.aspect_ratio * spd;

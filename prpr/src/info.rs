@@ -10,7 +10,6 @@ pub enum ChartFormat {
     Rpe = 0,
     Pec,
     Pgr,
-    Pgr1,
     Pbc,
 }
 
