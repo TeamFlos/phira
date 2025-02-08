@@ -14,7 +14,7 @@ const BAD_TIME: f32 = 0.5;
 #[derive(Clone, Debug)]
 pub enum NoteKind {
     Click,
-    Hold { end_time: f32, end_height: f32, end_speed: f32 },
+    Hold { end_time: f32, end_height: f32 },
     Flick,
     Drag,
 }
@@ -205,7 +205,8 @@ impl Note {
         self.init_ctrl_obj(ctrl_obj, config.line_height);
         let mut color = self.object.now_color();
         color.a *= res.alpha * ctrl_obj.alpha.now_opt().unwrap_or(1.);
-        let spd = self.speed * ctrl_obj.y.now_opt().unwrap_or(1.);
+        let end_spd = self.speed * ctrl_obj.y.now_opt().unwrap_or(1.);
+        let spd = if matches!(res.chart_format, ChartFormat::Pgr | ChartFormat::Pgr1) && matches!(self.kind, NoteKind::Hold { .. }) { 1. } else { end_spd };
 
         let line_height = config.line_height / res.aspect_ratio * spd;
         let height = self.height / res.aspect_ratio * spd;
@@ -236,7 +237,7 @@ impl Note {
             NoteKind::Click => {
                 draw(res, *style.click);
             }
-            NoteKind::Hold { end_time, end_height, end_speed } => {
+            NoteKind::Hold { end_time, end_height } => {
                 res.with_model(self.now_transform(res, ctrl_obj, 0., 0.), |res| {
                     let style = if res.config.double_hint && self.multiple_hint {
                         &res.res_pack.note_style_mh
@@ -257,8 +258,7 @@ impl Note {
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
                     let top = if matches!(res.chart_format, ChartFormat::Pgr) {
-                        let end_spd = end_speed * ctrl_obj.y.now_opt().unwrap_or(1.);
-                        if end_spd == 0. { 
+                        if end_spd == 0. {
                             return;
                         }
                         let time = if res.time >= self.time {res.time} else {self.time};

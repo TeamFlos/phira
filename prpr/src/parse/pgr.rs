@@ -200,8 +200,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 3 => {
                     let end_time = (pgr.time + pgr.hold_time) * r;
                     let end_height = height + (pgr.hold_time * pgr.speed * r / HEIGHT_RATIO);
-                    let end_speed = pgr.speed;
-                    NoteKind::Hold { end_time, end_height, end_speed }
+                    NoteKind::Hold { end_time, end_height }
                 }
                 4 => NoteKind::Flick,
                 _ => ptl!(bail "unknown-note-type", "type" => pgr.kind),
@@ -215,11 +214,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 kind,
                 hitsound,
                 time,
-                speed: if pgr.kind == 3 {
-                    1.
-                } else {
-                    pgr.speed
-                },
+                speed: pgr.speed,
                 height,
 
                 above,

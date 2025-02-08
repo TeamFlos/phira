@@ -1,4 +1,4 @@
-use super::{chart::ChartSettings, object::CtrlObject, Anim, AnimFloat, BpmList, Matrix, Note, Object, Point, RenderConfig, Resource, Vector};
+use super::{chart::ChartSettings, object::CtrlObject, Anim, AnimFloat, BpmList, Matrix, Note, NoteKind, Object, Point, RenderConfig, Resource, Vector};
 use crate::{
     config::Mods,
     ext::{draw_text_aligned, get_viewport, NotNanExt, SafeTexture},
@@ -382,14 +382,6 @@ impl JudgeLine {
             let height_below = -p[0].y.min(p[1].y.min(p[2].y.min(p[3].y))) * res.aspect_ratio;
             let agg = res.config.aggressive;
             for note in self.notes.iter().take(self.cache.not_plain_count).filter(|it| it.above) {
-                let line_height = {
-                    let mut height = self.height.clone();
-                    height.set_time(note.time.min(res.time));
-                    height.now()
-                };
-                if agg && note.height - line_height + note.object.translation.1.now() > height_above / note.speed && matches!(res.chart_format, ChartFormat::Pgr | ChartFormat::Rpe) {
-                    break;
-                }
                 note.render(res, &mut config, bpm_list);
             }
             for index in &self.cache.above_indices {
@@ -407,14 +399,6 @@ impl JudgeLine {
             }
             res.with_model(Matrix::identity().append_nonuniform_scaling(&Vector::new(1.0, -1.0)), |res| {
                 for note in self.notes.iter().take(self.cache.not_plain_count).filter(|it| !it.above) {
-                    let line_height = {
-                        let mut height = self.height.clone();
-                        height.set_time(note.time.min(res.time));
-                        height.now()
-                    };
-                    if agg && note.height - line_height + note.object.translation.1.now() > height_below / note.speed && matches!(res.chart_format, ChartFormat::Pgr | ChartFormat::Rpe) {
-                        break;
-                    }
                     note.render(res, &mut config, bpm_list);
                 }
                 for index in &self.cache.below_indices {

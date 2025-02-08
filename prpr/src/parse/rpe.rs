@@ -339,7 +339,6 @@ async fn parse_notes(
                 NoteKind::Hold {
                     end_time,
                     end_height: height.now(),
-                    end_speed: note.speed,
                 }
             }
             3 => NoteKind::Flick,
