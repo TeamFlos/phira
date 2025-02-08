@@ -40,6 +40,18 @@ impl ActionPanel {
                     self.last_width = f32::max(self.last_width, w);
                 };
             }
+            macro_rules! item {
+                ($item:expr) => {
+                    let r = $item;
+                    dy!(r.h + h_pad);
+                    gain_w!(r.w);
+                };
+                ($item:expr, $pad:expr) => {
+                    let r = $item;
+                    dy!(r.h + $pad);
+                    gain_w!(r.w);
+                }
+            }
             dy!(h_pad);
             let r = ui.text("Stable stat:").size(0.7).draw();
             ui.dx(r.w + w_pad);
@@ -50,8 +62,15 @@ impl ActionPanel {
             self.buttonl.render_text(ui, Rect::new(0., 0., 0.25, 0.075), t, "Test1", 0.6, true);
             ui.dx(0.25 + w_pad);
             self.buttonr.render_text(ui, Rect::new(0., 0., 0.25, 0.075), t, "Test", 0.6, true);
-            dy!(0.075);
+            ui.dx(-(0.25 + w_pad));
+            dy!(0.075 + h_pad);
             gain_w!(0.5);
+            item!(ui.text("Title").size(0.74).draw());
+            item!(ui.text("This is an update").size(0.7).draw(), 2.*h_pad);
+            item!(ui.checkbox("测试", &mut true));
+            item!(ui.checkbox("测试", &mut true));
+            item!(ui.checkbox("测试", &mut true));
+            item!(ui.checkbox("测试", &mut true));
         });
         self.last_height = sy + h_pad;
         (self.last_width, sy)
