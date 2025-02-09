@@ -217,27 +217,28 @@ impl ResourcePack {
         }
         let hit_fx = image::load_from_memory(&fs.load_file("hit_fx.png").await.context("Missing hit_fx.png")?)?.into();
 
-        macro_rules! load_clip_or {
-            ($path:literal, $path_or:literal) => {
-                if let Some(sfx) = fs.load_file($path).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+        macro_rules! load_clip {
+            ($path:literal) => {
+                if let Some(sfx) = fs.load_file(format!("{}.ogg", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                    sfx
+                } else if let Some(sfx) = fs.load_file(format!("{}.wav", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                    sfx
+                } else if let Some(sfx) = fs.load_file(format!("{}.mp3", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
                     sfx
                 } else {
-                    if let Some(sfx) = fs.load_file($path_or).await.ok().map(|it| AudioClip::new(it)).transpose()? {
-                        sfx
-                    } else {
-                        AudioClip::new(load_file($path_or).await?)?
-                    }
+                    AudioClip::new(load_file(format!("{}.ogg", $path).as_str()).await?)?
                 }
             };
         }
+
         Ok(Self {
             info,
             note_style,
             note_style_mh,
-            sfx_click: load_clip_or!("click.ogg", "click.mp3"),
-            sfx_drag: load_clip_or!("drag.ogg", "drag.mp3"),
-            sfx_flick: load_clip_or!("flick.ogg", "flick.mp3"),
-            ending: load_clip_or!("ending.ogg", "ending.mp3"),
+            sfx_click: load_clip!("click"),
+            sfx_drag: load_clip!("drag"),
+            sfx_flick: load_clip!("flick"),
+            ending: load_clip!("ending"),
             hit_fx,
         })
     }
