@@ -1,4 +1,4 @@
-prpr::tl_file!("profile");
+prpr_l10n::tl_file!("profile");
 
 use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
@@ -6,7 +6,7 @@ use crate::{
     client::{recv_raw, Client, Record, User, UserManager},
     get_data, get_data_mut,
     page::{Fader, Illustration, SFader},
-    save_data, sync_data,
+    save_data, sync_data, ttl,
 };
 use anyhow::Result;
 use chrono::Local;

@@ -1,5 +1,5 @@
 
-label = Collections
+label = COLLECTIONS
 
 wait-for-more = Plus à venir…
 

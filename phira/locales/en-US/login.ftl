@@ -1,27 +1,27 @@
 
 login = Login
-login-sub = Login to engage with the active online community
+login-sub = Login to access Phira's online features! (Charts, events, multiplayer, etc.)
 back-login = Back to Login
 register = Register
 
-email = Email address
+email = Email
 username = Username
 password = Password
 
-name-length-req = Username length should be between 4 and 20
-name-has-illegal-char = Username contains illegal characters
-pwd-length-req = Password length should be between 6 and 26
-illegal-email = Illegal email
+name-length-req = Username length should be between 4 and 20 characters.
+name-has-illegal-char = Username contains unallowed characters.
+pwd-length-req = Password length should be between 6 and 26 characters.
+illegal-email = Unallowed email.
 
 action-success = { $action ->
-  [login] Logged in successfully
-  [register] Registered successfully
+  [login] Logged in.
+  [register] Registered successfully.
   *[other] _
 }
 action-failed = { $action ->
-  [login] Failed to log in
-  [register] Failed to register
+  [login] Failed to log in.
+  [register] Failed to register.
   *[other] _
 }
 
-email-sent = An verification email has been sent, please verify and log in
+email-sent = Please check your inbox for an activation email from Phira.

@@ -1,4 +1,4 @@
-prpr::tl_file!("library");
+prpr_l10n::tl_file!("library");
 
 use super::{CollectionPage, NextPage, Page, SharedState};
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
     scene::{check_read_tos_and_policy, ChartOrder, JUST_LOADED_TOS, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
+    ttl,
 };
 use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
@@ -239,12 +240,18 @@ impl LibraryPage {
     fn sync_local(&mut self, s: &SharedState) {
         let list = self.tabs.selected_mut();
         if list.ty == ChartListType::Local {
-            list.view.set(
-                s.t,
-                std::iter::once(ChartDisplayItem::new(None, None))
-                    .chain(s.charts_local.iter().map(|it| ChartDisplayItem::new(Some(it.clone()), None)))
-                    .collect(),
+            let search = self.search_str.clone();
+            let mut charts = Vec::new();
+            charts.push(ChartDisplayItem::new(None, None));
+            charts.append(
+                &mut s
+                    .charts_local
+                    .iter()
+                    .filter(|it| it.info.name.contains(&search))
+                    .map(|it| ChartDisplayItem::new(Some(it.clone()), None))
+                    .collect::<Vec<ChartDisplayItem>>(),
             );
+            list.view.set(s.t, charts);
         }
     }
 }
@@ -310,6 +317,16 @@ impl Page for LibraryPage {
                     request_file("_import");
                     return Ok(true);
                 }
+                if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
+                    button_hit();
+                    self.search_str.clear();
+                    self.sync_local(s);
+                    return Ok(true);
+                }
+                if !self.search_clr_btn.contains(touch.position) && self.search_btn.touch(touch, t) {
+                    request_input("search", &self.search_str);
+                    return Ok(true);
+                }
             }
             ChartListType::Ranked | ChartListType::Special | ChartListType::Unstable => {
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
@@ -346,18 +363,15 @@ impl Page for LibraryPage {
         self.tags.update(t);
         self.rating.update(t);
 
+        let is_local = self.tabs.selected().ty == ChartListType::Local;
         if self.tabs.changed() {
             self.tabs.selected_mut().view.reset_scroll();
-            match self.tabs.selected().ty {
-                ChartListType::Local => {
-                    self.online_task = None;
-                    self.sync_local(s);
-                }
-                _ => {
-                    self.online_task = None;
-                    self.current_page = 0;
-                    self.load_online();
-                }
+            self.online_task = None;
+            if is_local {
+                self.sync_local(s);
+            } else {
+                self.current_page = 0;
+                self.load_online();
             }
         }
         if self.tabs.selected_mut().view.clicked_special {
@@ -416,8 +430,12 @@ impl Page for LibraryPage {
         if let Some((id, text)) = take_input() {
             if id == "search" {
                 self.search_str = text;
-                self.current_page = 0;
-                self.load_online();
+                if is_local {
+                    self.sync_local(s);
+                } else {
+                    self.current_page = 0;
+                    self.load_online();
+                }
             } else {
                 return_input(id, text);
             }
@@ -447,47 +465,50 @@ impl Page for LibraryPage {
                 Ok(())
             })
         })?;
-        match chosen {
-            ChartListType::Local => {
-                s.render_fader(ui, |ui| {
-                    let w = 0.24;
-                    let r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
-                    self.import_btn.render_text(ui, r, t, tl!("import"), 0.6, false);
+        if chosen != ChartListType::Popular {
+            s.render_fader(ui, |ui| {
+                let empty = self.search_str.is_empty();
+                let w = 0.53;
+                let mut r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
+                if empty {
+                    r.x += r.h;
+                    r.w -= r.h;
+                }
+                let rt = r.right();
+                self.search_btn.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
                 });
-            }
-            ChartListType::Ranked | ChartListType::Special | ChartListType::Unstable => {
-                s.render_fader(ui, |ui| {
-                    let empty = self.search_str.is_empty();
-                    let w = 0.53;
-                    let mut r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
-                    if empty {
-                        r.x += r.h;
-                        r.w -= r.h;
-                    }
-                    let rt = r.right();
-                    self.search_btn.render_shadow(ui, r, t, |ui, path| {
+                let mut r = r.feather(-0.01);
+                r.w = r.h;
+                if !empty {
+                    ui.fill_rect(r, (*self.icons.close, r, ScaleType::Fit));
+                    self.search_clr_btn.set(ui, r);
+                    r.x += r.w;
+                }
+                ui.fill_rect(r, (*self.icons.search, r, ScaleType::Fit));
+                ui.text(&self.search_str)
+                    .pos(r.right() + 0.01, r.center().y)
+                    .anchor(0., 0.5)
+                    .no_baseline()
+                    .size(0.6)
+                    .max_width(rt - r.right() - 0.02)
+                    .draw();
+                let mut r = r.feather(0.01);
+                // TODO: better shifting
+                r.x = 1. - w - r.w - 0.05;
+                if empty {
+                    r.x += r.w;
+                }
+                if chosen == ChartListType::Local {
+                    let w = 0.24;
+                    r.x = r.x + r.w - w;
+                    r.w = w;
+                    let ct = r.center();
+                    self.import_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                     });
-                    let mut r = r.feather(-0.01);
-                    r.w = r.h;
-                    if !empty {
-                        ui.fill_rect(r, (*self.icons.close, r, ScaleType::Fit));
-                        self.search_clr_btn.set(ui, r);
-                        r.x += r.w;
-                    }
-                    ui.fill_rect(r, (*self.icons.search, r, ScaleType::Fit));
-                    ui.text(&self.search_str)
-                        .pos(r.right() + 0.01, r.center().y)
-                        .anchor(0., 0.5)
-                        .no_baseline()
-                        .size(0.6)
-                        .max_width(rt - r.right() - 0.02)
-                        .draw();
-                    let mut r = r.feather(0.01);
-                    r.x = 1. - w - r.w - 0.05;
-                    if empty {
-                        r.x += r.w;
-                    }
+                    ui.text(tl!("import")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(0.6).draw();
+                } else {
                     self.order_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                         ui.fill_rect(r, (*self.icons.order, r, ScaleType::Fit));
@@ -504,9 +525,8 @@ impl Page for LibraryPage {
                         let cr = r.feather(-0.005);
                         ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
                     });
-                });
-            }
-            ChartListType::Popular => {}
+                }
+            });
         }
         if chosen != ChartListType::Local {
             let total_page = self.total_page(s);

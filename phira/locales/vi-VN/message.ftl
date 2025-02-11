@@ -1,6 +1,6 @@
 
-label = THƯ
+label = HỘP THƯ
 
-load-msg-fail = Không thể tải thư
+load-msg-fail = Không thể duyệt thư
 no-msg = Không có gì ở đây
 subtitle = Đăng bởi { $author } lúc { $time }

@@ -5,7 +5,7 @@ local = Local
 popular = Populaire
 
 page = Page { $current } / { $total }
-prev-page = Page préc.
+prev-page = Page précé.
 next-page = Page suiv.
 
 not-opened = Pas encore disponible
