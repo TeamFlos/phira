@@ -123,7 +123,6 @@ pub struct GameScene {
     pub gl: InternalGlContext<'static>,
     player: Option<BasicPlayer>,
     chart_bytes: Vec<u8>,
-    chart_format: ChartFormat,
     info_offset: f32,
     effects: Vec<Effect>,
 
@@ -248,6 +247,7 @@ impl GameScene {
         let info_offset = info.offset;
         let mut res = Resource::new(
             config,
+            chart_format,
             info,
             fs,
             player.as_ref().and_then(|it| it.avatar.clone()),
@@ -281,7 +281,6 @@ impl GameScene {
             gl: unsafe { get_internal_gl() },
             player,
             chart_bytes,
-            chart_format,
             effects,
             info_offset,
 
@@ -449,7 +448,7 @@ impl GameScene {
 
             let hw = 0.003;
             let height = eps * 1.2;
-            let dest = 2. * res.time / res.track_length;
+            let dest = (2. * res.time / res.track_length).max(0.).min(2.);
             ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
             ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
         });

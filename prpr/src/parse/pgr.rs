@@ -44,7 +44,7 @@ pub struct PgrNote {
     position_x: f32,
     hold_time: f32,
     speed: f32,
-    floor_position: f32,
+    #[allow(unused)]floor_position: f32,
 }
 
 #[derive(Deserialize)]
@@ -66,6 +66,7 @@ struct PgrJudgeLine {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PgrChart {
+    format_version: u32,
     offset: f32,
     judge_line_list: Vec<PgrJudgeLine>,
 }
@@ -80,11 +81,11 @@ macro_rules! validate_events {
                 true
             }
         });
-        for i in 0..($pgr.len() - 1) {
-            if $pgr[i].end_time != $pgr[i + 1].start_time {
-                ptl!(bail "event-not-contiguous");
-            }
-        }
+        // for i in 0..($pgr.len() - 1) {
+        //     if $pgr[i].end_time != $pgr[i + 1].start_time {
+        //         ptl!(bail "event-not-contiguous");
+        //     }
+        // }
         // if $pgr.last().unwrap().end_time <= 900000000.0 {
         // bail!("End time is not great enough ({})", $pgr.last().unwrap().end_time);
         // }
@@ -93,7 +94,7 @@ macro_rules! validate_events {
 
 fn parse_speed_events(r: f32, mut pgr: Vec<PgrSpeedEvent>, max_time: f32) -> Result<(AnimFloat, AnimFloat)> {
     validate_events!(pgr);
-    assert_eq!(pgr[0].start_time, 0.0);
+    pgr[0].start_time = 0.;
     let mut kfs = Vec::new();
     let mut pos = 0.;
     kfs.extend(pgr[..pgr.len().saturating_sub(1)].iter().map(|it| {
@@ -150,7 +151,38 @@ fn parse_move_events(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimVector> {
     Ok(AnimVector(AnimFloat::new(kf1), AnimFloat::new(kf2)))
 }
 
-fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mut AnimFloat, above: bool) -> Result<Vec<Note>> {
+fn parse_move_events_fv1(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimVector> {
+    validate_events!(pgr);
+    let mut kf1 = Vec::<Keyframe<f32>>::new();
+    let mut kf2 = Vec::<Keyframe<f32>>::new();
+    for e in pgr {
+        let st = (e.start_time * r).max(0.);
+        let en = e.end_time * r;
+        if !kf1.last().map_or(false, |it| it.value == e.start) {
+            let start = (e.start - e.start % 1000.) / 1000.;
+            kf1.push(Keyframe::new(st, start, 2));
+        }
+        if !kf2.last().map_or(false, |it| it.value == e.start2) {
+            let start2 = e.start % 1000.;
+            kf2.push(Keyframe::new(st,  start2, 2));
+        }
+        let end = (e.end - e.end % 1000.) / 1000.;
+        let end2 = e.end % 1000.;
+        kf1.push(Keyframe::new(en, end, 2));
+        kf2.push(Keyframe::new(en, end2, 2));
+    }
+    kf1.pop();
+    kf2.pop();
+    for kf in &mut kf1 {
+        kf.value = (-880. + kf.value * 2.) / 880.;
+    }
+    for kf in &mut kf2 {
+        kf.value = (-520. + kf.value * 2.) / 520.;
+    }
+    Ok(AnimVector(AnimFloat::new(kf1), AnimFloat::new(kf2)))
+}
+
+fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &mut AnimFloat, above: bool) -> Result<Vec<Note>> {
     // is_sorted is unstable...
     if pgr.is_empty() {
         return Ok(Vec::new());
@@ -159,13 +191,16 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
     pgr.into_iter()
         .map(|pgr| {
             let time = pgr.time * r;
+            let height = {
+                height.set_time(time);
+                height.now()
+            };
             let kind = match pgr.kind {
                 1 => NoteKind::Click,
                 2 => NoteKind::Drag,
                 3 => {
                     let end_time = (pgr.time + pgr.hold_time) * r;
-                    height.set_time(end_time);
-                    let end_height = height.now();
+                    let end_height = height + (pgr.hold_time * pgr.speed * r / HEIGHT_RATIO);
                     NoteKind::Hold { end_time, end_height }
                 }
                 4 => NoteKind::Flick,
@@ -180,13 +215,8 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
                 kind,
                 hitsound,
                 time,
-                speed: if pgr.kind == 3 {
-                    speed.set_time(time);
-                    pgr.speed / speed.now()
-                } else {
-                    pgr.speed
-                },
-                height: pgr.floor_position / HEIGHT_RATIO,
+                speed: pgr.speed,
+                height,
 
                 above,
                 multiple_hint: false,
@@ -197,7 +227,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, speed: &mut AnimFloat, height: &mu
         .collect()
 }
 
-fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
+fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32, format_version: u32) -> Result<JudgeLine> {
     let r = 60. / pgr.bpm / 32.;
     let (mut speed, mut height) = parse_speed_events(r, pgr.speed_events, max_time).context("Failed to parse speed events")?;
     let notes_above = parse_notes(r, pgr.notes_above, &mut speed, &mut height, true).context("Failed to parse notes above")?;
@@ -209,7 +239,13 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
         object: Object {
             alpha: parse_float_events(r, pgr.alpha_events).with_context(|| ptl!("alpha-events-parse-failed"))?,
             rotation: parse_float_events(r, pgr.rotate_events).with_context(|| ptl!("rotate-events-parse-failed"))?,
-            translation: parse_move_events(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
+            translation: {
+                match format_version {
+                    1 => parse_move_events_fv1(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
+                    3 => parse_move_events(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
+                    _ => ptl!(bail "unknown-format-version"),
+                }
+            },
             ..Default::default()
         },
         ctrl_obj: RefCell::default(),
@@ -220,7 +256,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
         color: Anim::default(),
         parent: None,
         z_index: 0,
-        show_below: true,
+        show_below: false,
         attach_ui: None,
 
         cache,
@@ -229,6 +265,11 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
 
 pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
     let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
+    let format_version = pgr.format_version;
+    let mut bpm_values = Vec::new();
+    for (index, judge_line) in pgr.judge_line_list.iter().enumerate() {
+        bpm_values.push((index as f32, judge_line.bpm));
+    }
     let max_time = *pgr
         .judge_line_list
         .iter()
@@ -248,8 +289,8 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         .judge_line_list
         .into_iter()
         .enumerate()
-        .map(|(id, pgr)| parse_judge_line(pgr, max_time).with_context(|| ptl!("judge-line-location", "jlid" => id)))
+        .map(|(id, pgr)| parse_judge_line(pgr, max_time, format_version).with_context(|| ptl!("judge-line-location", "jlid" => id)))
         .collect::<Result<Vec<_>>>()?;
     process_lines(&mut lines);
-    Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra, HashMap::new()))
+    Ok(Chart::new(pgr.offset, lines, BpmList::new_time(bpm_values), ChartSettings::default(), extra, HashMap::new()))
 }
