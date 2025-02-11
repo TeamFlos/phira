@@ -970,7 +970,7 @@ pub struct PlayResult {
 
 pub fn icon_index(score: u32, full_combo: bool) -> usize {
     match (score, full_combo) {
-        (1000000, _) => 7,
+        (1000000, true) => 7,
         (_, true) => 6,
         (x, _) if x < 700000 => 0,
         (x, _) if x < 820000 => 1,
