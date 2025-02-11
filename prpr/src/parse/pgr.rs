@@ -44,7 +44,7 @@ pub struct PgrNote {
     position_x: f32,
     hold_time: f32,
     speed: f32,
-    _floor_position: f32,
+    #[allow(unused)]floor_position: f32,
 }
 
 #[derive(Deserialize)]
