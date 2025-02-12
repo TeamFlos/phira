@@ -5,8 +5,9 @@
 ## 下载
 
 - [GitHub Release](https://github.com/TeamFlos/phira/releases): 安卓、Windows、Linux
-- [616.sb 镜像](https://616.sb/#phira): 仅 Android
-- [.ipa 发布](https://github.com/F-Unction/phira_ipa/releases): 苹果安装包
+- [616.sb 镜像源](https://616.sb/#phira): 仅 Android
+- [App Store](https://apps.apple.com/us/app/phira/id6447435864): iOS（美区商店）
+- ~~[.ipa Release](https://github.com/F-Unction/phira_ipa/releases): 苹果安装包~~
 
 ## 贡献
 

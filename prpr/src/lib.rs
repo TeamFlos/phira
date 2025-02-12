@@ -8,7 +8,6 @@ pub mod ext;
 pub mod fs;
 pub mod info;
 pub mod judge;
-pub mod l10n;
 pub mod parse;
 pub mod particle;
 pub mod scene;

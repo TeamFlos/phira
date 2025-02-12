@@ -1,4 +1,4 @@
-crate::tl_file!("parser" ptl);
+prpr_l10n::tl_file!("parser" ptl);
 
 use super::{process_lines, RPE_TWEEN_MAP};
 use crate::{
@@ -600,20 +600,24 @@ fn add_bezier<T>(map: &mut BezierMap, event: &RPEEvent<T>) {
     }
 }
 
+macro_rules! process_bezier {
+    ($event_layer:expr, $map:expr, $($field:ident),*) => {
+        $(
+            for event in $event_layer.$field.iter().flatten() {
+                add_bezier($map, event);
+            }
+        )*
+    };
+}
+
 fn get_bezier_map(rpe: &RPEChart) -> BezierMap {
     let mut map = HashMap::new();
     for line in &rpe.judge_line_list {
         for event_layer in line.event_layers.iter().flatten() {
-            for event in event_layer
-                .alpha_events
-                .iter()
-                .chain(event_layer.move_x_events.iter())
-                .chain(event_layer.move_y_events.iter())
-                .chain(event_layer.rotate_events.iter())
-                .flatten()
-            {
-                add_bezier(&mut map, event);
-            }
+            process_bezier!(event_layer, &mut map, alpha_events, move_x_events, move_y_events, rotate_events);
+        }
+        if let Some(ext_layer) = &line.extended {
+            process_bezier!(ext_layer, &mut map, paint_events, scale_x_events, scale_y_events, gif_events, incline_events, text_events, color_events);
         }
     }
     map
@@ -667,6 +671,23 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
                 .await
                 .with_context(move || ptl!("judge-line-location-name", "jlid" => id, "name" => name))?,
         );
+    }
+    fn has_cycle(line: &JudgeLine, lines: &[JudgeLine], visited: &mut Vec<usize>) -> Option<usize> {
+        if let Some(parent_index) = line.parent {
+            if visited.contains(&parent_index) {
+                return Some(parent_index);
+            }
+            visited.push(parent_index);
+            return has_cycle(&lines[parent_index], lines, visited);
+        }
+        None
+    }
+    for (i, line) in (&lines).iter().enumerate() {
+        let mut vec = Vec::new();
+        vec.push(i);
+        if let Some(line) = has_cycle(&line, &lines, &mut vec) {
+            ptl!(bail "found infinite recursive parent relations", "line" => line)
+        }
     }
     process_lines(&mut lines);
     Ok(Chart::new(rpe.meta.offset as f32 / 1000.0, lines, r, ChartSettings::default(), extra, hitsounds))
