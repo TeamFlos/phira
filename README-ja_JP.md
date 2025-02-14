@@ -20,7 +20,7 @@ IssueとPull Requestを出すことをようこそ！まずこちらを見って
 貴方の言語を追加したら、 [ここを見ってください](https://github.com/TeamFlos/phira/pull/201#issuecomment-1783356944)。
 
 
-今の翻訳のは間違いだと思ったら、issueを付けてください。
+今の翻訳のは間違いだと思ったら、issueを出してください。
 
 ## Star 歴史
 
