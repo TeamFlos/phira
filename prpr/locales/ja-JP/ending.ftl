@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 retry = 再試行
 proceed = 続け
@@ -15,3 +16,5 @@ upload-cancel = キャンセル
 upload-retry = 再試行
 
 still-uploading = アプロード中
+=======
+>>>>>>> parent of c82c7d9 (dd)
