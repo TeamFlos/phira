@@ -6,7 +6,7 @@
 
 - [GitHub Release](https://github.com/TeamFlos/phira/releases): Android、Windows、Linux
 - [616.sb Mirror](https://616.sb/#phira): Androidだけ
-- [App Store](https://apps.apple.com/us/app/phira/id6447435864): iOS（アメリカ区ストア）
+- [App Store](https://apps.apple.com/us/app/phira/id6447435864): iOS（アプリストア）
 - ~~[.ipa Release](https://github.com/F-Unction/phira_ipa/releases): For IOS~~
 
 ## 贡献
