@@ -1,7 +1,7 @@
 
 login = 로그인
-login-sub = 온라인 커뮤니티에 참여하려면 로그인하세요.
-back-login = 로그인
+login-sub = Phira의 온라인 기능에 액세스하려면 로그인하세요! (차트, 이벤트, 멀티플레이 등)
+back-login = 로그인 화면으로 돌아가기
 register = 회원 가입
 
 email = 이메일 주소
@@ -24,4 +24,4 @@ action-failed = { $action ->
   *[other] _
 }
 
-email-sent = 인증 이메일이 전송되었습니다. 인증 후 로그인해주세요.
+email-sent = Phira에서 보낸 인증 이메일을 확인하세요.
