@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-crate::tl_file!("game");
+prpr_l10n::tl_file!("game");
 
 use super::{
     draw_background,
@@ -509,6 +509,9 @@ impl GameScene {
                     clicked = None;
                 }
                 let mut pos = self.music.position();
+                if self.mode == GameMode::Exercise {
+                    pos = tm.now() as f32;
+                }
                 if clicked.map_or(false, |it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
                     debug!("recreating music");
                     self.music = res.audio.create_music(
@@ -528,7 +531,7 @@ impl GameScene {
                         reset!(self, res, tm);
                     }
                     Some(1) => {
-                        if self.mode == GameMode::Exercise && tm.now() > self.exercise_range.end as f64 {
+                        if self.mode == GameMode::Exercise && (tm.now() > self.exercise_range.end as f64 || tm.now() < self.exercise_range.start as f64) {
                             tm.seek_to(self.exercise_range.start as f64);
                             self.music.seek_to(self.exercise_range.start)?;
                             pos = self.exercise_range.start;

@@ -206,9 +206,22 @@ impl Note {
         let height = self.height / res.aspect_ratio * spd;
 
         let base = height - line_height;
+        let cover_base = if !config.settings.hold_partial_cover {
+            height - line_height
+        } else {
+            match self.kind {
+                NoteKind::Hold { end_time: _,  end_height } => {
+                    let end_height = end_height / res.aspect_ratio * spd;
+                    end_height - line_height
+                }
+                _ => {
+                    height - line_height
+                }
+            }
+        };
+
         if !config.draw_below
-            && ((res.time - FADEOUT_TIME >= self.time) || (self.fake && res.time >= self.time) || (self.time > res.time && base <= -1e-5))
-            && !matches!(self.kind, NoteKind::Hold { .. })
+            && ((res.time - FADEOUT_TIME >= self.time && !matches!(self.kind, NoteKind::Hold { .. })) || (self.time > res.time && cover_base <= -0.001))
         {
             return;
         }
@@ -247,14 +260,9 @@ impl Note {
                     }
                     let end_height = end_height / res.aspect_ratio * spd;
 
-                    let clip = !config.draw_below && config.settings.hold_partial_cover;
-
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = h - line_height;
                     let top = end_height - line_height;
-                    if res.time < self.time && bottom < -1e-6 && !config.settings.hold_partial_cover {
-                        return;
-                    }
                     let tex = &style.hold;
                     let ratio = style.hold_ratio();
                     // body
@@ -284,7 +292,7 @@ impl Note {
                             dest_size: Some(vec2(scale * 2., top - bottom)),
                             ..Default::default()
                         },
-                        clip,
+                        false,
                     );
                     // head
                     if res.time < self.time || res.res_pack.info.hold_keep_head {
@@ -302,7 +310,7 @@ impl Note {
                                 dest_size: Some(hf * 2.),
                                 ..Default::default()
                             },
-                            clip,
+                            false,
                         );
                     }
                     // tail
@@ -320,7 +328,7 @@ impl Note {
                             dest_size: Some(hf * 2.),
                             ..Default::default()
                         },
-                        clip,
+                        false,
                     );
                 });
             }

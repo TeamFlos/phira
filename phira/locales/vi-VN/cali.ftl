@@ -1,2 +1,2 @@
 
-label = ĐIỀU CHỈNH
+label = HIỆU CHỈNH

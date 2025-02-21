@@ -1,4 +1,4 @@
-prpr::tl_file!("import" itl);
+prpr_l10n::tl_file!("import" itl);
 
 mod chart_order;
 pub use chart_order::{ChartOrder, ORDERS};
@@ -14,8 +14,9 @@ pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 
 mod song;
 pub use song::{Downloading, SongScene, RECORD_ID};
-
+#[cfg(feature = "video")]
 mod unlock;
+#[cfg(feature = "video")]
 pub use unlock::UnlockScene;
 
 mod profile;
