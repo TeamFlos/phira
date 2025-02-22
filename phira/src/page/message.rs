@@ -1,4 +1,4 @@
-prpr::tl_file!("message");
+prpr_l10n::tl_file!("message");
 
 use std::borrow::Cow;
 

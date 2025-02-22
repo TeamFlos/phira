@@ -1,4 +1,4 @@
-crate::tl_file!("dialog");
+prpr_l10n::tl_file!("dialog");
 
 use super::{DRectButton, RectButton, Scroll, Ui};
 use crate::{core::BOLD_FONT, ext::RectExt, scene::show_message};

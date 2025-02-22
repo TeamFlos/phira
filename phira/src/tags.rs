@@ -1,4 +1,4 @@
-prpr::tl_file!("tags");
+prpr_l10n::tl_file!("tags");
 
 use crate::{client::Permissions, page::Fader};
 use macroquad::prelude::*;

@@ -1,4 +1,4 @@
-prpr::tl_file!("song");
+prpr_l10n::tl_file!("song");
 
 #[cfg(feature = "video")]
 use super::UnlockScene;
@@ -16,6 +16,7 @@ use crate::{
     rate::RateDialog,
     save_data,
     tags::TagsDialog,
+    ttl,
 };
 use ::rand::{thread_rng, Rng};
 use anyhow::{anyhow, bail, Context, Result};
@@ -917,8 +918,8 @@ impl SongScene {
                 {
                     warn!("this build does not support unlock video.");
                     LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
-                    .await
-                    .map(|it| NextScene::Overlay(Box::new(it)))
+                        .await
+                        .map(|it| NextScene::Overlay(Box::new(it)))
                 }
                 #[cfg(feature = "video")]
                 {

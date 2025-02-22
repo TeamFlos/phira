@@ -34,3 +34,4 @@ jobs:
       - name: Run tests
         run: |
           cargo test -p phira --no-default-features -- --skip test_parse_chart
+          cargo test -p prpr --no-default-features

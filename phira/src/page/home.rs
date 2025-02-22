@@ -1,4 +1,4 @@
-prpr::tl_file!("home");
+prpr_l10n::tl_file!("home");
 
 use super::{
     load_font_with_cksum, set_bold_font, EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState,
@@ -14,6 +14,7 @@ use crate::{
     scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
     sync_data,
     threed::ThreeD,
+    ttl,
 };
 use ::rand::{random, thread_rng, Rng};
 use anyhow::{bail, Context, Result};
@@ -24,11 +25,11 @@ use prpr::{
     core::BOLD_FONT,
     ext::{open_url, screen_aspect, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
-    l10n::LANG_IDENTS,
     scene::{show_error, NextScene},
     task::Task,
     ui::{button_hit_large, clip_rounded_rect, ClipType, DRectButton, Dialog, FontArc, RectButton, Scroll, Ui},
 };
+use prpr_l10n::LANG_IDENTS;
 use reqwest::StatusCode;
 use serde::Deserialize;
 use std::{

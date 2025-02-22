@@ -1,4 +1,4 @@
-prpr::tl_file!("settings");
+prpr_l10n::tl_file!("settings");
 
 use super::{NextPage, OffsetPage, Page, SharedState};
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
     scene::BGM_VOLUME_UPDATED,
     sync_data,
     tabs::{Tabs, TitleFn},
+    ttl,
 };
 use anyhow::Result;
 use bytesize::ByteSize;
@@ -15,11 +16,11 @@ use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
-    l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
     ui::{DRectButton, Scroll, Slider, Ui},
 };
+use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
 

@@ -1,4 +1,4 @@
-prpr::tl_file!("login");
+prpr_l10n::tl_file!("login");
 
 use crate::{
     client::{Client, LoginParams, User, UserManager},
