@@ -362,9 +362,9 @@ impl Judge {
 
         let (LIMIT_BAD_R, LIMIT_GOOD_R, LIMIT_PERFECT_R) =
             if res.config.strict() {
-                (LIMIT_BAD, LIMIT_GOOD,LIMIT_PERFECT)
+                (LIMIT_BAD*0.5, LIMIT_GOOD*0.5, LIMIT_PERFECT*0.5)
             } else {
-                (LIMIT_BAD*0.5, LIMIT_GOOD*0.5, 0.5* LIMIT_PERFECT)
+                (LIMIT_BAD, LIMIT_GOOD, LIMIT_PERFECT)
             };
 
         if res.config.autoplay() {
