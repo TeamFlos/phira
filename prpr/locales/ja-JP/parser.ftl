@@ -1,6 +1,6 @@
 
 # general
-unknown-note-type = 未知音符类型: { $type }
+unknown-note-type = 未知的な音声記号: { $type }
 json-parse-failed = JSON 分析失敗
 judge-line-location = #{ $jlid } ジャッジライン
 
@@ -12,18 +12,18 @@ text-events-parse-failed = テキスト事件分析失敗
 color-events-parse-failed = 色の事件分析失敗
 gif-events-parse-failed = GIF 事件分析失敗
 
-illustration-load-failed = { $path }にあるイラストロードが失敗
+illustration-load-failed = { $path } にあるイラストロードが失敗
 gif-load-failed = { $path } にあるGIFロード失敗
 
 judge-line-location-name = #{ $jlid } ({ $name }) 判定线中
-hitsound-missing = 缺少打击音 `{ $name }`
+hitsound-missing = パーカッション `{ $name }` がありません
 
 # pgr
 event-not-contiguous = 事件应当连续
 
-alpha-events-parse-failed = alpha 事件解析失败
-rotate-events-parse-failed = rotate 事件解析失败
-move-events-parse-failed = move 事件解析失败
+alpha-events-parse-failed = Alpha事件分析失敗
+rotate-events-parse-failed = Rotate事件分析失敗
+move-events-parse-failed = Move事件分析失敗
 
 # pec
 unexpected-eol = 行意外结束
@@ -39,7 +39,7 @@ unexpected-extra = 未知的附加内容: { $next }
 line-location = #{ $lid } 行中
 
 # extra
-shader-load-failed = 无法从 { $path } 中加载 shader
-shader-not-found = 未找到预置 shader { $shader }
+shader-load-failed = { $path } でShaderをロードできません
+shader-not-found = { $shader } のShaderがありません
 effect-location = #{ $id } 号 effect 中
-video-load-failed = 从 { $path } 中加载视频失败
+video-load-failed =  { $path } で動画をロードできません
