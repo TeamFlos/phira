@@ -1,0 +1,65 @@
+name: Build Android Phira
+
+on:
+  workflow_dispatch:
+
+
+env:
+  CARGO_TERM_COLOR: always
+  ANDROID_HOME: ${{github.workspace}}/android-sdk
+  ANDROID_NDK_HOME: ${{github.workspace}}/android-ndk-r27c
+  ANDROID_NDK_ROOT: ${{github.workspace}}/android-ndk-r27c
+
+jobs:
+  Build:
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v4.2.2
+    
+    - run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev libssl-dev pkg-config
+        sed -i '1d' prpr/src/lib.rs
+        
+    - name: Download static-lib
+      uses: suisei-cn/actions-download-file@v1.3.0
+      id: downlod-static-lib
+      with:
+        url: "https://teamflos.github.io/phira-docs/phira_build_guide/prpr-avc.zip"
+        target: ./
+
+    - name: Set Up static-lib
+      run: |
+        unzip prpr-avc.zip -d ./
+
+    - name: Install Android SDK Tools
+      run: |
+        wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
+        unzip commandlinetools-linux-8512546_latest.zip -d $ANDROID_HOME
+        echo y | $ANDROID_HOME/cmdline-tools/bin/sdkmanager --sdk_root=${ANDROID_HOME} "platform-tools" "build-tools;33.0.2" "platforms;android-35"
+
+    - name: Install Android NDK
+      run: |
+        wget https://googledownloads.cn/android/repository/android-ndk-r27c-linux.zip
+        unzip android-ndk-r27c-linux.zip -d ${{github.workspace}}
+
+    - name: Install Rust Toolchains
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        toolchain: stable
+        target: aarch64-linux-android
+    
+    - name: Build for Android
+      run: |
+        cd phira
+        cargo install cargo-ndk
+        cargo ndk -t arm64-v8a -p 35 build --release
+    
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-build
+        path: |
+          target/aarch64-linux-android/release/libphira.so
