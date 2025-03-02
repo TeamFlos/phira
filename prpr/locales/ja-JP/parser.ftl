@@ -15,28 +15,28 @@ gif-events-parse-failed = GIF 事件分析失敗
 illustration-load-failed = { $path } にあるイラストロードが失敗
 gif-load-failed = { $path } にあるGIFロード失敗
 
-judge-line-location-name = #{ $jlid } ({ $name }) 判定线中
+judge-line-location-name = In judge line #{ $jlid } ({ $name }).
 hitsound-missing = パーカッション `{ $name }` がありません
 
 # pgr
-event-not-contiguous = 事件应当连续
+event-not-contiguous = Events should be contiguous.
 
 alpha-events-parse-failed = Alpha事件分析失敗
 rotate-events-parse-failed = Rotate事件分析失敗
 move-events-parse-failed = Move事件分析失敗
 
 # pec
-unexpected-eol = 行意外结束
-expected-f32 = 应当为 f32
-expected-usize = 应当为 usize
-expected-tween = 应当为 tween
+unexpected-eol = Unexpected end of line.
+expected-f32 = Expected f32.
+expected-usize = Expected usize.
+expected-tween = Expected tween.
 
-no-notes-inserted = 未插入音符
-unknown-command = 未知命令: { $cmd }
-bp-error = Bpm 事件 (bp) 应当连续且位于文件开头
-expected-01 = 应当为 0 / 1 (真 note / 假 note)
-unexpected-extra = 未知的附加内容: { $next }
-line-location = #{ $lid } 行中
+no-notes-inserted = No notes appear to be in the chart.
+unknown-command = Unknown command: { $cmd }.
+bp-error = Bpm events (bp) should be contiguous and in the head of the file.
+expected-01 = Expected 0 / 1 (real note / fake note).
+unexpected-extra = Unexpected extra content: { $next }.
+line-location = On line #{ $lid }.
 
 # extra
 shader-load-failed = { $path } でShaderをロードできません
