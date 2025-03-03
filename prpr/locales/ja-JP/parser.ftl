@@ -1,6 +1,6 @@
 
 # general
-unknown-note-type = 未知的な音声記号:{ $type }
+unknown-note-type = 未知的なノーツ:{ $type }
 json-parse-failed = JSON分析失敗
 judge-line-location = #{ $jlid }ジャッジライン
 
