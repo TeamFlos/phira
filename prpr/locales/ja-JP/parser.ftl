@@ -1,8 +1,8 @@
 
 # general
-unknown-note-type = 未知的な音声記号: { $type }
-json-parse-failed = JSON 分析失敗
-judge-line-location = #{ $jlid } ジャッジライン
+unknown-note-type = 未知的な音声記号:{ $type }
+json-parse-failed = JSON分析失敗
+judge-line-location = #{ $jlid }ジャッジライン
 
 # rpe
 type-events-parse-failed = { $type }事件分析失敗
