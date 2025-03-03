@@ -25,7 +25,7 @@ alpha-events-parse-failed = Alpha事件分析失敗
 rotate-events-parse-failed = Rotate事件分析失敗
 move-events-parse-failed = Move事件分析失敗
 
-# pec
+# pec   #こちらはまだできません
 unexpected-eol = Unexpected end of line.
 expected-f32 = Expected f32.
 expected-usize = Expected usize.
