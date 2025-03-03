@@ -15,7 +15,7 @@ gif-events-parse-failed = GIF 事件分析失敗
 illustration-load-failed = { $path }にあるイラストロードが失敗
 gif-load-failed = { $path }にあるGIFロード失敗
 
-judge-line-location-name = In judge line #{ $jlid } ({ $name }).
+judge-line-location-name = #{ $jlid }ジャッジライン
 hitsound-missing = パーカッション`{ $name }`がありません
 
 # pgr
