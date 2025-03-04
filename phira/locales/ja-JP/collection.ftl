@@ -1,6 +1,6 @@
 
-label = 楽譜コレクション
+label = 譜面コレクション
 
-wait-for-more = 待ちなさい…
+wait-for-more = ご期待ください…
 
 name-c1 = 未来遺跡

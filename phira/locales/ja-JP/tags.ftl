@@ -17,6 +17,6 @@ troll = トロル
 plain = Plain
 visual = ビジュアル
 
-filter-me = 私のアプロード
+filter-me = 私のアップロード
 filter-unreviewed = 審核待っています
 filter-stabilize = stable審核待っています

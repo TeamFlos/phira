@@ -5,10 +5,10 @@ connect = 接続
 connect-must-login = ログイン後にマルチプレイヤー利用可能
 connect-success = 接続成功
 connect-failed = 接続失敗
-connect-authenticate-failed = 身分暗証失敗
+connect-authenticate-failed = 身分認証失敗
 reconnect = 再接続中…
 
-create-room = 部屋を作る
+create-room = ルームを作る
 create-room-success = ルームが作った
 create-room-failed = ルーム作る失敗
 create-invalid-id = ルーム番号は２０個の英語の文字、数字、下線で構成できる
@@ -44,14 +44,14 @@ cancel-ready = キャンセル
 
 room-id = ルーム番号：{ $id }
 
-download-failed = 譜面ダンロード失敗
+download-failed = 譜面ダウンロード失敗
 
 lock-room-failed = ルームをロック失敗
 cycle-room-failed = ルームのスイッチ失敗
 
 chat-placeholder = 何か言う…
 chat-send = 送信
-chat-empty = 訊息內容不能為空　送信内容は空にできません
+chat-empty = 送信内容は空にできません
 chat-sent = 送信した
 chat-send-failed = 送信失敗
 
