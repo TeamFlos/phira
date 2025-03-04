@@ -11,7 +11,7 @@
 
 ## 貢献
 
-IssueとPull Requestを出すことをようこそ！まずこちらを見ってください[issues](https://github.com/TeamFlos/phira/issues?q=label%3A%22good+first+issue%22) と [pull requests](https://github.com/TeamFlos/phira/issues?q=label%3A%22good+first+issue%22)。
+IssueとPull Requestを出すことをようこそ！まずこちらを見てください[issues](https://github.com/TeamFlos/phira/issues?q=label%3A%22good+first+issue%22) と [pull requests](https://github.com/TeamFlos/phira/issues?q=label%3A%22good+first+issue%22)。
 私たちにもっと詳しく交流したら、 [このメールアドレス](mailto://contact@phira.cn)に連絡を取ってください。現在 **リズム・音楽ゲーム** の経験を持つ **Rust** プログラマーを募集中です。
 
 
