@@ -1,9 +1,9 @@
 
-edit-chart = 楽譜を編集
+edit-chart = 譜面を編集
 level-displayed = 難しさを表示
-chart-name = 楽譜名前
+chart-name = 譜面名前
 author = 作者
-composer = 曲師
+composer = 作曲家
 illustrator = イラストレーター
 diff = 難しさ
 preview-time = プレビュー時間

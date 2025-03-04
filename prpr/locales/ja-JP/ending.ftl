@@ -1,5 +1,5 @@
-retry = 再試行
-proceed = 続け
+retry = リトライ
+proceed = 続きます
 
 new-best = 新記録
 max-combo = Max COMBO
@@ -9,7 +9,7 @@ error = 誤差
 
 uploading = 成績アプロード中
 uploaded = アプロード成功
-upload-failed = アプロード失敗
+upload-failed = アップロード失敗
 upload-cancel = キャンセル
 upload-retry = 再試行
 
