@@ -21,7 +21,7 @@ hitsound-missing = パーカッション`{ $name }`がありません
 # pgr
 event-not-contiguous = Events should be contiguous.
 
-alpha-events-parse-failed = イベント分析失敗
+alpha-events-parse-failed = Alphaイベント分析失敗
 rotate-events-parse-failed = Rotateイベント分析失敗
 move-events-parse-failed = Moveイベント分析失敗
 
