@@ -85,6 +85,15 @@ fn get_uptime() -> f64 {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn get_uptime() -> f64 {
+    use std::time::SystemTime;
+    let start = SystemTime::UNIX_EPOCH;
+    let now = SystemTime::now();
+    let duration = now.duration_since(start).expect("Time went backwards");
+    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+}
+
 pub struct FlickTracker {
     threshold: f32,
     last_point: Point,
@@ -366,7 +375,6 @@ impl Judge {
         const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
         let spd = res.config.speed;
 
-        #[cfg(not(target_os = "windows"))]
         let uptime = get_uptime();
 
         let t = res.time;
@@ -460,14 +468,7 @@ impl Judge {
                 it.time = if it.time.is_infinite() {
                     f64::NEG_INFINITY
                 } else {
-                    #[cfg(target_os = "windows")]
-                    {
-                        it.time
-                    }
-                    #[cfg(not(target_os = "windows"))]
-                    {
-                        t as f64 - (uptime - it.time) * spd as f64
-                    }
+                    t as f64 - (uptime - it.time) * spd as f64
                 };
                 it
             })
