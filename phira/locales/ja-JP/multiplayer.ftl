@@ -1,8 +1,8 @@
 
-multiplayer = マルチプレイヤー
+multiplayer = 協力プレー
 
 connect = 接続
-connect-must-login = ログイン後にマルチプレイヤー利用可能
+connect-must-login = ログイン後に協力プレー利用可能
 connect-success = 接続成功
 connect-failed = 接続失敗
 connect-authenticate-failed = 身分認証失敗
