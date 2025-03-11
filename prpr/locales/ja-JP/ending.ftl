@@ -1,5 +1,5 @@
-retry = リトライ
-proceed = 完了
+retry = リトライ 
+proceed = 完了 
 
 new-best = 新記録
 max-combo = Max COMBO
