@@ -13,4 +13,4 @@ upload-failed = アップロード失敗
 upload-cancel = キャンセル
 upload-retry = 再試行
 
-still-uploading = アプロード中
+still-uploading = アップロード中
