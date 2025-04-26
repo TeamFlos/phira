@@ -242,18 +242,20 @@ impl JudgeLine {
                     JudgeLineKind::Texture(texture, _) => {
                         let mut color = color.unwrap_or(WHITE);
                         color.a = alpha.max(0.0);
-                        let hf = vec2(texture.width(), texture.height());
-                        draw_texture_ex(
-                            **texture,
-                            -hf.x / 2.,
-                            -hf.y / 2.,
-                            color,
-                            DrawTextureParams {
-                                dest_size: Some(hf),
-                                flip_y: true,
-                                ..Default::default()
-                            },
-                        );
+                        if (color.a - 0.).abs() > 0.01 {
+                            let hf = vec2(texture.width(), texture.height());
+                            draw_texture_ex(
+                                **texture,
+                                -hf.x / 2.,
+                                -hf.y / 2.,
+                                color,
+                                DrawTextureParams {
+                                    dest_size: Some(hf),
+                                    flip_y: true,
+                                    ..Default::default()
+                                },
+                            );
+                        }
                     }
                     JudgeLineKind::TextureGif(anim, frames, _) => {
                         let t = anim.now_opt().unwrap_or(0.0);
