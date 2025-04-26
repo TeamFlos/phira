@@ -426,8 +426,8 @@ async fn parse_judge_line(
     fs: &mut dyn FileSystem,
     bezier_map: &BezierMap,
     hitsounds: &mut HitSoundMap,
+    line_texture_map: &mut HashMap<String, SafeTexture>,
 ) -> Result<JudgeLine> {
-    let line_texture_map: HashMap<String, SafeTexture> = Default::default();
     let event_layers: Vec<_> = rpe.event_layers.into_iter().flatten().collect();
     fn events_with_factor(
         r: &mut BpmList,
@@ -551,29 +551,37 @@ async fn parse_judge_line(
                 JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
             } else {
                 if let Some(texture) = line_texture_map.get(&rpe.texture) {
+                    debug!(
+                        "texture {} reused, id: {}",
+                        rpe.texture.clone(),
+                        texture.clone().into_inner().raw_miniquad_texture_handle().gl_internal_id()
+                    );
                     JudgeLineKind::Texture(texture.clone(), rpe.texture.clone())
                 } else {
-                    JudgeLineKind::Texture(
-                        SafeTexture::from(image::load_from_memory(
-                            &fs.load_file(&rpe.texture)
-                                .await
-                                .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
-                        )?)
-                        .with_mipmap(),
-                        rpe.texture.clone(),
-                    )
+                    let texture = SafeTexture::from(image::load_from_memory(
+                        &fs.load_file(&rpe.texture)
+                            .await
+                            .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
+                    )?)
+                    .with_mipmap();
+                    line_texture_map.insert(rpe.texture.clone(), texture.clone());
+                    JudgeLineKind::Texture(texture, rpe.texture.clone())
                 }
             }
         } else {
-            JudgeLineKind::Texture(
-                SafeTexture::from(image::load_from_memory(
+            if let Some(texture) = line_texture_map.get(&rpe.texture) {
+                debug!("texture {} reused, id: {}", rpe.texture.clone(), texture.clone().into_inner().raw_miniquad_texture_handle().gl_internal_id());
+                JudgeLineKind::Texture(texture.clone(), rpe.texture.clone())
+            } else {
+                let texture = SafeTexture::from(image::load_from_memory(
                     &fs.load_file(&rpe.texture)
                         .await
                         .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
                 )?)
-                .with_mipmap(),
-                rpe.texture.clone(),
-            )
+                .with_mipmap();
+                line_texture_map.insert(rpe.texture.clone(), texture.clone());
+                JudgeLineKind::Texture(texture, rpe.texture.clone())
+            }
         },
         color: if let Some(events) = rpe.extended.as_ref().and_then(|e| e.color_events.as_ref()) {
             parse_events(r, events, Some(WHITE), bezier_map).with_context(|| ptl!("color-events-parse-failed"))?
@@ -669,10 +677,11 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
         .max().unwrap_or_default() + 1.;
     // don't want to add a whole crate for a mere join_all...
     let mut lines = Vec::new();
+    let mut line_texture_map = HashMap::new();
     for (id, rpe) in rpe.judge_line_list.into_iter().enumerate() {
         let name = rpe.name.clone();
         lines.push(
-            parse_judge_line(&mut r, rpe, max_time, fs, &bezier_map, &mut hitsounds)
+            parse_judge_line(&mut r, rpe, max_time, fs, &bezier_map, &mut hitsounds, &mut line_texture_map)
                 .await
                 .with_context(move || ptl!("judge-line-location-name", "jlid" => id, "name" => name))?,
         );
