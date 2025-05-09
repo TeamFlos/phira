@@ -11,16 +11,21 @@ pub struct ChartInfoEdit {
     pub chart: Option<String>,
     pub music: Option<String>,
     pub illustration: Option<String>,
+    pub unlock_video: Option<String>,
+    pub enable_unlock: bool,
     pub updated: bool,
 }
 
 impl ChartInfoEdit {
     pub fn new(info: ChartInfo) -> Self {
+        let enable_unlock = info.unlock_video.is_some();
         Self {
             info,
             chart: None,
             music: None,
             illustration: None,
+            unlock_video: None,
+            enable_unlock,
             updated: false,
         }
     }
@@ -38,6 +43,11 @@ impl ChartInfoEdit {
             }
             if let Some(illustration) = &self.illustration {
                 res.insert(self.info.illustration.clone(), tokio::fs::read(illustration).await?);
+            }
+            if self.enable_unlock {
+                if let Some(unlock) = &self.unlock_video {
+                    res.insert(self.info.unlock_video.as_ref().map(|it| it.clone()).unwrap_or("unlock.mp4".to_string()), tokio::fs::read(unlock).await?);
+                }
             }
         }
         Ok(res)
@@ -184,6 +194,22 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         {
             use crate::scene::{request_file, return_file, take_file};
             use macroquad::prelude::Rect;
+
+            let r = ui.text(tl!("enable-unlock")).size(0.47).anchor(1., 0.).draw();
+            let r = Rect::new(0.02, r.y - 0.01, r.h + 0.02, r.h + 0.02);
+            let check_str = if edit.enable_unlock { "v" } else { "" };
+            if ui.button("unlockchk", r, check_str.to_string()) {
+                if edit.enable_unlock {
+                    info.unlock_video = None;
+                    edit.enable_unlock = false;
+                } else {
+                    info.unlock_video = Some("unlock.mp4".to_string());
+                    edit.enable_unlock = true;
+                }
+                edit.updated = true;
+            }
+            dy!(r.h + s);
+
             let mut choose_file = |id: &str, label: Cow<'static, str>, value: &str| {
                 let r = ui.text(label).size(0.47).anchor(1., 0.).draw();
                 let r = Rect::new(0.02, r.y - 0.01, len, r.h + 0.02);
@@ -192,9 +218,12 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 }
                 dy!(r.h + s);
             };
+
             choose_file("chart", tl!("chart-file"), &info.chart);
             choose_file("music", tl!("music-file"), &info.music);
             choose_file("illustration", tl!("illu-file"), &info.illustration);
+            choose_file("unlock", tl!("unlock-file"), info.unlock_video.as_ref().map(|it| it.as_str()).unwrap_or("Disabled"));
+
             if let Some((id, file)) = take_file() {
                 match id.as_str() {
                     "chart" => {
@@ -208,6 +237,12 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                     "illustration" => {
                         edit.illustration = Some(file);
                         edit.updated = true;
+                    }
+                    "unlock" => {
+                        if edit.enable_unlock {
+                            edit.unlock_video = Some(file);
+                            edit.updated = true;
+                        }
                     }
                     _ => return_file(id, file),
                 }
