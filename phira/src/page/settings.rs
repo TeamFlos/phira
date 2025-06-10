@@ -497,7 +497,7 @@ impl GeneralList {
         }
         item! {
             let cache_size = if let Some(size) = self.cache_size {
-                Cow::Owned(tl!("item-cache-size", "size" => ByteSize(size).to_string_as(false)))
+                Cow::Owned(tl!("item-cache-size", "size" => ByteSize(size).to_string()))
             } else {
                 tl!("item-cache-size-loading")
             };

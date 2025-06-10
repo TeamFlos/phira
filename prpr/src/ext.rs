@@ -14,7 +14,7 @@ use lyon::{
 use macroquad::prelude::*;
 use miniquad::{gl::GLenum, BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
 use once_cell::sync::Lazy;
-use ordered_float::{Float, NotNan};
+use ordered_float::{FloatCore, NotNan};
 use sasa::AudioManager;
 use serde::Deserialize;
 use std::{
@@ -50,7 +50,7 @@ pub trait NotNanExt: Sized {
     fn not_nan(self) -> NotNan<Self>;
 }
 
-impl<T: Sized + Float> NotNanExt for T {
+impl<T: Sized + FloatCore> NotNanExt for T {
     fn not_nan(self) -> NotNan<Self> {
         NotNan::new(self).unwrap()
     }
@@ -110,7 +110,7 @@ impl SafeTexture {
         self
     }
 
-    pub fn with_filter(self, filter: GLenum) -> Self{
+    pub fn with_filter(self, filter: GLenum) -> Self {
         let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
         unsafe {
             use miniquad::gl::*;

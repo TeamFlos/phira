@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 sasa = { git = "https://github.com/Mivik/sasa", default-features = false }
-thiserror = "1.0.56"
-tracing = "0.1.37"
+thiserror = "2.0.12"
+tracing = "0.1.41"

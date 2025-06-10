@@ -16,7 +16,7 @@ use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
 use macroquad::prelude::{Color, WHITE};
 use sasa::AudioClip;
 use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, future::IntoFuture, rc::Rc, str::FromStr, time::Duration};
+use std::{cell::RefCell, collections::HashMap, future::IntoFuture, io::Cursor, rc::Rc, str::FromStr, time::Duration};
 use tracing::debug;
 
 pub const RPE_WIDTH: f32 = 1350.;
@@ -532,7 +532,7 @@ async fn parse_judge_line(
                     .with_context(|| ptl!("gif-load-failed", "path" => rpe.texture.clone()))?;
                 let frames = GifFrames::new(
                     tokio::spawn(async move {
-                        let decoder = gif::GifDecoder::new(&data[..])?;
+                        let decoder = gif::GifDecoder::new(Cursor::new(data))?;
                         debug!("decoding gif");
                         Ok::<std::vec::Vec<_>, ImageError>(decoder.into_frames().collect())
                     })
