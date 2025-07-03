@@ -26,19 +26,33 @@ cacache = { version = "13.1.0", default-features = false, features = [
 chrono = { version = "0.4.41", features = ["serde"] }
 futures-util = "0.3.31"
 hex = "0.4.3"
-image = "0.25.6"
+image = { version = "0.25.6", default-features = false, features = [
+    "bmp",
+    "gif",
+    "jpeg",
+    "png",
+    "rayon",
+    "webp",
+] }
 lru = "0.14.0"
 lyon = "*"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
 nalgebra = "*"
 once_cell = "*"
-openssl = { version = "*", features = ["vendored"] }
 pollster = "0.4.0"
 prpr = { path = "../prpr", features = ["log"], default-features = false }
-prpr-l10n ={ path = "../prpr-l10n" }
+prpr-l10n = { path = "../prpr-l10n" }
 rand = "0.8.5"
 regex = "1.11.1"
-reqwest = { version = "0.12.19", features = ["json", "stream", "gzip"] }
+reqwest = { version = "0.12.19", default-features = false, features = [
+    "json",
+    "stream",
+    "gzip",
+    "charset",
+    "http2",
+    "system-proxy",
+    "rustls-tls",
+] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_yaml = "0.9.34"

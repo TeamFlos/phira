@@ -24,7 +24,14 @@ fastblur = "0.1.1"
 fluent = "0.17.0"
 fluent-syntax = "0.12.0"
 glyph_brush = "0.7.12"
-image = "0.25.6"
+image = { version = "0.25.6", default-features = false, features = [
+	"bmp",
+	"gif",
+	"jpeg",
+	"png",
+	"rayon",
+	"webp",
+] }
 intl-memoizer = "0.5.3"
 lru = "0.14.0"
 lyon = "1.0.1"
@@ -69,7 +76,7 @@ tracing-subscriber = { version = "0.3.19", optional = true }
 colored = { version = "3.0.0", optional = true }
 
 prpr-avc = { path = "../prpr-avc", optional = true }
-prpr-l10n ={ path = "../prpr-l10n" }
+prpr-l10n = { path = "../prpr-l10n" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = "0.15.3"
