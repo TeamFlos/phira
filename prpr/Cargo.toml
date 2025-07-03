@@ -24,7 +24,7 @@ fastblur = "0.1.1"
 fluent = "0.17.0"
 fluent-syntax = "0.12.0"
 glyph_brush = "0.7.12"
-image = "0.25.6"
+image = {version = "0.25.6", default-features = false, features = ["bmp","gif","jpeg","png","rayon","webp"]}
 intl-memoizer = "0.5.3"
 lru = "0.14.0"
 lyon = "1.0.1"
