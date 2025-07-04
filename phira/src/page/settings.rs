@@ -639,7 +639,7 @@ struct ChartList {
     show_acc_btn: DRectButton,
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
-    disable_effect_btn: DRectButton,
+    shader_effect_btn: DRectButton,
     opt_btn: DRectButton,
     speed_slider: Slider,
     size_slider: Slider,
@@ -651,7 +651,7 @@ impl ChartList {
             show_acc_btn: DRectButton::new(),
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
-            disable_effect_btn: DRectButton::new(),
+            shader_effect_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
             speed_slider: Slider::new(0.5..2., 0.05),
             size_slider: Slider::new(0.8..1.2, 0.005),
@@ -677,7 +677,7 @@ impl ChartList {
             config.double_hint ^= true;
             return Ok(Some(true));
         }
-        if self.disable_effect_btn.touch(touch, t) {
+        if self.shader_effect_btn.touch(touch, t) {
             config.disable_effect ^= true;
             return Ok(Some(true));
         }
@@ -725,8 +725,8 @@ impl ChartList {
             render_switch(ui, rr, t, &mut self.dhint_btn, config.double_hint);
         }
         item! {
-            render_title(ui, tl!("item-disable-effect"), Some(tl!("item-disable-effect-sub")));
-            render_switch(ui, rr, t, &mut self.disable_effect_btn, config.disable_effect);
+            render_title(ui, tl!("item-shader-effect"), Some(tl!("item-shader-effect-sub")));
+            render_switch(ui, rr, t, &mut self.shader_effect_btn, !config.disable_effect);
         }
         item! {
             render_title(ui, tl!("item-opt"), Some(tl!("item-opt-sub")));
