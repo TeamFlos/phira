@@ -18,8 +18,8 @@ use tracing::debug;
 
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
 pub const LIMIT_PERFECT: f32 = 0.08;
-pub const LIMIT_GOOD: f32 = 0.16;
-pub const LIMIT_BAD: f32 = 0.18;
+pub const LIMIT_GOOD: f32 = 0.18;
+pub const LIMIT_BAD: f32 = 0.22;
 pub const UP_TOLERANCE: f32 = 0.05;
 pub const DIST_FACTOR: f32 = 0.2;
 
@@ -495,7 +495,7 @@ impl Judge {
                     if dt >= closest.3 {
                         break;
                     }
-                    let mut rt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
+                    // let rt = (dt + EARLY_OFFSET).abs()
                     dt = dt.abs();
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
@@ -503,7 +503,7 @@ impl Judge {
                     if dist > X_DIFF_MAX {
                         continue;
                     }
-                    if rt
+                    if dt
                         > if matches!(note.kind, NoteKind::Click) {
                             LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)
                         } else {
@@ -514,11 +514,10 @@ impl Judge {
                     }
 
                     if matches!(note.kind, NoteKind::Flick | NoteKind::Drag) {
-                        rt += LIMIT_PERFECT;
                         dt += LIMIT_PERFECT;
                     }
 
-                    let key = rt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
+                    let key = dt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
 
                     if key <= closest.3 {
                         closest = (Some((line_id, *id)), dist, dt, key);
