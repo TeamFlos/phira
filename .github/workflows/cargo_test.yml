@@ -1,0 +1,36 @@
+name: Cargo Test
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  cargo-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare
+        run: |
+          sudo apt-get update
+          sudo apt-get install librust-alsa-sys-dev libglib2.0-dev libasound2t64 libatk-adaptor libgail-common libgtk-3-dev
+
+      - name: Setup Rust
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup toolchain install nightly-2023-02-01
+          rustup default nightly-2023-02-01
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with: 
+          cache-on-failure: "true"
+          cache-all-crates: "true"
+
+      - name: Run tests
+        run: |
+          cargo test -p phira --no-default-features -- --skip test_parse_chart

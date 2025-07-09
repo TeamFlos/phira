@@ -1,5 +1,6 @@
 mod model;
 pub use model::*;
+use tracing::debug;
 
 use crate::{anti_addiction_action, get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
@@ -18,10 +19,17 @@ static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_point
 pub struct Client;
 
 // const API_URL: &str = "http://localhost:2924";
-const API_URL: &str = "https://api.phira.cn";
+const API_URL: &str = "https://phira.5wyxi.com";
 
 pub fn basic_client_builder() -> ClientBuilder {
-    let mut builder = reqwest::ClientBuilder::new();
+    let policy = reqwest::redirect::Policy::custom(|attempt| {
+        if let Some(_cid) = attempt.url().as_str().strip_prefix("anys://") {
+            attempt.stop()
+        } else {
+            attempt.follow()
+        }
+    });
+    let mut builder = reqwest::ClientBuilder::new().redirect(policy);
     if get_data().accept_invalid_cert {
         builder = builder.danger_accept_invalid_certs(true);
     }
@@ -241,6 +249,7 @@ impl Client {
             .and_then(|it| it.to_str().ok())
             .map(str::to_owned)
             .ok_or_else(|| anyhow!("invalid last-modified header"))?;
+        debug!("{new_modified} {modified:?}");
         if Some(new_modified.as_str()) == modified {
             // That mother fucker qiniu does not return NOT_MODIFIED
             return Ok(None);

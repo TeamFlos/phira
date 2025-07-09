@@ -25,6 +25,40 @@ pub const DIST_FACTOR: f32 = 0.2;
 
 const EARLY_OFFSET: f32 = 0.05;
 
+#[derive(Debug, Clone)]
+pub enum HitSound {
+    None,
+    Click,
+    Flick,
+    Drag,
+    Custom(String),
+}
+
+impl HitSound {
+    pub fn play(&self, res: &mut Resource) {
+        match self {
+            HitSound::None => {}
+            HitSound::Click => play_sfx(&mut res.sfx_click, &res.config),
+            HitSound::Flick => play_sfx(&mut res.sfx_flick, &res.config),
+            HitSound::Drag => play_sfx(&mut res.sfx_drag, &res.config),
+            HitSound::Custom(s) => {
+                if let Some(sfx) = res.extra_sfxs.get_mut(s) {
+                    play_sfx(sfx, &res.config);
+                }
+            }
+        }
+    }
+
+    pub fn default_from_kind(kind: &NoteKind) -> Self {
+        match kind {
+            NoteKind::Click => HitSound::Click,
+            NoteKind::Flick => HitSound::Flick,
+            NoteKind::Drag => HitSound::Drag,
+            NoteKind::Hold { .. } => HitSound::Click,
+        }
+    }
+}
+
 pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
     if config.volume_sfx <= 1e-2 {
         return;
@@ -543,7 +577,7 @@ impl Judge {
                                 judgements.push((if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good }, line_id, id, Some(t)));
                             }
                             NoteKind::Hold { .. } => {
-                                play_sfx(&mut res.sfx_click, &res.config);
+                                note.hitsound.play(res);
                                 self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
                                 note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f32::INFINITY);
                             }
@@ -605,7 +639,7 @@ impl Judge {
                             ));
                         }
                         NoteKind::Hold { .. } => {
-                            play_sfx(&mut res.sfx_click, &res.config);
+                            note.hitsound.play(res);
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
                             note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f32::INFINITY);
                         }
@@ -813,7 +847,7 @@ impl Judge {
                     break;
                 }
                 note.judge = if matches!(note.kind, NoteKind::Hold { .. }) {
-                    play_sfx(&mut res.sfx_click, &res.config);
+                    note.hitsound.play(res);
                     self.judgements.borrow_mut().push((t, line_id as _, *id, Err(true)));
                     JudgeStatus::Hold(true, t, (t - note.time) / spd, false, f32::INFINITY)
                 } else {
@@ -830,7 +864,7 @@ impl Judge {
         }
         for (line_id, id) in judgements.into_iter() {
             self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
-            let (note_transform, note_kind) = {
+            let (note_transform, note_hitsound) = {
                 let line = &mut chart.lines[line_id];
                 let note = &mut line.notes[id as usize];
                 let nt = if matches!(note.kind, NoteKind::Hold { .. }) { t } else { note.time };
@@ -840,15 +874,10 @@ impl Judge {
             };
             let line = &chart.lines[line_id];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                res.emit_at_origin(line.notes[id as usize].rotation(line), res.res_pack.info.fx_perfect())
+                res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
             });
-            if let Some(sfx) = match note_kind {
-                NoteKind::Click => Some(&mut res.sfx_click),
-                NoteKind::Drag => Some(&mut res.sfx_drag),
-                NoteKind::Flick => Some(&mut res.sfx_flick),
-                _ => None,
-            } {
-                play_sfx(sfx, &res.config);
+            if !matches!(chart.lines[line_id].notes[id as usize].kind, NoteKind::Hold { .. }) {
+                note_hitsound.play(res);
             }
         }
     }

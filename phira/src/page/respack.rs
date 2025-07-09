@@ -18,12 +18,13 @@ use prpr::{
 use sasa::{AudioManager, PlaySfxParams, Sfx};
 use serde_yaml::Error;
 use std::{
+    borrow::Cow,
     fs::File,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
-    }, borrow::Cow,
+    },
 };
 
 fn build_emitter(pack: &ResourcePack) -> Result<ParticleEmitter> {
@@ -176,7 +177,7 @@ impl Page for ResPackPage {
                 tl!("info"),
                 tl!("info-content", "name" => item.name.clone(), "author" => info.author.clone(), "desc" => info.description.clone()),
             )
-            .listener(|index| index == -2)
+            .listener(|_dialog, pos| pos == -2)
             .show();
             return Ok(true);
         }

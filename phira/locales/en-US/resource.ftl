@@ -1,6 +1,6 @@
 
 chap-c1 = Future Relics
 chap-c1-intro =
-  On the Phira land, 137 AD, a miraculous event known as the "Future Relics" occurred.
-  Countless gigantic structures and machinery descended randomly through cracks in the sky, carrying materials and magic that seemed to be from the future.
-  This cast a mysterious and panic-stricken atmosphere over the entire continent…
+  In the year 137 (AD), a miraculous event occured in the land of Phira.
+  The sky cracked open as countless structures and machines fell onto the earth, carrying what could be only be described as magical artifacts from the future.
+  This sent the continent into a state of panic and chaos...

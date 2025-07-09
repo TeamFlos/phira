@@ -5,7 +5,7 @@ use crate::{
     get_data_mut,
     page::Fader,
     save_data,
-    scene::{check_read_tos_and_policy, JUST_ACCEPTED_TOS},
+    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -206,6 +206,7 @@ impl Login {
         if let Some(done) = self.fader.done(t) {
             self.show = !done;
         }
+        dispatch_tos_task();
         if let Some((id, text)) = take_input() {
             'tmp: {
                 let tmp = match id.as_str() {

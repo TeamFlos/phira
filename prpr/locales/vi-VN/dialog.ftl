@@ -1,7 +1,7 @@
 
-notice = Nhắc nhở
+notice = Thông báo
 ok = OK
 
 error = Lỗi
-error-copy = Sao chép lỗi
-error-copied = Đã sao chép!
+error-copy = Sao chép
+error-copied = Đã sao chép

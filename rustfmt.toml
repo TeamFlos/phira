@@ -1,2 +1,8 @@
 max_width = 150
 fn_call_width = 150
+ignore = [
+    "phira/src/inner.rs",
+    "prpr/src/inner.rs",
+    "prpr/src/judge/inner.rs",
+    "prpr/src/scene/game/inner.rs",
+]

@@ -11,7 +11,7 @@ use crate::{
     icons::Icons,
     login::Login,
     save_data,
-    scene::{load_tos_and_policy, ProfileScene},
+    scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
     sync_data,
     threed::ThreeD,
 };
@@ -31,7 +31,10 @@ use prpr::{
 };
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    borrow::Cow,
+    sync::{atomic::Ordering, Arc},
+};
 use tap::Tap;
 use tracing::{info, warn};
 
@@ -94,6 +97,9 @@ pub struct HomePage {
     char_cached_size: f32,
     char_scroll: Scroll,
     char_edit_btn: RectButton,
+
+    #[cfg(feature = "aa")]
+    beian_btn: RectButton,
 }
 
 impl HomePage {
@@ -197,6 +203,9 @@ impl HomePage {
             char_cached_size: 0.,
             char_scroll: Scroll::new().use_clip(ClipType::Clip),
             char_edit_btn: RectButton::new(),
+
+            #[cfg(feature = "aa")]
+            beian_btn: RectButton::new(),
         };
         res.load_char_illu();
 
@@ -355,7 +364,6 @@ impl Page for HomePage {
             self.sf.enter(s.t);
             self.need_back = false;
         }
-        load_tos_and_policy();
         self.fetch_has_new();
         Ok(())
     }
@@ -415,6 +423,11 @@ impl Page for HomePage {
             }
             return Ok(true);
         }
+        #[cfg(feature = "aa")]
+        if self.beian_btn.touch(touch) {
+            let _ = open_url("https://beian.miit.gov.cn/#/home");
+            return Ok(true);
+        }
         if self.char_btn.touch(touch) {
             if !self.char_screen_p.transiting(rt) {
                 let to = if self.char_screen_p.now(rt) < 0.5 {
@@ -452,7 +465,8 @@ impl Page for HomePage {
                             let _ = save_data();
                             sync_data();
                         }
-                        show_error(err.context(tl!("failed-to-update")));
+                        // TODO: better error handling
+                        show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
                     }
                     Ok(val) => {
                         get_data_mut().me = Some(val);
@@ -533,7 +547,7 @@ impl Page for HomePage {
                                 tl!("update-ignore").into_owned(),
                                 tl!("update-go").into_owned(),
                             ])
-                            .listener(move |pos| {
+                            .listener(move |_dialog, pos| {
                                 match pos {
                                     1 => {
                                         get_data_mut().ignored_version = Some(ver.version.clone());
@@ -601,6 +615,9 @@ impl Page for HomePage {
                 }
                 self.char_fetch_task = None;
             }
+        }
+        if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
+            check_read_tos_and_policy(true, true);
         }
 
         Ok(())
@@ -745,10 +762,23 @@ impl Page for HomePage {
                     .size(0.6)
                     .draw();
             }
+
+            #[cfg(feature = "aa")]
+            {
+                let r = ui.screen_rect();
+                let r = ui
+                    .text("备案号：闽ICP备18008307号-64A")
+                    .pos(r.x + 0.02, r.bottom() - 0.03)
+                    .size(0.5)
+                    .anchor(0., 1.)
+                    .draw();
+                self.beian_btn.set(ui, r);
+            }
         });
 
         self.login.render(ui, t);
         self.sf.render(ui, t);
+
         Ok(())
     }
 

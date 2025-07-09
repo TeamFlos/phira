@@ -90,7 +90,12 @@ impl L10nGlobal {
         let mut lang_map = HashMap::new();
         let mut order = Vec::new();
         let locale_lang = get_locale().unwrap_or_else(|| String::from("en-US"));
-        let locale_lang: LanguageIdentifier = locale_lang.parse().unwrap();
+        let locale_lang: LanguageIdentifier = locale_lang.parse().unwrap_or_else(|_| {
+            warn!("Invalid locale detected, defaulting to en-US");
+            // Debug log: send lang tag to log
+            warn!("Locale detected: {:?}", locale_lang);
+            langid!("en-US")
+        });
         for (id, lang) in LANG_IDENTS.iter().enumerate() {
             lang_map.insert(lang.clone(), id);
             if *lang == locale_lang {
@@ -164,18 +169,25 @@ impl L10nLocal {
             self.generation = gen;
             self.cache.clear();
         }
-        let (id, pattern) = self.cache.get_or_insert(key.clone(), || {
-            let guard = GLOBAL.order.lock().unwrap();
-            if let Some((id, message)) = guard
-                .iter()
-                .filter_map(|id| self.bundles.inner[*id].get_message(&key).map(|msg| (*id, msg)))
-                .next()
-            {
-                return (id, message.value().unwrap());
+        if let Some((id, pattern)) = {
+            let get_result = self.cache.get(&key);
+            if get_result.is_none() {
+                let guard = GLOBAL.order.lock().unwrap();
+                guard
+                    .iter()
+                    .filter_map(|id| self.bundles.inner[*id].get_message(&key).map(|msg| (*id, msg)))
+                    .next()
+                    .map(|(id, message)| (id, message.value().unwrap()))
+                    .map(|val| self.cache.get_or_insert(key.clone(), || val))
+            } else {
+                get_result
             }
-            panic!("no translation found for {key}");
-        });
-        unsafe { std::mem::transmute(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
+        } {
+            unsafe { std::mem::transmute(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
+        } else {
+            warn!("no translation found for {key}, returning key");
+            key
+        }
     }
 
     pub fn format<'s>(&mut self, key: impl Into<Cow<'static, str>>, args: Option<&'s FluentArgs<'s>>) -> Cow<'s, str> {
