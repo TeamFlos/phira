@@ -16,49 +16,63 @@ event_debug = []
 
 [dependencies]
 anyhow = "1.0"
-arc-swap = "1.6.0"
+arc-swap = "1.7.1"
 base64 = "0.22.1"
-bitflags = "2.2.1"
-bytes = "1.4.0"
-cacache = { version = "12.0.0", default-features = false, features = [
+bitflags = "2.9.1"
+bytes = "1.10.1"
+cacache = { version = "13.1.0", default-features = false, features = [
     "tokio-runtime",
 ] }
-chrono = { version = "0.4.23", features = ["serde"] }
-futures-util = "0.3.25"
+chrono = { version = "0.4.41", features = ["serde"] }
+futures-util = "0.3.31"
 hex = "0.4.3"
-image = "0.24.0"
-lru = "0.12.1"
+image = { version = "0.25.6", default-features = false, features = [
+    "bmp",
+    "gif",
+    "jpeg",
+    "png",
+    "rayon",
+    "webp",
+] }
+lru = "0.14.0"
 lyon = "*"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
 nalgebra = "*"
 once_cell = "*"
-openssl = { version = "*", features = ["vendored"] }
-pollster = "0.3.0"
+pollster = "0.4.0"
 prpr = { path = "../prpr", features = ["log"], default-features = false }
-prpr-l10n ={ path = "../prpr-l10n" }
+prpr-l10n = { path = "../prpr-l10n" }
 rand = "0.8.5"
-regex = "1.7.0"
-reqwest = { version = "0.12.5", features = ["json", "stream", "gzip"] }
+regex = "1.11.1"
+reqwest = { version = "0.12.19", default-features = false, features = [
+    "json",
+    "stream",
+    "gzip",
+    "charset",
+    "http2",
+    "system-proxy",
+    "rustls-tls",
+] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
-serde_yaml = "0.9.17"
+serde_yaml = "0.9.34"
 sha2 = "*"
-smallvec = "1.10.0"
+smallvec = "1.15.1"
 tap = "1.0.1"
-tempfile = "3.10.0"
+tempfile = "3.20.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
-tracing = "0.1.37"
-walkdir = "2.3.3"
-zip = "0.6.4"
+tracing = "0.1.41"
+walkdir = "2.5.0"
+zip = "4.0.0"
 zstd = "0.13"
 
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp" }
-uuid = { version = "1.3.3", features = ["v4"] }
-logos = "0.14.0"
-semver = { version = "1.0.20", features = ["serde"] }
-async-trait = "0.1.76"
-bytesize = "1.3.0"
+uuid = { version = "1.17.0", features = ["v4"] }
+logos = "0.15.0"
+semver = { version = "1.0.26", features = ["serde"] }
+async-trait = "0.1.88"
+bytesize = "2.0.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
@@ -78,5 +92,5 @@ objc-foundation = "*"
 dotenv-build = "0.1"
 
 [dev-dependencies]
-fluent = "0.16.0"
-fluent-syntax = "0.11.0"
+fluent = "0.17.0"
+fluent-syntax = "0.12.0"
