@@ -529,15 +529,13 @@ impl Judge {
                     if dt >= closest.3 {
                         break;
                     }
-                    // let rt = (dt + EARLY_OFFSET).abs()
-                    dt = dt.abs();
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
                     let dist = (x.now() - pos.x).abs();
                     if dist > X_DIFF_MAX {
                         continue;
                     }
-                    if dt
+                    if dt.abs()
                         > if matches!(note.kind, NoteKind::Click) {
                             LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)
                         } else {
@@ -546,12 +544,13 @@ impl Judge {
                     {
                         continue;
                     }
+                    let mut rt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
 
                     if matches!(note.kind, NoteKind::Flick | NoteKind::Drag) {
-                        dt += LIMIT_PERFECT;
+                        rt += LIMIT_PERFECT;
                     }
 
-                    let key = dt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
+                    let key = rt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
 
                     if key <= closest.3 {
                         closest = (Some((line_id, *id)), dist, dt, key);
