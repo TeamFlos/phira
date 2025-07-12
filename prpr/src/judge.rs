@@ -535,6 +535,7 @@ impl Judge {
                     if dist > X_DIFF_MAX {
                         continue;
                     }
+
                     if dt.abs()
                         > if matches!(note.kind, NoteKind::Click) {
                             LIMIT_BAD - LIMIT_PERFECT * (dist - 0.9).max(0.)
@@ -553,7 +554,7 @@ impl Judge {
                     let key = rt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
 
                     if key <= closest.3 {
-                        closest = (Some((line_id, *id)), dist, dt, key);
+                        closest = (Some((line_id, *id)), dist, dt.abs(), key);
                     }
                 }
             }
