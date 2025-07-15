@@ -526,7 +526,7 @@ impl Judge {
                     if !click && matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. }) {
                         continue;
                     }
-                    let mut dt = (note.time - t) / spd;
+                    let dt = (note.time - t) / spd;
                     if dt >= closest.3 {
                         break;
                     }
@@ -871,7 +871,7 @@ impl Judge {
                 let nt = if matches!(note.kind, NoteKind::Hold { .. }) { t } else { note.time };
                 line.object.set_time(nt);
                 note.object.set_time(nt);
-                (note.object.now(res), note.kind)
+                (note.object.now(res), note.hitsound.clone())
             };
             let line = &chart.lines[line_id];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
