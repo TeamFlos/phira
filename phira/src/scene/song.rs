@@ -1,4 +1,4 @@
-prpr::tl_file!("song");
+prpr_l10n::tl_file!("song");
 
 #[cfg(feature = "video")]
 use super::UnlockScene;
@@ -16,6 +16,7 @@ use crate::{
     rate::RateDialog,
     save_data,
     tags::TagsDialog,
+    ttl,
 };
 use ::rand::{thread_rng, Rng};
 use anyhow::{anyhow, bail, Context, Result};
@@ -64,7 +65,7 @@ use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
 use walkdir::WalkDir;
-use zip::{write::FileOptions, CompressionMethod, ZipWriter};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 // Things that need to be reloaded for chart info updates
 type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
@@ -917,8 +918,8 @@ impl SongScene {
                 {
                     warn!("this build does not support unlock video.");
                     LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
-                    .await
-                    .map(|it| NextScene::Overlay(Box::new(it)))
+                        .await
+                        .map(|it| NextScene::Overlay(Box::new(it)))
                 }
                 #[cfg(feature = "video")]
                 {
@@ -1880,7 +1881,7 @@ impl Scene for SongScene {
                 let chart_bytes = {
                     let mut bytes = Vec::new();
                     let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
-                    let options = FileOptions::default()
+                    let options = SimpleFileOptions::default()
                         .compression_method(CompressionMethod::Deflated)
                         .unix_permissions(0o755);
                     #[allow(deprecated)]
@@ -1897,7 +1898,6 @@ impl Scene for SongScene {
                         }
                     }
                     zip.finish()?;
-                    drop(zip);
                     bytes
                 };
                 let file = Client::upload_file("chart.zip", chart_bytes)

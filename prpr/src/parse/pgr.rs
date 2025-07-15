@@ -1,4 +1,4 @@
-crate::tl_file!("parser" ptl);
+prpr_l10n::tl_file!("parser" ptl);
 
 use super::process_lines;
 use crate::{
@@ -229,20 +229,23 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32) -> Result<JudgeLine> {
 
 pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
     let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
-    let max_time = *pgr
+    let max_time = pgr
         .judge_line_list
         .iter()
         .map(|line| {
-            line.notes_above
+            (line
+                .notes_above
                 .iter()
                 .chain(line.notes_below.iter())
                 .map(|note| note.time.not_nan())
                 .max()
                 .unwrap_or_default()
-                * (60. / line.bpm / 32.)
+                * (60. / line.bpm / 32.))
+                .not_nan()
         })
         .max()
         .unwrap_or_default()
+        .into_inner()
         + 1.;
     let mut lines = pgr
         .judge_line_list

@@ -1,4 +1,4 @@
-prpr::tl_file!("settings");
+prpr_l10n::tl_file!("settings");
 
 use super::{NextPage, OffsetPage, Page, SharedState};
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
     scene::BGM_VOLUME_UPDATED,
     sync_data,
     tabs::{Tabs, TitleFn},
+    ttl,
 };
 use anyhow::Result;
 use bytesize::ByteSize;
@@ -15,11 +16,11 @@ use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
-    l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
     ui::{DRectButton, Scroll, Slider, Ui},
 };
+use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
 
@@ -270,6 +271,10 @@ struct GeneralList {
     icon_lang: SafeTexture,
 
     lang_btn: ChooseButton,
+
+    #[cfg(target_os = "windows")]
+    fullscreen_btn: DRectButton,
+
     cache_btn: DRectButton,
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
@@ -299,6 +304,10 @@ impl GeneralList {
                         .and_then(|ident| LANG_IDENTS.iter().position(|it| *it == ident))
                         .unwrap_or_default(),
                 ),
+
+            #[cfg(target_os = "windows")]
+            fullscreen_btn: DRectButton::new(),
+
             cache_btn: DRectButton::new(),
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
@@ -352,6 +361,13 @@ impl GeneralList {
         if self.lang_btn.touch(touch, t) {
             return Ok(Some(false));
         }
+
+        #[cfg(target_os = "windows")]
+        if self.fullscreen_btn.touch(touch, t) {
+            config.fullscreen_mode ^= true;
+            return Ok(Some(true));
+        }
+
         if self.cache_btn.touch(touch, t) {
             fs::remove_dir_all(dir::cache()?)?;
             self.update_cache_size()?;
@@ -452,6 +468,13 @@ impl GeneralList {
             ui.fill_rect(r, (*self.icon_lang, r));
             self.lang_btn.render(ui, rr, t);
         }
+
+        #[cfg(target_os = "windows")]
+        item! {
+            render_title(ui, tl!("item-fullscreen"), Some(tl!("item-fullscreen-sub")));
+            render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
+        }
+
         item! {
             render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
@@ -474,7 +497,7 @@ impl GeneralList {
         }
         item! {
             let cache_size = if let Some(size) = self.cache_size {
-                Cow::Owned(tl!("item-cache-size", "size" => ByteSize(size).to_string_as(false)))
+                Cow::Owned(tl!("item-cache-size", "size" => ByteSize(size).to_string()))
             } else {
                 tl!("item-cache-size-loading")
             };

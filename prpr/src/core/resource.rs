@@ -219,21 +219,26 @@ impl ResourcePack {
 
         macro_rules! load_clip {
             ($path:literal) => {
-                if let Some(sfx) = fs.load_file($path).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                if let Some(sfx) = fs.load_file(format!("{}.ogg", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                    sfx
+                } else if let Some(sfx) = fs.load_file(format!("{}.wav", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                    sfx
+                } else if let Some(sfx) = fs.load_file(format!("{}.mp3", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
                     sfx
                 } else {
-                    AudioClip::new(load_file($path).await?)?
+                    AudioClip::new(load_file(format!("{}.ogg", $path).as_str()).await?)?
                 }
             };
         }
+
         Ok(Self {
             info,
             note_style,
             note_style_mh,
-            sfx_click: load_clip!("click.ogg"),
-            sfx_drag: load_clip!("drag.ogg"),
-            sfx_flick: load_clip!("flick.ogg"),
-            ending: load_clip!("ending.ogg"),
+            sfx_click: load_clip!("click"),
+            sfx_drag: load_clip!("drag"),
+            sfx_flick: load_clip!("flick"),
+            ending: load_clip!("ending"),
             hit_fx,
         })
     }

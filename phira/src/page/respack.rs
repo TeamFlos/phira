@@ -1,4 +1,4 @@
-prpr::tl_file!("respack");
+prpr_l10n::tl_file!("respack");
 
 use super::{Page, SharedState};
 use crate::{

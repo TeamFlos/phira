@@ -242,6 +242,9 @@ impl JudgeLine {
                     JudgeLineKind::Texture(texture, _) => {
                         let mut color = color.unwrap_or(WHITE);
                         color.a = alpha.max(0.0);
+                        if color.a == 0.0 {
+                            return;
+                        }
                         let hf = vec2(texture.width(), texture.height());
                         draw_texture_ex(
                             **texture,

@@ -1,4 +1,4 @@
-prpr::tl_file!("cali");
+prpr_l10n::tl_file!("cali");
 
 use std::borrow::Cow;
 

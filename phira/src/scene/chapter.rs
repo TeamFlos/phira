@@ -1,4 +1,4 @@
-prpr::tl_file!("chapter");
+prpr_l10n::tl_file!("chapter");
 
 use crate::{
     anim::Anim,
