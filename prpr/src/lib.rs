@@ -1,5 +1,3 @@
-#![feature(local_key_cell_methods)]
-
 pub mod bin;
 pub mod config;
 pub mod core;

@@ -22,8 +22,8 @@ jobs:
         run: |
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          rustup toolchain install nightly-2023-02-01
-          rustup default nightly-2023-02-01
+          rustup toolchain install nightly-2025-07-01
+          rustup default nightly-2025-07-01
 
       - name: Cache
         uses: Swatinem/rust-cache@v2

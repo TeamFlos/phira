@@ -65,7 +65,7 @@ use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
 use walkdir::WalkDir;
-use zip::{write::FileOptions, CompressionMethod, ZipWriter};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 // Things that need to be reloaded for chart info updates
 type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
@@ -1881,7 +1881,7 @@ impl Scene for SongScene {
                 let chart_bytes = {
                     let mut bytes = Vec::new();
                     let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
-                    let options = FileOptions::default()
+                    let options = SimpleFileOptions::default()
                         .compression_method(CompressionMethod::Deflated)
                         .unix_permissions(0o755);
                     #[allow(deprecated)]
@@ -1898,7 +1898,6 @@ impl Scene for SongScene {
                         }
                     }
                     zip.finish()?;
-                    drop(zip);
                     bytes
                 };
                 let file = Client::upload_file("chart.zip", chart_bytes)

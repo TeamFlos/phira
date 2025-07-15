@@ -16,7 +16,7 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [workspace.dependencies]
-tokio = "=1.36.0"
+tokio = "1.38.2"
 
 [profile.release]
 opt-level = 2
