@@ -194,20 +194,6 @@ impl Page for OffsetPage {
                 }).unwrap();
             }
 
-            // if t <= 1. {
-            //     let w = NOTE_WIDTH_RATIO_BASE * config.note_scale * 2.;
-            //     let h = w * self.click.height() / self.click.width();
-            //     let r = Rect::new(0.0 - w / 2., late - h / 2., w, h);
-            //     ui.fill_rect(r, (*self.click, r, ScaleType::Fit, c));
-            //     self.cali_last = true;
-            // } else {
-            //     if self.cali_last {
-            //         let g = ui.to_global(ct);
-            //         self.emitter.emit_at(vec2(g.0, g.1), 0., self.color);
-            //     }
-            //     self.cali_last = false;
-            // }
-
             if let Some((latency, time)) = self.touch {
                 let p = (ot - time) / Self::FADE_TIME;
                 if p > 1. {
