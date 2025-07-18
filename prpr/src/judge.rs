@@ -606,7 +606,7 @@ impl Judge {
                                 judgements.push((if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good }, line_id, id, Some(t)));
                             }
                             NoteKind::Hold { .. } => {
-                                play_sfx(&mut res.sfx_click, &res.config);
+                                note.hitsound.play(res);
                                 self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
                                 note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f32::INFINITY);
                             }
