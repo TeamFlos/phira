@@ -150,6 +150,13 @@ impl Video {
         gl.geometry(&vertices, &[0, 2, 3, 0, 1, 3]);
         gl_use_default_material();
     }
+
+    pub fn reset(&mut self) -> Result<()> {
+        self.next_frame = 0;
+        self.ended = false;
+        self.video = prpr_avc::Video::open(self.video_file.path().as_os_str().to_str().unwrap(), AVPixelFormat::YUV420P)?;
+        Ok(())
+    }
 }
 
 mod shader {

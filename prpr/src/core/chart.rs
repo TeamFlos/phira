@@ -98,6 +98,9 @@ impl Chart {
         for line in &mut self.lines {
             line.cache.reset(&mut line.notes);
         }
+        for video in &mut self.extra.videos {
+            video.reset().unwrap();
+        }
     }
 
     pub fn update(&mut self, res: &mut Resource) {
