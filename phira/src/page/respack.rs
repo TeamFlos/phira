@@ -265,7 +265,7 @@ impl Page for ResPackPage {
         s.render_fader(ui, |ui| {
             ui.fill_path(&cr.rounded(0.005), semi_black(0.4));
             let item = &self.items[self.index];
-            if let Some(pack) = &item.loaded {
+            if let Some(res_pack) = &item.loaded {
                 let width = 0.16;
                 let mut r = Rect::new(cr.x + 0.07, cr.y + 0.1, width, 0.);
                 let mut draw = |mut r: Rect, tex: Texture2D, mh: Texture2D| {
@@ -281,17 +281,17 @@ impl Page for ResPackPage {
                     ui.fill_rect(r, (mh, r, ScaleType::Fit));
                 };
                 let sp = (cr.h - 0.4) / 2.;
-                draw(r, *pack.note_style.click, *pack.note_style_mh.click);
+                draw(r, *res_pack.note_style.click, *res_pack.note_style_mh.click);
                 r.y += sp;
-                draw(r, *pack.note_style.drag, *pack.note_style_mh.drag);
+                draw(r, *res_pack.note_style.drag, *res_pack.note_style_mh.drag);
                 r.y += sp;
-                draw(r, *pack.note_style.flick, *pack.note_style_mh.flick);
+                draw(r, *res_pack.note_style.flick, *res_pack.note_style_mh.flick);
                 r.y += sp;
                 let mut r = Rect::new(0.1, cr.y + 0.1, width, cr.h - 0.38);
                 let draw = |mut r: Rect, style: &NoteStyle, width: f32| {
                     let conv = |r: Rect, tex: &SafeTexture| Rect::new(r.x * tex.width(), r.y * tex.height(), r.w * tex.width(), r.h * tex.height());
                     let tr = conv(style.hold_tail_rect(), &style.hold);
-                    let factor = if pack.info.hold_compact { 0.5 } else { 1. };
+                    let factor = if res_pack.info.hold_compact { 0.5 } else { 1. };
                     let h = tr.h / tr.w * width;
                     let r2 = Rect::new(r.x, r.y - h * factor, width, h);
                     let r2 = ui.rect_to_global(r2);
@@ -324,7 +324,7 @@ impl Page for ResPackPage {
                     r.w = width;
                     let r2 = ui.rect_to_global(r);
                     draw_texture_ex(
-                        if pack.info.hold_repeat {
+                        if res_pack.info.hold_repeat {
                             **style.hold_body.as_ref().unwrap()
                         } else {
                             *style.hold
@@ -334,7 +334,7 @@ impl Page for ResPackPage {
                         semi_white(ui.alpha),
                         DrawTextureParams {
                             source: Some({
-                                if pack.info.hold_repeat {
+                                if res_pack.info.hold_repeat {
                                     let hold_body = style.hold_body.as_ref().unwrap();
                                     let w = hold_body.width();
                                     Rect::new(0., 0., w, r2.h / width / 2. * w)
@@ -347,9 +347,9 @@ impl Page for ResPackPage {
                         },
                     )
                 };
-                draw(r, &pack.note_style, width);
+                draw(r, &res_pack.note_style, width);
                 r.x += width + 0.04;
-                draw(r, &pack.note_style_mh, width * pack.note_style_mh.hold.width() / pack.note_style.hold.width());
+                draw(r, &res_pack.note_style_mh, width * res_pack.note_style_mh.hold.width() / res_pack.note_style.hold.width());
                 let x = cr.x + 0.05;
                 if let Some(emitter) = &mut self.emitter {
                     emitter.draw(get_frame_time());
@@ -359,15 +359,17 @@ impl Page for ResPackPage {
                 let rnd = t.div_euclid(inter);
                 let irnd = rnd as u32;
                 let tex = match irnd % 3 {
-                    0 => *pack.note_style.click,
-                    1 => *pack.note_style.drag,
-                    2 => *pack.note_style.flick,
+                    0 => *res_pack.note_style.click,
+                    1 => *res_pack.note_style.drag,
+                    2 => *res_pack.note_style.flick,
                     _ => unreachable!(),
                 };
                 let st = r.y + 0.06;
                 let cx = r.x + 0.43;
                 let line = 0.12;
-                ui.fill_rect(Rect::new(cx - 0.2, line - 0.004, 0.4, 0.008), WHITE);
+                let line_color = if irnd % 2 == 0 { res_pack.info.line_perfect() } else { res_pack.info.line_good() };
+                let fx_color = if irnd % 2 == 0 { res_pack.info.fx_perfect() } else { res_pack.info.fx_good() };
+                ui.fill_rect(Rect::new(cx - 0.2, line - 0.004, 0.4, 0.008), line_color);
                 let p = (t - inter * rnd) / 0.9;
                 if p <= 1. {
                     let y = st + (line - st) * p;
@@ -376,7 +378,7 @@ impl Page for ResPackPage {
                     ui.fill_rect(r, (tex, r, ScaleType::Fit));
                 } else if irnd != self.last_round {
                     if let Some(emitter) = &mut self.emitter {
-                        emitter.emit_at(vec2(cx, line), 0., pack.info.fx_perfect());
+                        emitter.emit_at(vec2(cx, line), 0., fx_color);
                     }
                     if let Some(sfxs) = &mut self.sfxs {
                         let _ = sfxs[(irnd % 3) as usize].play(PlaySfxParams::default());
