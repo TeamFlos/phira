@@ -319,6 +319,7 @@ impl Tweenable for Color {
 
 impl Tweenable for String {
     fn tween(x: &Self, y: &Self, t: f32) -> Self {
+        //println!("x:{} \ty:{} \tt:{}", x, y, t);
         if x.contains("%P%") && y.contains("%P%") {
             let x = x.replace("%P%", "");
             let y = y.replace("%P%", "");
@@ -352,10 +353,15 @@ impl Tweenable for String {
             } else {
                 let x_len = x.chars().count();
                 let y_len = y.chars().count();
-                if x.chars().zip(y.chars()).take(x_len).all(|(xc, yc)| xc == yc) {
-                    let take_num = ((y_len - x_len) as f32 * t).round() as usize + x_len;
+                if y.starts_with(x) { // x in y
+                    let take_num = ((y_len - x_len) as f32 * t).floor() as usize + x_len;
                     let mut text = x.clone();
                     text.push_str(&y.chars().skip(x_len).take(take_num - x_len).collect::<String>());
+                    text
+                } else if x.starts_with(y) { // y in x
+                    let take_num = ((x_len - y_len) as f32 * (1. - t)).round() as usize + y_len;
+                    let mut text = y.clone();
+                    text.push_str(&x.chars().skip(y_len).take(take_num - y_len).collect::<String>());
                     text
                 } else {
                     if x.contains("%P%") {
