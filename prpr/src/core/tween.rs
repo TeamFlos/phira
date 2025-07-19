@@ -319,7 +319,6 @@ impl Tweenable for Color {
 
 impl Tweenable for String {
     fn tween(x: &Self, y: &Self, t: f32) -> Self {
-        //println!("x:{} \ty:{} \tt:{}", x, y, t);
         if x.contains("%P%") && y.contains("%P%") {
             let x = x.replace("%P%", "");
             let y = y.replace("%P%", "");
