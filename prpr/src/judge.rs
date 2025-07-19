@@ -545,7 +545,7 @@ impl Judge {
                     {
                         continue;
                     }
-                    let dist_key = (dist / NOTE_WIDTH_RATIO_BASE).max(0.) * DIST_FACTOR;
+                    let dist_key = (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
                     let key = if matches!(note.kind, NoteKind::Flick | NoteKind::Drag) { // Low Priority
                         dt.abs() + LIMIT_BAD
                     } else if dt < -LIMIT_GOOD { // Prevent Late Bad
