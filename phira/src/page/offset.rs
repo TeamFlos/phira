@@ -7,14 +7,12 @@ use crate::{get_data, get_data_mut, save_data};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use prpr::{
-    core::{ParticleEmitter, ResourcePack},
-    ext::{create_audio_manger, screen_aspect, semi_black, RectExt, SafeTexture},
-    time::TimeManager,
-    ui::{Slider, Ui},
+    config::Config, core::{ParticleEmitter, ResourcePack}, ext::{create_audio_manger, screen_aspect, semi_black, RectExt, SafeTexture}, time::TimeManager, ui::{Slider, Ui}
 };
 use sasa::{AudioClip, AudioManager, Music, MusicParams, PlaySfxParams, Sfx};
 
 pub struct OffsetPage {
+    config: Config,
     _audio: AudioManager,
     cali: Music,
     cali_hit: Sfx,
@@ -36,11 +34,13 @@ impl OffsetPage {
     const FADE_TIME: f32 = 0.8;
 
     pub async fn new() -> Result<Self> {
+        let config = get_data().config.clone();
         let mut audio = create_audio_manger(&get_data().config)?;
         let cali = audio.create_music(
             AudioClip::new(load_file("cali.ogg").await?)?,
             MusicParams {
                 loop_mix_time: 0.,
+                amplifier: config.volume_music,
                 ..Default::default()
             },
         )?;
@@ -56,6 +56,7 @@ impl OffsetPage {
 
         let latency_record: VecDeque<f32> = VecDeque::new();
         Ok(Self {
+            config,
             _audio: audio,
             cali,
             cali_hit,
@@ -170,8 +171,7 @@ impl Page for OffsetPage {
 
             let ot = t;
 
-            let config = &get_data().config;
-            let mut t = self.tm.now() as f32 - config.offset;
+            let mut t = self.tm.now() as f32 - self.config.offset;
 
             if t < 0. {
                 t += 2.;
@@ -190,7 +190,7 @@ impl Page for OffsetPage {
                 }
                 self.touched = false;
                 self.cali_hit.play(PlaySfxParams {
-                    amplifier: config.volume_sfx,
+                    amplifier: self.config.volume_sfx,
                 }).unwrap();
             }
 
@@ -229,7 +229,7 @@ impl Page for OffsetPage {
                 .color(Color::new(1., 1., 1., 0.8))
                 .draw();
 
-            let offset = config.offset * 1000.;
+            let offset = self.config.offset * 1000.;
             self.slider
                 .render(ui, Rect::new(-0.08, ct.y + aspect * 0.1 - 0.2 / 2., 0.45, 0.2), ot, offset, format!("{offset:.0}ms"));
         });
