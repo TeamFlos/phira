@@ -379,12 +379,13 @@ impl GameScene {
             // score
             let h = 0.07;
             let score_top = top + eps * 2.2 - (1. - p) * 0.4;
+            let score_right = 1. - margin;
             let score = format!("{:07}", self.judge.score());
             let ct = ui.text(&score).size(0.8).measure_using(&PGR_FONT).center();
             self.chart
-                .with_element(ui, res, UIElement::Score, Some((-ct.x + 1. - margin, ct.y + score_top)), Some((1. - margin, score_top)), |ui, c| {
+                .with_element(ui, res, UIElement::Score, Some((score_right - ct.x , score_top + ct.y)), Some((score_right, score_top)), |ui, c| {
                     ui.text(&score)
-                        .pos(1. - margin, score_top)
+                        .pos(score_right, score_top)
                         .anchor(1., 0.)
                         .size(0.8)
                         .color(c)
@@ -433,8 +434,8 @@ impl GameScene {
             ui.text("").draw_using(&PGR_FONT);
             let lf = -1. + margin;
             let bt = -top - eps * 2.8 + (1. - p) * 0.4;
-            let ct = ui.text(&res.info.name).measure().center();
-            self.chart.with_element(ui, res, UIElement::Name, Some((lf + ct.x / 2., bt - ct.y / 2.)), Some((lf, bt)), |ui, c| {
+            let ct = ui.text(&res.info.name).size(0.5).measure().center();
+            self.chart.with_element(ui, res, UIElement::Name, Some((lf + ct.x, bt - ct.y)), Some((lf, bt)), |ui, c| {
                 ui.text(&res.info.name)
                     .pos(lf, bt)
                     .anchor(0., 1.)
@@ -444,9 +445,9 @@ impl GameScene {
                     .draw();
             });
 
-            let ct = ui.text(&res.info.level).measure().center();
+            let ct = ui.text(&res.info.level).size(0.5).measure().center();
             self.chart
-                .with_element(ui, res, UIElement::Level, Some((-lf - ct.x / 2., bt - ct.y / 2.)), Some((-lf, bt)), |ui, c| {
+                .with_element(ui, res, UIElement::Level, Some((-lf - ct.x, bt - ct.y)), Some((-lf, bt)), |ui, c| {
                     ui.text(&res.info.level).pos(-lf, bt).anchor(1., 1.).size(0.5).color(c).draw();
                 });
 
