@@ -3147,6 +3147,7 @@ dependencies = [
 name = "prpr-avc"
 version = "0.1.0"
 dependencies = [
+ "pkg-config",
  "sasa",
  "thiserror 2.0.12",
  "tracing",
