@@ -383,18 +383,7 @@ async fn parse_notes(
                     AnimFloat::new(vec![Keyframe::new(0.0, 0.0, 0), Keyframe::new(time - note.visible_time, alpha, 0)])
                 },
                 translation: AnimVector(AnimFloat::fixed(note.position_x / (RPE_WIDTH / 2.)), AnimFloat::fixed(y_offset)),
-                scale: AnimVector(
-                    if note.size == 1.0 {
-                        AnimFloat::default()
-                    } else {
-                        AnimFloat::fixed(note.size)
-                    },
-                    if note.size == 1.0 || !info.note_uniform_scale {
-                        AnimFloat::default()
-                    } else {
-                        AnimFloat::fixed(note.size)
-                    },
-                ),
+                scale: AnimVector(AnimFloat::fixed(note.size), AnimFloat::fixed(note.size)),
                 ..Default::default()
             },
             kind,
