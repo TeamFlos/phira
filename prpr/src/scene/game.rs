@@ -818,6 +818,17 @@ impl Scene for GameScene {
                     }
                     tm.now() as f32
                 } else {
+                    #[cfg(target_os = "windows")]
+                    { // wtf bro. why must particles exist on Windows?
+                        let emitter_config = self.res.emitter.emitter.config.clone();
+                        let emitter_square_config = self.res.emitter.emitter_square.config.clone();
+                        self.res.emitter.emitter.config.size = 0.0;
+                        self.res.emitter.emitter_square.config.size = 0.0;
+                        self.res.emitter.emitter.emit(vec2(0.0, 0.0), 1);
+                        self.res.emitter.emitter_square.emit(vec2(0.0, 0.0), 1);
+                        self.res.emitter.emitter.config = emitter_config;
+                        self.res.emitter.emitter_square.config = emitter_square_config;
+                    }
                     self.res.alpha = 1. - (1. - time / Self::BEFORE_TIME).powi(3);
                     if self.mode == GameMode::Exercise {
                         self.exercise_range.start
