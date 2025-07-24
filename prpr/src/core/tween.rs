@@ -336,38 +336,36 @@ impl Tweenable for String {
                     format!("{:.3}", value)
                 }
             }
+        } else if x.is_empty() && y.is_empty() {
+            Self::new()
+        } else if y.is_empty() {
+            let x = if x.contains("%P%") {
+                x.replace("%P%", "")
+            } else {
+                x.to_string()
+            };
+            Self::tween(y, &x, 1. - t)
+        } else if x.is_empty() {
+            let chars = y.chars().collect::<Vec<_>>();
+            chars[..(t * chars.len() as f32).round() as usize].iter().collect()
         } else {
-            if x.is_empty() && y.is_empty() {
-                Self::new()
-            } else if y.is_empty() {
-                let x = if x.contains("%P%") {
+            let x_len = x.chars().count();
+            let y_len = y.chars().count();
+            if y.starts_with(x) { // x in y
+                let take_num = ((y_len - x_len) as f32 * t).floor() as usize + x_len;
+                let mut text = x.clone();
+                text.push_str(&y.chars().skip(x_len).take(take_num - x_len).collect::<String>());
+                text
+            } else if x.starts_with(y) { // y in x
+                let take_num = ((x_len - y_len) as f32 * (1. - t)).round() as usize + y_len;
+                let mut text = y.clone();
+                text.push_str(&x.chars().skip(y_len).take(take_num - y_len).collect::<String>());
+                text
+            } else {
+                if x.contains("%P%") {
                     x.replace("%P%", "")
                 } else {
-                    x.to_string()
-                };
-                Self::tween(y, &x, 1. - t)
-            } else if x.is_empty() {
-                let chars = y.chars().collect::<Vec<_>>();
-                chars[..(t * chars.len() as f32).round() as usize].iter().collect()
-            } else {
-                let x_len = x.chars().count();
-                let y_len = y.chars().count();
-                if y.starts_with(x) { // x in y
-                    let take_num = ((y_len - x_len) as f32 * t).floor() as usize + x_len;
-                    let mut text = x.clone();
-                    text.push_str(&y.chars().skip(x_len).take(take_num - x_len).collect::<String>());
-                    text
-                } else if x.starts_with(y) { // y in x
-                    let take_num = ((x_len - y_len) as f32 * (1. - t)).round() as usize + y_len;
-                    let mut text = y.clone();
-                    text.push_str(&x.chars().skip(y_len).take(take_num - y_len).collect::<String>());
-                    text
-                } else {
-                    if x.contains("%P%") {
-                        x.replace("%P%", "")
-                    } else {
-                        x.clone()
-                    }
+                    x.clone()
                 }
             }
         }
