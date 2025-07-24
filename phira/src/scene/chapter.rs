@@ -255,6 +255,7 @@ impl Scene for ChapterScene {
 
                     hold_partial_cover: true,
                     note_uniform_scale: false,
+                    force_aspect_ratio: false,
 
                     created: None,
                     updated: None,

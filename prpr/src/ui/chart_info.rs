@@ -181,6 +181,11 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
             ui.text(tl!("aspect-hint")).pos(0.02, 0.).size(0.35).max_width(len).multiline().draw().h + 0.03
         }));
 
+        ui.dx(0.01);
+        let r = ui.checkbox(tl!("force-aspect-ratio"), &mut info.force_aspect_ratio);
+        dy!(r.h + s);
+        ui.dx(-0.01);
+
         ui.dx(-rt);
         let last = info.background_dim;
         let r = ui.slider(tl!("dim"), 0.0..1.0, 0.05, &mut info.background_dim, Some(width - 0.2));
