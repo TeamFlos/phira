@@ -15,6 +15,7 @@ offset = offset
 aspect-ratio = Proporção da tela
 ps = P.S.
 aspect-hint = A proporção pode ser um número real ou textos como "w:h"
+force-aspect-ratio = Forçar proporção
 dim = Fundo escuro
 chart-file = Beatmap
 music-file = Música 

@@ -15,6 +15,7 @@ offset = Offset
 aspect-ratio = Aspect Ratio
 ps = Hint:
 aspect-hint = Aspect ratio should be in the format "width:height" or a real number.
+force-aspect-ratio = Force Aspect Ratio
 dim = Background Brightness
 enable-unlock = Enable Unlock Video
 chart-file = Chart
