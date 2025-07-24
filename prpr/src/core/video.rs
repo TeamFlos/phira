@@ -13,7 +13,7 @@ thread_local! {
 
 pub struct Video {
     video: prpr_avc::Video,
-    video_file: NamedTempFile,
+    pub video_file: NamedTempFile,
 
     material: Material,
     tex_y: Texture2D,
