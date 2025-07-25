@@ -708,13 +708,13 @@ impl SongScene {
     }
 
     fn launch(&mut self, mode: GameMode, force_unlock: bool) -> Result<()> {
-        let local_path = self.local_path.as_ref().unwrap();
+        let local_path = self.local_path.as_ref().unwrap().clone();
         let is_unlock = force_unlock
             || (mode == GameMode::Normal
                 && get_data()
                     .charts
                     .iter()
-                    .find(|it| it.local_path == *local_path)
+                    .find(|it| it.local_path == local_path)
                     .map_or(false, |it| it.info.has_unlock && !it.played_unlock));
 
         self.scene_task =
@@ -726,7 +726,7 @@ impl SongScene {
     #[must_use]
     pub fn global_launch(
         id: Option<i32>,
-        local_path: &str,
+        local_path: String,
         mods: Mods,
         mode: GameMode,
         client: Option<Arc<phira_mp_client::Client>>,
@@ -734,7 +734,7 @@ impl SongScene {
         record: Option<SimpleRecord>,
         is_unlock: bool,
     ) -> Result<LocalSceneTask> {
-        let mut fs = fs_from_path(local_path)?;
+        let mut fs = fs_from_path(&local_path)?;
         let can_rated = id.is_some() || local_path.starts_with(':');
         #[cfg(feature = "closed")]
         let rated = {
@@ -845,7 +845,7 @@ impl SongScene {
             update_fn
         });
 
-        let local_path = local_path.to_owned();
+        //let local_path = local_path.to_owned();
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -923,7 +923,8 @@ impl SongScene {
                 }
                 #[cfg(feature = "video")]
                 {
-                    let chart = get_data_mut().charts.iter_mut().find(|it| it.local_path == local_path).unwrap();
+                    let local_path_ref = &local_path;
+                    let chart = get_data_mut().charts.iter_mut().find(|it| it.local_path == *local_path_ref).unwrap();
                     if !chart.played_unlock {
                         chart.played_unlock = true;
                         save_data()?;

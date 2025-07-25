@@ -465,7 +465,7 @@ impl MPPanel {
                     self.entered = false;
                     self.scene_task = SongScene::global_launch(
                         Some(id),
-                        &format!("download/{id}"),
+                        format!("download/{id}"),
                         Mods::default(),
                         GameMode::NoRetry,
                         self.client.as_ref().map(Arc::clone),
