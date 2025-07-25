@@ -15,6 +15,7 @@ offset = Kaydırma(lar)
 aspect-ratio = En-boy oranı
 ps = Not:
 aspect-hint = En boy oranı ya bir gerçek sayı ya da "en:boy" şeklinde bir yazı olabilir.
+force-aspect-ratio = En boy oranı zorla
 dim = Arkaplan sönüklüğü
 chart-file = Ritim Haritası
 music-file = Müzik
