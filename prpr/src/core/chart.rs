@@ -1,5 +1,7 @@
+prpr_l10n::tl_file!("parser");
+
 use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIElement, Vector};
-use crate::{fs::FileSystem, judge::JudgeStatus, ui::Ui};
+use crate::{fs::FileSystem, judge::JudgeStatus, scene::show_error, ui::Ui};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use sasa::AudioClip;
@@ -97,6 +99,12 @@ impl Chart {
             .for_each(|note| note.judge = JudgeStatus::NotJudged);
         for line in &mut self.lines {
             line.cache.reset(&mut line.notes);
+        }
+        #[cfg(feature = "video")]
+        for video in &mut self.extra.videos {
+            if let Err(err) = video.reset() {
+                show_error(err.context(tl!("video-load-failed", "path" => video.video_file.path().to_string_lossy())));
+            }
         }
     }
 
