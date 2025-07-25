@@ -3,28 +3,28 @@ multiplayer = 멀티플레이어
 
 connect = 연결하기
 connect-must-login = 멀티플레이어 모드에 들어가려면 로그인해야 합니다.
-connect-success = 연결 성공
-connect-failed = 연결 실패
-connect-authenticate-failed = 인증 실패
+connect-success = 연결에 성공했습니다.
+connect-failed = 연결에 실패했습니다.
+connect-authenticate-failed = 인증에 실패했습니다.
 reconnect = 다시 연결 중...
 
 create-room = 방 생성
 create-room-success = 방이 생성되었습니다.
-create-room-failed = 방 생성 실패
-create-invalid-id = 방 ID는 문자, 숫자, -(바), _(언더바)를 포함하여 20자 이하로 구성되어야 합니다.
+create-room-failed = 방을 생성에 실패하셨습니다.
+create-invalid-id = 방 ID는 최대 20자까지만 가능하며, A-Z, a-z, 0-9, -, _ 만 포함할 수 있습니다.
 
 join-room = 방 참여
-join-room-invalid-id = 잘못된 방 ID
-join-room-failed = 방 참여 실패
+join-room-invalid-id = 잘못된 방 ID입니다.
+join-room-failed = 방에 참여하지 못했습니다.
 
 leave-room = 방 나가기
-leave-room-failed = 방 나가기 실패
+leave-room-failed = 방을 나가지 못했습니다.
 
 disconnect = 연결 종료
 
-request-start = 게임 시작 요청
-request-start-no-chart = 차트를 선택하지 않았습니다.
-request-start-failed = 게임 시작 실패
+request-start = 게임 시작
+request-start-no-chart = 먼저 온라인 차트를 선택하세요.
+request-start-failed = 시작하지 못했습니다.
 
 user-list = 유저 목록
 
@@ -38,26 +38,26 @@ cycle-room = { $current ->
 }
 
 ready = 준비 완료
-ready-failed = 준비 실패
+ready-failed = 준비 완료에 실패했습니다.
 
-cancel-ready = 준비 취소
+cancel-ready = 취소
 
 room-id = 방 ID: { $id }
 
-download-failed = 차트 다운로드 실패
+download-failed = 차트 다운로드에 실패했습니다.
 
-lock-room-failed = 방 잠금 실패
-cycle-room-failed = 방 모드 변경 실패
+lock-room-failed = 방 잠금에 실패했습니다.
+cycle-room-failed = 방 모드 변경에 실패했습니다.
 
 chat-placeholder = 메시지 입력...
 chat-send = 보내기
 chat-empty = 메시지가 비어 있습니다.
 chat-sent = 보냄
-chat-send-failed = 메시지 전송 실패
+chat-send-failed = 메시지 전송에 실패했습니다.
 
 select-chart-host-only = 호스트만 차트를 선택할 수 있습니다.
 select-chart-local = 로컬 차트를 선택할 수 없습니다.
-select-chart-failed = 차트 선택 실패
+select-chart-failed = 차트 선택에 실패했습니다.
 select-chart-not-now = 현재 차트를 선택할 수 없습니다.
 
 msg-create-room = `{ $user }` 님이 방을 생성했습니다.
@@ -74,7 +74,7 @@ msg-played = `{ $user }` 님이 플레이 완료: { $score } ({ $accuracy }){ $f
   [true] , 풀 콤보
   *[other] {""}
 }
-msg-game-end = 게임 종료
+msg-game-end = 게임이 종료되었습니다.
 msg-abort = `{ $user }` 님이 게임을 중단했습니다.
 msg-room-lock = { $lock ->
   [true] 방이 잠겼습니다.
