@@ -9,3 +9,6 @@ edition = "2021"
 sasa = { git = "https://github.com/Mivik/sasa", default-features = false }
 thiserror = "2.0.12"
 tracing = "0.1.41"
+
+[build-dependencies]
+pkg-config = "0.3"

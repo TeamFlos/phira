@@ -5,8 +5,9 @@ pub struct SwrContext(OwnedPtr<ffi::SwrContext>);
 impl SwrContext {
     pub fn new(in_format: &AudioStreamFormat, out_format: &AudioStreamFormat) -> Result<Self> {
         unsafe {
-            OwnedPtr::new(ffi::swr_alloc_set_opts(
-                null_mut(),
+            let mut raw: *mut ffi::SwrContext = null_mut();
+            let ret = ffi::swr_alloc_set_opts2(
+                &mut raw,
                 out_format.channel_layout as _,
                 out_format.sample_fmt,
                 out_format.sample_rate,
@@ -15,9 +16,12 @@ impl SwrContext {
                 in_format.sample_rate,
                 0,
                 null_mut(),
-            ))
-            .map(|ctx| Self(ctx))
-            .ok_or(Error::AllocationFailed)
+            );
+            if ret < 0 || raw.is_null() {
+                Err(Error::AllocationFailed)
+            } else {
+                OwnedPtr::new(raw).map(|ctx| Self(ctx)).ok_or(Error::AllocationFailed)
+            }
         }
     }
 
