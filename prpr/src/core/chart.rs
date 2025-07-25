@@ -1,9 +1,10 @@
 prpr_l10n::tl_file!("parser");
 
 use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIElement, Vector};
-use crate::{fs::FileSystem, judge::JudgeStatus, scene::show_error, ui::Ui};
+use crate::{core::Object, fs::FileSystem, judge::JudgeStatus, scene::show_error, ui::Ui};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
+use nalgebra::Rotation2;
 use sasa::AudioClip;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -70,14 +71,17 @@ impl Chart {
     }
 
     #[inline]
-    pub fn with_element<R>(&self, ui: &mut Ui, res: &Resource, element: UIElement, ct: Option<(f32, f32)>, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
+    pub fn with_element<R>(&self, ui: &mut Ui, res: &Resource, element: UIElement, scale_point: Option<(f32, f32)>, rotation_point: Option<(f32, f32)>, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
         if let Some(id) = self.attach_ui[element as usize - 1] {
-            let obj = &self.lines[id].object;
-            let mut tr = obj.now_translation(res);
+            let lines = &self.lines;
+            let line = &lines[id];
+            let obj = &line.object;
+            let mut tr = line.fetch_pos(res, lines);
             tr.y = -tr.y;
             let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
-            let scale = obj.now_scale(ct.map_or_else(|| Vector::default(), |(x, y)| Vector::new(x, y)));
-            ui.with(obj.now_rotation().append_translation(&tr) * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
+            let scale = obj.now_scale(scale_point.map_or_else(|| Vector::default(), |(x, y)| Vector::new(x, y)));
+            let ro = Object::new_rotation_wrt_point(Rotation2::new(-obj.rotation.now().to_radians()), rotation_point.map_or_else(|| Vector::default(), |(x, y)| Vector::new(x, y)));
+            ui.with(Matrix::new_translation(&tr) * ro * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
         } else {
             f(ui, WHITE)
         }
