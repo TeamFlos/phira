@@ -27,11 +27,11 @@ pub enum UIElement {
 impl UIElement {
     pub fn from_u8(val: u8) -> Option<Self> {
         Some(match val {
-            1 => Self::Bar,
-            2 => Self::Pause,
-            3 => Self::ComboNumber,
-            4 => Self::Combo,
-            5 => Self::Score,
+            1 => Self::Pause,
+            2 => Self::ComboNumber,
+            3 => Self::Combo,
+            4 => Self::Score,
+            5 => Self::Bar,
             6 => Self::Name,
             7 => Self::Level,
             _ => return None,
