@@ -126,3 +126,5 @@ stabilize-approved = 已通过
 stabilize-approved-passed = 已通过，谱面已 stable
 stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
+
+report = 举报
