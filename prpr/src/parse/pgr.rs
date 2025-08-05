@@ -224,6 +224,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 multiple_hint: false,
                 fake: false,
                 judge: JudgeStatus::NotJudged,
+                protected: false,
             })
         })
         .collect()
