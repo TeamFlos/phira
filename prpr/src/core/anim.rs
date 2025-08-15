@@ -107,7 +107,7 @@ impl<T: Tweenable> Anim<T> {
     }
 
     pub fn set_previous(&mut self) {
-        self.set_time(f32::from_bits(self.time.to_bits() - 1));
+        self.set_time(self.time.next_down());
     }
 
     fn now_opt_inner(&self) -> Option<T> {
