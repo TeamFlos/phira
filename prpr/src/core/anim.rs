@@ -106,6 +106,10 @@ impl<T: Tweenable> Anim<T> {
         }
     }
 
+    pub fn set_previous(&mut self) {
+        self.set_time(f32::from_bits(self.time.to_bits() - 1));
+    }
+
     fn now_opt_inner(&self) -> Option<T> {
         if self.keyframes.is_empty() {
             return None;
