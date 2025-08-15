@@ -236,13 +236,14 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
     sani.map_value(|v| v * SPEED_RATIO);
     for i in 0..(pts.len() - 1) {
         let now_time = *pts[i];
-        let end_time = *pts[i + 1];
+        let next_time = *pts[i + 1];
         sani.set_time(now_time);
         let speed = sani.now();
-        sani.set_time(end_time - 1e-4);
+        sani.set_time(next_time);
+        sani.set_previous();
         let end_speed = sani.now();
         if speed.signum() * end_speed.signum() < 0. {
-            pts.push(f32::tween(&now_time, &end_time, speed / (speed - end_speed)).not_nan());
+            pts.push(f32::tween(&now_time, &next_time, speed / (speed - end_speed)).not_nan());
         }
     }
     pts.sort();
@@ -251,12 +252,13 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
     let mut height = 0.0;
     for i in 0..(pts.len() - 1) {
         let now_time = *pts[i];
-        let end_time = *pts[i + 1];
+        let next_time = *pts[i + 1];
         sani.set_time(now_time);
         let speed = sani.now();
         // this can affect a lot! do not use end_time...
         // using end_time causes Hold tween (x |-> 0) to be recognized as Linear tween (x |-> x)
-        sani.set_time(end_time - 1e-4);
+        sani.set_time(next_time);
+        sani.set_previous();
         let end_speed = sani.now();
         kfs.push(if (speed - end_speed).abs() < EPS {
             Keyframe::new(now_time, height, 2)
@@ -273,7 +275,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
                 tween: Rc::new(ClampedTween::new(6 /*quadIn*/, (speed / end_speed)..1.)),
             }
         });
-        height += (speed + end_speed) * (end_time - now_time) / 2.;
+        height += (speed + end_speed) * (next_time - now_time) / 2.;
     }
     kfs.push(Keyframe::new(max_time, height, 0));
     Ok(AnimFloat::new(kfs))
