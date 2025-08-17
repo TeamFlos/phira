@@ -106,10 +106,6 @@ impl<T: Tweenable> Anim<T> {
         }
     }
 
-    pub fn set_previous(&mut self) {
-        self.set_time(self.time.next_down());
-    }
-
     fn now_opt_inner(&self) -> Option<T> {
         if self.keyframes.is_empty() {
             return None;
