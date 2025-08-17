@@ -58,6 +58,11 @@ fn default_tinted() -> bool {
     true
 }
 
+#[inline]
+fn default_particle_count() -> usize {
+    4
+}
+
 #[allow(dead_code)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,6 +81,8 @@ pub struct ResPackInfo {
     pub hide_particles: bool,
     #[serde(default)]
     pub circle_particles: bool,
+    #[serde(default = "default_particle_count")]
+    pub particle_count: usize,
     #[serde(default = "default_tinted")]
     pub hit_fx_tinted: bool,
     #[serde(default = "default_tinted")]
@@ -284,10 +291,11 @@ pub struct ParticleEmitter {
     emitter: Emitter,
     emitter_square: Emitter,
     hide_particles: bool,
+    particle_count: usize,
 }
 
 impl ParticleEmitter {
-    pub fn new(res_pack: &ResourcePack, scale: f32, hide_particles: bool) -> Result<Self> {
+    pub fn new(res_pack: &ResourcePack, scale: f32) -> Result<Self> {
         let colors_curve = {
             let start = WHITE;
             let mut mid = start;
@@ -330,7 +338,8 @@ impl ParticleEmitter {
                 colors_curve,
                 ..Default::default()
             }),
-            hide_particles,
+            hide_particles: res_pack.info.hide_particles,
+            particle_count: res_pack.info.particle_count,
         };
         res.set_scale(scale);
         Ok(res)
@@ -342,7 +351,7 @@ impl ParticleEmitter {
         self.emitter.emit(pt, 1);
         if !self.hide_particles {
             self.emitter_square.config.base_color = color;
-            self.emitter_square.emit(pt, 4);
+            self.emitter_square.emit(pt, self.particle_count);
         }
     }
 
@@ -490,7 +499,7 @@ impl Resource {
         let note_width = config.note_scale * NOTE_WIDTH_RATIO_BASE;
         let note_scale = config.note_scale;
 
-        let emitter = ParticleEmitter::new(&res_pack, note_scale, res_pack.info.hide_particles)?;
+        let emitter = ParticleEmitter::new(&res_pack, note_scale)?;
 
         let no_effect = config.disable_effect || has_no_effect;
 
