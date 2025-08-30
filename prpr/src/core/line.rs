@@ -15,23 +15,23 @@ use std::cell::RefCell;
 #[serde(rename_all = "lowercase")]
 #[repr(u8)]
 pub enum UIElement {
-    Bar = 1,
-    Pause,
-    ComboNumber,
-    Combo,
-    Score,
-    Name,
-    Level,
+    Pause = 1,
+    ComboNumber = 2,
+    Combo = 3,
+    Score = 4,
+    Bar = 5,
+    Name = 6,
+    Level = 7,
 }
 
 impl UIElement {
     pub fn from_u8(val: u8) -> Option<Self> {
         Some(match val {
-            1 => Self::Bar,
-            2 => Self::Pause,
-            3 => Self::ComboNumber,
-            4 => Self::Combo,
-            5 => Self::Score,
+            1 => Self::Pause,
+            2 => Self::ComboNumber,
+            3 => Self::Combo,
+            4 => Self::Score,
+            5 => Self::Bar,
             6 => Self::Name,
             7 => Self::Level,
             _ => return None,
@@ -208,17 +208,18 @@ impl JudgeLine {
         });
     }
 
-    pub fn now_transform(&self, res: &Resource, lines: &[JudgeLine]) -> Matrix {
-        fn fetch_pos(line: &JudgeLine, res: &Resource, lines: &[JudgeLine]) -> Vector {
-            if let Some(parent) = line.parent {
-                let parent = &lines[parent];
-                let mut parent_translation = fetch_pos(parent, res, lines);
-                parent_translation += Rotation2::new(parent.object.rotation.now().to_radians()) * line.object.now_translation(res);
-                return parent_translation;
-            }
-            line.object.now_translation(res)
+    pub fn fetch_pos(&self, res: &Resource, lines: &[JudgeLine]) -> Vector {
+        if let Some(parent) = self.parent {
+            let parent = &lines[parent];
+            let mut parent_translation = parent.fetch_pos(res, lines);
+            parent_translation += Rotation2::new(parent.object.rotation.now().to_radians()) * self.object.now_translation(res);
+            return parent_translation;
         }
-        self.object.now_rotation().append_translation(&fetch_pos(self, res, lines))
+        self.object.now_translation(res)
+    }
+
+    pub fn now_transform(&self, res: &Resource, lines: &[JudgeLine]) -> Matrix {
+        self.object.now_rotation().append_translation(&self.fetch_pos(res, lines))
     }
 
     pub fn render(&self, ui: &mut Ui, res: &mut Resource, lines: &[JudgeLine], bpm_list: &mut BpmList, settings: &ChartSettings, id: usize) {

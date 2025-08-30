@@ -287,11 +287,11 @@ impl ResourcePack {
 }
 
 pub struct ParticleEmitter {
-    scale: f32,
-    emitter: Emitter,
-    emitter_square: Emitter,
-    hide_particles: bool,
-    particle_count: usize,
+    pub scale: f32,
+    pub emitter: Emitter,
+    pub emitter_square: Emitter,
+    pub hide_particles: bool,
+    pub particle_count: usize,
 }
 
 impl ParticleEmitter {
