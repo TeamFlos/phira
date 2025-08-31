@@ -46,6 +46,7 @@ pub struct ChartInfo {
 
     pub hold_partial_cover: bool,
     pub force_aspect_ratio: bool,
+    pub note_uniform_scale: bool,
 
     pub created: Option<DateTime<Utc>>,
     pub updated: Option<DateTime<Utc>>,
@@ -84,6 +85,7 @@ impl Default for ChartInfo {
 
             hold_partial_cover: false,
             force_aspect_ratio: false,
+            note_uniform_scale: false,
 
             created: None,
             updated: None,
