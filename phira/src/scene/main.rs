@@ -426,6 +426,7 @@ impl Scene for MainScene {
         if get_data().config.mp_enabled {
             let r = 0.06;
             self.mp_btn_pos.y = self.mp_btn_pos.y.clamp(-ui.top, ui.top);
+            self.mp_btn_pos.x = self.mp_btn_pos.x.clamp(-1., 1.);
             ui.fill_circle(self.mp_btn_pos.x, self.mp_btn_pos.y, r, ui.background());
             let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);
             self.mp_btn.set(ui, r);
