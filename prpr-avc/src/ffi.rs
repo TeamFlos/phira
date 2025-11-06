@@ -6,7 +6,6 @@ pub const AV_SAMPLE_FMT_FLT: AVSampleFormat = 3;
 
 pub const AV_ROUND_UP: AVRounding = 0;
 
-#[link(name = "avformat", kind = "static")]
 extern "C" {
     pub fn avformat_alloc_context() -> *mut AVFormatContext;
     pub fn avformat_free_context(s: *mut AVFormatContext);
@@ -20,7 +19,6 @@ extern "C" {
     pub fn av_read_frame(s: *mut AVFormatContext, pkt: *mut AVPacket) -> ::std::os::raw::c_int;
 }
 
-#[link(name = "avutil", kind = "static")]
 extern "C" {
     pub fn av_strerror(errnum: ::std::os::raw::c_int, errbuf: *mut ::std::os::raw::c_char, errbuf_size: usize) -> ::std::os::raw::c_int;
     pub fn av_frame_alloc() -> *mut AVFrame;
@@ -29,7 +27,6 @@ extern "C" {
     pub fn av_rescale_rnd(a: i64, b: i64, c: i64, r: AVRounding) -> i64;
 }
 
-#[link(name = "avcodec", kind = "static")]
 extern "C" {
     pub fn avcodec_find_decoder(id: AVCodecID) -> *mut AVCodec;
     pub fn avcodec_alloc_context3(codec: *const AVCodec) -> *mut AVCodecContext;
@@ -43,7 +40,6 @@ extern "C" {
     pub fn avcodec_default_get_format(s: *mut AVCodecContext, fmt: *const AVPixelFormat) -> AVPixelFormat;
 }
 
-#[link(name = "swscale", kind = "static")]
 extern "C" {
     pub fn sws_getContext(
         srcW: ::std::os::raw::c_int,
@@ -68,10 +64,9 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-#[link(name = "swresample", kind = "static")]
 extern "C" {
-    pub fn swr_alloc_set_opts(
-        s: *mut SwrContext,
+    pub fn swr_alloc_set_opts2(
+        ps: *mut *mut SwrContext,
         out_ch_layout: i64,
         out_sample_fmt: AVSampleFormat,
         out_sample_rate: ::std::os::raw::c_int,
@@ -80,7 +75,7 @@ extern "C" {
         in_sample_rate: ::std::os::raw::c_int,
         log_offset: ::std::os::raw::c_int,
         log_ctx: *mut ::std::os::raw::c_void,
-    ) -> *mut SwrContext;
+    ) -> ::std::os::raw::c_int;
     pub fn swr_init(s: *mut SwrContext) -> ::std::os::raw::c_int;
     pub fn swr_get_delay(s: *const SwrContext, base: ::std::os::raw::c_int) -> i64;
     pub fn swr_convert(
