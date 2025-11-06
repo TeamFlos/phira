@@ -374,16 +374,13 @@ impl GameScene {
 
             let margin = 0.03;
 
-            let unit_h = ui.text("0").measure_using(&PGR_FONT).h;
-
             // score
             let h = 0.07;
             let score_top = top + eps * 2.2 - (1. - p) * 0.4;
             let score_right = 1. - margin;
             let score = format!("{:07}", self.judge.score());
-            let ct = ui.text(&score).size(0.8).measure_using(&PGR_FONT).center();
             self.chart
-                .with_element(ui, res, UIElement::Score, Some((score_right - ct.x , score_top + ct.y)), Some((score_right, score_top)), |ui, c| {
+                .with_element(ui, res, UIElement::Score, Some((score_right , score_top)), Some((score_right, score_top)), |ui, c| {
                     ui.text(&score)
                         .pos(score_right, score_top)
                         .anchor(1., 0.)
@@ -401,30 +398,34 @@ impl GameScene {
                 });
 
             self.chart
-                .with_element(ui, res, UIElement::Pause, Some((pause_center.x, pause_center.y)), Some((pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2.)), |ui, c| {
+                .with_element(ui, res, UIElement::Pause, Some((pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2.)), Some((pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2.)), |ui, c| {
                     let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
                     ui.fill_rect(r, c);
                     r.x += pause_w * 2.;
                     ui.fill_rect(r, c);
                 });
             if self.judge.combo() >= 3 {
-                let combo_top = top + eps * 2. - (1. - p) * 0.4;
+                let combo = self.judge.combo().to_string();
+                let ct = ui.text(&combo).size(1.0).measure().center();
+                let combo_y = top + eps * 2. - (1. - p) * 0.4 + ct.y;
                 let btm = self
                     .chart
-                    .with_element(ui, res, UIElement::ComboNumber, Some((0., combo_top + unit_h / 2.)), Some((0., combo_top + unit_h / 2.)), |ui, c| {
-                        ui.text(self.judge.combo().to_string())
-                            .pos(0., combo_top)
-                            .anchor(0.5, 0.)
+                    .with_element(ui, res, UIElement::ComboNumber, Some((0., combo_y)), Some((0., combo_y)), |ui, c| {
+                        ui.text(&combo)
+                            .pos(0., combo_y)
+                            .anchor(0.5, 0.5)
+                            .size(1.0)
                             .color(c)
                             .draw_using(&PGR_FONT)
                             .bottom()
                     });
-                let combo_top = btm + 0.01;
+                let ct = ui.text("COMBO").size(0.4).measure().center();
+                let combo_top = btm + 0.01 + ct.y;
                 self.chart
-                    .with_element(ui, res, UIElement::Combo, Some((0., combo_top + unit_h * 0.2)), Some((0., combo_top + unit_h * 0.2)), |ui, c| {
+                    .with_element(ui, res, UIElement::Combo, Some((0., combo_top)), Some((0., combo_top)), |ui, c| {
                         ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
                             .pos(0., combo_top)
-                            .anchor(0.5, 0.)
+                            .anchor(0.5, 0.5)
                             .size(0.4)
                             .color(c)
                             .draw_using(&PGR_FONT);
@@ -434,8 +435,7 @@ impl GameScene {
             ui.text("").draw_using(&PGR_FONT);
             let lf = -1. + margin;
             let bt = -top - eps * 2.8 + (1. - p) * 0.4;
-            let ct = ui.text(&res.info.name).size(0.5).measure().center();
-            self.chart.with_element(ui, res, UIElement::Name, Some((lf + ct.x, bt - ct.y)), Some((lf, bt)), |ui, c| {
+            self.chart.with_element(ui, res, UIElement::Name, Some((lf, bt)), Some((lf, bt)), |ui, c| {
                 ui.text(&res.info.name)
                     .pos(lf, bt)
                     .anchor(0., 1.)
@@ -445,9 +445,8 @@ impl GameScene {
                     .draw();
             });
 
-            let ct = ui.text(&res.info.level).size(0.5).measure().center();
             self.chart
-                .with_element(ui, res, UIElement::Level, Some((-lf - ct.x, bt - ct.y)), Some((-lf, bt)), |ui, c| {
+                .with_element(ui, res, UIElement::Level, Some((-lf, bt)), Some((-lf, bt)), |ui, c| {
                     ui.text(&res.info.level).pos(-lf, bt).anchor(1., 1.).size(0.5).color(c).draw();
                 });
 
