@@ -46,7 +46,7 @@ impl ChartInfoEdit {
             }
             if self.enable_unlock {
                 if let Some(unlock) = &self.unlock_video {
-                    res.insert(self.info.unlock_video.as_ref().map(|it| it.clone()).unwrap_or("unlock.mp4".to_string()), tokio::fs::read(unlock).await?);
+                    res.insert(self.info.unlock_video.clone().unwrap_or("unlock.mp4".to_string()), tokio::fs::read(unlock).await?);
                 }
             }
         }
@@ -222,7 +222,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
             choose_file("chart", tl!("chart-file"), &info.chart);
             choose_file("music", tl!("music-file"), &info.music);
             choose_file("illustration", tl!("illu-file"), &info.illustration);
-            choose_file("unlock", tl!("unlock-file"), info.unlock_video.as_ref().map(|it| it.as_str()).unwrap_or("Disabled"));
+            choose_file("unlock", tl!("unlock-file"), info.unlock_video.as_deref().unwrap_or("Disabled"));
 
             if let Some((id, file)) = take_file() {
                 match id.as_str() {

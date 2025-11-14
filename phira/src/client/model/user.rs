@@ -115,7 +115,7 @@ impl User {
     }
 
     pub fn has_perm(&self, perm: Permissions) -> bool {
-        Roles::from_bits(self.roles).map_or(false, |it| it.perms(false).contains(perm))
+        Roles::from_bits(self.roles).is_some_and(|it| it.perms(false).contains(perm))
     }
 
     pub fn name_color(&self) -> Color {

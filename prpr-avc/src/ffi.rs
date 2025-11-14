@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use std::ffi::c_void;
 
 pub const AV_CH_LAYOUT_STEREO: u64 = 3;

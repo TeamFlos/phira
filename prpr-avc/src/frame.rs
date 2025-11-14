@@ -20,7 +20,7 @@ impl AVFrame {
         unsafe {
             let this = self.0.as_mut();
             this.channels = format.channels;
-            this.channel_layout = format.channel_layout as u64;
+            this.channel_layout = format.channel_layout;
             this.format = format.sample_fmt;
             this.sample_rate = format.sample_rate;
         }

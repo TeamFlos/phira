@@ -141,7 +141,7 @@ impl Dialog {
 
         if self
             .window_rect
-            .map_or(true, |rect| rect.contains(touch.position) || touch.phase != TouchPhase::Started)
+            .is_none_or(|rect| rect.contains(touch.position) || touch.phase != TouchPhase::Started)
         {
             true
         } else {

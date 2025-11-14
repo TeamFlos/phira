@@ -19,6 +19,7 @@ impl AVRational {
 
 impl From<ffi::AVRational> for AVRational {
     fn from(value: ffi::AVRational) -> Self {
+        #[allow(clippy::unnecessary_cast)]
         Self {
             num: value.num as i32,
             den: value.den as i32,

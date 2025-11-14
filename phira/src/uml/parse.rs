@@ -281,7 +281,7 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                             Ok(Var::Float(
                                 non_empty(args)?
                                     .iter()
-                                    .fold(Result::<f32>::Ok(f32::NEG_INFINITY), |mx, x| Ok(mx?.max(x.float()?)))
+                                    .try_fold(f32::NEG_INFINITY, |mx, x| x.float().map(|it| it.max(mx)))
                                     .unwrap(),
                             ))
                         }) as Function,
@@ -292,7 +292,7 @@ fn take_atom(lexer: &mut Lexer) -> Result<Expr, String> {
                             Ok(Var::Float(
                                 non_empty(args)?
                                     .iter()
-                                    .fold(Result::<f32>::Ok(f32::INFINITY), |mx, x| Ok(mx?.min(x.float()?)))
+                                    .try_fold(f32::INFINITY, |mx, x| x.float().map(|it| it.min(mx)))
                                     .unwrap(),
                             ))
                         }) as Function,
@@ -408,7 +408,7 @@ impl<'de> Deserialize<'de> for Expr {
         use serde::de;
 
         struct ExprVisitor;
-        impl<'de> Visitor<'de> for ExprVisitor {
+        impl Visitor<'_> for ExprVisitor {
             type Value = Expr;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

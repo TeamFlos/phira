@@ -92,7 +92,7 @@ pub struct JudgeLineCache {
 }
 
 impl JudgeLineCache {
-    pub fn new(notes: &mut Vec<Note>) -> Self {
+    pub fn new(notes: &mut [Note]) -> Self {
         notes.sort_by_key(|it| (it.plain(), !it.above, it.speed.not_nan(), ((it.height + it.object.translation.1.now()) * it.speed).not_nan()));
         let mut res = Self {
             update_order: Vec::new(),
@@ -104,18 +104,18 @@ impl JudgeLineCache {
         res
     }
 
-    pub(crate) fn reset(&mut self, notes: &mut Vec<Note>) {
+    pub(crate) fn reset(&mut self, notes: &mut [Note]) {
         self.update_order = (0..notes.len() as u32).collect();
         self.above_indices.clear();
         self.below_indices.clear();
         let mut index = notes.iter().position(|it| it.plain()).unwrap_or(notes.len());
         self.not_plain_count = index;
-        while notes.get(index).map_or(false, |it| it.above) {
+        while notes.get(index).is_some_and(|it| it.above) {
             self.above_indices.push(index);
             let speed = notes[index].speed;
             loop {
                 index += 1;
-                if !notes.get(index).map_or(false, |it| it.above && it.speed == speed) {
+                if !notes.get(index).is_some_and(|it| it.above && it.speed == speed) {
                     break;
                 }
             }
@@ -125,7 +125,7 @@ impl JudgeLineCache {
             let speed = notes[index].speed;
             loop {
                 index += 1;
-                if !notes.get(index).map_or(false, |it| it.speed == speed) {
+                if !notes.get(index).is_some_and(|it| it.speed == speed) {
                     break;
                 }
             }
@@ -187,7 +187,7 @@ impl JudgeLine {
                 if self
                     .notes
                     .get(*index + 1)
-                    .map_or(false, |it| it.above && it.speed == self.notes[*index].speed)
+                    .is_some_and(|it| it.above && it.speed == self.notes[*index].speed)
                 {
                     *index += 1;
                 } else {
@@ -198,7 +198,7 @@ impl JudgeLine {
         });
         self.cache.below_indices.retain_mut(|index| {
             while matches!(self.notes[*index].judge, JudgeStatus::Judged) {
-                if self.notes.get(*index + 1).map_or(false, |it| it.speed == self.notes[*index].speed) {
+                if self.notes.get(*index + 1).is_some_and(|it| it.speed == self.notes[*index].speed) {
                     *index += 1;
                 } else {
                     return false;

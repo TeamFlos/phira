@@ -5,6 +5,7 @@ use crate::{ffi, AVCodecParamsRef, AVCodecRef, AVRational, Result};
 pub struct AVStreamRef(*const ffi::AVStream);
 impl AVStreamRef {
     pub fn index(&self) -> i32 {
+        #[allow(clippy::unnecessary_cast)]
         unsafe { (*self.0).index as i32 }
     }
 

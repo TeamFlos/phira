@@ -162,7 +162,7 @@ impl FileSystem for ZipFileSystem {
             .lock()
             .unwrap()
             .file_names()
-            .filter(|it| it.strip_prefix(&self.1).map_or(false, |it| !it.contains('/')))
+            .filter(|it| it.strip_prefix(&self.1).is_some_and(|it| !it.contains('/')))
             .map(str::to_owned)
             .collect())
     }
@@ -296,7 +296,7 @@ fn info_from_csv(text: &str) -> Result<ChartInfo> {
     info_from_kv(
         headers
             .iter()
-            .zip(record.into_iter())
+            .zip(&record)
             .map(|(key, value)| (key.as_str(), value.to_owned())),
         true,
     )

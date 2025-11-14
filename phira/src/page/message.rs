@@ -77,7 +77,7 @@ impl Page for MessagePage {
                         if self.index == Some(index) {
                             self.index = None;
                         } else {
-                            if get_data().message_check_time.map_or(true, |it| it < item.0.time) {
+                            if get_data().message_check_time.is_none_or(|it| it < item.0.time) {
                                 get_data_mut().message_check_time = Some(item.0.time);
                                 save_data()?;
                             }

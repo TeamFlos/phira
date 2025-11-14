@@ -56,7 +56,7 @@ impl LoadingScene {
 
         let mut blurred_rgb = image.to_rgb8();
         let color = color_thief::get_palette(&blurred_rgb, color_thief::ColorFormat::Rgb, 10, 2)?[0];
-        let mut vec = unsafe { Vec::from_raw_parts(std::mem::transmute(blurred_rgb.as_mut_ptr()), size, size) };
+        let mut vec = unsafe { Vec::from_raw_parts(std::mem::transmute::<*mut u8, *mut [u8; 3]>(blurred_rgb.as_mut_ptr()), size, size) };
         fastblur::gaussian_blur(&mut vec, w as _, h as _, 50.);
         std::mem::forget(vec);
         let mut blurred = Vec::with_capacity(size * 4);

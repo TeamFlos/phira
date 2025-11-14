@@ -43,8 +43,8 @@ pub enum NextScene {
 
 thread_local! {
     pub static BILLBOARD: RefCell<(BillBoard, TimeManager)> = RefCell::new((BillBoard::new(), TimeManager::default()));
-    pub static DIALOG: RefCell<Option<Dialog>> = RefCell::new(None);
-    pub static FULL_LOADING: RefCell<Option<FullLoadingView>> = RefCell::new(None);
+    pub static DIALOG: RefCell<Option<Dialog>> = const { RefCell::new(None) };
+    pub static FULL_LOADING: RefCell<Option<FullLoadingView>> = const { RefCell::new(None) };
 }
 
 pub struct FullLoadingView {

@@ -188,7 +188,7 @@ impl Scroller {
         let dt = t - self.last_time;
         self.offset += self.speed * dt;
         const K: f32 = 4.;
-        let unlock = self.touch.map_or(false, |it| it.3);
+        let unlock = self.touch.is_some_and(|it| it.3);
         if unlock {
             self.speed *= (0.5_f32).powf((t - self.last_time) / 0.4);
         } else {
@@ -203,10 +203,10 @@ impl Scroller {
                 let lower = (self.offset / self.step).floor() * self.step;
                 let upper = lower + self.step;
                 let range = -1e-3..(self.size + 1e-3);
-                if range.contains(&lower) && to.map_or(true, |it| (it - self.offset).abs() >= (lower - self.offset).abs()) {
+                if range.contains(&lower) && to.is_none_or(|it| (it - self.offset).abs() >= (lower - self.offset).abs()) {
                     to = Some(lower);
                 }
-                if range.contains(&upper) && to.map_or(true, |it| (it - self.offset).abs() >= (upper - self.offset).abs()) {
+                if range.contains(&upper) && to.is_none_or(|it| (it - self.offset).abs() >= (upper - self.offset).abs()) {
                     to = Some(upper);
                 }
             }
@@ -312,7 +312,7 @@ impl Scroll {
     }
 
     pub fn contains(&self, touch: &Touch) -> bool {
-        self.matrix.map_or(false, |mat| {
+        self.matrix.is_some_and(|mat| {
             let Vec2 { x, y } = touch.position;
             let p = mat.transform_point(&Point::new(x, y));
             !(p.x < 0. || p.x >= self.size.0 || p.y < 0. || p.y >= self.size.1)

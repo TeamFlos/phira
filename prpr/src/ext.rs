@@ -357,7 +357,7 @@ pub async fn spawn_task<R: Send + 'static>(f: impl FnOnce() -> Result<R> + Send 
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        Ok(tokio::task::spawn_blocking(f).await??)
+        tokio::task::spawn_blocking(f).await?
     }
 }
 

@@ -53,7 +53,6 @@ impl ResPackItem {
     }
 
     fn load(&mut self) {
-        if self.load_task.is_some() {}
         if let Some(loaded) = self.loaded.take() {
             self.load_task = Some(Box::pin(async move { Ok(loaded) }));
         } else {

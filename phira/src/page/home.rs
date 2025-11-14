@@ -487,7 +487,7 @@ impl Page for HomePage {
                 self.board_task = Some(Task::new(async move { Ok(None) }));
             } else {
                 let mut index = thread_rng().gen_range(0..(charts.len() - last_index.is_some() as usize));
-                if last_index.map_or(false, |it| it <= index) {
+                if last_index.is_some_and(|it| it <= index) {
                     index += 1;
                 }
                 let path = charts[index].local_path.clone();
@@ -538,7 +538,7 @@ impl Page for HomePage {
                         warn!("fail to check update {:?}", err);
                     }
                     Ok(Some(ver)) => {
-                        if get_data().ignored_version.as_ref().map_or(true, |it| it < &ver.version) {
+                        if get_data().ignored_version.as_ref().is_none_or(|it| it < &ver.version) {
                             Dialog::plain(
                                 tl!("update", "version" => ver.version.to_string()),
                                 tl!("update-desc", "date" => ver.date.to_string(), "desc" => ver.description),

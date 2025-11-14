@@ -105,7 +105,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         rect
     }
 
-    fn measure_inner<'this, 'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, (f32, f32, f32, f32)) {
+    fn measure_inner<'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, (f32, f32, f32, f32)) {
         use glyph_brush::ab_glyph;
         let vp = get_viewport();
         let scale = self.get_scale(vp.2);

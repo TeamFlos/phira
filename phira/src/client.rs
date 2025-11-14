@@ -176,7 +176,7 @@ impl Client {
             queries: HashMap::new(),
             page: None,
             suffix: "",
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 

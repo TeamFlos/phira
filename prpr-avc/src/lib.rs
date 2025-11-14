@@ -37,11 +37,11 @@ impl<T> OwnedPtr<T> {
     }
 
     pub unsafe fn as_ref(&self) -> &T {
-        std::mem::transmute(self.0)
+        &*self.0
     }
 
     pub unsafe fn as_mut(&mut self) -> &mut T {
-        std::mem::transmute(self.0)
+        &mut *self.0
     }
 
     pub fn as_self_mut(&mut self) -> *mut *mut T {

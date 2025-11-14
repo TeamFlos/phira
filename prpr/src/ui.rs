@@ -340,7 +340,7 @@ impl DRectButton {
     }
 
     pub fn progress(&mut self, t: f32) -> f32 {
-        if self.start_time.as_ref().map_or(false, |it| t > *it + Self::TIME) {
+        if self.start_time.as_ref().is_some_and(|it| t > *it + Self::TIME) {
             self.start_time = None;
         }
         let p = if let Some(time) = &self.start_time {
@@ -916,7 +916,7 @@ impl<'a> Ui<'a> {
         let lf = r.x;
         let r = Rect::new(0.02, r.y - 0.01, params.length, r.h + 0.02);
         if if params.password {
-            self.button(&id, r, &"*".repeat(value.chars().count()))
+            self.button(&id, r, "*".repeat(value.chars().count()))
         } else {
             self.button(&id, r, value.lines().next().unwrap_or_default())
         } {
@@ -1202,9 +1202,9 @@ fn build_audio() -> AudioManager {
 
 thread_local! {
     pub static UI_AUDIO: RefCell<AudioManager> = RefCell::new(build_audio());
-    pub static UI_BTN_HITSOUND_LARGE: RefCell<Option<Sfx>> = RefCell::new(None);
-    pub static UI_BTN_HITSOUND: RefCell<Option<Sfx>> = RefCell::new(None);
-    pub static UI_SWITCH_SOUND: RefCell<Option<Sfx>> = RefCell::new(None);
+    pub static UI_BTN_HITSOUND_LARGE: RefCell<Option<Sfx>> = const { RefCell::new(None) };
+    pub static UI_BTN_HITSOUND: RefCell<Option<Sfx>> = const { RefCell::new(None) };
+    pub static UI_SWITCH_SOUND: RefCell<Option<Sfx>> = const { RefCell::new(None) };
 }
 
 pub fn button_hit() {

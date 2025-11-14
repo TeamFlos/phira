@@ -113,7 +113,7 @@ fn parse_float_events(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimFloat> {
     validate_events!(pgr);
     let mut kfs = Vec::<Keyframe<f32>>::new();
     for e in pgr {
-        if !kfs.last().map_or(false, |it| it.value == e.start) {
+        if !kfs.last().is_some_and(|it| it.value == e.start) {
             kfs.push(Keyframe::new((e.start_time * r).max(0.), e.start, 2));
         }
         kfs.push(Keyframe::new(e.end_time * r, e.end, 2));
@@ -129,10 +129,10 @@ fn parse_move_events(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimVector> {
     for e in pgr {
         let st = (e.start_time * r).max(0.);
         let en = e.end_time * r;
-        if !kf1.last().map_or(false, |it| it.value == e.start) {
+        if !kf1.last().is_some_and(|it| it.value == e.start) {
             kf1.push(Keyframe::new(st, e.start, 2));
         }
-        if !kf2.last().map_or(false, |it| it.value == e.start2) {
+        if !kf2.last().is_some_and(|it| it.value == e.start2) {
             kf2.push(Keyframe::new(st, e.start2, 2));
         }
         kf1.push(Keyframe::new(en, e.end, 2));
@@ -156,11 +156,11 @@ fn parse_move_events_fv1(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimVector> {
     for e in pgr {
         let st = (e.start_time * r).max(0.);
         let en = e.end_time * r;
-        if !kf1.last().map_or(false, |it| it.value == e.start) {
+        if !kf1.last().is_some_and(|it| it.value == e.start) {
             let start = (e.start - e.start % 1000.) / 1000.;
             kf1.push(Keyframe::new(st, start, 2));
         }
-        if !kf2.last().map_or(false, |it| it.value == e.start2) {
+        if !kf2.last().is_some_and(|it| it.value == e.start2) {
             let start2 = e.start % 1000.;
             kf2.push(Keyframe::new(st,  start2, 2));
         }

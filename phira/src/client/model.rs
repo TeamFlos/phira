@@ -130,7 +130,7 @@ impl<T: Object + 'static> Ptr<T> {
     pub fn new(id: i32) -> Self {
         Self {
             id,
-            _marker: PhantomData::default(),
+            _marker: PhantomData,
         }
     }
 
