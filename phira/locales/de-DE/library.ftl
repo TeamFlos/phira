@@ -5,14 +5,14 @@ local = Lokal
 popular = Beliebt
 
 page = Seite: { $current } / { $total }
-prev-page = Zurück
+prev-page = ZurÃ¼ck
 next-page = Weiter
 
-not-opened = Noch nicht verfügbar.
+not-opened = Noch nicht verfÃ¼gbar.
 failed-to-load-online = Fehler beim Laden der Online-Level.
 
 import = Importieren
 
-offline-mode = Sämtliche Online-Funktionen sind aufgrund des Offline-Modus deaktiviert. (Einstellungen)
+offline-mode = SÃ¤mtliche Online-Funktionen sind aufgrund des Offline-Modus deaktiviert. (Einstellungen)
 
-must-login = Bitte melde dich an, um die Online-Level ansehen zu können.
+must-login = Bitte melde dich an, um die Online-Level ansehen zu kÃ¶nnen.

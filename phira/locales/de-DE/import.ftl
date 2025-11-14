@@ -1,6 +1,6 @@
 
 info-fail = Fehler beim Laden von Informationen.
-invalid-chart = Ungültiges Level.
+invalid-chart = UngÃ¼ltiges Level.
 
 importing = Importieren...
 import-success = Importierung erfolgreich.

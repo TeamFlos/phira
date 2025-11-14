@@ -2,10 +2,10 @@
 to = bis
 adjust-offset = Offset anpassen
 offset-cancel = Abbrechen
-offset-reset = Zurücksetzen
+offset-reset = ZurÃ¼cksetzen
 offset-save = Speichern
 speed = Geschwindigkeitsmultiplikator
 
 ex-time-out-of-range = Stelle sicher, dass die Zeit innerhalb der Grenzen liegt.
-ex-invalid-format = Ungültiges Format.
-ex-time-set = Zeit geändert.
+ex-invalid-format = UngÃ¼ltiges Format.
+ex-time-set = Zeit geÃ¤ndert.

@@ -3,7 +3,7 @@ play = Spielen
 event = Events
 respack = Skins
 
-not-opened = Noch nicht verfügbar.
+not-opened = Noch nicht verfÃ¼gbar.
 not-logged-in = Noch nicht angemeldet
 
 failed-to-update = Fehler beim Abrufen der Nutzerdaten.
@@ -16,4 +16,4 @@ update-desc =
 update-ignore = Ignorieren
 update-go = Ansehen
 
-change-char = Charakter ändern (Web)
+change-char = Charakter Ã¤ndern (Web)

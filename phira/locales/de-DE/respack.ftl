@@ -10,5 +10,5 @@ info-content =
   Ersteller: { $author }
   Beschreibung: { $desc }
 
-cant-delete-builtin = Der integrierte Skin kann nicht gelöscht werden.
-deleted = Erfolgreich gelöscht.
+cant-delete-builtin = Der integrierte Skin kann nicht gelÃ¶scht werden.
+deleted = Erfolgreich gelÃ¶scht.

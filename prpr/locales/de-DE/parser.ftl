@@ -19,7 +19,7 @@ judge-line-location-name = In Judge-Line #{ $jlid } ({ $name }).
 hitsound-missing = Hitsound `{ $name }` fehlt.
 
 # pgr
-event-not-contiguous = Events müssen aufeinanderfolgend sein.
+event-not-contiguous = Events mÃ¼ssen aufeinanderfolgend sein.
 
 alpha-events-parse-failed = Alpha-Events konnten nicht geparst werden.
 rotate-events-parse-failed = Rotations-Events konnten nicht geparst werden.
@@ -33,9 +33,9 @@ expected-tween = Erwartetes Tween.
 
 no-notes-inserted = Es scheinen keine Noten im Level vorhanden zu sein.
 unknown-command = Unbekannter Befehl: { $cmd }.
-bp-error = BPM-Events (bp) müssen aufeinanderfolgend sein und am Anfang der Datei stehen.
+bp-error = BPM-Events (bp) mÃ¼ssen aufeinanderfolgend sein und am Anfang der Datei stehen.
 expected-01 = Erwartet 0 / 1 (echte Note / Fake-Note).
-unexpected-extra = Unerwarteter zusätzlicher Inhalt: { $next }.
+unexpected-extra = Unerwarteter zusÃ¤tzlicher Inhalt: { $next }.
 line-location = In Zeile #{ $lid }.
 
 # extra

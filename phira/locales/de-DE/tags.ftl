@@ -2,13 +2,13 @@
 filter = Nach Tags filtern
 edit = Tags bearbeiten
 
-invalid-tag = Ungültige Tags
+invalid-tag = UngÃ¼ltige Tags
 
-wanted = Gewünschte Tags
-unwanted = Unerwünschte Tags
+wanted = GewÃ¼nschte Tags
+unwanted = UnerwÃ¼nschte Tags
 
 cancel = Abbrechen
-confirm = Bestätigen
+confirm = BestÃ¤tigen
 
 filter-by-rating = Nach Bewertung Filtern
 

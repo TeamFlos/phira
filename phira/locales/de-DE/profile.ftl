@@ -2,9 +2,9 @@
 logout = Abmelden
 logged-out = Abgemeldet.
 
-delete = Account löschen
-delete-failed = Fehler beim löschen des Accounts.
-delete-req-sent = Der Antrag auf Kontolöschung wurde eingereicht.
+delete = Account lÃ¶schen
+delete-failed = Fehler beim lÃ¶schen des Accounts.
+delete-req-sent = Der Antrag auf KontolÃ¶schung wurde eingereicht.
 
 load-user-failed = Fehler beim Abrufen der Nutzerdaten.
 edit-avatar-success = Profilbild aktualisiert.

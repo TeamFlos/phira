@@ -3,7 +3,7 @@ rate = Bewerten
 filter = Nach Bewertung filtern
 
 cancel = Abbrechen
-confirm = Best‰tigen
+confirm = Best√§tigen
 
 lower-bound = Untergrenze
 upper-bound = Obergrenze
