@@ -272,7 +272,7 @@ struct GeneralList {
 
     lang_btn: ChooseButton,
 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
@@ -305,7 +305,7 @@ impl GeneralList {
                         .unwrap_or_default(),
                 ),
 
-            #[cfg(target_os = "windows")]
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
@@ -362,9 +362,12 @@ impl GeneralList {
             return Ok(Some(false));
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         if self.fullscreen_btn.touch(touch, t) {
             config.fullscreen_mode ^= true;
+
+            macroquad::window::set_fullscreen(config.fullscreen_mode);
+
             return Ok(Some(true));
         }
 
@@ -469,7 +472,7 @@ impl GeneralList {
             self.lang_btn.render(ui, rr, t);
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
         item! {
             render_title(ui, tl!("item-fullscreen"), Some(tl!("item-fullscreen-sub")));
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
