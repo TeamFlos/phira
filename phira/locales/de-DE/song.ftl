@@ -1,4 +1,4 @@
-﻿
+
 load-preview-failed = Fehler beim Laden der Songvorschau
 load-charts-failed = Fehler beim Laden der Level
 no-chart-for-download = Dieses Level kann nicht heruntergeladen werden.

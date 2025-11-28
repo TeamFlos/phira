@@ -1,4 +1,4 @@
-﻿time = Zeit (↓)
+time = Zeit (↓)
 rev-time = Zeit (↑)
 name = Name (↑)
 rev-name = Name (↓)
