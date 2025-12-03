@@ -1,4 +1,4 @@
-label = MESSAGES
-load-msg-fail = Failed to load messages.
-no-msg = Nothing yet.
-subtitle = { $author } at { $time }
+label = 消息
+load-msg-fail = 加载信息失败
+no-msg = 暂无消息
+subtitle = { $author } 于 { $time }
