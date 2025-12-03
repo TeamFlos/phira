@@ -1,10 +1,10 @@
-label = RESPACK
-default = Default
-load-failed = Failed to load respacks.
-info = Info
+label = 資源包
+default = 默認資源包
+load-failed = 載入資源包失敗
+info = 資源包資訊
 info-content =
-    Name: { $name }
-    Creator: { $author }
-    Description: { $desc }
-cant-delete-builtin = The built-in respack can't be deleted.
-deleted = Successfully deleted.
+    名字：{ $name }
+    作者：{ $author }
+    描述：{ $desc }
+cant-delete-builtin = 不能刪除內置資源包
+deleted = 資源包已刪除
