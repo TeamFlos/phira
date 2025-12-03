@@ -1,4 +1,4 @@
 label = Local
-import-failed = Failed to import chart.
-import-success = Imported successfully.
-not-loaded = Importing...
+import-failed = Falha ao importar
+import-success = Importado com sucesso
+not-loaded = Ainda não terminou de carregar
