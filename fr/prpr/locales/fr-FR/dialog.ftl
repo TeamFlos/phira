@@ -1,5 +1,5 @@
-notice = Notice
+notice = Suggestion
 ok = OK
-error = Error
-error-copy = Copy Error
-error-copied = Copied
+error = Erreur
+error-copy = Copier les détails d'erreurs
+error-copied = Copié
