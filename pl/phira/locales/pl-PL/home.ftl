@@ -1,9 +1,9 @@
-play = Play
-event = Event
-respack = Respack
-not-opened = Not available yet.
-not-logged-in = Not Logged In
-failed-to-update = Failed to fetch user info.
+play = Graj
+event = Wydarzenie
+respack = Paczka zasobów
+not-opened = Niedostępny
+not-logged-in = Nie zalogowano
+failed-to-update = Nie załadowano informacji użytkownika
 note-try-login-again = Try logging in again.
 update = v{ $version } Update
 update-desc =
