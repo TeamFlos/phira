@@ -1,5 +1,5 @@
-notice = Notice
+notice = 알겠습니다
 ok = OK
-error = Error
-error-copy = Copy Error
-error-copied = Copied
+error = 오류
+error-copy = 오류 복사
+error-copied = 복사됨
