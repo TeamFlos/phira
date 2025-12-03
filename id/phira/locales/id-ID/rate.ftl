@@ -1,7 +1,7 @@
 rate = Rate
-filter = Filter by Rating
-cancel = Cancel
-confirm = Confirm
-lower-bound = Lower-Bound
-upper-bound = Upper-Bound
-filter-by-tags = Filter by Tags
+filter = Filter berdasarkan rating
+cancel = Membatalkan
+confirm = Konfirmasi
+lower-bound = Batas bawah
+upper-bound = Batas atas
+filter-by-tags = Filter berdasarkan tags
