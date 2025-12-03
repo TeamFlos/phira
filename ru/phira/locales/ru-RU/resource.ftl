@@ -1,5 +1,5 @@
-chap-c1 = Future Relics
+chap-c1 = Реликты из Будущего
 chap-c1-intro =
-    In the year 137 (AD), a miraculous event occured in the land of Phira.
-    The sky cracked open as countless structures and machines fell onto the earth, carrying what could be only be described as magical artifacts from the future.
-    This sent the continent into a state of panic and chaos...
+    В 137 году нашей эры,на землях Фиры , произошло событие, именуемое "Пришествие Реликвий из Будущего".
+    Несчëтное количество структур и машин, забитых магическими материалами, упало на землю сквозь трещины в небе.
+    Весь континент охватила паника, а аура таинственности опустилась на эти земли…
