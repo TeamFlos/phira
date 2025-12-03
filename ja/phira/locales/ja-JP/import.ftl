@@ -1,7 +1,7 @@
-info-fail = Failed to load info.
-invalid-chart = Invalid chart.
-importing = Importing...
-import-success = Imported successfully.
-import-failed = Import failed.
+info-fail = 譜面情報の読み込みに失敗しました
+invalid-chart = 無効な譜面です
+importing = インポート中
+import-success = インポートに成功しました
+import-failed = インポートに失敗しました
 import-respack-success = Imported successfully.
-import-respack-failed = Failed to import respack.
+import-respack-failed = リソースパックのインポートに失敗しました
