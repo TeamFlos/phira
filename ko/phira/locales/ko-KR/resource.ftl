@@ -1,5 +1,5 @@
-chap-c1 = Future Relics
+chap-c1 = 미래의 유물
 chap-c1-intro =
-    In the year 137 (AD), a miraculous event occured in the land of Phira.
-    The sky cracked open as countless structures and machines fell onto the earth, carrying what could be only be described as magical artifacts from the future.
-    This sent the continent into a state of panic and chaos...
+    137년 AD, Phira 대륙,"미래의 유물"로 알려진 기적 같은 사건이 일어났다.
+    하늘의 균열을 통해 수많은 거대한 구조물과 기계들이 무작위로내려왔으며, 그것들은 미래에서 온 것처럼 보이는 재료들과 마법을 싣고 있었다.
+    이것들은 전 대륙에 신비로우며 동시에 공포에 질린 분위기를 야기하였다…
