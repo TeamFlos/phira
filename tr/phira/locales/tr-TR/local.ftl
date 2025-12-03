@@ -1,4 +1,4 @@
-label = Local
-import-failed = Failed to import chart.
-import-success = Imported successfully.
-not-loaded = Importing...
+label = Yerel
+import-failed = İçe aktarma başarısız
+import-success = İçe aktarma başarılı
+not-loaded = Yükleme daha bitmedi
