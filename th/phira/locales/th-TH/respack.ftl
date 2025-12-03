@@ -1,10 +1,10 @@
-label = RESPACK
+label = Skin
 default = Default
-load-failed = Failed to load respacks.
-info = Info
+load-failed = ไม่สามารถโหลด Skin ได้
+info = ข้อมูล Skin
 info-content =
-    Name: { $name }
-    Creator: { $author }
-    Description: { $desc }
-cant-delete-builtin = The built-in respack can't be deleted.
-deleted = Successfully deleted.
+    ชื่อ: { $name }
+    ผู้จัดทำ: { $author }
+    คำอธิบาย: { $desc }
+cant-delete-builtin = ไม่สามารถลบ Skin ได้
+deleted = ลบแล้วเรียบร้อย
