@@ -1,36 +1,36 @@
 # general
-unknown-note-type = Unknown note type: { $type }.
-json-parse-failed = Failed to parse chart JSON.
-judge-line-location = In judge line #{ $jlid }.
+unknown-note-type = Tipo de nota desconhecido: { $type }
+json-parse-failed = Falha ao analisar JSON
+judge-line-location = Na linha de jugamento #{ $jlid }
 # rpe
-type-events-parse-failed = Failed to parse { $type } events.
-incline-events-parse-failed = Failed to parse incline events.
-paint-events-parse-failed = Failed to parse paint events.
-text-events-parse-failed = Failed to parse text events.
-color-events-parse-failed = Failed to parse color events.
+type-events-parse-failed = Falha ao analisar { $type } eventos
+incline-events-parse-failed = Falha ao analisar eventos de inclinação
+paint-events-parse-failed = Falha ao analisar eventos de pintura
+text-events-parse-failed = Falha ao analisar eventos de texto
+color-events-parse-failed = Falha ao analisar eventos de cores
 gif-events-parse-failed = Failed to parse gif events.
-illustration-load-failed = Failed to load illustration at { $path }.
+illustration-load-failed = Falha ao carregar a ilustração em { $path }
 gif-load-failed = Failed to load gif at { $path }.
-judge-line-location-name = In judge line #{ $jlid } ({ $name }).
+judge-line-location-name = Na linha de jugamento #{ $jlid } ({ $name })
 hitsound-missing = Hitsound `{ $name }` is missing.
 # pgr
-event-not-contiguous = Events should be contiguous.
-alpha-events-parse-failed = Failed to parse alpha events.
-rotate-events-parse-failed = Failed to parse rotate events.
-move-events-parse-failed = Failed to parse move events.
+event-not-contiguous = Os eventos devem ser contíguos
+alpha-events-parse-failed = Falha ao analisar eventos alfa
+rotate-events-parse-failed = Falha ao analisar eventos de rotação
+move-events-parse-failed = Falha ao analisar eventos de movimentação
 # pec
-unexpected-eol = Unexpected end of line.
-expected-f32 = Expected f32.
-expected-usize = Expected usize.
-expected-tween = Expected tween.
-no-notes-inserted = No notes appear to be in the chart.
-unknown-command = Unknown command: { $cmd }.
-bp-error = Bpm events (bp) should be contiguous and in the head of the file.
-expected-01 = Expected 0 / 1 (real note / fake note).
-unexpected-extra = Unexpected extra content: { $next }.
-line-location = On line #{ $lid }.
+unexpected-eol = Fim de linha inesperado
+expected-f32 = Esperado f32
+expected-usize = Tamanho de uso esperado
+expected-tween = Interpolação esperada
+no-notes-inserted = Nenhuma nota foi inserida ainda
+unknown-command = Comando desconhecido : { $cmd }
+bp-error = Os eventos Bpm (bp) devem ser contíguos e no cabeçalho do arquivo
+expected-01 = Esperado 0/1 (nota real/nota falsa)
+unexpected-extra = Conteúdo extra inesperado : { $next }
+line-location = Na linha #{ $lid }
 # extra
-shader-load-failed = Cannot load shader from { $path }.
-shader-not-found = Cannot find preset shader { $shader }.
-effect-location = In effect #{ $id }.
-video-load-failed = Failed to read video from { $path }.
+shader-load-failed = Não é possível carregar o shader de  { $path }
+shader-not-found = Não é possível encontrar o shader predefinido  { $shader }
+effect-location = Com efeito  #{ $id }
+video-load-failed = Falha ao ler o vídeo de  { $path }
