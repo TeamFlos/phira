@@ -1,74 +1,74 @@
-multiplayer = Multiplayer
-connect = Connect
-connect-must-login = You must login to access multiplayer functionality.
-connect-success = Connected successfully.
-connect-failed = Failed to connect.
-connect-authenticate-failed = Authorization failed.
-reconnect = Reconnecting…
-create-room = Create Room
-create-room-success = Room created.
-create-room-failed = Failed to create room.
-create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, a-z, 0-9, -, and _.
-join-room = Join Room
-join-room-invalid-id = Invalid room ID.
-join-room-failed = Failed to join room.
-leave-room = Leave Room
-leave-room-failed = Failed to leave room.
-disconnect = Disconnect
-request-start = Start Game
-request-start-no-chart = Select an online chart first.
-request-start-failed = Failed to start.
-user-list = Users
+multiplayer = Мультиплеер
+connect = Подключиться
+connect-must-login = Войдите в аккаунт, чтобы использовать мультиплеер
+connect-success = Подключение успешно
+connect-failed = Ошибка подключения
+connect-authenticate-failed = Ошибка авторизации
+reconnect = Переподключение...
+create-room = Создать комнату
+create-room-success = Комната создана
+create-room-failed = Ошибка создания комнаты
+create-invalid-id = ID комнаты может быть длиной не более 20 символов, и может состоять из строчных и прописных букв, цифр, тире(-) и нижнего подчëркивания.
+join-room = Присоединиться
+join-room-invalid-id = Неверный ID комнаты
+join-room-failed = Ошибка при попытке присоединиться в комнату
+leave-room = Покинуть
+leave-room-failed = Ошибка при попытке покинуть комнату
+disconnect = Отсоединиться
+request-start = Начать
+request-start-no-chart = Вы не выбрали чарт
+request-start-failed = Ошибка при запуске игры
+user-list = Игроки
 lock-room =
     { $current ->
-        [true] Unlock Room
-       *[other] Lock Room
+        [true] Закрыть комнату
+       *[other] Открыть комнату
     }
 cycle-room =
     { $current ->
-        [true] Cycle Mode
-       *[other] Normal Mode
+        [true] По очереди
+       *[other] Стандарт
     }
-ready = Ready
-ready-failed = Failed to get ready.
-cancel-ready = Cancel
-room-id = Room ID: { $id }
-download-failed = Failed to download chart.
-lock-room-failed = Failed to lock room.
-cycle-room-failed = Failed to change room mode.
-chat-placeholder = Type a message...
-chat-send = Send
-chat-empty = Message is empty.
-chat-sent = Sent
-chat-send-failed = Failed to send message.
-select-chart-host-only = Only the host can select charts.
-select-chart-local = You can only select online charts.
-select-chart-failed = Failed to select chart.
-select-chart-not-now = You can't select chart now.
-msg-create-room = `{ $user }` created the room.
-msg-join-room = `{ $user }` joined the room.
-msg-leave-room = `{ $user }` left the room.
-msg-new-host = `{ $user }` became the new host.
-msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id }).
-msg-game-start = The host `{ $user }` started the game.
-msg-ready = `{ $user }` is ready.
-msg-cancel-ready = `{ $user }` canceled being ready.
-msg-cancel-game = `{ $user }` cancelled the game.
-msg-start-playing = Game started.
+ready = Готов
+ready-failed = Ошибка при попытке готовности
+cancel-ready = Отмена
+room-id = ID комнаты: { $id }
+download-failed = Ошибка загрузки чарта
+lock-room-failed = Ошибка при попытке закрыть комнату
+cycle-room-failed = Ошибка при попытке сменить режим комнаты
+chat-placeholder = Скажите что нибудь…
+chat-send = Отправить
+chat-empty = Пустое сообщение
+chat-sent = Отправлено
+chat-send-failed = Ошибка при отправке
+select-chart-host-only = Только хост может выбирать чарт
+select-chart-local = Нельзя выбрать локальный чарт
+select-chart-failed = Ошибка при выборе чарта
+select-chart-not-now = Вы не можете пока что выбрать чарт.
+msg-create-room = `{ $user }` создал комнату
+msg-join-room = `{ $user }` присоединился к комнате
+msg-leave-room = `{ $user }` покинул комнату
+msg-new-host = `{ $user }` стал новым хостом
+msg-select-chart = Хост `{ $user }` выбрал чарт `{ $chart }` (#{ $id })
+msg-game-start = Хост `{ $user }` начал игру. Остальные игроки, нажмите на кнопку, когда будете готовы.
+msg-ready = `{ $user }` готов
+msg-cancel-ready = `{ $user }` отменил готовность
+msg-cancel-game = `{ $user }` отменил игру
+msg-start-playing = Раунд начался
 msg-played =
-    `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-combo ->
-        [true] , full combo.
-       *[other] { "" }.
+    `{ $user }` завершил играть: { $score } ({ $accuracy }){ $full-combo ->
+        [true] , Фулл Комбо
+       *[other] { "" }
     }
-msg-game-end = Game ended.
-msg-abort = `{ $user }` aborted the game.
+msg-game-end = Раунд окончен
+msg-abort = `{ $user }` вышел посреди раунда
 msg-room-lock =
     { $lock ->
-        [true] Room locked.
-       *[other] Room unlocked.
+        [true] Комната закрыта
+       *[other] Комната открыта
     }
 msg-room-cycle =
     { $cycle ->
-        [true] Room mode changed to Cycle.
-       *[other] Room mode changed to Normal.
+        [true] Включëн режим "По очереди".Теперь роль хоста передаëтся другому игроку после окончания раунда
+       *[other] Включëн режим "Классика" Теперь хост не меняется после окончания раунда
     }
