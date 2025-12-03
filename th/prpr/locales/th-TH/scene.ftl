@@ -1,5 +1,5 @@
 input = Input
-input-msg = Please input text.
-input-hint = Input text.
-read-file-failed = Failed to read file.
-pasted = Pasted from clipboard.
+input-msg = กรุณาใส่ text
+input-hint = text
+read-file-failed = ไม่สามารถอ่านไฟล์ได้
+pasted = คัดลอกจาก clipboard เรียบร้อย
