@@ -1,24 +1,24 @@
 login = Login
-login-sub = Login to access Phira's online features! (Charts, events, multiplayer, etc.)
-back-login = Back to Login
-register = Register
+login-sub = Login เพื่อใช้โหมด Online
+back-login = กลับไป Login
+register = สมัคร
 email = Email
-username = Username
-password = Password
-name-length-req = Username length should be between 4 and 20 characters.
-name-has-illegal-char = Username contains unallowed characters.
-pwd-length-req = Password length should be between 6 and 26 characters.
-illegal-email = Unallowed email.
+username = ชื่อผู้ใช้
+password = รหัสผ่าน
+name-length-req = ชื่อควรยาว 4-20 ตัว
+name-has-illegal-char = ชื่อผู้ใช้มีตัวที่ไม่อนุญาตให้ใช้
+pwd-length-req = รหัสผ่านควรยาว 6-26 ตัว
+illegal-email = Illegal email
 action-success =
     { $action ->
-        [login] Logged in.
-        [register] Registered successfully.
+        [login] Login เรียบร้อย
+        [register] สมัครเรียบร้อย
        *[other] _
     }
 action-failed =
     { $action ->
-        [login] Failed to log in.
-        [register] Failed to register.
+        [login] ไม่สามารถ login ได้
+        [register] ไม่สามารถสมัครได้
        *[other] _
     }
-email-sent = Please check your inbox for an activation email from Phira.
+email-sent = รหัสยืนยันถูกส่งไปยัง email เรียบร้อย, กรุณายืนยันตัวตนเพื่อ login
