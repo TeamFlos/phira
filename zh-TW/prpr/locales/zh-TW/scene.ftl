@@ -1,5 +1,5 @@
-input = Input
-input-msg = Please input text.
-input-hint = Input text.
-read-file-failed = Failed to read file.
-pasted = Pasted from clipboard.
+input = 輸入
+input-msg = 請輸入文字
+input-hint = 文字
+read-file-failed = 讀取文件失敗
+pasted = 從剪貼簿載入成功
