@@ -1,3 +1,3 @@
-diff-easy = EASY
-diff-hard = HARD
-diff-extreme = EXTREME
+diff-easy = KOLAY
+diff-hard = ZOR
+diff-extreme = AŞIRI
