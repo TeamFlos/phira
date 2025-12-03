@@ -1,7 +1,7 @@
-rate = Rate
-filter = Filter by Rating
-cancel = Cancel
-confirm = Confirm
-lower-bound = Lower-Bound
-upper-bound = Upper-Bound
-filter-by-tags = Filter by Tags
+rate = Оценка
+filter = Фильтр по оценке
+cancel = Отмена
+confirm = Подтвердить
+lower-bound = Низшая
+upper-bound = Высшая
+filter-by-tags = Фильтр по тегам
