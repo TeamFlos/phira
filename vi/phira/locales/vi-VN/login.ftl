@@ -1,24 +1,24 @@
-login = Login
-login-sub = Login to access Phira's online features! (Charts, events, multiplayer, etc.)
-back-login = Back to Login
-register = Register
+login = Đăng nhập
+login-sub = Đăng nhập để tham gia cùng với cộng đồng Phira lành mạnh!
+back-login = Quay lại
+register = Tạo tài khoản
 email = Email
-username = Username
-password = Password
-name-length-req = Username length should be between 4 and 20 characters.
-name-has-illegal-char = Username contains unallowed characters.
-pwd-length-req = Password length should be between 6 and 26 characters.
-illegal-email = Unallowed email.
+username = Tên người dùng
+password = Mật khẩu
+name-length-req = Độ dài tên nên nằm trong khoảng 4-20 ký tự
+name-has-illegal-char = Tên có ký tự không hợp lệ
+pwd-length-req = Độ dài mật khẩu nên nằm trong khoảng 6-26 ký tự
+illegal-email = Email không hợp lệ
 action-success =
     { $action ->
-        [login] Logged in.
-        [register] Registered successfully.
+        [login] Đăng nhập thành công!
+        [register] Đã tạo tài khoản của bạn!
        *[other] _
     }
 action-failed =
     { $action ->
-        [login] Failed to log in.
-        [register] Failed to register.
+        [login] Không thể đăng nhập
+        [register] Không thể tạo tài khoản của bạn
        *[other] _
     }
-email-sent = Please check your inbox for an activation email from Phira.
+email-sent = Bạn đã được gửi một Email xác minh, hãy xác minh nó và quay lại đăng nhập.
