@@ -1,3 +1,3 @@
-diff-easy = EASY
-diff-hard = HARD
-diff-extreme = EXTREME
+diff-easy = FACILE
+diff-hard = DIFFICILE
+diff-extreme = EXTRÊME
