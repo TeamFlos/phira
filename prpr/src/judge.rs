@@ -792,6 +792,7 @@ impl Judge {
                                     &line.ctrl_obj.borrow_mut(),
                                     (note.height - line.height.now()) / res.aspect_ratio * note.speed,
                                     incline_sin,
+                                    true
                                 );
                                 mat
                             },
