@@ -1,7 +1,7 @@
-rate = Rate
-filter = Filter by Rating
-cancel = Cancel
-confirm = Confirm
-lower-bound = Lower-Bound
-upper-bound = Upper-Bound
-filter-by-tags = Filter by Tags
+rate = Noter
+filter = Filtrer par note
+cancel = Annuler
+confirm = Confirmer
+lower-bound = Borne inférieure
+upper-bound = Borne supérieure
+filter-by-tags = Filtrer par Tags
