@@ -1,7 +1,7 @@
-info-fail = Failed to load info.
-invalid-chart = Invalid chart.
-importing = Importing...
-import-success = Imported successfully.
-import-failed = Import failed.
+info-fail = Gagal memuat info chart
+invalid-chart = Chart tidak valid
+importing = Mengimport
+import-success = Import Sukses
+import-failed = Import Gagal
 import-respack-success = Imported successfully.
-import-respack-failed = Failed to import respack.
+import-respack-failed = Gagal mengimport respack
