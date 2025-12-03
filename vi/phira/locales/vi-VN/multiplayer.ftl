@@ -1,74 +1,74 @@
-multiplayer = Multiplayer
-connect = Connect
-connect-must-login = You must login to access multiplayer functionality.
-connect-success = Connected successfully.
-connect-failed = Failed to connect.
-connect-authenticate-failed = Authorization failed.
-reconnect = Reconnecting…
-create-room = Create Room
-create-room-success = Room created.
-create-room-failed = Failed to create room.
-create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, a-z, 0-9, -, and _.
-join-room = Join Room
-join-room-invalid-id = Invalid room ID.
-join-room-failed = Failed to join room.
-leave-room = Leave Room
-leave-room-failed = Failed to leave room.
-disconnect = Disconnect
-request-start = Start Game
-request-start-no-chart = Select an online chart first.
-request-start-failed = Failed to start.
-user-list = Users
+multiplayer = Nhiều người chơi
+connect = Kết nối
+connect-must-login = Bạn phải đăng nhập để sử dụng tính năng này
+connect-success = Đã kết nối
+connect-failed = Không thể kết nối
+connect-authenticate-failed = Uỷ quyền thất bại
+reconnect = Đang kết nối lại...
+create-room = Tạo phòng
+create-room-success = Đã tạo phòng
+create-room-failed = Không thể tạo phòng
+create-invalid-id = ID phòng không vượt quá 20 ký tự, có thể chứa chữ, số, - (gạch ngang) và _ (gạch dưới)
+join-room = Vào phòng
+join-room-invalid-id = Không tìm thấy ID phòng
+join-room-failed = Không thể vào phòng
+leave-room = Rời phòng
+leave-room-failed = Không thể rời phòng
+disconnect = Ngắt kết nối
+request-start = Bắt đầu
+request-start-no-chart = Bạn chưa chọn Chart
+request-start-failed = Không thể bắt đầu
+user-list = Người chơi
 lock-room =
     { $current ->
-        [true] Unlock Room
-       *[other] Lock Room
+        [true] Mở phòng
+       *[other] Khoá phòng
     }
 cycle-room =
     { $current ->
-        [true] Cycle Mode
-       *[other] Normal Mode
+        [true] Vòng lặp
+       *[other] Bình thường
     }
-ready = Ready
-ready-failed = Failed to get ready.
-cancel-ready = Cancel
-room-id = Room ID: { $id }
-download-failed = Failed to download chart.
-lock-room-failed = Failed to lock room.
-cycle-room-failed = Failed to change room mode.
-chat-placeholder = Type a message...
-chat-send = Send
-chat-empty = Message is empty.
-chat-sent = Sent
-chat-send-failed = Failed to send message.
-select-chart-host-only = Only the host can select charts.
-select-chart-local = You can only select online charts.
-select-chart-failed = Failed to select chart.
-select-chart-not-now = You can't select chart now.
-msg-create-room = `{ $user }` created the room.
-msg-join-room = `{ $user }` joined the room.
-msg-leave-room = `{ $user }` left the room.
-msg-new-host = `{ $user }` became the new host.
-msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id }).
-msg-game-start = The host `{ $user }` started the game.
-msg-ready = `{ $user }` is ready.
-msg-cancel-ready = `{ $user }` canceled being ready.
-msg-cancel-game = `{ $user }` cancelled the game.
-msg-start-playing = Game started.
+ready = Sẵn sàng
+ready-failed = Không thể sẵn sàng
+cancel-ready = Huỷ
+room-id = ID phòng: { $id }
+download-failed = Không thể tải về Chart
+lock-room-failed = Không thể khoá phòng
+cycle-room-failed = Không thể thay đổi chế độ
+chat-placeholder = Hãy nói gì đó...
+chat-send = Gửi
+chat-empty = Tin nhắn trống
+chat-sent = Đã gửi
+chat-send-failed = Không thể gửi tin nhắn
+select-chart-host-only = Chỉ chủ phòng mới được chọn Chart
+select-chart-local = Không thể chọn Chart đã nhập
+select-chart-failed = Không thể chọn Chart
+select-chart-not-now = Bạn không thể chọn Chart lúc này
+msg-create-room = `{ $user }` đã tạo phòng
+msg-join-room = `{ $user }` đã vào phòng
+msg-leave-room = `{ $user }` đã rời phòng
+msg-new-host = `{ $user }` trở thành chủ phòng
+msg-select-chart = Chủ phòng `{ $user }` đã chọn chart `{ $chart }` (#{ $id })
+msg-game-start = Chủ phòng `{ $user }` đã bắt đầu, đợi bạn sẵn sàng!
+msg-ready = `{ $user }` đã sẵn sàng
+msg-cancel-ready = `{ $user }` huỷ sẵn sằng
+msg-cancel-game = `{ $user }` huỷ trò chơi
+msg-start-playing = Trò chơi bắt đầu!
 msg-played =
-    `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-combo ->
-        [true] , full combo.
-       *[other] { "" }.
+    `{ $user }` đã xong: { $score } ({ $accuracy }){ $full-combo ->
+        [true] , FC
+       *[other] { "" }
     }
-msg-game-end = Game ended.
-msg-abort = `{ $user }` aborted the game.
+msg-game-end = Trò chơi kết thúc!
+msg-abort = `{ $user }` đã buộc huỷ trò chơi
 msg-room-lock =
     { $lock ->
-        [true] Room locked.
-       *[other] Room unlocked.
+        [true] Đã khoá phòng
+       *[other] Đã mở khoá phòng
     }
 msg-room-cycle =
     { $cycle ->
-        [true] Room mode changed to Cycle.
-       *[other] Room mode changed to Normal.
+        [true] Đã chuyển phòng về chế độ vòng lặp
+       *[other] Đã chuyển phòng về chế độ bình thường
     }
