@@ -1,74 +1,74 @@
 multiplayer = Multiplayer
-connect = Connect
-connect-must-login = You must login to access multiplayer functionality.
-connect-success = Connected successfully.
-connect-failed = Failed to connect.
-connect-authenticate-failed = Authorization failed.
-reconnect = Reconnecting…
-create-room = Create Room
-create-room-success = Room created.
-create-room-failed = Failed to create room.
-create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, a-z, 0-9, -, and _.
-join-room = Join Room
-join-room-invalid-id = Invalid room ID.
-join-room-failed = Failed to join room.
-leave-room = Leave Room
-leave-room-failed = Failed to leave room.
-disconnect = Disconnect
-request-start = Start Game
-request-start-no-chart = Select an online chart first.
-request-start-failed = Failed to start.
-user-list = Users
+connect = Hubungkan
+connect-must-login = Anda harus login untuk masuk ke mode multiplayer
+connect-success = Berhasil terhubung
+connect-failed = Gagal terhubung
+connect-authenticate-failed = Otorisasi gagal
+reconnect = Menghubungkan...
+create-room = Buat room
+create-room-success = Room dibuat
+create-room-failed = Gagal membuat room
+create-invalid-id = ID room terdiri dari tidak lebih dari 20 karakter, termasuk huruf, angka, - (tanda hubung) dan _ (garis bawah)
+join-room = Bergabung ke Room
+join-room-invalid-id = ID room tidak valid
+join-room-failed = Gagal bergabung ke dalam room
+leave-room = Meninggalkan Room
+leave-room-failed = Gagal meninggalkan room
+disconnect = Memutuskan
+request-start = Mulai permainan
+request-start-no-chart = Anda belum memilih chart
+request-start-failed = Gagal memulai permainan
+user-list = Pemain
 lock-room =
     { $current ->
-        [true] Unlock Room
-       *[other] Lock Room
+        [true] Room terbuka
+       *[other] Room terkunci
     }
 cycle-room =
     { $current ->
-        [true] Cycle Mode
-       *[other] Normal Mode
+        [true] Mode cycling
+       *[other] Mode normal
     }
-ready = Ready
-ready-failed = Failed to get ready.
-cancel-ready = Cancel
+ready = Siap
+ready-failed = Gagal bersiap
+cancel-ready = Batal
 room-id = Room ID: { $id }
-download-failed = Failed to download chart.
-lock-room-failed = Failed to lock room.
-cycle-room-failed = Failed to change room mode.
-chat-placeholder = Type a message...
-chat-send = Send
-chat-empty = Message is empty.
-chat-sent = Sent
-chat-send-failed = Failed to send message.
-select-chart-host-only = Only the host can select charts.
-select-chart-local = You can only select online charts.
-select-chart-failed = Failed to select chart.
-select-chart-not-now = You can't select chart now.
-msg-create-room = `{ $user }` created the room.
-msg-join-room = `{ $user }` joined the room.
-msg-leave-room = `{ $user }` left the room.
-msg-new-host = `{ $user }` became the new host.
-msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id }).
-msg-game-start = The host `{ $user }` started the game.
-msg-ready = `{ $user }` is ready.
-msg-cancel-ready = `{ $user }` canceled being ready.
-msg-cancel-game = `{ $user }` cancelled the game.
-msg-start-playing = Game started.
+download-failed = Gagal mengunduh chart
+lock-room-failed = Gagal mengunci room
+cycle-room-failed = Gagal mengubah mode room
+chat-placeholder = Katakan sesuatu...
+chat-send = Kirim
+chat-empty = Pesan kosong
+chat-sent = Terkirim
+chat-send-failed = Gagal mengirim pesan
+select-chart-host-only = Hanya host yang dapat memilih chart
+select-chart-local = Tidak dapat memilih chart lokal
+select-chart-failed = Gagal untuk memilih chart
+select-chart-not-now = Anda tidak dapat memilih chart sekarang
+msg-create-room = `{ $user }` membuat room
+msg-join-room = `{ $user }` bergabung ke dalam room
+msg-leave-room = `{ $user }` keluar dari room
+msg-new-host = `{ $user }` menjadi host baru
+msg-select-chart = Host `{ $user }`memilih chart `{ $chart }` (#{ $id })
+msg-game-start = Host `{ $user }` memulai permainan. Pemain lain harus segera bersiap.
+msg-ready = `{ $user }` siap
+msg-cancel-ready = `{ $user }` membatalkan siap
+msg-cancel-game = `{ $user }` membatalkan permainan
+msg-start-playing = Permainan dimulai
 msg-played =
-    `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-combo ->
-        [true] , full combo.
-       *[other] { "" }.
+    `{ $user }` selesai bermain: { $score } ({ $accuracy }){ $full-combo ->
+        [true] , full combo
+       *[other] { "" }
     }
-msg-game-end = Game ended.
-msg-abort = `{ $user }` aborted the game.
+msg-game-end = Permainan berakhir
+msg-abort = `{ $user }` membatalkan permainan
 msg-room-lock =
     { $lock ->
-        [true] Room locked.
-       *[other] Room unlocked.
+        [true] Room terkunci
+       *[other] Room terbuka
     }
 msg-room-cycle =
     { $cycle ->
-        [true] Room mode changed to Cycle.
-       *[other] Room mode changed to Normal.
+        [true] Room berubah menjadi mode cycling
+       *[other] Room berubah menjadi mode normal
     }
