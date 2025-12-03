@@ -1,6 +1,6 @@
-time = Time (Desc.)
-rev-time = Time (Asc.)
-name = Name (Asc.)
-rev-name = Name (Desc.)
-rating = Rating (Desc.)
-rev-rating = Rating (Asc.)
+time = Времени
+rev-time = Времени(обр.)
+name = Имени(А-Я)
+rev-name = Имени(Я-А)
+rating = Оценка
+rev-rating = Оценка(обр)
