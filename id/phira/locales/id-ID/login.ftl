@@ -1,24 +1,24 @@
 login = Login
-login-sub = Login to access Phira's online features! (Charts, events, multiplayer, etc.)
-back-login = Back to Login
+login-sub = Login untuk menggunakan fitur-fitur online dan berinteraksi dengan player-player lain
+back-login = Balik ke Login
 register = Register
 email = Email
 username = Username
 password = Password
-name-length-req = Username length should be between 4 and 20 characters.
-name-has-illegal-char = Username contains unallowed characters.
-pwd-length-req = Password length should be between 6 and 26 characters.
-illegal-email = Unallowed email.
+name-length-req = Panjang username harus di antara 4 and 20 karakter.
+name-has-illegal-char = Username mengandung karakter illegal.
+pwd-length-req = Panjang password harus di antara 6 and 26 karakter.
+illegal-email = Email tidak benar.
 action-success =
     { $action ->
-        [login] Logged in.
-        [register] Registered successfully.
+        [login] Log in sukses
+        [register] Register sukses
        *[other] _
     }
 action-failed =
     { $action ->
-        [login] Failed to log in.
-        [register] Failed to register.
+        [login] Gagal untuk log in
+        [register] Gagal untuk register
        *[other] _
     }
-email-sent = Please check your inbox for an activation email from Phira.
+email-sent = Email verifikasi telah dikirim, mohon cek email anda untuk memverifikasi.
