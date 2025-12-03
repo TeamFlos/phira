@@ -1,1 +1,1 @@
-label = CALIBRATION
+label = 延迟校准
