@@ -1,5 +1,5 @@
-notice = Notice
+notice = แจ้งเตือน
 ok = OK
 error = Error
-error-copy = Copy Error
-error-copied = Copied
+error-copy = คัดลอก error
+error-copied = คัดลอกสำเร็จ
