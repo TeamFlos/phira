@@ -1,36 +1,36 @@
 # general
-unknown-note-type = Unknown note type: { $type }.
-json-parse-failed = Failed to parse chart JSON.
-judge-line-location = In judge line #{ $jlid }.
+unknown-note-type = ประเภท Note ที่ไม่รู้จัก: { $type }
+json-parse-failed = วิเคราะห์ JSON ล้มเหลว
+judge-line-location = In judge line #{ $jlid }
 # rpe
-type-events-parse-failed = Failed to parse { $type } events.
-incline-events-parse-failed = Failed to parse incline events.
-paint-events-parse-failed = Failed to parse paint events.
-text-events-parse-failed = Failed to parse text events.
-color-events-parse-failed = Failed to parse color events.
+type-events-parse-failed = ไม่สามารถวิเคราะห์ { $type } events ได้
+incline-events-parse-failed = ไม่สามารถวิเคราะห์ Incline events ได้
+paint-events-parse-failed = ไม่สามารถวิเคราะห์ Paint events ได้
+text-events-parse-failed = ไม่สามารถวิเคราะห์ Text events ได้
+color-events-parse-failed = ไม่สามารถวิเคราะห์ Color events ได้
 gif-events-parse-failed = Failed to parse gif events.
-illustration-load-failed = Failed to load illustration at { $path }.
+illustration-load-failed = ไม่สามารถโหลดรูปภาพจาก { $path } ได้
 gif-load-failed = Failed to load gif at { $path }.
-judge-line-location-name = In judge line #{ $jlid } ({ $name }).
+judge-line-location-name = In judge line #{ $jlid } ({ $name })
 hitsound-missing = Hitsound `{ $name }` is missing.
 # pgr
-event-not-contiguous = Events should be contiguous.
-alpha-events-parse-failed = Failed to parse alpha events.
-rotate-events-parse-failed = Failed to parse rotate events.
-move-events-parse-failed = Failed to parse move events.
+event-not-contiguous = Events ควรอยู่ติดกัน
+alpha-events-parse-failed = ไม่สามารถวิเคราะห์ Alpha events ได้
+rotate-events-parse-failed = ไม่สามารถวิเคราะห์ Rotate events ได้
+move-events-parse-failed = ไม่สามารถวิเคราะห์ Move events ได้
 # pec
-unexpected-eol = Unexpected end of line.
-expected-f32 = Expected f32.
-expected-usize = Expected usize.
-expected-tween = Expected tween.
-no-notes-inserted = No notes appear to be in the chart.
-unknown-command = Unknown command: { $cmd }.
-bp-error = Bpm events (bp) should be contiguous and in the head of the file.
-expected-01 = Expected 0 / 1 (real note / fake note).
-unexpected-extra = Unexpected extra content: { $next }.
-line-location = On line #{ $lid }.
+unexpected-eol = Unexpected end of line
+expected-f32 = Expected f32
+expected-usize = Expected usize
+expected-tween = Expected tween
+no-notes-inserted = ยังไม่มี Note
+unknown-command = คำสั่งที่ไม่รู้จัก : { $cmd }
+bp-error = Bpm events (bp) ควรอยู่ติดกันและอยู่บรรทัดแรกของ File
+expected-01 = Expected 0 / 1 (real note / fake note)
+unexpected-extra = Unexpected extra content: { $next }
+line-location = On line #{ $lid }
 # extra
-shader-load-failed = Cannot load shader from { $path }.
-shader-not-found = Cannot find preset shader { $shader }.
-effect-location = In effect #{ $id }.
-video-load-failed = Failed to read video from { $path }.
+shader-load-failed = ไม่สามารถโหลด Shader จาก { $path } ได้
+shader-not-found = ไม่สามารถหา Preset shader { $shader } ได้
+effect-location = In effect #{ $id }
+video-load-failed = ไม่สามารถโหลด Video จาก { $path } ได้
