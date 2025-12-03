@@ -1,5 +1,5 @@
-notice = Notice
-ok = OK
-error = Error
-error-copy = Copy Error
-error-copied = Copied
+notice = Внимание
+ok = Ок
+error = Ошибка
+error-copy = Скопировать в буфер
+error-copied = Скопировано
