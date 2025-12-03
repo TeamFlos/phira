@@ -1,9 +1,9 @@
 to = to
-adjust-offset = Adjust Offset
-offset-cancel = Cancel
-offset-reset = Reset
-offset-save = Save
+adjust-offset = Настройка задержки
+offset-cancel = Отмена
+offset-reset = Сброс
+offset-save = Сохранить
 speed = Speed Multiplier
-ex-time-out-of-range = Make sure time is within bounds.
-ex-invalid-format = Invalid format.
-ex-time-set = Time changed.
+ex-time-out-of-range = Невозможно установить такое время
+ex-invalid-format = Неверный формат
+ex-time-set = Время изменено
