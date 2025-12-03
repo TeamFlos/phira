@@ -1,7 +1,7 @@
-info-fail = Failed to load info.
-invalid-chart = Invalid chart.
-importing = Importing...
-import-success = Imported successfully.
-import-failed = Import failed.
-import-respack-success = Imported successfully.
-import-respack-failed = Failed to import respack.
+info-fail = Ошибка при загрузке
+invalid-chart = Файл не является чартом
+importing = Импорт
+import-success = Успешный импорт
+import-failed = Ошибка импорта
+import-respack-success = Успешный импорт
+import-respack-failed = Ошибка импорта ресурспака
