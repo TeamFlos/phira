@@ -1,74 +1,74 @@
-multiplayer = Multiplayer
-connect = Connect
-connect-must-login = You must login to access multiplayer functionality.
-connect-success = Connected successfully.
-connect-failed = Failed to connect.
-connect-authenticate-failed = Authorization failed.
-reconnect = Reconnecting…
-create-room = Create Room
-create-room-success = Room created.
-create-room-failed = Failed to create room.
-create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, a-z, 0-9, -, and _.
-join-room = Join Room
-join-room-invalid-id = Invalid room ID.
-join-room-failed = Failed to join room.
-leave-room = Leave Room
-leave-room-failed = Failed to leave room.
-disconnect = Disconnect
-request-start = Start Game
-request-start-no-chart = Select an online chart first.
-request-start-failed = Failed to start.
-user-list = Users
+multiplayer = 多人遊戲
+connect = 連線
+connect-must-login = 登入後才可進入多人遊戲
+connect-success = 連線成功
+connect-failed = 連線失敗
+connect-authenticate-failed = 身分驗證失敗
+reconnect = 斷線重連中…
+create-room = 建立房間
+create-room-success = 房間已建立
+create-room-failed = 建立房間失敗
+create-invalid-id = 房間 ID 應由不多於 20 個大小寫英文字母、數字以及 -_ 組成
+join-room = 加入房間
+join-room-invalid-id = 無效的房間 ID
+join-room-failed = 加入房間失敗
+leave-room = 離開房間
+leave-room-failed = 離開房間失敗
+disconnect = 中斷連線
+request-start = 開始遊戲
+request-start-no-chart = 你尚未選擇譜面
+request-start-failed = 開始遊戲失敗
+user-list = 使用者列表
 lock-room =
     { $current ->
-        [true] Unlock Room
-       *[other] Lock Room
+        [true] 解鎖房間
+       *[other] 鎖定房間
     }
 cycle-room =
     { $current ->
-        [true] Cycle Mode
-       *[other] Normal Mode
+        [true] 循環模式
+       *[other] 普通模式
     }
-ready = Ready
-ready-failed = Failed to get ready.
-cancel-ready = Cancel
-room-id = Room ID: { $id }
-download-failed = Failed to download chart.
-lock-room-failed = Failed to lock room.
-cycle-room-failed = Failed to change room mode.
-chat-placeholder = Type a message...
-chat-send = Send
-chat-empty = Message is empty.
-chat-sent = Sent
-chat-send-failed = Failed to send message.
-select-chart-host-only = Only the host can select charts.
-select-chart-local = You can only select online charts.
-select-chart-failed = Failed to select chart.
-select-chart-not-now = You can't select chart now.
-msg-create-room = `{ $user }` created the room.
-msg-join-room = `{ $user }` joined the room.
-msg-leave-room = `{ $user }` left the room.
-msg-new-host = `{ $user }` became the new host.
-msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id }).
-msg-game-start = The host `{ $user }` started the game.
-msg-ready = `{ $user }` is ready.
-msg-cancel-ready = `{ $user }` canceled being ready.
-msg-cancel-game = `{ $user }` cancelled the game.
-msg-start-playing = Game started.
+ready = 準備
+ready-failed = 準備失敗
+cancel-ready = 取消
+room-id = 房間 ID：{ $id }
+download-failed = 下載譜面失敗
+lock-room-failed = 鎖定房間失敗
+cycle-room-failed = 切換房間模式失敗
+chat-placeholder = 說些什麼…
+chat-send = 發送
+chat-empty = 訊息內容不能為空
+chat-sent = 已發送
+chat-send-failed = 訊息發送失敗
+select-chart-host-only = 只有房主可以選擇譜面
+select-chart-local = 不能選擇本地譜面
+select-chart-failed = 選擇譜面失敗
+select-chart-not-now = 你現在不能選擇譜面
+msg-create-room = `{ $user }` 建立了房間
+msg-join-room = `{ $user }` 加入了房間
+msg-leave-room = `{ $user }` 離開了房間
+msg-new-host = `{ $user }` 成為了新的房主
+msg-select-chart = 房主 `{ $user }` 選擇了譜面 `{ $chart }` (#{ $id })
+msg-game-start = 房主 `{ $user }` 開始了遊戲，請其他玩家準備
+msg-ready = `{ $user }` 已就緒
+msg-cancel-ready = `{ $user }` 取消了準備
+msg-cancel-game = `{ $user }` 取消了遊戲
+msg-start-playing = 遊戲開始
 msg-played =
-    `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-combo ->
-        [true] , full combo.
-       *[other] { "" }.
+    `{ $user }` 結束了遊玩：{ $score } ({ $accuracy }){ $full-combo ->
+        [true] ，全連
+       *[other] { "" }
     }
-msg-game-end = Game ended.
-msg-abort = `{ $user }` aborted the game.
+msg-game-end = 遊戲結束
+msg-abort = `{ $user }` 放棄了遊戲
 msg-room-lock =
     { $lock ->
-        [true] Room locked.
-       *[other] Room unlocked.
+        [true] 房間已鎖定
+       *[other] 房間已解鎖
     }
 msg-room-cycle =
     { $cycle ->
-        [true] Room mode changed to Cycle.
-       *[other] Room mode changed to Normal.
+        [true] 房間已切換為循環模式
+       *[other] 房間已切換為普通模式
     }
