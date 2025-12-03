@@ -1,7 +1,7 @@
-rate = Rate
-filter = Filter by Rating
-cancel = Cancel
-confirm = Confirm
-lower-bound = Lower-Bound
-upper-bound = Upper-Bound
-filter-by-tags = Filter by Tags
+rate = Đánh giá
+filter = Lọc theo xếp hạng
+cancel = Huỷ bỏ
+confirm = OK
+lower-bound = Đánh giá thấp
+upper-bound = Đánh giá cao
+filter-by-tags = Lọc theo thẻ
