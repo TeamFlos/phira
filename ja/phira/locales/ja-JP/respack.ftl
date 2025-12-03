@@ -1,10 +1,10 @@
 label = RESPACK
-default = Default
-load-failed = Failed to load respacks.
-info = Info
+default = デフォルト
+load-failed = リソースパックの読み込みに失敗しました
+info = リソースパック情報
 info-content =
-    Name: { $name }
-    Creator: { $author }
-    Description: { $desc }
-cant-delete-builtin = The built-in respack can't be deleted.
-deleted = Successfully deleted.
+    名称: { $name }
+    作者: { $author }
+    説明: { $desc }
+cant-delete-builtin = 初めからあるリソースパックは削除できません
+deleted = 削除しました
