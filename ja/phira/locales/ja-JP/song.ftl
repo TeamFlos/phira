@@ -1,63 +1,61 @@
-load-preview-failed = Failed to load song preview
-load-charts-failed = Failed to load beatmaps
-no-chart-for-download = This beatmap is not downloadable
-load-chart-failed = Failed to load the beatmap
-dl-cancel = Cancel
-dl-status-fetch = Fetching info
-dl-status-song = Downloading song...
-dl-status-chart = Downloading chart...
-dl-status-extract = Unzipping chart...
-dl-status-illustration = Downloading illustration...
-dl-status-assets = Downloading assets...
-dl-status-saving = Saving...
-dl-failed = Download failed...
-dl-success = Downloaded successfully.
-guest = Guest
-warn-unrated = This play is not recorded/saved.
-failed-to-play = Failed to start.
-play-cancel = Cancel
-play-switch-to-offline = Switch to offline mode?
-switched-to-offline = Switched to offline mode.
-delete = Delete
+load-preview-failed = 曲のプレビューの読み込みに失敗しました。
+load-charts-failed = ビートマップの読み込みに失敗しました。
+no-chart-for-download = このビートマップはダウンロードできません。
+load-chart-failed = ビートマップの読み込みに失敗しました。
+dl-cancel = キャンセル
+dl-status-fetch = 情報を取得する
+dl-status-song = 楽曲をダウンロード中
+dl-status-chart = ダウンロード中のチャート
+dl-status-extract = 抽出中
+dl-status-illustration = イラストをダウンロード中
+dl-status-assets = アセットをダウンロード中
+dl-status-saving = 保存中
+dl-failed = ダウンロードに失敗しました
+dl-success = ダウンロード成功
+guest = ゲスト
+warn-unrated = この譜面は評価されていません
+failed-to-play = オンラインモードとしてプレイするのに失敗しました
+play-cancel = キャンセル
+play-switch-to-offline = オフラインモードに切り替えます
+switched-to-offline = オフラインモードに切り替えました
+delete = 削除
 rate = Rate
-exercise = Practice
-offset = Adjust Offset
+exercise = 練習
+offset = 補正
 unlock = View Unlock Video
-edit-cancel = Cancel
-edit-save = Save
-edit-saving = Saving...
-edit-load-file-failed = Failed to import external file.
-edit-save-failed = Save failed.
-edit-saved = Saved.
-edit-preview-invalid = Preview time out of bounds.
+edit-cancel = キャンセル
+edit-save = 保存
+edit-saving = 保存しています
+edit-load-file-failed = 外部ファイルの読み込みに失敗しました
+edit-save-failed = 保存に失敗
+edit-saved = 保存しました
+edit-preview-invalid = プレビュー時間が長すぎます
 edit-tags = Edit Tags
 edit-downloaded = Online charts can't be edited.
 edit-overwrite = Overwrite
 edit-overwrite-confirm = Are you sure you want to override the current chart with the new one?  If yes, press "Update" to publish changes.
 edit-overwrite-success = Overwritten.
 edit-overwrite-failed = Failed to overwrite.
-edit-upload = Upload
+edit-upload = アップロード
 edit-update = Update
 upload-not-saved = Chart hasn't been saved yet, would you like to save it now?
-upload-login-first = Please login first.
-upload-builtin = Built-in charts cannot be uploaded.
-upload-rules = Chart Upload Rules
+upload-login-first = ログインしてください
+upload-builtin = 元からあるビートマップはアップロードできません
+upload-rules = アップロード規定
 upload-rules-content =
-    Before uploading, you need to confirm that:
-    1. You created the chart, or have gotten permission from all creators (collaboration-wise).  Not meeting this rule will result in a ban from uploading charts.
-    2. If your Phira account's name and avatar are not the same as your other social media, please specify in the chart's description.
-    3. Make sure the chart (including illustration, audio, and any storyboarding assets) complies with Phira's ToS, the regulations of the Peoples' Republic of China, and not contain any bad information or violate the law.
-    4. Your chart may be used for promotional purposes by Phira.  We will contact you if we want to use your chart for any other purposes.
-    5. Phira reserves the right to remove your chart after it has been approved (change in ToS, copyright, etc.).
-    6. The final interpretation of these rules belongs to Teamflos, Phira, and any reviewer/moderator.
-uploading = Uploading...
-upload-chart-failed = Failed to upload beatmap.
-upload-success = Uploaded successfully, please wait for reviewing to conclude.
-upload-failed = Upload failed.
+    譜面をアップロードする前に、以下のことをご確認ください:
+    1. 譜面の制作者はあなた自身である、もしくは制作者より許可を得ていること。制作者の代わりに譜面をアップロードする際は、説明等に制作者についてを記す必要があります。
+    2. あなた自身が譜面制作者なのであれば、識別が容易いアバターやIDにすることをおすすめします。あなたのアバターやIDが、自分の譜面紹介動画プラットフォーム(主にBiliBiliなど)のアバターやIDが全く異なる場合は、追加で注釈する必要があります。説明については、自分が使っている言語でお願いします。
+    3. ! 本ルールを守らないことや、譜面制作者の許可なく譜面をアップロードすることは厳しく禁じます。もし守らなかった場合、アップロードの永久バンにつながる可能性があります。;
+    4. 譜面のコンテンツ(楽曲、イラスト、文字等を含む)については中華人民共和国やその他の法律に従わなければなりません。
+uploading = アップロード中
+upload-chart-failed = 譜面のアップロードに失敗しました
+upload-success = アップロードに成功しました！ レビューをお待ちください。
+upload-failed = アップロード失敗
 upload-confirm-clear-ldb = Due to the chart being different, the leaderboard will be reset.  Are you sure to proceed?
-ldb = Leaderboard
-ldb-load-failed = Failed to load leaderboard.
-ldb-no-rank = None
+ldb = リーダーボード
+ldb-load-failed = リーダーボードの読み込みに失敗
+ldb-no-rank = なし
 ldb-score = Score
 ldb-std = Purity
 info-name = Name
@@ -84,8 +82,8 @@ review-edit-tags = Edit Tags
 review-edit-tags-failed = Failed to edit tags.
 review-edit-tags-done = Tags updated.
 mods = Mods
-mods-autoplay = Autoplay
-mods-autoplay-sub = Plays the chart without user input.
+mods-autoplay = オートプレイ
+mods-autoplay-sub = これを有効にすると、リザルトの記録が無効になります
 mods-flip-x = Mirror
 mods-flip-x-sub = Mirrors the chart by the X-axis.
 mods-fade-out = Fade-Out
