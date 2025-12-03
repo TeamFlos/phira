@@ -1,7 +1,7 @@
-info-fail = Failed to load info.
-invalid-chart = Invalid chart.
-importing = Importing...
-import-success = Imported successfully.
-import-failed = Import failed.
-import-respack-success = Imported successfully.
-import-respack-failed = Failed to import respack.
+info-fail = Échec du chargement des informations
+invalid-chart = Partition invalide
+importing = Importation
+import-success = Importée avec succès
+import-failed = Échec de l'importation
+import-respack-success = Importées avec succès
+import-respack-failed = Échec de l'importation des textures
