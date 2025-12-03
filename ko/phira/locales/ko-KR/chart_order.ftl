@@ -1,6 +1,6 @@
-time = Time (Desc.)
-rev-time = Time (Asc.)
-name = Name (Asc.)
-rev-name = Name (Desc.)
-rating = Rating (Desc.)
-rev-rating = Rating (Asc.)
+time = 시간
+rev-time = 시간 (반대)
+name = 이름
+rev-name = 이름 (반대)
+rating = 평점
+rev-rating = 평점 (반대)
