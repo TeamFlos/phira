@@ -1,10 +1,10 @@
 label = RESPACK
-default = Default
-load-failed = Failed to load respacks.
-info = Info
+default = Mặc định
+load-failed = Không thể tải Respack
+info = Thông tin Respack
 info-content =
-    Name: { $name }
-    Creator: { $author }
-    Description: { $desc }
-cant-delete-builtin = The built-in respack can't be deleted.
-deleted = Successfully deleted.
+    Tên: { $name }
+    Tác giả: { $author }
+    Mô tả: { $desc }
+cant-delete-builtin = Không thể xoá Respack mặc định
+deleted = Đã xoá Respack
