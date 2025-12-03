@@ -1,7 +1,7 @@
 rate = Rate
-filter = Filter by Rating
-cancel = Cancel
-confirm = Confirm
-lower-bound = Lower-Bound
-upper-bound = Upper-Bound
-filter-by-tags = Filter by Tags
+filter = กรองโดย Rating
+cancel = ยกเลิก
+confirm = ยืนยัน
+lower-bound = ต่ำสุด
+upper-bound = สูงสุด
+filter-by-tags = กรองโดย Tags
