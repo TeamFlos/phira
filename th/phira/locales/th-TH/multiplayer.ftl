@@ -1,74 +1,74 @@
 multiplayer = Multiplayer
-connect = Connect
-connect-must-login = You must login to access multiplayer functionality.
-connect-success = Connected successfully.
-connect-failed = Failed to connect.
-connect-authenticate-failed = Authorization failed.
-reconnect = Reconnecting…
-create-room = Create Room
-create-room-success = Room created.
-create-room-failed = Failed to create room.
-create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, a-z, 0-9, -, and _.
-join-room = Join Room
-join-room-invalid-id = Invalid room ID.
-join-room-failed = Failed to join room.
-leave-room = Leave Room
-leave-room-failed = Failed to leave room.
-disconnect = Disconnect
-request-start = Start Game
-request-start-no-chart = Select an online chart first.
-request-start-failed = Failed to start.
+connect = เชื่อมต่อ
+connect-must-login = คุณต้อง Login เพื่อเล่น Multiplayer
+connect-success = เชื่อมต่อเสร็จสิ้น
+connect-failed = เชื่อมต่อล้มเหลว
+connect-authenticate-failed = การขออนุญาติล้มเหลว
+reconnect = เชื่อมต่ออีกครั้ง…
+create-room = สร้างห้อง
+create-room-success = สร้างห้องเสร็จสิ้น
+create-room-failed = ไม่สามารถสร้างห้องได้
+create-invalid-id = ID ห้องไม่ควรเกิน 20 ตัว ต้องมีตัวอักษร หลังจากนี้จะไม่มีก็ได้ ตัวเลข, - (เครื่องขีด) และ _ (ขีดเส้นใต้)
+join-room = เข้าร่วมห้อง
+join-room-invalid-id = ID ไม่ถูกต้อง
+join-room-failed = ไม่สามารถเข้าร่วมได้
+leave-room = ออกห้อง
+leave-room-failed = ไม่สามารถออกห้องได้
+disconnect = ตัดการเชื่อมต่อ
+request-start = เริ่มเกม
+request-start-no-chart = คุณยังไม่ได้เลือก Chart
+request-start-failed = ไม่สามารถเริ่มเกมได้
 user-list = Users
 lock-room =
     { $current ->
-        [true] Unlock Room
-       *[other] Lock Room
+        [true] ปลดล็อคห้อง
+       *[other] ล็อคห้อง
     }
 cycle-room =
     { $current ->
-        [true] Cycle Mode
-       *[other] Normal Mode
+        [true] โหมด วน
+       *[other] โหมด ธรรมดา
     }
-ready = Ready
-ready-failed = Failed to get ready.
-cancel-ready = Cancel
-room-id = Room ID: { $id }
-download-failed = Failed to download chart.
-lock-room-failed = Failed to lock room.
-cycle-room-failed = Failed to change room mode.
-chat-placeholder = Type a message...
-chat-send = Send
-chat-empty = Message is empty.
-chat-sent = Sent
-chat-send-failed = Failed to send message.
-select-chart-host-only = Only the host can select charts.
-select-chart-local = You can only select online charts.
-select-chart-failed = Failed to select chart.
-select-chart-not-now = You can't select chart now.
-msg-create-room = `{ $user }` created the room.
-msg-join-room = `{ $user }` joined the room.
-msg-leave-room = `{ $user }` left the room.
-msg-new-host = `{ $user }` became the new host.
-msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id }).
-msg-game-start = The host `{ $user }` started the game.
-msg-ready = `{ $user }` is ready.
-msg-cancel-ready = `{ $user }` canceled being ready.
-msg-cancel-game = `{ $user }` cancelled the game.
-msg-start-playing = Game started.
+ready = พร้อม
+ready-failed = ไม่สามารถพร้อมได้
+cancel-ready = ยกเลิก
+room-id = ID ห้อง: { $id }
+download-failed = ไม่สามารถ Download chart ได้
+lock-room-failed = ไม่สามารถล็อคห้องได้
+cycle-room-failed = ไม่สามารถเปลี่ยนโหมดได้
+chat-placeholder = ลองพูดอะไรสักอย่าง…
+chat-send = ส่ง
+chat-empty = ว่างเปล่า :v
+chat-sent = ส่งเรียบร้อย
+chat-send-failed = ไม่สามารถส่งข้อความได้
+select-chart-host-only = มีแค่ Host เท่านั้นที่เลือก Chart ได้
+select-chart-local = ไม่สามารถเลือก Chart จาก Local ได้
+select-chart-failed = ไม่สามารถเลือก Chart ได้
+select-chart-not-now = คุณไม่สามารถเลือก Chart ได้
+msg-create-room = `{ $user }` ได้สร้างห้องแล้ว.
+msg-join-room = `{ $user }` ได้เข้าห้องแล้ว.
+msg-leave-room = `{ $user }` ได้ออกจากห้องแล้ว.
+msg-new-host = `{ $user }` ได้เป็น Host คนใหม่แล้ว.
+msg-select-chart = Host `{ $user }` ได้เลือก Chart `{ $chart }` (#{ $id })
+msg-game-start = Host `{ $user }` ได้เริ่มเกมแล้ว. ผู้เล่นคนอื่คนจะพร้อมได้แล้ว.
+msg-ready = `{ $user }` พร้อมแล้ว.
+msg-cancel-ready = `{ $user }` ยกเลิกพร้อมแล้ว.
+msg-cancel-game = `{ $user }` ยกเลิกเกมแล้ว.
+msg-start-playing = เกมได้เริ่มแล้ว.
 msg-played =
-    `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-combo ->
-        [true] , full combo.
-       *[other] { "" }.
+    `{ $user }` เล่นเสร็จแล้ว: { $score } ({ $accuracy }){ $full-combo ->
+        [true] , full combo
+       *[other] { "" }
     }
-msg-game-end = Game ended.
-msg-abort = `{ $user }` aborted the game.
+msg-game-end = เกมได้จบลงแล้ว.
+msg-abort = `{ $user }` เกมได้ยกเลิกแล้ว.
 msg-room-lock =
     { $lock ->
-        [true] Room locked.
-       *[other] Room unlocked.
+        [true] ห้องถูกล็อคแล้ว.
+       *[other] ห้องถูกปลดล็อคแล้ว.
     }
 msg-room-cycle =
     { $cycle ->
-        [true] Room mode changed to Cycle.
-       *[other] Room mode changed to Normal.
+        [true] ห้องถูกเปลี่ยนเป็นโหมดวนแล้ว.
+       *[other] ห้องได้ถูกเปลี่ยนเป็นโหมดธรรมดาแล้ว.
     }
