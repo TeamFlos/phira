@@ -1,9 +1,9 @@
-to = to
-adjust-offset = Adjust Offset
-offset-cancel = Cancel
+to = do
+adjust-offset = Adjust offset
+offset-cancel = Anuluj
 offset-reset = Reset
-offset-save = Save
-speed = Speed Multiplier
-ex-time-out-of-range = Make sure time is within bounds.
-ex-invalid-format = Invalid format.
-ex-time-set = Time changed.
+offset-save = Zapisz
+speed = Prędkość
+ex-time-out-of-range = Czas jest poza zakresem
+ex-invalid-format = Nieprawidłowy format
+ex-time-set = Zmieniono czas
