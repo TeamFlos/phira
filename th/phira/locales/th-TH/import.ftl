@@ -1,7 +1,7 @@
-info-fail = Failed to load info.
-invalid-chart = Invalid chart.
-importing = Importing...
-import-success = Imported successfully.
-import-failed = Import failed.
+info-fail = ไม่สามารถโหลดข้อมูลได้
+invalid-chart = Chart ไม่ถูกต้อง
+importing = กำลังเพิ่ม
+import-success = เพิ่มเสร็จเรียบร้อย
+import-failed = ไม่สามารถเพิ่มได้
 import-respack-success = Imported successfully.
-import-respack-failed = Failed to import respack.
+import-respack-failed = ไม่สามารถเพิ่ม Skin ได้
