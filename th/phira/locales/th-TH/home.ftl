@@ -1,9 +1,9 @@
 play = Play
 event = Event
-respack = Respack
-not-opened = Not available yet.
-not-logged-in = Not Logged In
-failed-to-update = Failed to fetch user info.
+respack = Skin
+not-opened = ยังไม่มีให้บริการ ณ ขณะนี้
+not-logged-in = ยังไม่ได้ Login
+failed-to-update = ไม่สามารถโหลดข้อมูล User ได้
 note-try-login-again = Try logging in again.
 update = v{ $version } Update
 update-desc =
