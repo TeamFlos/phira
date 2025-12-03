@@ -1,6 +1,6 @@
-time = Time (Desc.)
-rev-time = Time (Asc.)
-name = Name (Asc.)
-rev-name = Name (Desc.)
-rating = Rating (Desc.)
-rev-rating = Rating (Asc.)
+time = Mới nhất
+rev-time = Cũ nhất
+name = A-Z
+rev-name = Z-A
+rating = Hay nhất
+rev-rating = Tệ nhất
