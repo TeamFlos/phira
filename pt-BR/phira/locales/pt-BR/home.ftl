@@ -1,14 +1,14 @@
-play = Play
-event = Event
-respack = Respack
-not-opened = Not available yet.
-not-logged-in = Not Logged In
-failed-to-update = Failed to fetch user info.
+play = Jogar
+event = Evento
+respack = Pacote de recursos
+not-opened = Não disponível ainda
+not-logged-in = Não logado
+failed-to-update = Falha ao atualizar as informações do usuário
 note-try-login-again = Try logging in again.
-update = v{ $version } Update
+update = v{ $version } Atualizar
 update-desc =
-    Date: { $date }
-    Description: { $desc }
-update-ignore = Ignore
-update-go = View
+    Data: { $date }
+    Descrição: { $desc }
+update-ignore = Ignorar esta atualização
+update-go = Atualizar
 change-char = Change Character (Web)
