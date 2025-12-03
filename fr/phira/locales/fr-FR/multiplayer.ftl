@@ -1,74 +1,74 @@
-multiplayer = Multiplayer
-connect = Connect
-connect-must-login = You must login to access multiplayer functionality.
-connect-success = Connected successfully.
-connect-failed = Failed to connect.
-connect-authenticate-failed = Authorization failed.
-reconnect = Reconnecting…
-create-room = Create Room
-create-room-success = Room created.
-create-room-failed = Failed to create room.
-create-invalid-id = A Room ID should be 20 characters max, and only contain A-Z, a-z, 0-9, -, and _.
-join-room = Join Room
-join-room-invalid-id = Invalid room ID.
-join-room-failed = Failed to join room.
-leave-room = Leave Room
-leave-room-failed = Failed to leave room.
-disconnect = Disconnect
-request-start = Start Game
-request-start-no-chart = Select an online chart first.
-request-start-failed = Failed to start.
-user-list = Users
+multiplayer = Multijoueur
+connect = Se connecter
+connect-must-login = Vous devez vous connecter pour accéder au mode multijoueur.
+connect-success = Connecté(e) avec succès.
+connect-failed = Échec de connexion.
+connect-authenticate-failed = Échec d'autorisation
+reconnect = Reconnexion…
+create-room = Créer une salle
+create-room-success = Salle créée.
+create-room-failed = Impossible de créer une salle.
+create-invalid-id = L'ID de la salle ne contient pas plus de 20 caractères, dont des lettres, des chiffres, - (tiret) et _ (tiret du bas).
+join-room = Rejoindre la salle
+join-room-invalid-id = ID de salle invalide.
+join-room-failed = Impossible de rejoindre la salle.
+leave-room = Quitter la salle
+leave-room-failed = Impossible de quitter la salle.
+disconnect = Se déconnecter
+request-start = Démarrer le jeu
+request-start-no-chart = Vous n'avez pas encore sélectionné de partition.
+request-start-failed = Impossible de démarrer le jeu.
+user-list = Utilisateurs
 lock-room =
     { $current ->
-        [true] Unlock Room
-       *[other] Lock Room
+        [true] Déverrouiller la salle
+       *[other] Verrouiller la salle
     }
 cycle-room =
     { $current ->
-        [true] Cycle Mode
-       *[other] Normal Mode
+        [true] Mode cycle
+       *[other] Mode normal
     }
-ready = Ready
-ready-failed = Failed to get ready.
-cancel-ready = Cancel
-room-id = Room ID: { $id }
-download-failed = Failed to download chart.
-lock-room-failed = Failed to lock room.
-cycle-room-failed = Failed to change room mode.
-chat-placeholder = Type a message...
-chat-send = Send
-chat-empty = Message is empty.
-chat-sent = Sent
-chat-send-failed = Failed to send message.
-select-chart-host-only = Only the host can select charts.
-select-chart-local = You can only select online charts.
-select-chart-failed = Failed to select chart.
-select-chart-not-now = You can't select chart now.
-msg-create-room = `{ $user }` created the room.
-msg-join-room = `{ $user }` joined the room.
-msg-leave-room = `{ $user }` left the room.
-msg-new-host = `{ $user }` became the new host.
-msg-select-chart = The host `{ $user }` selected chart `{ $chart }` (#{ $id }).
-msg-game-start = The host `{ $user }` started the game.
-msg-ready = `{ $user }` is ready.
-msg-cancel-ready = `{ $user }` canceled being ready.
-msg-cancel-game = `{ $user }` cancelled the game.
-msg-start-playing = Game started.
+ready = Prêt(e)
+ready-failed = Impossible de se préparer.
+cancel-ready = Annuler
+room-id = ID de salle: { $id }
+download-failed = Échec du téléchargement de la partition
+lock-room-failed = Impossible de verrouiller la salle
+cycle-room-failed = Échec du changement de mode de salle
+chat-placeholder = Dire quelque chose...
+chat-send = Envoyer
+chat-empty = Le message ne peut pas être vide.
+chat-sent = Envoyé
+chat-send-failed = Échec de l'envoi du message.
+select-chart-host-only = Seul(e) l'hôte(sse) peut sélectionner la partition.
+select-chart-local = Vous ne pouvez pas sélectionner la partition locale.
+select-chart-failed = Impossible de sélectionner la partition.
+select-chart-not-now = Vous ne pouvez pas sélectionner de partition maintenant.
+msg-create-room = `{ $user }` a créé la salle.
+msg-join-room = `{ $user }` a rejoint la salle.
+msg-leave-room = `{ $user }` a quitté la salle.
+msg-new-host = `{ $user }` est devenu(e) le(la) nouvel(le) hôte(sse) de la salle.
+msg-select-chart = L'hôte(sse) `{ $user }` a sélectionné la partition `{ $chart }` (#{ $id }).
+msg-game-start = L'hôte(sse) `{ $user }` a démarré le jeu.
+msg-ready = `{ $user }` est prêt(e).
+msg-cancel-ready = `{ $user }` a annulé l'état prêt.
+msg-cancel-game = `{ $user }` a annulé le jeu.
+msg-start-playing = Jeu démarré.
 msg-played =
-    `{ $user }` finished playing: { $score } ({ $accuracy }){ $full-combo ->
+    `{ $user }` a fini de jouer à: { $score } ({ $accuracy }){ $full-combo ->
         [true] , full combo.
        *[other] { "" }.
     }
-msg-game-end = Game ended.
-msg-abort = `{ $user }` aborted the game.
+msg-game-end = Jeu terminé.
+msg-abort = `{ $user }` a abandonné le jeu
 msg-room-lock =
     { $lock ->
-        [true] Room locked.
-       *[other] Room unlocked.
+        [true] Salle verrouillée.
+       *[other] Salle déverrouillée.
     }
 msg-room-cycle =
     { $cycle ->
-        [true] Room mode changed to Cycle.
-       *[other] Room mode changed to Normal.
+        [true] La salle est passée en mode cycle.
+       *[other] La salle est passée en mode normal.
     }
