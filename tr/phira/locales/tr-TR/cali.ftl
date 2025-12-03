@@ -1,1 +1,1 @@
-label = CALIBRATION
+label = KALİBRASYON
