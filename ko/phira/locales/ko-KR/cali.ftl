@@ -1,1 +1,1 @@
-label = CALIBRATION
+label = 조정
