@@ -1,24 +1,24 @@
 login = Login
-login-sub = Login to access Phira's online features! (Charts, events, multiplayer, etc.)
-back-login = Back to Login
-register = Register
-email = Email
-username = Username
-password = Password
-name-length-req = Username length should be between 4 and 20 characters.
-name-has-illegal-char = Username contains unallowed characters.
-pwd-length-req = Password length should be between 6 and 26 characters.
-illegal-email = Unallowed email.
+login-sub = Faça login para interagir com a comunidade online ativa
+back-login = Voltar ao login
+register = Registrar
+email = Endereço de email
+username = Nome de usuário
+password = Senha
+name-length-req = O comprimento do nome de usuário deve estar entre 4 e 20
+name-has-illegal-char = O nome de usuário contém caracteres ilegais
+pwd-length-req = O comprimento da senha deve estar entre 6 e 26
+illegal-email = E-mail ilegal
 action-success =
     { $action ->
-        [login] Logged in.
-        [register] Registered successfully.
+        [login] Conectado com sucesso
+        [register] Registrado com sucesso
        *[other] _
     }
 action-failed =
     { $action ->
-        [login] Failed to log in.
-        [register] Failed to register.
+        [login] Falha ao fazer login
+        [register] Falha ao registrar
        *[other] _
     }
-email-sent = Please check your inbox for an activation email from Phira.
+email-sent = Um e-mail de verificação foi enviado, verifique e faça login
