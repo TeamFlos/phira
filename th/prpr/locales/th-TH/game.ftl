@@ -1,9 +1,9 @@
 to = to
-adjust-offset = Adjust Offset
-offset-cancel = Cancel
-offset-reset = Reset
-offset-save = Save
+adjust-offset = ปรับ offset
+offset-cancel = ยกเลิก
+offset-reset = รีเซ็ต
+offset-save = บันทึก
 speed = Speed Multiplier
-ex-time-out-of-range = Make sure time is within bounds.
-ex-invalid-format = Invalid format.
-ex-time-set = Time changed.
+ex-time-out-of-range = เวลาอยู่นอกที่กำหนด
+ex-invalid-format = format ไม่ถูกต้อง
+ex-time-set = เวลาถูกเปลี่ยน
