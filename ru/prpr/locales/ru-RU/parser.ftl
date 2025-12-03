@@ -1,36 +1,36 @@
 # general
-unknown-note-type = Unknown note type: { $type }.
-json-parse-failed = Failed to parse chart JSON.
-judge-line-location = In judge line #{ $jlid }.
+unknown-note-type = Неизвестный тип ноты: { $type }
+json-parse-failed = Не удалось разобрать JSON
+judge-line-location = В линии суждения #{ $jlid }
 # rpe
-type-events-parse-failed = Failed to parse { $type } events.
-incline-events-parse-failed = Failed to parse incline events.
-paint-events-parse-failed = Failed to parse paint events.
-text-events-parse-failed = Failed to parse text events.
-color-events-parse-failed = Failed to parse color events.
-gif-events-parse-failed = Failed to parse gif events.
-illustration-load-failed = Failed to load illustration at { $path }.
-gif-load-failed = Failed to load gif at { $path }.
-judge-line-location-name = In judge line #{ $jlid } ({ $name }).
-hitsound-missing = Hitsound `{ $name }` is missing.
+type-events-parse-failed = Не удалось разобрать события { $type }
+incline-events-parse-failed = Не удалось разобрать события наклона
+paint-events-parse-failed = Не удалось разобрать события раскраски
+text-events-parse-failed = Не удалось разобрать текстовые события
+color-events-parse-failed = Не удалось разобрать цветовые события
+gif-events-parse-failed = Не удалось разобрать события GIF
+illustration-load-failed = Не удалось загрузить иллюстрацию в { $path }
+gif-load-failed = Не удалось загрузить GIF в { $path }
+judge-line-location-name = В линии суждения #{ $jlid } ({ $name })
+hitsound-missing = Звук`{ $name }` отсутствует
 # pgr
-event-not-contiguous = Events should be contiguous.
-alpha-events-parse-failed = Failed to parse alpha events.
-rotate-events-parse-failed = Failed to parse rotate events.
-move-events-parse-failed = Failed to parse move events.
+event-not-contiguous = События должны быть смежным
+alpha-events-parse-failed = Не удалось разобрать события alpha
+rotate-events-parse-failed = Не удалось разобрать события вращения
+move-events-parse-failed = Не удалось разобрать события движения
 # pec
-unexpected-eol = Unexpected end of line.
-expected-f32 = Expected f32.
-expected-usize = Expected usize.
-expected-tween = Expected tween.
-no-notes-inserted = No notes appear to be in the chart.
-unknown-command = Unknown command: { $cmd }.
-bp-error = Bpm events (bp) should be contiguous and in the head of the file.
-expected-01 = Expected 0 / 1 (real note / fake note).
-unexpected-extra = Unexpected extra content: { $next }.
-line-location = On line #{ $lid }.
+unexpected-eol = Неожиданный обрыв линии
+expected-f32 = Ожидаемый F32
+expected-usize = Ожидаемый usize
+expected-tween = Ожидаемый tween
+no-notes-inserted = Не обнаружена ни одна нота
+unknown-command = Неизвестная команда: { $cmd }
+bp-error = События BPM (bp) должны быть смежным и находиться в начале файла
+expected-01 = Ожидаемые 0 / 1 (настоящая нота/ненастоящая нота)
+unexpected-extra = Неожиданный дополнительный контент: { $next }
+line-location = В линии #{ $lid }
 # extra
-shader-load-failed = Cannot load shader from { $path }.
-shader-not-found = Cannot find preset shader { $shader }.
-effect-location = In effect #{ $id }.
-video-load-failed = Failed to read video from { $path }.
+shader-load-failed = Не удается загрузить шейдер в { $path }
+shader-not-found = Не найден шейдер { $shader }
+effect-location = В эффекте #{ $id }
+video-load-failed = Не удалось воспроизвести видео в { $path }
