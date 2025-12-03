@@ -1,5 +1,5 @@
-chap-c1 = Future Relics
+chap-c1 = Di Tích Tương Lai
 chap-c1-intro =
-    In the year 137 (AD), a miraculous event occured in the land of Phira.
-    The sky cracked open as countless structures and machines fell onto the earth, carrying what could be only be described as magical artifacts from the future.
-    This sent the continent into a state of panic and chaos...
+    Trên vùng đất Phira, năm 137 sau Công nguyên, một sự kiện kỳ diệu được gọi là "Di Tích Tương Lai" đã xảy ra.
+    Vô số cấu trúc và máy móc khổng lồ ngẫu nhiên hạ xuống qua các vết nứt trên bầu trời, mang theo vật liệu và ma thuật dường như đến từ tương lai.
+    Điều này tạo ra một bầu không khí bí ẩn và hoảng loạn trên toàn bộ lục địa...
