@@ -1,0 +1,3 @@
+files:
+  - source: prpr/locales/en-US/*.ftl
+    translation: prpr/locales/%locale%/%original_file_name%
