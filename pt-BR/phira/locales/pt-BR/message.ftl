@@ -1,4 +1,4 @@
-label = MESSAGES
-load-msg-fail = Failed to load messages.
-no-msg = Nothing yet.
-subtitle = { $author } at { $time }
+label = MENSAGENS
+load-msg-fail = Falha ao carregar mensagens
+no-msg = Nada ainda
+subtitle = { $author } no  { $time }
