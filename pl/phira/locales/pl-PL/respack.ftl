@@ -1,10 +1,10 @@
 label = RESPACK
-default = Default
-load-failed = Failed to load respacks.
-info = Info
+default = Domyślne
+load-failed = Nie załadowano paczki zasobów
+info = Informacje o paczce
 info-content =
-    Name: { $name }
-    Creator: { $author }
-    Description: { $desc }
-cant-delete-builtin = The built-in respack can't be deleted.
-deleted = Successfully deleted.
+    Nazwa: { $name }
+    Autor: { $author }
+    Opis: { $desc }
+cant-delete-builtin = Nie można usunąć wbudowanej paczki zasobów
+deleted = Usunięto
