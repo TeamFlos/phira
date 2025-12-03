@@ -1,9 +1,9 @@
 play = Play
 event = Event
 respack = Respack
-not-opened = Not available yet.
-not-logged-in = Not Logged In
-failed-to-update = Failed to fetch user info.
+not-opened = Belum tersedia
+not-logged-in = Belum log in
+failed-to-update = Gagal memperbaharui info user
 note-try-login-again = Try logging in again.
 update = v{ $version } Update
 update-desc =
