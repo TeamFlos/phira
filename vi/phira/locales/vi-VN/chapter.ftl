@@ -1,3 +1,3 @@
-diff-easy = EASY
-diff-hard = HARD
-diff-extreme = EXTREME
+diff-easy = DỄ
+diff-hard = VỪA
+diff-extreme = KHÓ
