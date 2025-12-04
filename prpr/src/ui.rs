@@ -1,5 +1,5 @@
 //! UI utilities.
-
+prpr_l10n::tl_file!("scene" ttl);
 mod billboard;
 pub use billboard::{BillBoard, Message, MessageHandle, MessageKind};
 
@@ -25,9 +25,9 @@ pub use glyph_brush::ab_glyph::FontArc;
 
 use crate::{
     core::{Matrix, Point, Vector},
-    ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
+    ext::{RectExt, SafeTexture, ScaleType, get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image},
     judge::Judge,
-    scene::{request_input_full, return_input, take_input},
+    scene::{request_input_full, return_input, show_error, take_input},
 };
 use lyon::{
     lyon_tessellation::{
@@ -1183,20 +1183,42 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
 }
 
 fn build_audio() -> AudioManager {
-    #[cfg(target_os = "android")]
-    {
-        use sasa::backend::oboe::*;
-        AudioManager::new(OboeBackend::new(OboeSettings {
-            performance_mode: PerformanceMode::PowerSaving,
-            usage: Usage::Game,
-            ..Default::default()
-        }))
-        .unwrap()
+    match {
+        #[cfg(target_os = "android")]
+        {
+            use sasa::backend::oboe::*;
+            AudioManager::new(OboeBackend::new(OboeSettings {
+                performance_mode: PerformanceMode::PowerSaving,
+                usage: Usage::Game,
+                ..Default::default()
+            }))
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            use sasa::backend::cpal::*;
+            AudioManager::new(CpalBackend::new(CpalSettings::default()))
+        }
+    } {
+        Ok(manager) => manager,
+        Err(e) => {
+            show_error(e.context(ttl!("audio-backend-init-failed")));
+            AudioManager::new(DummyBackend).expect("Failed to create dummy audio backend, this should not happen")
+        }
     }
-    #[cfg(not(target_os = "android"))]
-    {
-        use sasa::backend::cpal::*;
-        AudioManager::new(CpalBackend::new(CpalSettings::default())).unwrap()
+}
+
+struct DummyBackend;
+
+impl sasa::backend::Backend for DummyBackend {
+    fn setup(&mut self, setup: sasa::backend::BackendSetup) -> anyhow::Result<()> {
+        let _ = setup;
+        Ok(())
+    }
+    fn start(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn consume_broken(&self) -> bool {
+        false
     }
 }
 
