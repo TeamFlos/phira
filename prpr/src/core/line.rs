@@ -1,8 +1,7 @@
 use super::{chart::ChartSettings, object::CtrlObject, Anim, AnimFloat, BpmList, Matrix, Note, Object, Point, RenderConfig, Resource, Vector};
 use crate::{
-    config::Mods,
     ext::{get_viewport, NotNanExt, SafeTexture},
-    judge::{JudgeStatus, LIMIT_BAD},
+    judge::JudgeStatus,
     ui::Ui,
 };
 use macroquad::prelude::*;
@@ -352,9 +351,6 @@ impl JudgeLine {
                 draw_below: self.show_below,
                 incline_sin: self.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default(),
             };
-            if res.config.has_mod(Mods::FADE_OUT) {
-                config.invisible_time = LIMIT_BAD;
-            }
             if alpha < 0.0 {
                 if !settings.pe_alpha_extension {
                     return;

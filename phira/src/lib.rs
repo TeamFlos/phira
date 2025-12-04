@@ -63,6 +63,21 @@ pub async fn load_res_tex(name: &str) -> SafeTexture {
     prpr::ext::BLACK_TEXTURE.clone()
 }
 
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub unsafe extern "C" fn Java_quad_1native_QuadNative_preprocessInput(
+    _: *mut std::ffi::c_void,
+    _: *const std::ffi::c_void,
+    #[allow(dead_code)] motionEvent: ndk_sys::AInputEvent,
+    #[allow(dead_code)] f: ndk_sys::jfloat,
+    #[allow(dead_code)] f2: ndk_sys::jfloat,
+    #[allow(dead_code)] z: ndk_sys::jboolean,
+    #[allow(dead_code)] z2: ndk_sys::jboolean,
+) {
+
+}
+
+
 pub fn sync_data() {
     set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     if get_data().language.is_none() {

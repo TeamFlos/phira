@@ -1198,7 +1198,7 @@ impl SongScene {
                 let (btn, clicked) = &mut self.mod_btns[index];
                 if *clicked {
                     *clicked = false;
-                    self.mods.toggle(flag);
+                    self.mods.toggle_mod(flag);
                 }
                 let on = self.mods.contains(flag);
                 let oh = rr.h;
@@ -1219,7 +1219,10 @@ impl SongScene {
             };
             item(tl!("mods-autoplay"), Some(tl!("mods-autoplay-sub")), Mods::AUTOPLAY);
             item(tl!("mods-flip-x"), Some(tl!("mods-flip-x-sub")), Mods::FLIP_X);
+            item(tl!("mods-fade-in"), Some(tl!("mods-fade-in-sub")), Mods::FADE_IN);
             item(tl!("mods-fade-out"), Some(tl!("mods-fade-out-sub")), Mods::FADE_OUT);
+            item(tl!("mods-nightcore"), Some(tl!("mods-nightcore-sub")), Mods::NIGHTCORE);
+            item(tl!("mods-rainbow"), Some(tl!("mods-rainbow-sub")), Mods::RAINBOW);
             (width, h)
         });
     }
