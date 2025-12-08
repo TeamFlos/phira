@@ -15,6 +15,7 @@ offset = 偏移(s)
 aspect-ratio = 長寬比
 ps = 註：
 aspect-hint = 長寬比可以直接填小數，也可以是 w:h 的形式（英文半形冒號）
+force-aspect-ratio = 強制長寬比
 dim = 背景昏暗
 enable-unlock = 啟用解鎖動畫
 chart-file = 譜面文件
