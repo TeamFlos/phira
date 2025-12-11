@@ -246,7 +246,7 @@ impl GameScene {
         }
 
         if config.has_mod(Mods::NIGHTCORE) {
-            config.speed = 1.5;
+            config.speed *= 1.5;
         }
 
         if config.has_mod(Mods::RAINBOW) {
