@@ -100,11 +100,17 @@ review-edit-tags-done = Tags updated.
 
 mods = Mods
 mods-autoplay = Autoplay
-mods-autoplay-sub = Plays the chart without user input.
+mods-autoplay-sub = Results will not be submitted when enabled.
 mods-flip-x = Mirror
 mods-flip-x-sub = Mirrors the chart by the X-axis.
+mods-fade-in = Fade-In
+mods-fade-in-sub = Makes notes fade in when they approach the judgeline.
 mods-fade-out = Fade-Out
 mods-fade-out-sub = Makes notes fade out when they approach the judgeline.
+mods-nightcore = Nightcore
+mods-nightcore-sub = Plays the chart at higher speed
+mods-rainbow = Rainbow
+mods-rainbow-sub = Makes your game a *little* more colorful
 
 rate-failed = Rate failed.
 rate-done = Rated successfully.
