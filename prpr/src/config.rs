@@ -14,6 +14,29 @@ bitflags! {
         const AUTOPLAY = 1;
         const FLIP_X = 2;
         const FADE_OUT = 4;
+        const FADE_IN = 8;
+        const NIGHTCORE = 16;
+        const RAINBOW = 32;
+    }
+}
+
+impl Mods {
+    pub fn toggle_mod(&mut self, flag: Mods) {
+        if self.contains(flag) {
+            self.remove(flag);
+        } else {
+            for &conflict in Mods::conflicts(flag) {
+                self.remove(conflict);
+            }
+            self.insert(flag);
+        }
+    }
+    fn conflicts(flag: Mods) -> &'static [Mods] {
+        match flag {
+            Mods::FADE_IN => &[Mods::FADE_OUT],
+            Mods::FADE_OUT => &[Mods::FADE_IN],
+            _ => &[],
+        }
     }
 }
 
