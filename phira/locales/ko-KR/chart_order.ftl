@@ -1,7 +1,6 @@
-
-time = 시간
-rev-time = 시간 (반대)
-name = 이름
-rev-name = 이름 (반대)
-rating = 평점
-rev-rating = 평점 (반대)
+time = 시간 (내림차순)
+rev-time = 시간 (오름차순)
+name = 이름 (오름차순)
+rev-name = 이름 (내림차순)
+rating = 평점 (내림차순)
+rev-rating = 평점 (오름차순)
