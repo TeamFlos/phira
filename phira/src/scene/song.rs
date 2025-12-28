@@ -67,6 +67,9 @@ use uuid::Uuid;
 use walkdir::WalkDir;
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
+mod action_panel;
+use action_panel::ActionPanel;
+
 // Things that need to be reloaded for chart info updates
 type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
 
@@ -78,6 +81,23 @@ static UPLOAD_NOT_SAVED: AtomicBool = AtomicBool::new(false);
 static CONFIRM_OVERWRITE: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
 pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
+
+fn fit_in_rect(rect: Rect, texture: &SafeTexture) -> Rect {
+    let w = texture.width();
+    let h = texture.height();
+    let ratio = h / w;
+    let current_size = rect.size();
+    let mut new_size = Vec2::default();
+    if current_size.x < current_size.y / ratio {
+        new_size.x = current_size.x;
+        new_size.y = current_size.x * ratio;
+    } else {
+        new_size.x = current_size.y / ratio;
+        new_size.y = current_size.y;
+    }
+    let center = rect.center();
+    Rect::new(center.x - new_size.x / 2., center.y - new_size.y / 2., new_size.x, new_size.y)
+}
 
 fn create_music(clip: AudioClip) -> Result<Music> {
     let mut music = UI_AUDIO.with(|it| {
@@ -209,6 +229,11 @@ impl SideContent {
     }
 }
 
+enum SongSceneMode {
+    Player,
+    Staff,
+}
+
 #[derive(Deserialize)]
 struct StableR {
     status: i8,
@@ -257,9 +282,16 @@ pub struct SongScene {
     should_delete: Arc<AtomicBool>,
     menu_options: Vec<&'static str>,
 
+    hide_gui_btn: RectButton,
+    hide_gui: bool,
+
     info_edit: Option<ChartInfoEdit>,
     edit_btn: RectButton,
     edit_scroll: Scroll,
+
+    action_scroll: Scroll,
+    action_panel: ActionPanel,
+    scene_mode: SongSceneMode,
 
     mods: Mods,
     mod_btn: RectButton,
@@ -284,6 +316,7 @@ pub struct SongScene {
     info_scroll: Scroll,
 
     review_task: Option<Task<Result<String>>>,
+    report_task: Option<Task<Result<()>>>,
     chart_should_delete: Arc<AtomicBool>,
 
     edit_tags_task: Option<Task<Result<()>>>,
@@ -311,6 +344,7 @@ pub struct SongScene {
     tr_start: f32,
 
     open_web_btn: DRectButton,
+    report_btn: DRectButton,
 
     // Imported chart for overwriting
     overwrite_from: Option<String>,
@@ -410,6 +444,9 @@ impl SongScene {
 
             fetch_best_task,
 
+            hide_gui_btn: RectButton::new(),
+            hide_gui: false,
+
             menu: Popup::new(),
             menu_btn: RectButton::new(),
             need_show_menu: false,
@@ -419,6 +456,10 @@ impl SongScene {
             info_edit: None,
             edit_btn: RectButton::new(),
             edit_scroll: Scroll::new(),
+
+            scene_mode: SongSceneMode::Player,
+            action_panel: ActionPanel::new(),
+            action_scroll: Scroll::new(),
 
             mods,
             mod_btn: RectButton::new(),
@@ -444,6 +485,8 @@ impl SongScene {
 
             review_task: None,
             chart_should_delete: Arc::default(),
+
+            report_task: None,
 
             edit_tags_task: None,
             tags: TagsDialog::new(false),
@@ -483,6 +526,8 @@ impl SongScene {
             background: Arc::default(),
 
             open_web_btn: DRectButton::new(),
+
+            report_btn: DRectButton::new(),
 
             overwrite_from: None,
             overwrite_task: None,
@@ -1090,6 +1135,8 @@ impl SongScene {
                 let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
                 self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
                 dy!(r.h + 0.04);
+                self.report_btn.render_text(ui, r, rt, tl!("report"), 0.6, true);
+                dy!(r.h + 0.04);
             }
             if let Some(uploader) = &self.info.uploader {
                 let c = 0.06;
@@ -1368,6 +1415,10 @@ impl Scene for SongScene {
         {
             return Ok(true);
         }
+        if self.hide_gui {
+            self.hide_gui = false;
+            return Ok(true);
+        }
         if self.downloading.is_some() {
             if let Some(dl) = &mut self.downloading {
                 if dl.touch(touch, t) {
@@ -1378,6 +1429,10 @@ impl Scene for SongScene {
             return Ok(false);
         }
         let rt = tm.real_time() as f32;
+        if self.hide_gui_btn.touch(touch) {
+            self.hide_gui = true;
+            return Ok(true);
+        }
         if self.tags.touch(touch, rt) {
             return Ok(true);
         }
@@ -1387,6 +1442,10 @@ impl Scene for SongScene {
         if self.menu.showing() {
             self.menu.touch(touch, t);
             return Ok(true);
+        }
+        self.action_panel.touch(touch, t);
+        if self.action_scroll.touch(touch, t) {
+            return Ok(true)
         }
         if !self.side_enter_time.is_infinite() {
             if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
@@ -1444,6 +1503,10 @@ impl Scene for SongScene {
                         }
                         if self.open_web_btn.touch(touch, rt) {
                             open_url(&format!("https://phira.moe/chart/{}", self.info.id.unwrap()))?;
+                            return Ok(true);
+                        }
+                        if self.report_btn.touch(touch, rt) {
+                            request_input("report_reason", tl!("report-reason").as_ref());
                             return Ok(true);
                         }
                     }
@@ -1524,6 +1587,8 @@ impl Scene for SongScene {
         let rt = tm.real_time() as f32;
         self.tags.update(rt);
         self.rate_dialog.update(rt);
+        self.action_scroll.update(t);
+        self.action_panel.update(tm);
         if self.tags.confirmed.take() == Some(true) {
             let mut tags = self.tags.tags.tags().to_vec();
             tags.push(self.tags.division.to_owned());
@@ -2020,6 +2085,19 @@ impl Scene for SongScene {
                         .into())
                     }));
                 }
+                "report-reason" => {
+                    let id = self.info.id.unwrap();
+                    self.report_task = Some(Task::new(async move {
+                        recv_raw(Client::post(
+                            format!("/chart/{id}/report"),
+                            &json!({
+                                "reason": text,
+                            }),
+                        ))
+                        .await?;
+                        Ok(())
+                    }));
+                }
                 _ => return_input(id, text),
             }
         }
@@ -2106,6 +2184,19 @@ impl Scene for SongScene {
                 self.review_task = None;
             }
         }
+        if let Some(task) = &mut self.report_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("report-failed")));
+                    }
+                    Ok(_) => {
+                        show_message(tl!("report-requested")).ok();
+                    }
+                }
+                self.review_task = None;
+            }
+        }
         if let Some(task) = &mut self.edit_tags_task {
             if let Some(res) = task.take() {
                 match res {
@@ -2166,19 +2257,41 @@ impl Scene for SongScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
         let t = tm.now() as f32;
+
         ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
-
-        let r = ui.back_rect();
-        self.back_btn.set(ui, r);
-        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
+        if self.hide_gui {
+            let in_rect = fit_in_rect(ui.screen_rect(), &self.illu.texture.1);
+            ui.fill_rect(in_rect, (*self.illu.texture.1, in_rect, ScaleType::Inside));
+        }
+        if let Some(dl) = &mut self.downloading {
+            dl.render(ui, t);
+        }
+        if self.save_task.is_some() {
+            ui.full_loading(tl!("edit-saving"), t);
+        }
+        if self.upload_task.is_some() {
+            ui.full_loading(tl!("uploading"), t);
+        }
+        if self.review_task.is_some() {
+            ui.full_loading(tl!("review-doing"), t);
+        }
+        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() || self.update_cksum_task.is_some() {
+            ui.full_loading("", t);
+        }
+        if self.hide_gui {
+            return Ok(());
+        }
+        let back_r = ui.back_rect();
+        self.back_btn.set(ui, back_r);
+        ui.fill_rect(back_r, (*self.icons.back, back_r, ScaleType::Fit));
 
         ui.alpha::<Result<()>>(((t - self.fade_start) / FADE_IN_TIME).clamp(-1., 0.) + 1., |ui| {
             let r = ui
                 .text(&self.info.name)
-                .max_width(0.57 - r.right())
+                .max_width(0.57 - back_r.right())
                 .size(1.2)
-                .pos(r.right() + 0.02, r.y)
+                .pos(back_r.right() + 0.02, back_r.y)
                 .draw();
             ui.text(&self.info.composer)
                 .size(0.5)
@@ -2237,6 +2350,17 @@ impl Scene for SongScene {
                 r.w += 0.13;
                 self.ldb_btn.set(ui, r);
             }
+            ui.scope(|ui| {
+                let pad = 0.05;
+                ui.dy(back_r.bottom() + 0.07);
+                ui.dx(back_r.right() + 0.02 -pad);
+                let size = (0.8,r.top()-back_r.bottom()-0.1);
+                self.action_scroll.size(size);
+                self.action_scroll.render(ui, |ui| {
+                    ui.dx(pad);
+                    self.action_panel.render(ui, 0.8, t)
+                });
+            });
 
             // play button
             let w = 0.26;
@@ -2285,12 +2409,12 @@ impl Scene for SongScene {
                 }
                 ui.fill_rect(r, (*self.icons.r#mod, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                 self.mod_btn.set(ui, r);
+                ui.dx(-r.w - 0.03);
+                ui.fill_rect(r, (*self.icons.invisible, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
+                self.hide_gui_btn.set(ui, r);
             });
 
-            if let Some(dl) = &mut self.downloading {
-                dl.render(ui, t);
-            }
-
+            // side content
             let rt = tm.real_time() as f32;
             if self.side_enter_time.is_finite() {
                 let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
@@ -2328,18 +2452,6 @@ impl Scene for SongScene {
 
         self.menu.render(ui, t, 1.);
 
-        if self.save_task.is_some() {
-            ui.full_loading(tl!("edit-saving"), t);
-        }
-        if self.upload_task.is_some() {
-            ui.full_loading(tl!("uploading"), t);
-        }
-        if self.review_task.is_some() {
-            ui.full_loading(tl!("review-doing"), t);
-        }
-        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() || self.update_cksum_task.is_some() {
-            ui.full_loading("", t);
-        }
         let rt = tm.real_time() as f32;
         self.tags.render(ui, rt);
         self.rate_dialog.render(ui, rt);
