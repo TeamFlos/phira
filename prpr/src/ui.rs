@@ -25,7 +25,7 @@ pub use glyph_brush::ab_glyph::FontArc;
 
 use crate::{
     core::{Matrix, Point, Vector},
-    ext::{RectExt, SafeTexture, ScaleType, get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image},
+    ext::{get_viewport, nalgebra_to_glm, RectExt, SafeTexture, ScaleType, semi_black, semi_white, source_of_image},
     judge::Judge,
     scene::{request_input_full, return_input, show_error, take_input},
 };
