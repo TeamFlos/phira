@@ -1,5 +1,6 @@
 prpr_l10n::tl_file!("common" ttl crate::);
 
+#[rustfmt::skip]
 #[cfg(feature = "closed")]
 mod inner;
 
