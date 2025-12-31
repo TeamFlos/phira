@@ -1,4 +1,7 @@
-use crate::{client::{Character, Ptr, User}, dir};
+use crate::{
+    client::{Character, Ptr, User},
+    dir,
+};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prpr::{

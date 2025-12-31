@@ -254,6 +254,7 @@ impl JudgeInner {
     }
 }
 
+#[rustfmt::skip]
 #[cfg(feature = "closed")]
 pub mod inner;
 #[cfg(feature = "closed")]
