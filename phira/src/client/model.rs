@@ -128,10 +128,7 @@ impl<T: Object + 'static> From<i32> for Ptr<T> {
 
 impl<T: Object + 'static> Ptr<T> {
     pub fn new(id: i32) -> Self {
-        Self {
-            id,
-            _marker: PhantomData,
-        }
+        Self { id, _marker: PhantomData }
     }
 
     #[inline]
