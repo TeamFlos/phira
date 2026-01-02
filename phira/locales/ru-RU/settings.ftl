@@ -9,7 +9,7 @@ about = О игре
 
 item-lang = Язык
 item-offline = Оффлайн-режим
-item-offline-sub = В оффлайн режиме вы не сможете загружать свой результат
+item-offline-sub = Весь онлайн-доступ будет отключён.
 item-server-status = Состояние сервера
 item-server-status-sub = Открыть веб-сайт, чтобы проверить состояние сервера
 check-status = Проверить
@@ -19,7 +19,12 @@ item-mp-addr = Сервер мультиплеера
 item-mp-addr-sub = Адрес сервера в формате 'IP-адрес:порт'
 item-mp-addr-invalid = Неверный адрес сервера
 item-lowq = Пониженное качество
-item-lowq-sub = Включите, если интерфейс подлагивает
+item-lowq-sub = Включите, если интерфейс подлагивает.
+item-clear-cache = Очистить кэш
+item-cache-size-loading = Загрузка...
+item-cache-size = Размер кэша: { $size }
+item-clear-cache-btn = Очистить
+item-cache-cleared = Кэш очищен
 item-insecure = Незащищëнный режим
 item-insecure-sub = Включите, если у вас возникают проблемы с подключением. !Делает подключение незащищëнным! 
 item-enable-anys = Включить Anys
@@ -29,7 +34,7 @@ item-anys-gateway-sub = Адрес шлюза Anys
 item-anys-gateway-invalid = Неверный адрес шлюза
 
 item-adjust = Автонастройка времени задержки
-item-adjust-sub = Время задержки настраивается автоматически для сихронизации музыки с чартом
+item-adjust-sub = Время задержки настраивается автоматически для сихронизации музыки с чартом.
 item-music = Громкость музыки
 item-sfx = Громкость звука
 item-bgm = Громкость музыки в меню
@@ -54,12 +59,12 @@ load-cali-failed = Ошибка загрузки аудио
 about-content =
   Phira v{ $version }
 
-  Phira это некоммерческая игра на базе сообщества, вдохновлëнная Phigros, и написанная на Rust
+  Phira является некоммерческой игрой на базе сообщества, вдохновлëнной Phigros, и написанной на Rust. 
 
-  Если вам нравится игра, вы можете поддержать еë на Patreon (@PhiraGame) или afdian.com (@Mivik). Ваша поддержка это лучший мотиватор для нас. 
+  Если вам нравится игра, вы можете поддержать еë на Patreon (@PhiraGame) или afdian.com (@Mivik). Ваша поддержка - это лучший мотиватор для нас. 
 
   Аккаунт BiliBili: @Phira官方
-  Чат QQ(только Китай): r48eajexth
+  Чат QQ (только Китай): r48eajexth
   Discord-сервер: https://discord.gg/MC92fRrsds
 
   Игру уже поддержали : 
