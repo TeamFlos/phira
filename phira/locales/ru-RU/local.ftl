@@ -1,7 +1,7 @@
 
 label = Локальные
 
-import-failed = Ошибка импорта
-import-success = Успешный импорт
+import-failed = Чарт не импортирован
+import-success = Импорт успешен
 
-not-loaded = Загрузка, подождите немного. 
+not-loaded = Импортируется... 
