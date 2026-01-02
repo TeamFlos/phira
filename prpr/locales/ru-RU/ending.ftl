@@ -1,7 +1,7 @@
 
 uploading = Загрузка результатов…
 uploaded = Результаты загружены
-upload-failed = Ошибка загрузки
+upload-failed = Загрузка не удалась
 upload-cancel = Отменить загрузку
 upload-retry = Повторить
 
