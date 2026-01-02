@@ -20,8 +20,8 @@ chart-file = Чарт
 music-file = Трек
 illu-file = Обложка
 tip = Подсказка
-intro = Интро-ролик
+intro = Описание
 tags = Теги
-tag-exists = Этот тег уже есть
+tag-exists = Этот тег уже присутствует
 
 illegal-input = Неправильно введены данные
