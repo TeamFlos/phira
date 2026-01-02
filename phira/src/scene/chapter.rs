@@ -1,4 +1,4 @@
-prpr::tl_file!("chapter");
+prpr_l10n::tl_file!("chapter");
 
 use crate::{
     anim::Anim,
@@ -254,6 +254,8 @@ impl Scene for ChapterScene {
                     intro: info.intro.clone(),
 
                     hold_partial_cover: true,
+                    note_uniform_scale: false,
+
                     created: None,
                     updated: None,
                     chart_updated: None,

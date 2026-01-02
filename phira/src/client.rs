@@ -6,7 +6,8 @@ use crate::{anti_addiction_action, get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
-use prpr::{l10n::LANG_IDENTS, scene::SimpleRecord};
+use prpr::scene::SimpleRecord;
+use prpr_l10n::LANG_IDENTS;
 use reqwest::{header, ClientBuilder, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -19,7 +20,7 @@ static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_point
 pub struct Client;
 
 // const API_URL: &str = "http://localhost:2924";
-const API_URL: &str = "https://api.phira.cn";
+const API_URL: &str = "https://phira.5wyxi.com";
 
 pub fn basic_client_builder() -> ClientBuilder {
     let policy = reqwest::redirect::Policy::custom(|attempt| {
@@ -175,7 +176,7 @@ impl Client {
             queries: HashMap::new(),
             page: None,
             suffix: "",
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 

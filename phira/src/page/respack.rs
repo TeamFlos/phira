@@ -1,4 +1,4 @@
-prpr::tl_file!("respack");
+prpr_l10n::tl_file!("respack");
 
 use super::{Page, SharedState};
 use crate::{
@@ -53,7 +53,6 @@ impl ResPackItem {
     }
 
     fn load(&mut self) {
-        if self.load_task.is_some() {}
         if let Some(loaded) = self.loaded.take() {
             self.load_task = Some(Box::pin(async move { Ok(loaded) }));
         } else {

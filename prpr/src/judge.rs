@@ -85,6 +85,15 @@ fn get_uptime() -> f64 {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn get_uptime() -> f64 {
+    use std::time::SystemTime;
+    let start = SystemTime::UNIX_EPOCH;
+    let now = SystemTime::now();
+    let duration = now.duration_since(start).expect("Time went backwards");
+    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+}
+
 pub struct FlickTracker {
     threshold: f32,
     last_point: Point,
@@ -366,7 +375,6 @@ impl Judge {
         const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
         let spd = res.config.speed;
 
-        #[cfg(not(target_os = "windows"))]
         let uptime = get_uptime();
 
         let t = res.time;
@@ -460,14 +468,7 @@ impl Judge {
                 it.time = if it.time.is_infinite() {
                     f64::NEG_INFINITY
                 } else {
-                    #[cfg(target_os = "windows")]
-                    {
-                        it.time
-                    }
-                    #[cfg(not(target_os = "windows"))]
-                    {
-                        t as f64 - (uptime - it.time) * spd as f64
-                    }
+                    t as f64 - (uptime - it.time) * spd as f64
                 };
                 it
             })
@@ -507,7 +508,7 @@ impl Judge {
         for (id, touch) in touches.iter().enumerate() {
             let click = touch.phase == TouchPhase::Started;
             let flick =
-                matches!(touch.phase, TouchPhase::Moved | TouchPhase::Stationary) && self.trackers.get_mut(&touch.id).map_or(false, |it| it.flicked);
+                matches!(touch.phase, TouchPhase::Moved | TouchPhase::Stationary) && self.trackers.get_mut(&touch.id).is_some_and(|it| it.flicked);
             if !(click || flick) {
                 continue;
             }
@@ -661,7 +662,7 @@ impl Judge {
                         let x = &mut note.object.translation.0;
                         x.set_time(t);
                         let x = x.now();
-                        if self.key_down_count == 0 && !pos.iter().any(|it| it.map_or(false, |it| (it.x - x).abs() <= X_DIFF_MAX)) {
+                        if self.key_down_count == 0 && !pos.iter().any(|it| it.is_some_and(|it| (it.x - x).abs() <= X_DIFF_MAX)) {
                             if t > *up_time + UP_TOLERANCE {
                                 note.judge = JudgeStatus::Judged;
                                 judgements.push((Judgement::Miss, line_id, *id, None));
@@ -696,7 +697,7 @@ impl Judge {
                 let x = x.now();
                 if self.key_down_count != 0
                     || pos.iter().any(|it| {
-                        it.map_or(false, |it| {
+                        it.is_some_and(|it| {
                             let dx = (it.x - x).abs();
                             dx <= X_DIFF_MAX && dt <= (LIMIT_BAD - LIMIT_PERFECT * (dx - 0.9).max(0.))
                         })
@@ -806,7 +807,7 @@ impl Judge {
         for (line, (idx, st)) in chart.lines.iter().zip(self.notes.iter_mut()) {
             while idx
                 .get(*st)
-                .map_or(false, |id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
+                .is_some_and(|id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
             {
                 *st += 1;
             }
@@ -847,7 +848,7 @@ impl Judge {
             }
             while idx
                 .get(*st)
-                .map_or(false, |id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
+                .is_some_and(|id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
             {
                 *st += 1;
             }
@@ -864,7 +865,7 @@ impl Judge {
             };
             let line = &chart.lines[line_id];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
+                res.emit_at_origin(line.notes[id as usize].rotation(line), res.res_pack.info.fx_perfect())
             });
             if !matches!(chart.lines[line_id].notes[id as usize].kind, NoteKind::Hold { .. }) {
                 note_hitsound.play(res);

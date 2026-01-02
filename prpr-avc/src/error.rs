@@ -34,6 +34,7 @@ pub enum Error {
 
 impl Error {
     pub fn from_error_code(code: std::os::raw::c_int) -> Self {
+        #[allow(clippy::unnecessary_cast)]
         let code = code as i32;
         match -code {
             541478725 => return Self::EndOfFile,

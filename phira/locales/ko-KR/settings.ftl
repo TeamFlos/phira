@@ -1,3 +1,4 @@
+
 label = 설정
 
 general = 일반
@@ -9,6 +10,9 @@ about = 정보
 item-lang = 언어
 item-offline = 오프라인 모드
 item-offline-sub = 오프라인 모드에서는 플레이 기록을 업로드할 수 없습니다.
+item-server-status = 서버 상태
+item-server-status-sub = 웹페이지로 이동하여 서버 상태를 확인하세요
+check-status = 확인
 item-mp = 멀티플레이어
 item-mp-sub = 멀티플레이어 모드 활성화
 item-mp-addr = 멀티플레이어 서버
@@ -18,7 +22,11 @@ item-lowq = 저화질 모드
 item-lowq-sub = UI가 느릴 때 이 기능을 활성화하세요.
 item-insecure = 보안 모드 끄기
 item-insecure-sub = 온라인 기능을 사용할 수 없는 경우 이를 활성화하십시오. 연결이 보안되지 않습니다!
-
+item-enable-anys = Anys 활성화
+item-enable-anys-sub = 연결 품질을 향상시키기 위해 Anys 게이트웨이를 사용합니다
+item-anys-gateway = Anys 게이트웨이
+item-anys-gateway-sub = Anys 게이트웨이 주소
+item-anys-gateway-invalid = 잘못된 게이트웨이 주소입니다
 
 item-adjust = 자동 시간 조정
 item-adjust-sub = 음악과 비트맵을 동기화하기 위해 시간을 동적으로 조정합니다.

@@ -207,7 +207,7 @@ impl Scene for MainScene {
         }
 
         if get_data().config.mp_enabled {
-            if MP_PANEL.with(|it| it.borrow_mut().as_mut().map_or(false, |it| it.touch(tm, touch))) {
+            if MP_PANEL.with(|it| it.borrow_mut().as_mut().is_some_and(|it| it.touch(tm, touch))) {
                 return Ok(true);
             }
             if self.mp_btn.touch(touch) && !self.mp_moved {
@@ -367,7 +367,7 @@ impl Scene for MainScene {
             }
         }
 
-        if self.mp_save_pos_at.map_or(false, |it| it < Instant::now()) {
+        if self.mp_save_pos_at.is_some_and(|it| it < Instant::now()) {
             std::fs::write(position_file()?, format!("{},{}", self.mp_btn_pos.x, self.mp_btn_pos.y))?;
             self.mp_save_pos_at = None;
         }
@@ -378,7 +378,7 @@ impl Scene for MainScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
 
-        STRIPE_MATERIAL.set_uniform("time", ((tm.real_time() as f64 * 0.025) % (std::f64::consts::PI * 2.)) as f32);
+        STRIPE_MATERIAL.set_uniform("time", ((tm.real_time() * 0.025) % (std::f64::consts::PI * 2.)) as f32);
         gl_use_material(*STRIPE_MATERIAL);
         ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
         gl_use_default_material();
@@ -426,6 +426,7 @@ impl Scene for MainScene {
         if get_data().config.mp_enabled {
             let r = 0.06;
             self.mp_btn_pos.y = self.mp_btn_pos.y.clamp(-ui.top, ui.top);
+            self.mp_btn_pos.x = self.mp_btn_pos.x.clamp(-1., 1.);
             ui.fill_circle(self.mp_btn_pos.x, self.mp_btn_pos.y, r, ui.background());
             let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);
             self.mp_btn.set(ui, r);

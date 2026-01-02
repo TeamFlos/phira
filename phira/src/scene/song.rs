@@ -1,8 +1,9 @@
-prpr::tl_file!("song");
+prpr_l10n::tl_file!("song");
 
+#[cfg(feature = "video")]
+use super::UnlockScene;
 use super::{
-    confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, UnlockScene,
-    ASSET_CHART_INFO,
+    confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, ASSET_CHART_INFO,
 };
 use crate::{
     charts_view::NEED_UPDATE,
@@ -15,6 +16,7 @@ use crate::{
     rate::RateDialog,
     save_data,
     tags::TagsDialog,
+    ttl,
 };
 use ::rand::{thread_rng, Rng};
 use anyhow::{anyhow, bail, Context, Result};
@@ -63,7 +65,7 @@ use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
 use walkdir::WalkDir;
-use zip::{write::FileOptions, CompressionMethod, ZipWriter};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 // Things that need to be reloaded for chart info updates
 type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
@@ -652,7 +654,7 @@ impl SongScene {
 
     fn update_menu(&mut self) {
         self.menu_options.clear();
-        if self.local_path.as_ref().map_or(false, |it| !it.starts_with(':')) {
+        if self.local_path.as_ref().is_some_and(|it| !it.starts_with(':')) {
             self.menu_options.push("delete");
         }
         if self.info.id.is_some() {
@@ -665,7 +667,7 @@ impl SongScene {
                 .charts
                 .iter()
                 .find(|it| it.local_path == *local_path)
-                .map_or(false, |it| it.played_unlock)
+                .is_some_and(|it| it.played_unlock)
             {
                 self.menu_options.push("unlock");
             }
@@ -674,25 +676,25 @@ impl SongScene {
         let is_uploader = get_data()
             .me
             .as_ref()
-            .map_or(false, |it| Some(it.id) == self.info.uploader.as_ref().map(|it| it.id));
+            .is_some_and(|it| Some(it.id) == self.info.uploader.as_ref().map(|it| it.id));
         if self.info.id.is_some() && (perms.contains(Permissions::REVIEW) || perms.contains(Permissions::REVIEW_PECJAM)) {
-            if self.entity.as_ref().map_or(false, |it| !it.reviewed && !it.stable_request) {
+            if self.entity.as_ref().is_some_and(|it| !it.reviewed && !it.stable_request) {
                 self.menu_options.push("review-approve");
                 self.menu_options.push("review-deny");
             }
             self.menu_options.push("review-edit-tags");
         }
-        if self.info.id.is_some() && is_uploader && self.entity.as_ref().map_or(false, |it| !it.stable && !it.stable_request) {
+        if self.info.id.is_some() && is_uploader && self.entity.as_ref().is_some_and(|it| !it.stable && !it.stable_request) {
             self.menu_options.push("stabilize");
         }
-        if self.info.id.is_some() && self.entity.as_ref().map_or(false, |it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
+        if self.info.id.is_some() && self.entity.as_ref().is_some_and(|it| it.stable_request) && perms.contains(Permissions::STABILIZE_CHART) {
             self.menu_options.push("stabilize-approve");
             self.menu_options.push("stabilize-approve-ranked");
             self.menu_options.push("stabilize-comment");
             self.menu_options.push("stabilize-deny");
         }
         if self.info.id.is_some()
-            && self.entity.as_ref().map_or(false, |it| {
+            && self.entity.as_ref().is_some_and(|it| {
                 if it.stable {
                     perms.contains(Permissions::DELETE_STABLE)
                 } else {
@@ -713,7 +715,7 @@ impl SongScene {
                     .charts
                     .iter()
                     .find(|it| it.local_path == *local_path)
-                    .map_or(false, |it| it.info.has_unlock && !it.played_unlock));
+                    .is_some_and(|it| it.info.has_unlock && !it.played_unlock));
 
         self.scene_task =
             Self::global_launch(self.info.id, local_path, self.mods, mode, None, Some(self.background.clone()), self.record.clone(), is_unlock)?;
@@ -721,7 +723,7 @@ impl SongScene {
         Ok(())
     }
 
-    #[must_use]
+    #[must_use = "futures do nothing unless you `.await` or poll them"]
     pub fn global_launch(
         id: Option<i32>,
         local_path: &str,
@@ -792,7 +794,7 @@ impl SongScene {
                                     hash_map::Entry::Occupied(val) => *val.get(),
                                     hash_map::Entry::Vacant(place) => *place.insert(len.try_into().ok()?),
                                 };
-                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).map_or(false, |it| *it + 1. / 20. >= t) {
+                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it + 1. / 20. >= t) {
                                     return None;
                                 }
                                 touch_last_update.insert(id, t);
@@ -831,7 +833,7 @@ impl SongScene {
                                 }
                             },
                         }));
-                        if judges.len() > 10 || judges.front().map_or(false, |it| it.time + 0.6 < t) {
+                        if judges.len() > 10 || judges.front().is_some_and(|it| it.time + 0.6 < t) {
                             let judges = Arc::new(judges.drain(..).collect());
                             client.blocking_send(ClientCommand::Judges { judges }).unwrap();
                         }
@@ -843,7 +845,6 @@ impl SongScene {
             update_fn
         });
 
-        let local_path = local_path.to_owned();
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -912,15 +913,25 @@ impl SongScene {
                 })
             }));
             if is_unlock {
-                let chart = get_data_mut().charts.iter_mut().find(|it| it.local_path == local_path).unwrap();
-                if !chart.played_unlock {
-                    chart.played_unlock = true;
-                    save_data()?;
+                #[cfg(not(feature = "video"))]
+                {
+                    warn!("this build does not support unlock video.");
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                        .await
+                        .map(|it| NextScene::Overlay(Box::new(it)))
                 }
+                #[cfg(feature = "video")]
+                {
+                    let chart = get_data_mut().charts.iter_mut().find(|it| it.local_path == local_path).unwrap();
+                    if !chart.played_unlock {
+                        chart.played_unlock = true;
+                        save_data()?;
+                    }
 
-                UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
-                    .await
-                    .map(|it| NextScene::Overlay(Box::new(it)))
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                        .await
+                        .map(|it| NextScene::Overlay(Box::new(it)))
+                }
             } else {
                 LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
                     .await
@@ -1813,7 +1824,7 @@ impl Scene for SongScene {
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
             let local_path = self.local_path.clone().unwrap();
-            let id = self.info.id.clone();
+            let id = self.info.id;
             self.update_cksum_task = Some(Task::new(async move {
                 if let Some(id) = id {
                     use hex::ToHex;
@@ -1869,7 +1880,7 @@ impl Scene for SongScene {
                 let chart_bytes = {
                     let mut bytes = Vec::new();
                     let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
-                    let options = FileOptions::default()
+                    let options = SimpleFileOptions::default()
                         .compression_method(CompressionMethod::Deflated)
                         .unix_permissions(0o755);
                     #[allow(deprecated)]
@@ -1886,7 +1897,6 @@ impl Scene for SongScene {
                         }
                     }
                     zip.finish()?;
-                    drop(zip);
                     bytes
                 };
                 let file = Client::upload_file("chart.zip", chart_bytes)
@@ -2268,7 +2278,7 @@ impl Scene for SongScene {
                 ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
-                if self.local_path.as_ref().map_or(true, |it| !it.starts_with(':')) {
+                if self.local_path.as_ref().is_none_or(|it| !it.starts_with(':')) {
                     ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                     self.edit_btn.set(ui, r);
                     ui.dx(-r.w - 0.03);

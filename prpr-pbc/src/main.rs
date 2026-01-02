@@ -13,7 +13,7 @@ use std::{
     io::{BufWriter, Cursor},
 };
 
-const HELP: &'static str = "
+const HELP: &str = "
 Usage: prpr-pbc [options] input output
 
 Options:
@@ -41,10 +41,10 @@ impl FileSystem for DummyFileSystem {
 }
 
 fn main() -> Result<()> {
-    let mut iter = std::env::args().skip(1);
+    let iter = std::env::args().skip(1);
     let mut input = None;
     let mut output = None;
-    while let Some(arg) = iter.next() {
+    for arg in iter {
         match arg.as_str() {
             "-h" | "--help" => {
                 println!("{}", HELP.trim());
@@ -82,7 +82,7 @@ fn main() -> Result<()> {
 
     let mut fs = Box::new(DummyFileSystem);
     let extra = ChartExtra::default();
-    let mut chart = match format {
+    let chart = match format {
         ChartFormat::Rpe => pollster::block_on(parse_rpe(&String::from_utf8_lossy(&bytes), fs.as_mut(), extra)),
         ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), extra),
         ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), extra),
@@ -94,7 +94,7 @@ fn main() -> Result<()> {
 
     let output = BufWriter::new(File::create(output)?);
     let mut w = BinaryWriter::new(output);
-    w.write(&mut chart)?;
+    w.write(&chart)?;
 
     Ok(())
 }

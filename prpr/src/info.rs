@@ -45,6 +45,8 @@ pub struct ChartInfo {
     pub intro: String,
 
     pub hold_partial_cover: bool,
+    pub note_uniform_scale: bool,
+
     pub created: Option<DateTime<Utc>>,
     pub updated: Option<DateTime<Utc>>,
     pub chart_updated: Option<DateTime<Utc>>,
@@ -81,6 +83,7 @@ impl Default for ChartInfo {
             intro: String::new(),
 
             hold_partial_cover: false,
+            note_uniform_scale: false,
 
             created: None,
             updated: None,

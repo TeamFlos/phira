@@ -110,7 +110,7 @@ impl SafeTexture {
         self
     }
 
-    pub fn with_filter(self, filter: GLenum) -> Self{
+    pub fn with_filter(self, filter: GLenum) -> Self {
         let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
         unsafe {
             use miniquad::gl::*;
@@ -357,7 +357,7 @@ pub async fn spawn_task<R: Send + 'static>(f: impl FnOnce() -> Result<R> + Send 
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        Ok(tokio::task::spawn_blocking(f).await??)
+        tokio::task::spawn_blocking(f).await?
     }
 }
 

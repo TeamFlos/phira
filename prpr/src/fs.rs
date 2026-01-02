@@ -17,12 +17,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::warn;
-use zip::{write::FileOptions, CompressionMethod, ZipArchive, ZipWriter};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
 pub fn update_zip<R: Read + Seek>(zip: &mut ZipArchive<R>, patches: HashMap<String, Vec<u8>>) -> Result<Vec<u8>> {
     let mut buffer = Vec::new();
     let mut w = ZipWriter::new(Cursor::new(&mut buffer));
-    let options = FileOptions::default()
+    let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
         .unix_permissions(0o755);
     for i in 0..zip.len() {
@@ -44,7 +44,6 @@ pub fn update_zip<R: Read + Seek>(zip: &mut ZipArchive<R>, patches: HashMap<Stri
         w.write_all(&data)?;
     }
     w.finish()?;
-    drop(w);
     Ok(buffer)
 }
 
@@ -163,7 +162,7 @@ impl FileSystem for ZipFileSystem {
             .lock()
             .unwrap()
             .file_names()
-            .filter(|it| it.strip_prefix(&self.1).map_or(false, |it| !it.contains('/')))
+            .filter(|it| it.strip_prefix(&self.1).is_some_and(|it| !it.contains('/')))
             .map(str::to_owned)
             .collect())
     }
@@ -297,7 +296,7 @@ fn info_from_csv(text: &str) -> Result<ChartInfo> {
     info_from_kv(
         headers
             .iter()
-            .zip(record.into_iter())
+            .zip(&record)
             .map(|(key, value)| (key.as_str(), value.to_owned())),
         true,
     )

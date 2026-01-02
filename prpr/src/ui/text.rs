@@ -105,7 +105,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
         rect
     }
 
-    fn measure_inner<'this, 'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, (f32, f32, f32, f32)) {
+    fn measure_inner<'c>(&mut self, text: &'c str, painter: &mut Option<&mut TextPainter>) -> (Section<'c>, (f32, f32, f32, f32)) {
         use glyph_brush::ab_glyph;
         let vp = get_viewport();
         let scale = self.get_scale(vp.2);
@@ -175,9 +175,13 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             let index = glyphs.partition_point(|it| end(it) <= bounds.max.x - w);
             let st = if index == 0 { 0. } else { end(&glyphs[index - 1]) };
             let byte_index = if index == 0 { 0 } else { glyphs[index - 1].byte_index };
+            // Round to char boundary
+            let byte_index = text[..byte_index].char_indices().next_back().map_or(0, |(i, _)| i);
             return (
                 section.with_text(vec![
-                    Text::new(&text[..byte_index]).with_scale(scale).with_color(self.color),
+                    Text::new(&text[..byte_index])
+                        .with_scale(scale)
+                        .with_color(self.color),
                     Text::new("…").with_scale(scale).with_color(self.color),
                 ]),
                 (0., 0., st + w, line_height),

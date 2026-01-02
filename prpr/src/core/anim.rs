@@ -121,13 +121,12 @@ impl<T: Tweenable> Anim<T> {
     }
 
     pub fn now_opt(&self) -> Option<T> {
-        let Some(now) = self.now_opt_inner() else {
-            return None;
-        };
-        Some(if let Some(next) = &self.next {
-            T::add(&now, &next.now_opt().unwrap())
-        } else {
-            now
+        self.now_opt_inner().map(|now| {
+            if let Some(next) = &self.next {
+                T::add(&now, &next.now_opt().unwrap())
+            } else {
+                now
+            }
         })
     }
 

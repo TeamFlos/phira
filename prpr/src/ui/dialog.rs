@@ -1,4 +1,4 @@
-crate::tl_file!("dialog");
+prpr_l10n::tl_file!("dialog");
 
 use super::{DRectButton, RectButton, Scroll, Ui};
 use crate::{core::BOLD_FONT, ext::RectExt, scene::show_message};
@@ -141,7 +141,7 @@ impl Dialog {
 
         if self
             .window_rect
-            .map_or(true, |rect| rect.contains(touch.position) || touch.phase != TouchPhase::Started)
+            .is_none_or(|rect| rect.contains(touch.position) || touch.phase != TouchPhase::Started)
         {
             true
         } else {
