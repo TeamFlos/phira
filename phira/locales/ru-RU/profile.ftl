@@ -15,5 +15,5 @@ uploading-avatar = Загрузка...
 load-record-failed = Не удалось загрузить запись
 
 last-login = Был(а) в сети { $time }
-badge-admin = Админ
+badge-admin = Администратор
 badge-sponsor = Спонсор
