@@ -14,6 +14,7 @@ bitflags! {
         const AUTOPLAY = 1;
         const FLIP_X = 2;
         const FADE_OUT = 4;
+        const STRICT = 8;
     }
 }
 
@@ -114,5 +115,10 @@ impl Config {
     #[inline]
     pub fn flip_x(&self) -> bool {
         self.has_mod(Mods::FLIP_X)
+    }
+
+    #[inline]
+    pub fn strict(&self) -> bool {
+        self.has_mod(Mods::STRICT)
     }
 }
