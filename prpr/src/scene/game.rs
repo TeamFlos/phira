@@ -43,6 +43,7 @@ use tracing::{debug, warn};
 
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
+#[rustfmt::skip]
 #[cfg(feature = "closed")]
 mod inner;
 #[cfg(feature = "closed")]
