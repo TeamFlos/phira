@@ -2,7 +2,7 @@
 filter = 태그로 필터링
 edit = 태그 편집
 
-invalid-tag = 잘못된 태그입니다
+invalid-tag = 잘못된 태그입니다.
 
 wanted = 추가된 태그
 unwanted = 제외된 태그
