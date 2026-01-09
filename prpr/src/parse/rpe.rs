@@ -473,7 +473,7 @@ async fn parse_judge_line(
                                         && rpe
                                             .extended
                                             .as_ref()
-                                            .is_none_or(|it| it.text_events.as_ref().is_some_and(|it| it.is_empty()))
+                                            .map_or(true, |it| it.text_events.as_ref().map_or(true, |it| it.is_empty()))
                                         && rpe.attach_ui.is_none()
                                     {
                                         0.5
