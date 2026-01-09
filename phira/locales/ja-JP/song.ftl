@@ -55,5 +55,16 @@ ldb = リーダーボード
 ldb-load-failed = リーダーボードの読み込みに失敗
 ldb-no-rank = なし
 
+mods = Mods
 mods-autoplay = オートプレイ
 mods-autoplay-sub = これを有効にすると、リザルトの記録が無効になります
+mods-flip-x = ミラー
+mods-flip-x-sub = X軸に沿って譜面を反転させます
+mods-fade-in = フェードイン
+mods-fade-in-sub = ノーツが判定線に近づくと現れるようにします
+mods-fade-out = フェードアウト
+mods-fade-out-sub = ノーツが判定線に近づくと消えるようにします
+mods-nightcore = ナイトコア
+mods-nightcore-sub = より高速で譜面をプレイします
+mods-rainbow = レインボー
+mods-rainbow-sub = ゲームを *少しだけ* カラフルにします
