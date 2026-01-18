@@ -293,13 +293,7 @@ fn info_from_csv(text: &str) -> Result<ChartInfo> {
     // shitty design
     let headers = reader.headers()?.iter().map(str::to_owned).collect::<Vec<_>>();
     let record = reader.into_records().last().ok_or_else(|| anyhow!("expected csv records"))??; // ??
-    info_from_kv(
-        headers
-            .iter()
-            .zip(&record)
-            .map(|(key, value)| (key.as_str(), value.to_owned())),
-        true,
-    )
+    info_from_kv(headers.iter().zip(&record).map(|(key, value)| (key.as_str(), value.to_owned())), true)
 }
 
 pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<()> {

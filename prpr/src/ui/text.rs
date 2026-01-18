@@ -179,9 +179,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             let byte_index = text[..byte_index].char_indices().next_back().map_or(0, |(i, _)| i);
             return (
                 section.with_text(vec![
-                    Text::new(&text[..byte_index])
-                        .with_scale(scale)
-                        .with_color(self.color),
+                    Text::new(&text[..byte_index]).with_scale(scale).with_color(self.color),
                     Text::new("…").with_scale(scale).with_color(self.color),
                 ]),
                 (0., 0., st + w, line_height),
