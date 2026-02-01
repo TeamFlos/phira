@@ -128,3 +128,5 @@ stabilize-approved = Approved
 stabilize-approved-passed = The chart has been stabilized.
 stabilize-denied = Denied
 stabilize-denied-passed = Denied, the beatmap is rejected
+
+report = Report
