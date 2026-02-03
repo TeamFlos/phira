@@ -22,7 +22,6 @@ use std::{
     path::Path,
     sync::Arc,
 };
-use tokio::net::TcpStream;
 
 const ASPECT_MIN: f32 = 3. / 2.;
 const ASPECT_MAX: f32 = 9. / 5.;
@@ -292,8 +291,7 @@ fn create_init_task(config: Config, token: Option<String>) -> Task<Result<InitRe
         };
 
         info!("连接 & 鉴权中…");
-        let resolved_addr = crate::srv_resolver::resolve_server_address(&config.server).await?;
-        let client = Client::new(TcpStream::connect(&resolved_addr).await.context("连接到服务器失败")?)
+        let client = Client::new(&config.server)
             .await
             .context("连接失败")?;
         client.authenticate(token.clone()).await?;

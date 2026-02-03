@@ -26,7 +26,6 @@ use std::{
     path::Path,
     sync::{atomic::Ordering, Arc},
 };
-use tokio::net::TcpStream;
 use tracing::warn;
 
 const ENTER_TRANSIT: f32 = 0.5;
@@ -187,8 +186,7 @@ impl MPPanel {
         };
         let addr = get_data().config.mp_address.clone();
         self.connect_task = Some(Task::new(async move {
-            let resolved_addr = super::resolve_server_address(&addr).await?;
-            let client = Client::new(TcpStream::connect(resolved_addr).await?).await?;
+            let client = Client::new(&addr).await?;
             client
                 .authenticate(token)
                 .await
