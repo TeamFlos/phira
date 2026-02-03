@@ -419,13 +419,16 @@ impl GeneralList {
         }
         if let Some((id, text)) = take_input() {
             if id == "mp_addr" {
+                // TODO: better error handling?
                 if let Err(err) = text.to_socket_addrs() {
-                    show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
-                    return Ok(false);
-                } else {
-                    data.config.mp_address = text;
-                    return Ok(true);
+                    // domain without port, for SRV
+                    if (text.clone(), 80).to_socket_addrs().is_err() || text.is_empty() {
+                        show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
+                        return Ok(false);
+                    }
                 }
+                data.config.mp_address = text;
+                return Ok(true);
             } else if id == "anys_gateway" {
                 if let Err(err) = Url::parse(&text) {
                     show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
