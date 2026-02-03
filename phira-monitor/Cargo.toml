@@ -9,6 +9,7 @@ chrono = "0.4.41"
 futures-util = "0.3.31"
 log = "0.4.27"
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
+once_cell = "*"
 pretty_env_logger = "0.5.0"
 reqwest = { version = "0.12.19",default-features = false, features = ["json", "stream", "gzip", "charset", "http2", "system-proxy", "rustls-tls"] }
 serde = { version = "*", features = ["derive"] }

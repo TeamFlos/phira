@@ -2932,6 +2932,7 @@ dependencies = [
  "futures-util",
  "log",
  "macroquad",
+ "once_cell",
  "phira-mp-client",
  "phira-mp-common",
  "pretty_env_logger",
