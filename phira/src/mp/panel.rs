@@ -187,7 +187,8 @@ impl MPPanel {
         };
         let addr = get_data().config.mp_address.clone();
         self.connect_task = Some(Task::new(async move {
-            let client = Client::new(TcpStream::connect(addr).await?).await?;
+            let resolved_addr = super::resolve_server_address(&addr).await?;
+            let client = Client::new(TcpStream::connect(resolved_addr).await?).await?;
             client
                 .authenticate(token)
                 .await
