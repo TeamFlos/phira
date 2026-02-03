@@ -1,6 +1,7 @@
 mod cloud;
 mod launch;
 mod scene;
+mod srv_resolver;
 
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
