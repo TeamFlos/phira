@@ -1,9 +1,9 @@
 use anyhow::Result;
-use once_cell::sync::Lazy;
-use trust_dns_resolver::{
+use hickory_resolver::{
     config::{ResolverConfig, ResolverOpts},
     TokioAsyncResolver,
 };
+use once_cell::sync::Lazy;
 
 const SRV_PREFIX: &str = "_phira._tcp.";
 
