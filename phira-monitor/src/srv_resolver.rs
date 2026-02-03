@@ -14,8 +14,13 @@ static RESOLVER: Lazy<TokioAsyncResolver> = Lazy::new(|| {
 
 /// Resolves a server address, attempting SRV resolution if no port is specified.
 ///
-/// If the address contains a colon (`:`) indicating a port, it is returned as-is.
-/// Otherwise, attempts to resolve an SRV record for `_phira._tcp.<domain>`.
+/// Detection logic:
+/// - IPv6 addresses in brackets with ports (e.g., `[::1]:8080`) are returned as-is
+/// - IPv4 addresses with ports (e.g., `192.168.1.1:8080`) are returned as-is
+/// - Domain names with ports (e.g., `example.com:12345`) are returned as-is
+/// - Bare IPv6 addresses without brackets (e.g., `::1`) trigger SRV resolution
+/// - Domain names without ports (e.g., `example.com`) trigger SRV resolution
+///
 /// If SRV resolution succeeds, returns the target host and port from the SRV record.
 /// If SRV resolution fails, returns an error.
 pub async fn resolve_server_address(address: &str) -> Result<String> {
