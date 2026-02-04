@@ -44,7 +44,8 @@ pub struct PgrNote {
     position_x: f32,
     hold_time: f32,
     speed: f32,
-    #[allow(unused)]floor_position: f32,
+    #[allow(unused)]
+    floor_position: f32,
 }
 
 #[derive(Deserialize)]
@@ -87,7 +88,9 @@ macro_rules! validate_events {
 fn parse_speed_events(r: f32, mut pgr: Vec<PgrSpeedEvent>, max_time: f32) -> Result<(AnimFloat, AnimFloat)> {
     validate_events!(pgr);
     //assert_eq!(pgr[0].start_time, 0.0);
-    if pgr[0].start_time != 0. { pgr[0].start_time = 0. }
+    if pgr[0].start_time != 0. {
+        pgr[0].start_time = 0.
+    }
     let mut kfs = Vec::new();
     let mut pos = 0.;
     kfs.extend(pgr[..pgr.len().saturating_sub(1)].iter().map(|it| {
@@ -101,12 +104,7 @@ fn parse_speed_events(r: f32, mut pgr: Vec<PgrSpeedEvent>, max_time: f32) -> Res
     for kf in &mut kfs {
         kf.value /= HEIGHT_RATIO;
     }
-    Ok((
-        AnimFloat::new(pgr.iter().map(
-            |it| Keyframe::new(it.start_time * r, it.value, 0)
-        ).collect()), 
-        AnimFloat::new(kfs)
-    ))
+    Ok((AnimFloat::new(pgr.iter().map(|it| Keyframe::new(it.start_time * r, it.value, 0)).collect()), AnimFloat::new(kfs)))
 }
 
 fn parse_float_events(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimFloat> {
@@ -162,7 +160,7 @@ fn parse_move_events_fv1(r: f32, mut pgr: Vec<PgrEvent>) -> Result<AnimVector> {
         }
         if !kf2.last().is_some_and(|it| it.value == e.start2) {
             let start2 = e.start % 1000.;
-            kf2.push(Keyframe::new(st,  start2, 2));
+            kf2.push(Keyframe::new(st, start2, 2));
         }
         let end = (e.end - e.end % 1000.) / 1000.;
         let end2 = e.end % 1000.;
@@ -210,11 +208,7 @@ fn parse_notes(r: f32, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 kind,
                 hitsound,
                 time,
-                speed: if pgr.kind == 3 {
-                    1.
-                } else {
-                    pgr.speed
-                },
+                speed: if pgr.kind == 3 { 1. } else { pgr.speed },
                 height: {
                     height.set_time(time);
                     height.now()
@@ -272,13 +266,15 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         .judge_line_list
         .iter()
         .map(|line| {
-            line.notes_above
+            (line
+                .notes_above
                 .iter()
                 .chain(line.notes_below.iter())
                 .map(|note| note.time.not_nan())
                 .max()
                 .unwrap_or_default()
-                * (60. / line.bpm / 32.)
+                * (60. / line.bpm / 32.))
+                .not_nan()
         })
         .max()
         .unwrap_or_default()

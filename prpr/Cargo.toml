@@ -1,8 +1,8 @@
 [package]
 name = "prpr"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
 
 [lib]
 
@@ -13,18 +13,25 @@ video = ["dep:prpr-avc"]
 log = ["dep:tracing-subscriber", "dep:colored"]
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1"
-base64 = "0.22.1"
-cfg-if = "1.0.1"
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+bitflags = { workspace = true, features = ["serde"] }
+byteorder = "1.5.0"
+cfg-if = "1.0.4"
 chardetng = "0.1.17"
+chrono = { workspace = true, features = ["serde"] }
+color-thief = "0.2.2"
+colored = { version = "3.1.1", optional = true }
 concat-string = "1.0.1"
-csv = "1.3.1"
+csv = "1.4.0"
 fastblur = "0.1.1"
-fluent = "0.17.0"
-fluent-syntax = "0.12.0"
+fluent = { workspace = true }
+fluent-syntax = { workspace = true }
 glyph_brush = "0.7.12"
-image = { version = "0.25.6", default-features = false, features = [
+hex = { workspace = true }
+hmac = "0.12.1"
+image = { workspace = true, default-features = false, features = [
 	"bmp",
 	"gif",
 	"jpeg",
@@ -33,19 +40,22 @@ image = { version = "0.25.6", default-features = false, features = [
 	"webp",
 ] }
 intl-memoizer = "0.5.3"
-lru = "0.14.0"
-lyon = "1.0.1"
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad" }
-nalgebra = "*"
-once_cell = "1.21.3"
-ordered-float = "3.9.2"
-phf = { version = "0.11.3", features = ["macros"] }
-rand = "0.8.5"
-regex = "1.11.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_yaml = "0.9"
+libc = "0.2.180"
+lru = { workspace = true }
+lyon = { workspace = true }
+miniz_oxide = "0.9.0"
+nalgebra = { workspace = true }
+obfstr = "0.4.4"
+once_cell = { workspace = true }
+ordered-float = "5.1.0"
+phf = { version = "0.13.1", features = ["macros"] }
+rand = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
+subtle = "2.6.1"
 symphonia = { version = "0.5", features = [
 	"flac",
 	"mp3",
@@ -54,49 +64,35 @@ symphonia = { version = "0.5", features = [
 	"wav",
 	"pcm",
 ] }
-sys-locale = "0.3.2"
-tempfile = "3.20.0"
-tracing = "0.1.41"
+sys-locale = { workspace = true }
+tempfile = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3.22", optional = true }
 unic-langid = { version = "0.9.6", features = ["macros"] }
-zip = { version = "4.0.0", default-features = false, features = ["deflate"] }
+zip = { workspace = true, default-features = false, features = ["deflate"] }
 
-byteorder = "1.5.0"
-chrono = { version = "0.4.41", features = ["serde"] }
-hex = "0.4.3"
-hmac = "0.12.1"
-miniz_oxide = "0.8.9"
-obfstr = "0.4.4"
-sha2 = "0.10.9"
-subtle = "2.6.1"
-libc = "0.2.172"
-bitflags = { version = "2.9.1", features = ["serde"] }
-color-thief = "0.2.2"
-
-tracing-subscriber = { version = "0.3.19", optional = true }
-colored = { version = "3.0.0", optional = true }
-
-prpr-avc = { path = "../prpr-avc", optional = true }
-prpr-l10n = { path = "../prpr-l10n" }
+macroquad = { workspace = true, default-features = false }
+miniquad = { workspace = true }
+prpr-avc = { workspace = true, optional = true }
+prpr-l10n = { workspace = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-rfd = "0.15.3"
-open = "5.3.2"
+open = "5.3.3"
+rfd = "0.17.2"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-objc = "*"
-objc-foundation = "0.1.1"
-objc_id = "*"
 block = "0.1.6"
+objc = "*"
+objc_id = "*"
+objc-foundation = "0.1.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
 ndk-context = "0.1"
-sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = [
-	"oboe",
-] }
+sasa = { workspace = true, default-features = false, features = ["oboe"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-sasa = { git = "https://github.com/Mivik/sasa" }
+sasa = { workspace = true, default-features = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "fs"] }
@@ -114,7 +110,7 @@ wasm-bindgen = "*"
 wasm-bindgen-futures = "0.4"
 
 [build-dependencies]
-walkdir = "2.5.0"
+walkdir = { workspace = true }
 
 [dev-dependencies]
-walkdir = "2.5.0"
+walkdir = { workspace = true }

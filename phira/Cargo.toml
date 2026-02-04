@@ -1,8 +1,8 @@
 [package]
 name = "phira"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
 
 [lib]
 crate-type = ["lib", "cdylib"]
@@ -15,18 +15,20 @@ aa = []
 event_debug = []
 
 [dependencies]
-anyhow = "1.0"
-arc-swap = "1.7.1"
-base64 = "0.22.1"
-bitflags = "2.9.1"
-bytes = "1.10.1"
+anyhow = { workspace = true }
+arc-swap = "1.8.1"
+async-trait = { workspace = true }
+base64 = { workspace = true }
+bitflags = { workspace = true }
+bytes = "1.11.0"
+bytesize = "2.3.1"
 cacache = { version = "13.1.0", default-features = false, features = [
     "tokio-runtime",
 ] }
-chrono = { version = "0.4.41", features = ["serde"] }
-futures-util = "0.3.31"
-hex = "0.4.3"
-image = { version = "0.25.6", default-features = false, features = [
+chrono = { workspace = true, features = ["serde"] }
+futures-util = { workspace = true }
+hex = { workspace = true }
+image = { workspace = true, default-features = false, features = [
     "bmp",
     "gif",
     "jpeg",
@@ -34,55 +36,52 @@ image = { version = "0.25.6", default-features = false, features = [
     "rayon",
     "webp",
 ] }
-lru = "0.14.0"
-lyon = "*"
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", default-features = false }
-nalgebra = "*"
-once_cell = "*"
-pollster = "0.4.0"
-prpr = { path = "../prpr", features = ["log"], default-features = false }
-prpr-l10n = { path = "../prpr-l10n" }
-rand = "0.8.5"
-regex = "1.11.1"
-reqwest = { version = "0.12.19", default-features = false, features = [
+logos = "0.16.1"
+lru = { workspace = true }
+lyon = { workspace = true }
+macroquad = { workspace = true, default-features = false }
+nalgebra = { workspace = true }
+once_cell = { workspace = true }
+pollster = { workspace = true }
+prpr = { workspace = true, features = ["log"], default-features = false }
+prpr-l10n = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true, default-features = false, features = [
     "json",
     "stream",
     "gzip",
     "charset",
     "http2",
     "system-proxy",
-    "rustls-tls",
+    "rustls",
+    "query",
 ] }
-serde = { version = "*", features = ["derive"] }
-serde_json = "*"
-serde_yaml = "0.9.34"
-sha2 = "*"
+semver = { version = "1.0.27", features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
 smallvec = "1.15.1"
 tap = "1.0.1"
-tempfile = "3.20.0"
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
-tracing = "0.1.41"
-walkdir = "2.5.0"
-zip = "4.0.0"
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+walkdir = { workspace = true }
+zip = { workspace = true }
 zstd = "0.13"
 
-phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp" }
-phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp" }
-uuid = { version = "1.17.0", features = ["v4"] }
-logos = "0.15.0"
-semver = { version = "1.0.26", features = ["serde"] }
-async-trait = "0.1.88"
-bytesize = "2.0.1"
+phira-mp-client = { workspace = true }
+phira-mp-common = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-sys = "0.2"
 ndk-context = "0.1"
-sasa = { git = "https://github.com/Mivik/sasa", default-features = false, features = [
-    "oboe",
-] }
+sasa = { workspace = true, default-features = false, features = ["oboe"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-sasa = { git = "https://github.com/Mivik/sasa" }
+sasa = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc = "*"
@@ -92,5 +91,5 @@ objc-foundation = "*"
 dotenv-build = "0.1"
 
 [dev-dependencies]
-fluent = "0.17.0"
-fluent-syntax = "0.12.0"
+fluent = { workspace = true }
+fluent-syntax = { workspace = true }
