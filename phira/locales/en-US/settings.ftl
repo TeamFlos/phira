@@ -41,6 +41,7 @@ item-bgm = BGM Volume
 item-cali = Adjust Offset
 
 item-show-acc = Real-Time Accuracy
+item-show-avg-fps = Show AVG FPS
 item-dc-pause = Double-Tap to Pause
 item-dhint = Simultaneous Hint
 item-dhint-sub = Highlight notes that are meant to be hit at the same time.
