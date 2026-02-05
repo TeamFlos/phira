@@ -31,7 +31,15 @@ impl Images {
             image::load_from_memory(&tokio::fs::read(path).await.context("Failed to read image")?)?
         } else {
             let image = task.await?;
-            image.save_with_format(path, image::ImageFormat::Jpeg).context("Failed to save image")?;
+            #[cfg(not(target_env = "ohos"))]
+            {
+                image.save_with_format(path, image::ImageFormat::Jpeg).context("Failed to save image")?;
+            }
+            #[cfg(target_env = "ohos")]
+            {
+                let rgb_image = DynamicImage::ImageRgb8(image.to_rgb8());
+                rgb_image.save_with_format(path, image::ImageFormat::Jpeg).context("Failed to save image")?;
+            }
             image
         })
     }
