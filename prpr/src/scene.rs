@@ -535,8 +535,7 @@ impl Main {
                     if Arc::strong_count(&loading.keep_alive) > 1 {
                         if let Some(text) = loading.text.as_ref() {
                             ui.full_loading(text.clone(), self.tm.now() as _);
-                        }
-                        else {
+                        } else {
                             ui.full_loading_simple(self.tm.now() as _);
                         }
                         return false;
