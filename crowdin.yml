@@ -1,0 +1,5 @@
+files:
+  - source: prpr/locales/en-US/*.ftl
+    translation: prpr/locales/%locale%/%original_file_name%
+  - source: phira/locales/en-US/*.ftl
+    translation: phira/locales/%locale%/%original_file_name%
