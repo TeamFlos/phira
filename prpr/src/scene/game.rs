@@ -145,6 +145,9 @@ pub struct GameScene {
     update_fn: Option<UpdateFn>,
 
     pub touch_points: Vec<(f32, f32)>,
+    fps_frame_count: u32,
+    fps_total_time: f64,
+    fps_last_frame_time: f64,
 }
 
 macro_rules! reset {
@@ -159,6 +162,9 @@ macro_rules! reset {
         $tm.reset();
         $self.last_update_time = $tm.now();
         $self.state = State::Starting;
+        $self.fps_frame_count = 0;
+        $self.fps_total_time = 0.0;
+        $self.fps_last_frame_time = $tm.real_time();
     }};
 }
 
@@ -303,6 +309,10 @@ impl GameScene {
             update_fn,
 
             touch_points: Vec::new(),
+
+            fps_frame_count: 0,
+            fps_total_time: 0.0,
+            fps_last_frame_time: 0.0,
         })
     }
 
@@ -783,6 +793,13 @@ impl GameScene {
             }
         });
     }
+    pub fn get_avg_fps(&self) -> Option<f32> {
+        if self.fps_frame_count > 0 && self.fps_total_time > 0.0 {
+            Some(self.fps_frame_count as f32 / self.fps_total_time as f32)
+        } else {
+            None
+        }
+    }
 }
 
 impl Scene for GameScene {
@@ -926,6 +943,7 @@ impl Scene for GameScene {
                             self.player.as_ref().map_or(0, |it| it.historic_best),
                             record_data,
                             record,
+                            if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
                         )?))),
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
@@ -1043,6 +1061,13 @@ impl Scene for GameScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
+        if matches!(self.state, State::Playing) && !tm.paused() {
+            let current_time = tm.real_time();
+            let frame_delta = current_time - self.fps_last_frame_time;
+            self.fps_last_frame_time = current_time;
+            self.fps_total_time += frame_delta;
+            self.fps_frame_count += 1;
+        }
         let res = &mut self.res;
         let asp = ui.viewport.2 as f32 / ui.viewport.3 as f32;
         if res.update_size(ui.viewport) || self.mode == GameMode::View {

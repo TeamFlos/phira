@@ -56,6 +56,8 @@ pub struct EndingScene {
     btn_proceed: DRectButton,
 
     tr_start: f32,
+
+    avg_fps: Option<f32>,
 }
 
 impl EndingScene {
@@ -75,6 +77,7 @@ impl EndingScene {
         historic_best: u32,
         record_data: Option<Vec<u8>>,
         record: Option<SimpleRecord>,
+        avg_fps: Option<f32>,
     ) -> Result<Self> {
         let mut audio = create_audio_manger(config)?;
         let bgm = audio.create_music(
@@ -132,6 +135,8 @@ impl EndingScene {
             btn_proceed: DRectButton::new(),
 
             tr_start: f32::NAN,
+
+            avg_fps,
         })
     }
 }
@@ -349,11 +354,21 @@ impl Scene for EndingScene {
             let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
 
             let r = ui.text(tl!("error")).pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
-            ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
+            let r = ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
                 .pos(r.right() + 0.02, r.y)
                 .size(s)
                 .color(ct)
                 .draw_using(&BOLD_FONT);
+
+            if let Some(avg_fps) = self.avg_fps {
+                let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
+                let r = ui.text("AVG FPS").pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
+                ui.text(format!("{:.1}", avg_fps))
+                    .pos(r.right() + 0.02, r.y)
+                    .size(s)
+                    .color(ct)
+                    .draw_using(&BOLD_FONT);
+            }
 
             let mut y = -top + 0.4 + ui.top * 0.3;
             let tp = y;

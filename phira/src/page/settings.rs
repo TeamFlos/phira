@@ -637,6 +637,7 @@ impl AudioList {
 
 struct ChartList {
     show_acc_btn: DRectButton,
+    show_avg_fps_btn: DRectButton,
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
@@ -648,6 +649,7 @@ impl ChartList {
     pub fn new() -> Self {
         Self {
             show_acc_btn: DRectButton::new(),
+            show_avg_fps_btn: DRectButton::new(),
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
@@ -665,6 +667,10 @@ impl ChartList {
         let config = &mut data.config;
         if self.show_acc_btn.touch(touch, t) {
             config.show_acc ^= true;
+            return Ok(Some(true));
+        }
+        if self.show_avg_fps_btn.touch(touch, t) {
+            config.show_avg_fps ^= true;
             return Ok(Some(true));
         }
         if self.dc_pause_btn.touch(touch, t) {
@@ -709,6 +715,10 @@ impl ChartList {
         item! {
             render_title(ui, tl!("item-show-acc"), None);
             render_switch(ui, rr, t, &mut self.show_acc_btn, config.show_acc);
+        }
+        item! {
+            render_title(ui, tl!("item-show-avg-fps"), None);
+            render_switch(ui, rr, t, &mut self.show_avg_fps_btn, config.show_avg_fps);
         }
         item! {
             render_title(ui, tl!("item-dc-pause"), None);
