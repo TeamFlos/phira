@@ -101,8 +101,14 @@ mods-autoplay = 自动游玩
 mods-autoplay-sub = 启用后将无法上传成绩
 mods-flip-x = X 轴反转
 mods-flip-x-sub = 在 X 轴上反转谱面
+mods-fade-in = 上隐
+mods-fade-in-sub = 音符在靠近判定线时会显现
 mods-fade-out = 下隐
 mods-fade-out-sub = 音符在靠近判定线时会隐藏
+mods-nightcore = 夜店
+mods-nightcore-sub = 以高倍速游玩谱面
+mods-rainbow = 彩虹
+mods-rainbow-sub = 遇上彩虹，吃定彩虹
 
 rate-failed = 评分失败
 rate-done = 评分成功
