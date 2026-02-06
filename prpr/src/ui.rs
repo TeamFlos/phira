@@ -1202,7 +1202,7 @@ fn build_audio() -> AudioManager {
                 channels: 2,
             }))
         }
-        #[cfg(not(any(target_os = "android",target_env = "ohos")))]
+        #[cfg(not(any(target_os = "android", target_env = "ohos")))]
         {
             use sasa::backend::cpal::*;
             AudioManager::new(CpalBackend::new(CpalSettings::default()))

@@ -38,7 +38,9 @@ impl Images {
             #[cfg(target_env = "ohos")]
             {
                 let rgb_image = DynamicImage::ImageRgb8(image.to_rgb8());
-                rgb_image.save_with_format(path, image::ImageFormat::Jpeg).context("Failed to save image")?;
+                rgb_image
+                    .save_with_format(path, image::ImageFormat::Jpeg)
+                    .context("Failed to save image")?;
             }
             image
         })

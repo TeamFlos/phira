@@ -449,28 +449,28 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(
 
 #[cfg(target_env = "ohos")]
 #[napi]
-pub fn set_input_text(text: String){
+pub fn set_input_text(text: String) {
     use prpr::scene::INPUT_TEXT;
     INPUT_TEXT.lock().unwrap().1 = Some(text);
 }
 
 #[cfg(target_env = "ohos")]
 #[napi]
-pub fn set_chosen_file(file: String){
+pub fn set_chosen_file(file: String) {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().1 = Some(file);
 }
 
 #[cfg(target_env = "ohos")]
 #[napi]
-pub fn mark_import(){
+pub fn mark_import() {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().0 = Some("_import".to_owned());
 }
 
 #[cfg(target_env = "ohos")]
 #[napi]
-pub fn mark_import_respack(){
+pub fn mark_import_respack() {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().0 = Some("_import_respack".to_owned());
 }
