@@ -1,7 +1,10 @@
-name: "nomo"
-author: 星鹿ELEC & 不会读谱的FW小赵呀
-description: 星鹿ELEC负责绘制，不会读谱的FW小赵呀负责音效
-hitFx: [8, 7]
+name: "Live"
+author: XingLuELEC
+description: 打击音效来自：小赵同学
+hitFx: [8, 8]
 holdAtlas: [50, 50]
-holdAtlasMH: [130, 130]
-hitFxScale: 0.9
+holdAtlasMH: [200, 200]
+hitFxDuration: 0.5
+hitFxScale: 1.2
+hitFxRotate: true
+circleParticles: true
