@@ -2911,6 +2911,8 @@ dependencies = [
  "lyon",
  "macroquad",
  "nalgebra",
+ "napi-derive-ohos",
+ "napi-ohos",
  "ndk-context",
  "ndk-sys 0.2.2",
  "objc",

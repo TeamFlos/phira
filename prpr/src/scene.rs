@@ -218,6 +218,8 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                     completion: 0 as ObjcId
                 ];
             }
+        }else if #[cfg(target_env = "ohos")]{
+            miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
             INPUT_TEXT.lock().unwrap().1 = Some(unsafe { get_internal_gl() }.quad_context.clipboard_get().unwrap_or_default());
             show_message(ttl!("pasted")).ok();
@@ -313,6 +315,8 @@ pub fn request_file(id: impl Into<String>) {
                     completion: 0 as ObjcId
                 ];
             }
+        } else if #[cfg(target_env = "ohos")]{
+            miniquad::native::call_request_callback(r#"{"action": "chooseFile"}"#.to_string());
         } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }

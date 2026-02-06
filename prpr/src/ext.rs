@@ -556,7 +556,10 @@ pub fn open_url(url: &str) -> Result<()> {
                 let url: ObjcId = msg_send![class!(NSURL), URLWithString: str_to_ns(url)];
                 let _: () = msg_send![application, openURL: url];
             }
-        } else {
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(format!("{{\"action\":\"openurl\",\"payload\":\"{}\"}}", url));
+        }
+        else {
             open::that(url)?;
         }
     }
