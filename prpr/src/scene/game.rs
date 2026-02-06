@@ -928,6 +928,7 @@ impl Scene for GameScene {
                             self.res.icons.clone(),
                             self.res.icon_retry.clone(),
                             self.res.icon_proceed.clone(),
+                            self.res.mod_icons.clone(),
                             self.res.info.clone(),
                             self.judge.result(),
                             &self.res.config,

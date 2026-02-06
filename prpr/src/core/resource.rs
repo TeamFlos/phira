@@ -8,6 +8,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
+use resvg::usvg_text_layout::{fontdb, TreeTextToPath};
 use miniquad::{
     gl::{GLuint, GL_LINEAR},
     Texture, TextureWrap,
@@ -25,6 +26,31 @@ use std::{
 pub const MAX_SIZE: usize = 64; // needs tweaking
 pub static DPI_VALUE: AtomicU32 = AtomicU32::new(250);
 pub const BUFFER_SIZE: usize = 1024;
+
+fn svg_to_png(svg_str: &str) -> Vec<u8> {
+    let opt = resvg::usvg::Options::default();
+    let mut tree = resvg::usvg::Tree::from_str(svg_str, &opt).unwrap();
+    let mut fontdb = fontdb::Database::new();
+    fontdb.load_system_fonts();
+    tree.convert_text(&fontdb);
+    let pixmap_size = tree.size.to_screen_size();
+    let mut pixmap =
+        resvg::tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
+
+    resvg::render(
+        &tree,
+        resvg::usvg::FitTo::Original,
+        resvg::tiny_skia::Transform::default(),
+        pixmap.as_mut(),
+    )
+    .unwrap();
+    pixmap.encode_png().unwrap()
+}
+
+pub fn svg_to_texture(svg_str: &str) -> Texture2D {
+    let png_data = svg_to_png(svg_str);
+    Texture2D::from_file_with_format(&png_data, Some(ImageFormat::Png))
+}
 
 #[inline]
 fn default_scale() -> f32 {
@@ -387,6 +413,7 @@ pub struct Resource {
     pub background: SafeTexture,
     pub illustration: SafeTexture,
     pub icons: [SafeTexture; 8],
+    pub mod_icons: [SafeTexture; 6],
     pub res_pack: ResourcePack,
     pub player: SafeTexture,
     pub icon_back: SafeTexture,
@@ -433,6 +460,27 @@ impl Resource {
             "rank/V.png",
             "rank/FC.png",
             "rank/phi.png"
+        ])
+    }
+    pub async fn load_mod_icons() -> Result<[SafeTexture; 6]> {
+        macro_rules! loads {
+            ($($path:literal),*) => {
+                [$(loads!(@detail $path)),*]
+            };
+
+            (@detail $path:literal) => {{
+                let svg_content = load_string($path).await?;
+                svg_to_texture(&svg_content).into()
+            }};
+        }
+        // FLIP_X, FADE_OUT, FADE_IN, NIGHTCORE, RAINBOW, AUTOPLAY
+        Ok(loads![
+            "mod/flip_x.svg",
+            "mod/fade_out.svg",
+            "mod/fade_in.svg",
+            "mod/nightcore.svg",
+            "mod/rainbow.svg",
+            "mod/autoplay.svg"
         ])
     }
 
@@ -494,6 +542,7 @@ impl Resource {
             background,
             illustration,
             icons: Self::load_icons().await?,
+            mod_icons: Self::load_mod_icons().await?,
             res_pack,
             player: if let Some(player) = player { player } else { load_tex!("player.jpg") },
             icon_back: load_tex!("back.png"),

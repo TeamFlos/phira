@@ -2,7 +2,7 @@ prpr_l10n::tl_file!("ending");
 
 use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{
-    config::Config,
+    config::{Config, Mods},
     core::{BOLD_FONT, PGR_FONT},
     ext::{create_audio_manger, rect_shadow, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
@@ -33,6 +33,7 @@ pub struct EndingScene {
     icons: [SafeTexture; 8],
     icon_retry: SafeTexture,
     icon_proceed: SafeTexture,
+    mod_icons: [SafeTexture; 6],
     target: Option<RenderTarget>,
     audio: AudioManager,
     bgm: Music,
@@ -43,6 +44,7 @@ pub struct EndingScene {
     player_rks: Option<f32>,
     autoplay: bool,
     speed: f32,
+    mods: Mods,
     next: u8, // 0 -> none, 1 -> pop, 2 -> exit
     update_state: Option<RecordUpdateState>,
     rated: bool,
@@ -66,6 +68,7 @@ impl EndingScene {
         icons: [SafeTexture; 8],
         icon_retry: SafeTexture,
         icon_proceed: SafeTexture,
+        mod_icons: [SafeTexture; 6],
         info: ChartInfo,
         result: PlayResult,
         config: &Config,
@@ -95,6 +98,7 @@ impl EndingScene {
             icons,
             icon_retry,
             icon_proceed,
+            mod_icons,
             target: None,
             audio,
             bgm,
@@ -121,6 +125,7 @@ impl EndingScene {
             player_rks,
             autoplay: config.autoplay(),
             speed: config.speed,
+            mods: config.mods,
             next: 0,
 
             upload_fn,
@@ -487,37 +492,83 @@ impl Scene for EndingScene {
             } else {
                 format!("{:.2}x", self.speed)
             };
-            let text = if self.autoplay {
-                format!("AUTOPLAY {spd}")
-            } else if !self.rated {
-                format!("UNRATED {spd}")
+            let status_text = if !self.rated && !self.autoplay {
+                if spd.is_empty() {
+                    "UNRATED".to_string()
+                } else {
+                    format!("UNRATED {spd}")
+                }
             } else {
                 spd
             };
-            let text = text.trim();
-            if !text.is_empty() {
-                let ty = br.bottom();
-                let x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
-                let h = 0.04;
-                let mut text = ui
-                    .text(text)
-                    .pos(x + 0.02, ty - h / 2.)
-                    .anchor(0., 0.5)
-                    .no_baseline()
-                    .color(semi_black(0.6))
-                    .size(0.5);
-                let tr = text.measure_using(&BOLD_FONT);
-                let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
-                let mut b = text.ui.builder(WHITE);
-                b.add(-1., tr.y);
-                b.add(r.right(), tr.y);
-                b.add(r.right() - tr.h / 1.9 * 0.4, tr.bottom());
-                b.add(-1., tr.bottom());
-                b.triangle(0, 1, 2);
-                b.triangle(0, 2, 3);
-                b.commit();
+            let status_text = status_text.trim();
+            // mod_icons order: FLIP_X, FADE_OUT, FADE_IN, NIGHTCORE, RAINBOW
+            let active_mod_indices: Vec<usize> = [
+                (Mods::FLIP_X, 0),
+                (Mods::FADE_OUT, 1),
+                (Mods::FADE_IN, 2),
+                (Mods::NIGHTCORE, 3),
+                (Mods::RAINBOW, 4),
+                (Mods::AUTOPLAY, 5),
+            ]
+            .into_iter()
+            .filter(|(m, _)| self.mods.contains(*m))
+            .map(|(_, idx)| idx)
+            .collect();
+            let ty = br.bottom();
+            let base_x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
+            let skew_factor = 0.4 / 1.9;
+            let has_text = !status_text.is_empty();
+            let has_icons = !active_mod_indices.is_empty();
+            if has_text || has_icons {
+                let text_size = 0.5;
+                let skew_height_ratio = skew_factor;
+                let mut current_x = base_x;
+                let para_h = 0.04;
+                if has_text {
+                    let mut text = ui
+                        .text(status_text)
+                        .pos(current_x + 0.02, ty)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .color(semi_black(0.6))
+                        .size(text_size);
+                    let tr = text.measure_using(&BOLD_FONT);
+                    let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
+                    let mut b = text.ui.builder(WHITE);
+                    b.add(-1., tr.y);
+                    b.add(r.right(), tr.y);
+                    b.add(r.right() - tr.h * skew_height_ratio, tr.bottom());
+                    b.add(-1., tr.bottom());
+                    b.triangle(0, 1, 2);
+                    b.triangle(0, 2, 3);
+                    b.commit();
 
-                text.draw_using(&BOLD_FONT);
+                    text.draw_using(&BOLD_FONT);
+                    current_x = tr.right() + 0.04;
+                }
+                for &mod_idx in &active_mod_indices {
+                    let icon_size = para_h * 0.8;
+                    let para_w = para_h + 0.02;
+                    let skew_offset = para_h * skew_height_ratio;
+                    let para_left = current_x;
+                    let para_right = current_x + para_w;
+                    let para_top = ty - para_h / 2.;
+                    let para_bottom = ty + para_h / 2.;
+                    let mut b = ui.builder(WHITE);
+                    b.add(para_left + skew_offset, para_top);
+                    b.add(para_right + skew_offset, para_top);
+                    b.add(para_right, para_bottom);
+                    b.add(para_left, para_bottom);
+                    b.triangle(0, 1, 2);
+                    b.triangle(0, 2, 3);
+                    b.commit();
+                    let icon_x = current_x + (para_w - icon_size) / 2. + skew_offset / 2.;
+                    let icon_y = ty - icon_size / 2.;
+                    let icon_rect = Rect::new(icon_x, icon_y, icon_size, icon_size);
+                    ui.fill_rect(icon_rect, (*self.mod_icons[mod_idx], icon_rect, ScaleType::Fit));
+                    current_x = para_right + 0.02;
+                }
             }
         }
         clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
