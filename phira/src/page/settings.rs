@@ -280,6 +280,7 @@ struct GeneralList {
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
     mp_addr_btn: DRectButton,
+    #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
     insecure_btn: DRectButton,
     enable_anys_btn: DRectButton,
@@ -313,6 +314,7 @@ impl GeneralList {
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
             mp_addr_btn: DRectButton::new(),
+            #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
             enable_anys_btn: DRectButton::new(),
@@ -390,6 +392,7 @@ impl GeneralList {
             request_input("mp_addr", &config.mp_address);
             return Ok(Some(true));
         }
+        #[cfg(not(target_env = "ohos"))]
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
             return Ok(Some(true));
@@ -491,6 +494,7 @@ impl GeneralList {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
             self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
         }
+        #[cfg(not(target_env = "ohos"))]
         item! {
             render_title(ui, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
             render_switch(ui, rr, t, &mut self.lowq_btn, config.sample_count == 1);
