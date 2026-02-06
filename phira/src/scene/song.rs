@@ -845,6 +845,7 @@ impl SongScene {
             update_fn
         });
 
+        let local_path = local_path.to_owned();
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
