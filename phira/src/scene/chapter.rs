@@ -254,6 +254,7 @@ impl Scene for ChapterScene {
                     intro: info.intro.clone(),
 
                     hold_partial_cover: true,
+                    force_aspect_ratio: false,
                     note_uniform_scale: false,
 
                     created: None,
