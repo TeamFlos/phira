@@ -151,7 +151,7 @@ impl Note {
             None
         } {
             self.init_ctrl_obj(ctrl_obj, line_height);
-            res.with_model(parent_tr * self.now_transform(res, ctrl_obj, 0., 0.), |res| {
+            res.with_model(parent_tr * self.now_transform(res, ctrl_obj, 0., 0., false), |res| {
                 res.emit_at_origin(parent_rot + if self.above { 0. } else { 180. }, color)
             });
         }
@@ -166,18 +166,17 @@ impl Note {
         ctrl_obj.set_height((self.height - line_height + self.object.translation.1.now() / self.speed) * RPE_HEIGHT / 2.);
     }
 
-    pub fn now_transform(&self, res: &Resource, ctrl_obj: &CtrlObject, base: f32, incline_sin: f32) -> Matrix {
+    pub fn now_transform(&self, res: &Resource, ctrl_obj: &CtrlObject, base: f32, incline_sin: f32, can_scale_y: bool) -> Matrix {
         let incline_val = 1. - incline_sin * (base * res.aspect_ratio + self.object.translation.1.now()) * RPE_HEIGHT / 2. / 360.;
         let mut tr = self.object.now_translation(res);
         tr.x *= incline_val * ctrl_obj.pos.now_opt().unwrap_or(1.);
         tr.y += base;
         let mut scale = self.object.scale.now_with_def(1.0, 1.0);
         scale.x *= ctrl_obj.size.now_opt().unwrap_or(1.0);
-        if res.info.note_uniform_scale {
-            scale.y *= ctrl_obj.size.now_opt().unwrap_or(1.0);
-        } else {
+        if !res.info.note_uniform_scale || !can_scale_y {
             scale.y = 1.0;
         };
+        scale.y *= ctrl_obj.size.now_opt().unwrap_or(1.0);
         self.object.now_rotation().append_nonuniform_scaling(&scale).append_translation(&tr)
     }
 
@@ -240,7 +239,7 @@ impl Note {
             if !config.draw_below {
                 color.a *= (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
             }
-            res.with_model(self.now_transform(res, ctrl_obj, base, config.incline_sin), |res| {
+            res.with_model(self.now_transform(res, ctrl_obj, base, config.incline_sin, true), |res| {
                 draw_center(res, tex, order, scale, color);
             });
         };
@@ -249,7 +248,7 @@ impl Note {
                 draw(res, *style.click);
             }
             NoteKind::Hold { end_time, end_height } => {
-                res.with_model(self.now_transform(res, ctrl_obj, 0., 0.), |res| {
+                res.with_model(self.now_transform(res, ctrl_obj, 0., 0., false), |res| {
                     let style = if res.config.double_hint && self.multiple_hint {
                         &res.res_pack.note_style_mh
                     } else {
