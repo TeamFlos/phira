@@ -2619,6 +2619,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ohos-audio-sys"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "892313a2851bbb13c11ba075768ef0d0a9a6a8ae53e54641c9c56eda726dc87f"
+
+[[package]]
 name = "ohos-display-binding"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3740,11 +3746,12 @@ dependencies = [
 [[package]]
 name = "sasa"
 version = "0.1.0"
-source = "git+https://github.com/Mivik/sasa?rev=fcbe721#fcbe7218144a13bc4a595ae7e0527caaf272b0ea"
+source = "git+https://github.com/Mivik/sasa?rev=5c110595bd0a1f0d299602c4ab85fe3e349addc7#5c110595bd0a1f0d299602c4ab85fe3e349addc7"
 dependencies = [
  "anyhow",
  "cpal",
  "oboe",
+ "ohos-audio-sys",
  "ringbuf",
  "symphonia",
  "thiserror 2.0.18",
