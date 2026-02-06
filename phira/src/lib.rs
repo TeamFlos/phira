@@ -146,6 +146,12 @@ mod dir {
 
 async fn the_main() -> Result<()> {
     log::register();
+    #[cfg(target_env = "ohos")]
+    unsafe {
+        *DATA_PATH.lock().unwrap() = Some("/data/storage/el2/base".to_owned());
+        *CACHE_DIR.lock().unwrap() = Some("/data/storage/el2/base/cache".to_owned());
+        prpr::core::DPI_VALUE.store(250, std::sync::atomic::Ordering::Relaxed);
+    };
 
     init_assets();
 
