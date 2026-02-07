@@ -8,6 +8,8 @@ debug = Debug
 about = Info
 
 item-lang = Language
+item-fullscreen = Fullscreen Mode
+item-fullscreen-sub = Fill the entire screen.
 item-offline = Offline Mode
 item-offline-sub = Disable all online functionality.
 item-server-status = Server Status
