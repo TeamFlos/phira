@@ -27,6 +27,7 @@ langs! {
     "pt-BR": "Português",
     "ru-RU": "Русский",
     "th-TH": "แบบไทย",
+    "tr-TR": "Türkçe",
     "vi-VN": "Tiếng Việt",
     "zh-CN": "简体中文",
     "zh-TW": "繁體中文"
