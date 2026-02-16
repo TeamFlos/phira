@@ -125,4 +125,4 @@ stabilize-deny = stable 已拒絕
 stabilize-approved = 已通過
 stabilize-approved-passed = 已通過，譜面已 stable
 stabilize-denied = 已拒絕
-stabilize-denied-passed = 已拒絕，譜面已撤回
+stabilize-denied-passed = 已拒絕，譜面已退件
