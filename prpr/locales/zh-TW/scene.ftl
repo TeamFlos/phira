@@ -5,3 +5,4 @@ input-hint = 文字
 
 read-file-failed = 讀取文件失敗
 pasted = 從剪貼簿載入成功
+audio-backend-init-failed = 音訊後端初始化失敗，將靜音運行
