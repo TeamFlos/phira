@@ -40,7 +40,7 @@ use prpr::{
     judge::{icon_index, Judge},
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn,
+        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn, SaveFn,
     },
     task::Task,
     time::TimeManager,
@@ -868,6 +868,28 @@ impl SongScene {
             update_fn
         });
 
+        let save_fn: Option<SaveFn> = Some(Box::new({
+            let local_path = local_path.to_string();
+            move |new_rec| -> Result<()> {
+                let rec = get_data_mut()
+                    .charts
+                    .iter_mut()
+                    .find(|it| it.local_path == local_path)
+                    .map(|it| &mut it.record)
+                    .or_else(|| Some(get_data_mut().local_records.entry(local_path.clone()).or_insert(None)))
+                    .unwrap();
+                if let Some(rec) = rec {
+                    if rec.update(&new_rec) {
+                        save_data()?;
+                    }
+                } else {
+                    *rec = Some(new_rec);
+                    save_data()?;
+                }
+                Ok(())
+            }
+        }));
+
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -939,7 +961,7 @@ impl SongScene {
                 #[cfg(not(feature = "video"))]
                 {
                     warn!("this build does not support unlock video.");
-                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
@@ -951,12 +973,12 @@ impl SongScene {
                         save_data()?;
                     }
 
-                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
             } else {
-                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
             }
@@ -1374,7 +1396,7 @@ impl Scene for SongScene {
                 if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
                     self.rate_dialog.enter(tm.real_time() as _);
                 }
-                self.update_record(*rec)?;
+                self.record.as_mut().map(|it| it.update(rec.as_ref()));
                 self.load_ldb();
                 return Ok(());
             }

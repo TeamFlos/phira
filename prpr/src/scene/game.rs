@@ -5,7 +5,7 @@ prpr_l10n::tl_file!("game");
 use super::{
     draw_background,
     ending::RecordUpdateState,
-    loading::{BasicPlayer, UpdateFn, UploadFn},
+    loading::{BasicPlayer, UpdateFn, UploadFn, SaveFn},
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
@@ -144,6 +144,9 @@ pub struct GameScene {
 
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
+    save_fn: Option<SaveFn>,
+
+    best_record: Option<SimpleRecord>,
 
     pub touch_points: Vec<(f32, f32)>,
     fps_frame_count: u32,
@@ -233,6 +236,7 @@ impl GameScene {
         illustration: SafeTexture,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
+        save_fn: Option<SaveFn>,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -309,6 +313,9 @@ impl GameScene {
 
             upload_fn,
             update_fn,
+            save_fn,
+
+            best_record: None,
 
             touch_points: Vec::new(),
 
@@ -929,24 +936,41 @@ impl Scene for GameScene {
                         })
                     };
                     self.next_scene = match self.mode {
-                        GameMode::Normal | GameMode::NoRetry | GameMode::View => Some(NextScene::Overlay(Box::new(EndingScene::new(
-                            self.res.background.clone(),
-                            self.res.illustration.clone(),
-                            self.res.player.clone(),
-                            self.res.icons.clone(),
-                            self.res.icon_retry.clone(),
-                            self.res.icon_proceed.clone(),
-                            self.res.info.clone(),
-                            self.judge.result(),
-                            &self.res.config,
-                            self.res.res_pack.ending.clone(),
-                            self.upload_fn.as_ref().map(Arc::clone),
-                            self.player.as_ref().map(|it| it.rks),
-                            self.player.as_ref().map_or(0, |it| it.historic_best),
-                            record_data,
-                            record,
-                            if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
-                        )?))),
+                        GameMode::Normal | GameMode::NoRetry | GameMode::View => {
+                            let historic_best = self.player.as_ref().map_or(0, |it| it.historic_best);
+                            if let Some(new_rec) = &record {
+                                if let Some(f) = &self.save_fn {
+                                    f(new_rec.clone())?;
+                                };
+                                if let Some(best) = &mut self.best_record {
+                                    best.update(new_rec);
+                                } else {
+                                    self.best_record = record.clone();
+                                };
+                                if let Some(best) = &self.best_record {
+                                    if let Some(player) = &mut self.player {
+                                        player.historic_best = player.historic_best.max(best.score as _);
+                                    };
+                                };
+                            };
+                            Some(NextScene::Overlay(Box::new(EndingScene::new(
+                                self.res.background.clone(),
+                                self.res.illustration.clone(),
+                                self.res.player.clone(),
+                                self.res.icons.clone(),
+                                self.res.icon_retry.clone(),
+                                self.res.icon_proceed.clone(),
+                                self.res.info.clone(),
+                                self.judge.result(),
+                                &self.res.config,
+                                self.res.res_pack.ending.clone(),
+                                self.upload_fn.as_ref().map(Arc::clone),
+                                self.player.as_ref().map(|it| it.rks),
+                                historic_best,
+                                record_data,
+                                self.best_record.clone(),
+                                if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
+                        )?)))},
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
                     };
@@ -1183,7 +1207,16 @@ impl Scene for GameScene {
             tm.speed = 1.0;
             tm.adjust_time = false;
             match self.mode {
-                GameMode::Normal | GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
+                // return result to update score and refresh
+                GameMode::Normal => {
+                    if let Some(rec) = &self.best_record {
+                        NextScene::PopWithResult(Box::new(rec.clone()))
+                    } else {
+                        NextScene::Pop
+                    }
+                },
+                // not sure if they need result. just keep it
+                GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),
             }
         } else if let Some(next_scene) = self.next_scene.take() {

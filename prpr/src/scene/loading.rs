@@ -9,6 +9,7 @@ use crate::{
     task::Task,
     time::TimeManager,
     ui::{clip_rounded_rect, rounded_rect_shadow, LoadingParams, ShadowConfig, Ui},
+    scene::game::SimpleRecord,
 };
 use ::rand::{seq::SliceRandom, thread_rng};
 use anyhow::{Context, Result};
@@ -24,6 +25,7 @@ const FADE_IN_TIME: f32 = 0.6;
 
 pub type UploadFn = Arc<dyn Fn(Vec<u8>) -> Task<Result<RecordUpdateState>>>;
 pub type UpdateFn = Box<dyn FnMut(f32, &mut Resource, &mut Judge)>;
+pub type SaveFn = Box<dyn Fn(SimpleRecord) -> Result<()>>;
 
 pub struct BasicPlayer {
     pub avatar: Option<SafeTexture>,
@@ -85,6 +87,7 @@ impl LoadingScene {
         player: Option<BasicPlayer>,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
+        save_fn: Option<SaveFn>,
 
         preloaded: Option<(SafeTexture, SafeTexture, Color)>,
     ) -> Result<Self> {
@@ -103,7 +106,7 @@ impl LoadingScene {
         if info.tip.is_none() {
             info.tip = Some(crate::config::TIPS.choose(&mut thread_rng()).unwrap().to_owned());
         }
-        let future = Box::pin(GameScene::new(mode, info.clone(), config, fs, player, background.clone(), illustration.clone(), upload_fn, update_fn));
+        let future = Box::pin(GameScene::new(mode, info.clone(), config, fs, player, background.clone(), illustration.clone(), upload_fn, update_fn, save_fn));
         let charter = Regex::new(r"\[!:[0-9]+:([^:]*)\]").unwrap().replace_all(&info.charter, "$1").to_string();
 
         Ok(Self {
