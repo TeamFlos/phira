@@ -129,8 +129,9 @@ impl Chart {
         }
         // TODO optimize
         let trs = self.lines.iter().map(|it| it.now_transform(res, &self.lines)).collect::<Vec<_>>();
-        for (line, tr) in self.lines.iter_mut().zip(trs) {
-            line.update(res, tr);
+        let rotations = self.lines.iter().map(|it| it.fetch_rot(res, &self.lines)).collect::<Vec<_>>();
+        for ((line, tr), rot) in self.lines.iter_mut().zip(trs).zip(rotations) {
+            line.update(res, tr, rot);
         }
         for effect in &mut self.extra.effects {
             effect.update(res);
