@@ -13,21 +13,21 @@ failed-to-load-online = Fehler beim Laden der Online-Level.
 
 import = Importieren
 
-# favorites = Favorites
-# favorites-default = Default
-# favorites-create = New Folder
-# favorites-enter-name = Enter folder name
-# favorites-name-empty = Name cannot be empty
-# favorites-name-exists = Name already exists
-# favorites-created = Created
-# favorites-deleted = Folder deleted
-# favorites-renamed = Renamed
-# favorites-rename = Rename
-# favorites-delete = Delete Folder
-# favorites-delete-confirm = Delete this folder? (Charts will not be removed)
-# favorites-custom-cover = Custom Cover
-# favorites-all = All
-# favorites-show-all = Show all charts
+# favorites = Favoriten
+# favorites-default = Standard
+# favorites-create = Neuer Ordner
+# favorites-enter-name = Ordnername eingeben
+# favorites-name-empty = Name darf nicht leer sein
+# favorites-name-exists = Name existiert bereits
+# favorites-created = Erstellt
+# favorites-deleted = Ordner gelöscht
+# favorites-renamed = Umbenannt
+# favorites-rename = Umbenennen
+# favorites-delete = Ordner löschen
+# favorites-delete-confirm = Diesen Ordner löschen? (Charts werden nicht entfernt)
+# favorites-custom-cover = Eigenes Cover
+# favorites-all = Alle
+# favorites-show-all = Alle Charts anzeigen
 
 offline-mode = Sämtliche Online-Funktionen sind aufgrund des Offline-Modus deaktiviert. (Einstellungen)
 

@@ -12,21 +12,21 @@ failed-to-load-online = ไม่สามารถโหลด Chart online ไ
 
 import = เพิ่ม
 
-# favorites = Favorites
-# favorites-default = Default
-# favorites-create = New Folder
-# favorites-enter-name = Enter folder name
-# favorites-name-empty = Name cannot be empty
-# favorites-name-exists = Name already exists
-# favorites-created = Created
-# favorites-deleted = Folder deleted
-# favorites-renamed = Renamed
-# favorites-rename = Rename
-# favorites-delete = Delete Folder
-# favorites-delete-confirm = Delete this folder? (Charts will not be removed)
-# favorites-custom-cover = Custom Cover
-# favorites-all = All
-# favorites-show-all = Show all charts
+# favorites = รายการโปรด
+# favorites-default = ค่าเริ่มต้น
+# favorites-create = โฟลเดอร์ใหม่
+# favorites-enter-name = กรอกชื่อโฟลเดอร์
+# favorites-name-empty = ชื่อไม่สามารถเว้นว่างได้
+# favorites-name-exists = ชื่อมีอยู่แล้ว
+# favorites-created = สร้างแล้ว
+# favorites-deleted = ลบโฟลเดอร์แล้ว
+# favorites-renamed = เปลี่ยนชื่อแล้ว
+# favorites-rename = เปลี่ยนชื่อ
+# favorites-delete = ลบโฟลเดอร์
+# favorites-delete-confirm = ลบโฟลเดอร์นี้หรือ? (ชาร์ตจะไม่ถูกลบ)
+# favorites-custom-cover = ปกกำหนดเอง
+# favorites-all = ทั้งหมด
+# favorites-show-all = แสดงชาร์ตทั้งหมด
 
 offline-mode = ไม่สามารถโหลด Chart online ในโหมด Offline ได้
 

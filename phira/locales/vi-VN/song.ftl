@@ -127,8 +127,8 @@ stabilize-approved-passed = Đã phê duyệt, Chart này giờ đây sẽ ổn 
 stabilize-denied = Từ chối
 stabilize-denied-passed = Đã từ chối, Chart này đã bị bỏ qua
 
-# fav-added = Added to favorites
-# fav-removed = Removed from favorites
-# fav-add-to = Add to...
-# fav-select-folder = Select folder
-# fav-default-folder = Default
+# fav-added = Đã thêm vào yêu thích
+# fav-removed = Đã xóa khỏi yêu thích
+# fav-add-to = Thêm vào...
+# fav-select-folder = Chọn thư mục
+# fav-default-folder = Mặc định

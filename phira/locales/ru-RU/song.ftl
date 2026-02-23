@@ -130,8 +130,8 @@ stabilize-approved-passed = Ваша заявка на подтверждени�
 stabilize-denied = Отклонëн
 stabilize-denied-passed = Ваша заявка на подтвержение была отклонена
 
-# fav-added = Added to favorites
-# fav-removed = Removed from favorites
-# fav-add-to = Add to...
-# fav-select-folder = Select folder
-# fav-default-folder = Default
+# fav-added = Добавлено в избранное
+# fav-removed = Удалено из избранного
+# fav-add-to = Добавить в...
+# fav-select-folder = Выбрать папку
+# fav-default-folder = По умолчанию

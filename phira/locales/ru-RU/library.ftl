@@ -14,21 +14,21 @@ failed-to-load-online = Ошибка при загрузке онлайн чар
 
 import = Импорт
 
-# favorites = Favorites
-# favorites-default = Default
-# favorites-create = New Folder
-# favorites-enter-name = Enter folder name
-# favorites-name-empty = Name cannot be empty
-# favorites-name-exists = Name already exists
-# favorites-created = Created
-# favorites-deleted = Folder deleted
-# favorites-renamed = Renamed
-# favorites-rename = Rename
-# favorites-delete = Delete Folder
-# favorites-delete-confirm = Delete this folder? (Charts will not be removed)
-# favorites-custom-cover = Custom Cover
-# favorites-all = All
-# favorites-show-all = Show all charts
+# favorites = Избранное
+# favorites-default = По умолчанию
+# favorites-create = Новая папка
+# favorites-enter-name = Введите имя папки
+# favorites-name-empty = Имя не может быть пустым
+# favorites-name-exists = Имя уже существует
+# favorites-created = Создано
+# favorites-deleted = Папка удалена
+# favorites-renamed = Переименовано
+# favorites-rename = Переименовать
+# favorites-delete = Удалить папку
+# favorites-delete-confirm = Удалить эту папку? (Чарты не будут удалены)
+# favorites-custom-cover = Пользовательская обложка
+# favorites-all = Все
+# favorites-show-all = Показать все чарты
 
 offline-mode = Невозможно загрузить в оффлайн-режиме
 

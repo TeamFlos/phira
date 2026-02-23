@@ -13,21 +13,21 @@ failed-to-load-online = Échec du chargement des partitions en ligne
 
 import = Importer
 
-# favorites = Favorites
-# favorites-default = Default
-# favorites-create = New Folder
-# favorites-enter-name = Enter folder name
-# favorites-name-empty = Name cannot be empty
-# favorites-name-exists = Name already exists
-# favorites-created = Created
-# favorites-deleted = Folder deleted
-# favorites-renamed = Renamed
-# favorites-rename = Rename
-# favorites-delete = Delete Folder
-# favorites-delete-confirm = Delete this folder? (Charts will not be removed)
-# favorites-custom-cover = Custom Cover
-# favorites-all = All
-# favorites-show-all = Show all charts
+# favorites = Favoris
+# favorites-default = Par défaut
+# favorites-create = Nouveau dossier
+# favorites-enter-name = Entrez le nom du dossier
+# favorites-name-empty = Le nom ne peut pas être vide
+# favorites-name-exists = Le nom existe déjà
+# favorites-created = Créé
+# favorites-deleted = Dossier supprimé
+# favorites-renamed = Renommé
+# favorites-rename = Renommer
+# favorites-delete = Supprimer le dossier
+# favorites-delete-confirm = Supprimer ce dossier ? (Les charts ne seront pas supprimés)
+# favorites-custom-cover = Couverture personnalisée
+# favorites-all = Tous
+# favorites-show-all = Afficher tous les charts
 
 offline-mode = Impossible de charger les partitions en ligne en mode hors-ligne
 

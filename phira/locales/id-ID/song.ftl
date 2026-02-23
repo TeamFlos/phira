@@ -120,8 +120,8 @@ stabilize-approved-passed = Approved, beatmap telah stabil
 stabilize-denied = Denied
 stabilize-denied-passed = Denied, beatmap ditolak
 
-# fav-added = Added to favorites
-# fav-removed = Removed from favorites
-# fav-add-to = Add to...
-# fav-select-folder = Select folder
+# fav-added = Ditambahkan ke favorit
+# fav-removed = Dihapus dari favorit
+# fav-add-to = Tambahkan ke...
+# fav-select-folder = Pilih folder
 # fav-default-folder = Default
