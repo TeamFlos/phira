@@ -1,13 +1,16 @@
 prpr_l10n::tl_file!("library");
 
-use super::{CollectionPage, NextPage, Page, SharedState};
+use super::{CollectionPage, FavoritesPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
     client::{Chart, Client},
-    get_data,
+    data::DEFAULT_FAVORITES_KEY,
+    get_data, get_data_mut,
     icons::Icons,
+    page::favorites::FAV_PAGE_RESULT,
     popup::Popup,
     rate::RateDialog,
+    save_data,
     scene::{check_read_tos_and_policy, ChartOrder, JUST_LOADED_TOS, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
@@ -15,7 +18,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
 use prpr::{
-    ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
+    ext::{poll_future, semi_black, semi_white, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
     task::Task,
     ui::{button_hit, DRectButton, RectButton, Ui},
@@ -84,6 +87,11 @@ pub struct LibraryPage {
     rating_last_show: bool,
     filter_show_tag: bool,
 
+    // 收藏夹 || Favorites
+    fav_btn: DRectButton,
+    // None = 显示全部 || show all, Some(folder_name) = 过滤指定收藏夹 || filter by folder
+    current_fav_folder: Option<String>,
+
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
 }
@@ -131,6 +139,9 @@ impl LibraryPage {
             }),
             rating_last_show: false,
             filter_show_tag: true,
+
+            fav_btn: DRectButton::new(),
+            current_fav_folder: None,
 
             next_page: None,
             next_page_task: None,
@@ -240,13 +251,26 @@ impl LibraryPage {
         let list = self.tabs.selected_mut();
         if list.ty == ChartListType::Local {
             let search = self.search_str.clone();
+            let fav_folder = self.current_fav_folder.clone();
             let mut charts = Vec::new();
-            charts.push(ChartDisplayItem::new(None, None));
+            if fav_folder.is_none() {
+                charts.push(ChartDisplayItem::new(None, None));
+            }
+            let fav_paths: Option<Vec<String>> = fav_folder.as_ref().map(|folder| {
+                get_data().favorites.get_paths(folder)
+            });
             charts.append(
                 &mut s
                     .charts_local
                     .iter()
-                    .filter(|it| it.info.name.contains(&search))
+                    .filter(|it| {
+                        let name_match = it.info.name.contains(&search);
+                        let fav_match = match &fav_paths {
+                            Some(paths) => it.local_path.as_ref().map_or(false, |p| paths.contains(p)),
+                            None => true,
+                        };
+                        name_match && fav_match
+                    })
                     .map(|it| ChartDisplayItem::new(Some(it.clone()), None))
                     .collect::<Vec<ChartDisplayItem>>(),
             );
@@ -316,6 +340,10 @@ impl Page for LibraryPage {
                     request_file("_import");
                     return Ok(true);
                 }
+                if self.fav_btn.touch(touch, t) {
+                    self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(Arc::clone(&self.icons)))));
+                    return Ok(true);
+                }
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
                     button_hit();
                     self.search_str.clear();
@@ -359,6 +387,13 @@ impl Page for LibraryPage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+
+        // 处理收藏夹选择结果 || Handle favorites selection result
+        if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {
+            self.current_fav_folder = result;
+            self.sync_local(s);
+        }
+
         self.tags.update(t);
         self.rating.update(t);
 
@@ -499,14 +534,37 @@ impl Page for LibraryPage {
                     r.x += r.w;
                 }
                 if chosen == ChartListType::Local {
-                    let w = 0.24;
-                    r.x = r.x + r.w - w;
-                    r.w = w;
-                    let ct = r.center();
-                    self.import_btn.render_shadow(ui, r, t, |ui, path| {
+                    let btn_w = 0.24;
+                    // 导入按钮（右侧） || Import button (right side)
+                    let import_r = Rect::new(r.x + r.w - btn_w, r.y, btn_w, r.h);
+                    let ct = import_r.center();
+                    self.import_btn.render_shadow(ui, import_r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                     });
                     ui.text(tl!("import")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(0.6).draw();
+                    // 收藏夹按钮（导入按钮左侧） || Favorites button (left of import)
+                    let fav_r = Rect::new(import_r.x - btn_w - 0.02, r.y, btn_w, r.h);
+                    let fav_text = if let Some(ref folder) = self.current_fav_folder {
+                        if folder == DEFAULT_FAVORITES_KEY {
+                            tl!("favorites-default")
+                        } else {
+                            folder.clone().into()
+                        }
+                    } else {
+                        tl!("favorites")
+                    };
+                    self.fav_btn.render_shadow(ui, fav_r, t, |ui, path| {
+                        ui.fill_path(&path, semi_black(0.4));
+                    });
+                    let ct = fav_r.center();
+                    ui.text(fav_text)
+                        .pos(ct.x, ct.y)
+                        .anchor(0.5, 0.5)
+                        .no_baseline()
+                        .size(0.5)
+                        .max_width(btn_w - 0.02)
+                        .color(semi_white(if self.current_fav_folder.is_some() { 1.0 } else { 0.7 }))
+                        .draw();
                 } else {
                     self.order_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));

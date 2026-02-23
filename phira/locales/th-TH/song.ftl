@@ -120,3 +120,9 @@ stabilize-approved = อนุมัติแล้ว
 stabilize-approved-passed = ได้รับการอนุมัติแล้ว, Chart ได้ทำการ Stabilize เรียบร้อย
 stabilize-denied = ถูกปฏิเสธ
 stabilize-denied-passed = ถูกปฏิเสธ, Chart ได้ถูกปฏิเสธการ Stabilize
+
+# fav-added = Added to favorites
+# fav-removed = Removed from favorites
+# fav-add-to = Add to...
+# fav-select-folder = Select folder
+# fav-default-folder = Default

@@ -128,3 +128,9 @@ stabilize-approved = Approved
 stabilize-approved-passed = The chart has been stabilized.
 stabilize-denied = Denied
 stabilize-denied-passed = Denied, the beatmap is rejected
+
+fav-added = Added to favorites
+fav-removed = Removed from favorites
+fav-add-to = Add to...
+fav-select-folder = Select folder
+fav-default-folder = Default

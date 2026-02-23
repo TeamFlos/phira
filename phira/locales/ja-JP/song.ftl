@@ -57,3 +57,9 @@ ldb-no-rank = なし
 
 mods-autoplay = オートプレイ
 mods-autoplay-sub = これを有効にすると、リザルトの記録が無効になります
+
+# fav-added = Added to favorites
+# fav-removed = Removed from favorites
+# fav-add-to = Add to...
+# fav-select-folder = Select folder
+# fav-default-folder = Default

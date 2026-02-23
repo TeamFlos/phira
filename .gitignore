@@ -23,6 +23,15 @@ inner.rs
 
 /prpr-avc/static-lib
 
+# Unnecessary directories || 不必要上传的目录
+/android/
+/android_repack/
+/NotoSansSC/
+/.idea/
+/临时/
+/文档/
+/Tools/
+
 # Mac
 
 ._*

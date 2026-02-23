@@ -126,3 +126,9 @@ stabilize-approved = 已通过
 stabilize-approved-passed = 已通过，谱面已 stable
 stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
+
+fav-added = 已收藏
+fav-removed = 已取消收藏
+fav-add-to = 收藏到…
+fav-select-folder = 选择收藏夹
+fav-default-folder = 默认收藏夹

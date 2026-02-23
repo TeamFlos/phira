@@ -12,6 +12,22 @@ failed-to-load-online = 비트맵을 불러오는데 실패하였습니다
 
 import = 불러오기
 
+# favorites = Favorites
+# favorites-default = Default
+# favorites-create = New Folder
+# favorites-enter-name = Enter folder name
+# favorites-name-empty = Name cannot be empty
+# favorites-name-exists = Name already exists
+# favorites-created = Created
+# favorites-deleted = Folder deleted
+# favorites-renamed = Renamed
+# favorites-rename = Rename
+# favorites-delete = Delete Folder
+# favorites-delete-confirm = Delete this folder? (Charts will not be removed)
+# favorites-custom-cover = Custom Cover
+# favorites-all = All
+# favorites-show-all = Show all charts
+
 offline-mode = 오프라인 모드에서는 온라인 비트맵을 로드할 수 없습니다.
 
 must-login = 온라인 차트를 보려면 로그인해야 합니다.

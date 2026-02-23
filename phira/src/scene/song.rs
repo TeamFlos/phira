@@ -8,7 +8,7 @@ use super::{
 use crate::{
     charts_view::NEED_UPDATE,
     client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
-    data::{BriefChartInfo, LocalChart},
+    data::{BriefChartInfo, LocalChart, DEFAULT_FAVORITES_KEY},
     dir, get_data, get_data_mut,
     icons::Icons,
     page::{local_illustration, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader},
@@ -282,6 +282,12 @@ pub struct SongScene {
     info_btn: RectButton,
     info_scroll: Scroll,
 
+    // 收藏按钮 || Favorites button
+    fav_btn: RectButton,
+    fav_touch_start: Option<f32>,
+    fav_menu: Popup,
+    need_show_fav_menu: bool,
+
     review_task: Option<Task<Result<String>>>,
     chart_should_delete: Arc<AtomicBool>,
 
@@ -440,6 +446,11 @@ impl SongScene {
 
             info_btn: RectButton::new(),
             info_scroll: Scroll::new(),
+
+            fav_btn: RectButton::new(),
+            fav_touch_start: None,
+            fav_menu: Popup::new(),
+            need_show_fav_menu: false,
 
             review_task: None,
             chart_should_delete: Arc::default(),
@@ -1390,6 +1401,10 @@ impl Scene for SongScene {
             self.menu.touch(touch, t);
             return Ok(true);
         }
+        if self.fav_menu.showing() {
+            self.fav_menu.touch(touch, t);
+            return Ok(true);
+        }
         if !self.side_enter_time.is_infinite() {
             if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
                 if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
@@ -1483,6 +1498,64 @@ impl Scene for SongScene {
             self.need_show_menu = true;
             return Ok(true);
         }
+        // 收藏按钮：短按切换默认收藏夹，长按选择收藏夹 || Fav button: short press toggles default, long press selects folder
+        if self.local_path.is_some() {
+            match touch.phase {
+                TouchPhase::Started => {
+                    if self.fav_btn.contains(touch.position) {
+                        self.fav_touch_start = Some(rt);
+                    }
+                }
+                TouchPhase::Ended => {
+                    if let Some(start) = self.fav_touch_start.take() {
+                        if self.fav_btn.contains(touch.position) {
+                            button_hit();
+                            let elapsed = rt - start;
+                            if elapsed >= 0.5 {
+                                // 长按：显示收藏夹菜单 || Long press: show folder menu
+                                get_data_mut().favorites.ensure_default();
+                                let all_names = get_data().favorites.all_folder_names();
+                                let local_path = self.local_path.as_ref().unwrap();
+                                let options: Vec<String> = all_names
+                                    .iter()
+                                    .map(|name| {
+                                        let display = if name == DEFAULT_FAVORITES_KEY {
+                                            tl!("fav-default-folder").to_string()
+                                        } else {
+                                            name.clone()
+                                        };
+                                        let in_folder = get_data().favorites.get_paths(name).contains(&local_path.to_string());
+                                        if in_folder {
+                                            format!("\u{2713} {display}")
+                                        } else {
+                                            format!("  {display}")
+                                        }
+                                    })
+                                    .collect();
+                                self.fav_menu.set_options(options);
+                                self.need_show_fav_menu = true;
+                            } else {
+                                // 短按：切换默认收藏夹 || Short press: toggle default folder
+                                get_data_mut().favorites.ensure_default();
+                                let path = self.local_path.as_ref().unwrap().clone();
+                                let added = get_data_mut().favorites.toggle_default(&path);
+                                let _ = save_data();
+                                if added {
+                                    show_message(tl!("fav-added")).ok();
+                                } else {
+                                    show_message(tl!("fav-removed")).ok();
+                                }
+                            }
+                            return Ok(true);
+                        }
+                    }
+                }
+                TouchPhase::Cancelled => {
+                    self.fav_touch_start = None;
+                }
+                _ => {}
+            }
+        }
         if let Some(path) = &self.local_path {
             if self.edit_btn.touch(touch) {
                 button_hit();
@@ -1522,6 +1595,7 @@ impl Scene for SongScene {
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         let t = tm.now() as f32;
         self.menu.update(t);
+        self.fav_menu.update(t);
         self.illu.settle(t);
         let rt = tm.real_time() as f32;
         self.tags.update(rt);
@@ -1760,6 +1834,26 @@ impl Scene for SongScene {
         }
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
+        }
+        // 处理收藏夹菜单选择 || Handle folder menu selection
+        if self.fav_menu.changed() {
+            let selected = self.fav_menu.selected();
+            let all_names = get_data().favorites.all_folder_names();
+            if selected < all_names.len() {
+                if let Some(path) = self.local_path.as_ref() {
+                    let folder = all_names[selected].clone();
+                    let path = path.clone();
+                    let in_folder = get_data().favorites.get_paths(&folder).contains(&path);
+                    if in_folder {
+                        get_data_mut().favorites.remove_from(&folder, &path);
+                        show_message(tl!("fav-removed")).ok();
+                    } else {
+                        get_data_mut().favorites.add_to(&folder, &path);
+                        show_message(tl!("fav-added")).ok();
+                    }
+                    let _ = save_data();
+                }
+            }
         }
         if self.chart_should_delete.fetch_and(false, Ordering::Relaxed) {
             let id = self.info.id.unwrap();
@@ -2280,6 +2374,21 @@ impl Scene for SongScene {
                 ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
+                // 收藏按钮 || Favorites button
+                if self.local_path.is_some() {
+                    let is_fav = self.local_path.as_ref().map_or(false, |p| get_data().favorites.is_in_default(p));
+                    let fav_icon = if is_fav { &self.icons.starred } else { &self.icons.star };
+                    ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
+                    self.fav_btn.set(ui, r);
+                    if self.need_show_fav_menu {
+                        self.need_show_fav_menu = false;
+                        self.fav_menu.set_bottom(true);
+                        self.fav_menu.set_selected(usize::MAX);
+                        let d = 0.28;
+                        self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    }
+                    ui.dx(-r.w - 0.03);
+                }
                 if self.local_path.as_ref().is_none_or(|it| !it.starts_with(':')) {
                     ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                     self.edit_btn.set(ui, r);
@@ -2329,6 +2438,7 @@ impl Scene for SongScene {
         })?;
 
         self.menu.render(ui, t, 1.);
+        self.fav_menu.render(ui, t, 1.);
 
         if self.save_task.is_some() {
             ui.full_loading(tl!("edit-saving"), t);

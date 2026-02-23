@@ -4,6 +4,9 @@ pub use coll::CollectionPage;
 mod event;
 pub use event::EventPage;
 
+pub mod favorites;
+pub use favorites::FavoritesPage;
+
 mod home;
 pub use home::HomePage;
 

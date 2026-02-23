@@ -110,3 +110,9 @@ stabilize-approved-passed = Zatwierdzono, beatmapa jest ustabilizowana
 stabilize-denied = Nie zatwierdzono
 stabilize-denied-passed = Nie zatwierdzono, beatmapa została odrzucona
 
+# fav-added = Added to favorites
+# fav-removed = Removed from favorites
+# fav-add-to = Add to...
+# fav-select-folder = Select folder
+# fav-default-folder = Default
+
