@@ -284,6 +284,10 @@ impl Page for LibraryPage {
         tl!("label")
     }
 
+    fn enter(&mut self, _s: &mut SharedState) -> Result<()> {
+        Ok(())
+    }
+
     fn on_result(&mut self, res: Box<dyn Any>, s: &mut SharedState) -> Result<()> {
         let _res = match res.downcast::<bool>() {
             Err(res) => res,

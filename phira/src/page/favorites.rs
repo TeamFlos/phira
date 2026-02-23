@@ -178,6 +178,19 @@ impl FavoritesPage {
         }
     }
 
+    // 默认收藏夹仅可修改封面 || The default favorites folder can only modify the cover
+    fn is_default_folder(folder_name: &Option<String>) -> bool {
+        matches!(folder_name, Some(name) if name == DEFAULT_FAVORITES_KEY)
+    }
+
+    // 自定义收藏夹可编辑（重命名、删除、修改封面） || Custom favorites folders can be edited (rename, delete, modify cover)
+    fn is_editable(folder_name: &Option<String>) -> bool {
+        match folder_name {
+            None => false,
+            Some(name) => name != DEFAULT_FAVORITES_KEY,
+        }
+    }
+
     fn has_menu(folder_name: &Option<String>) -> bool {
         folder_name.is_some()
     }
