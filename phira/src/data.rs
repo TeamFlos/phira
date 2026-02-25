@@ -40,7 +40,7 @@ impl Favorites {
     pub fn is_in_default(&self, local_path: &str) -> bool {
         self.folders
             .get(DEFAULT_FAVORITES_KEY)
-            .map_or(false, |v| v.contains(&local_path.to_string()))
+            .is_some_and(|v| v.contains(&local_path.to_string()))
     }
 
     pub fn is_favorited(&self, local_path: &str) -> bool {
@@ -74,11 +74,7 @@ impl Favorites {
     }
 
     pub fn custom_folder_names(&self) -> Vec<String> {
-        self.folders
-            .keys()
-            .filter(|k| k.as_str() != DEFAULT_FAVORITES_KEY)
-            .cloned()
-            .collect()
+        self.folders.keys().filter(|k| k.as_str() != DEFAULT_FAVORITES_KEY).cloned().collect()
     }
 
     // 所有收藏夹名称（默认在前） || All folder names (default first)

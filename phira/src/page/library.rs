@@ -5,12 +5,11 @@ use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
     client::{Chart, Client},
     data::DEFAULT_FAVORITES_KEY,
-    get_data, get_data_mut,
+    get_data,
     icons::Icons,
     page::favorites::FAV_PAGE_RESULT,
     popup::Popup,
     rate::RateDialog,
-    save_data,
     scene::{check_read_tos_and_policy, ChartOrder, JUST_LOADED_TOS, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
@@ -256,9 +255,7 @@ impl LibraryPage {
             if fav_folder.is_none() {
                 charts.push(ChartDisplayItem::new(None, None));
             }
-            let fav_paths: Option<Vec<String>> = fav_folder.as_ref().map(|folder| {
-                get_data().favorites.get_paths(folder)
-            });
+            let fav_paths: Option<Vec<String>> = fav_folder.as_ref().map(|folder| get_data().favorites.get_paths(folder));
             charts.append(
                 &mut s
                     .charts_local
@@ -266,7 +263,7 @@ impl LibraryPage {
                     .filter(|it| {
                         let name_match = it.info.name.contains(&search);
                         let fav_match = match &fav_paths {
-                            Some(paths) => it.local_path.as_ref().map_or(false, |p| paths.contains(p)),
+                            Some(paths) => it.local_path.as_ref().is_some_and(|p| paths.contains(p)),
                             None => true,
                         };
                         name_match && fav_match
@@ -345,7 +342,7 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
                 if self.fav_btn.touch(touch, t) {
-                    self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(Arc::clone(&self.icons)))));
+                    self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new())));
                     return Ok(true);
                 }
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {

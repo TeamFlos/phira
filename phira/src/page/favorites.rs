@@ -1,20 +1,15 @@
 prpr_l10n::tl_file!("library");
 
 use super::{local_illustration, Illustration, NextPage, Page, SharedState};
-use crate::{
-    data::DEFAULT_FAVORITES_KEY,
-    get_data, get_data_mut,
-    icons::Icons,
-    save_data,
-};
+use crate::{data::DEFAULT_FAVORITES_KEY, get_data, get_data_mut, save_data};
 use anyhow::Result;
 use image::DynamicImage;
 use macroquad::prelude::*;
 use prpr::{
-    ext::{semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
+    ext::{semi_black, semi_white, RectExt, SafeTexture, BLACK_TEXTURE},
     scene::{request_file, request_input, show_message, take_file, take_input},
     task::Task,
-    ui::{button_hit, DRectButton, RectButton, Scroll, Ui, Dialog},
+    ui::{button_hit, DRectButton, Dialog, RectButton, Scroll, Ui},
 };
 use std::{borrow::Cow, cell::RefCell, sync::Arc};
 use tokio::sync::Notify;
@@ -40,8 +35,6 @@ struct FolderItem {
 }
 
 pub struct FavoritesPage {
-    icons: Arc<Icons>,
-
     folders: Vec<FolderItem>,
     scroll: Scroll,
 
@@ -61,9 +54,8 @@ pub struct FavoritesPage {
 }
 
 impl FavoritesPage {
-    pub fn new(icons: Arc<Icons>) -> Self {
+    pub fn new() -> Self {
         let mut page = Self {
-            icons,
             folders: Vec::new(),
             scroll: Scroll::new(),
             bg_tex: None,
@@ -178,19 +170,6 @@ impl FavoritesPage {
         }
     }
 
-    // 默认收藏夹仅可修改封面 || The default favorites folder can only modify the cover
-    fn is_default_folder(folder_name: &Option<String>) -> bool {
-        matches!(folder_name, Some(name) if name == DEFAULT_FAVORITES_KEY)
-    }
-
-    // 自定义收藏夹可编辑（重命名、删除、修改封面） || Custom favorites folders can be edited (rename, delete, modify cover)
-    fn is_editable(folder_name: &Option<String>) -> bool {
-        match folder_name {
-            None => false,
-            Some(name) => name != DEFAULT_FAVORITES_KEY,
-        }
-    }
-
     fn has_menu(folder_name: &Option<String>) -> bool {
         folder_name.is_some()
     }
@@ -227,24 +206,18 @@ impl Page for FavoritesPage {
             }
             if !is_default && self.edit_delete_btn.touch(touch, t) {
                 let folder = editing.clone();
-                Dialog::plain(
-                    tl!("favorites-delete"),
-                    tl!("favorites-delete-confirm"),
-                )
-                .buttons(vec![
-                    tl!("favorites-all").to_string(),
-                    tl!("favorites-delete").to_string(),
-                ])
-                .listener(move |_dialog, pos| {
-                    if pos == 1 {
-                        get_data_mut().favorites.delete_folder(&folder);
-                        get_data_mut().favorites.covers.remove(&folder);
-                        let _ = save_data();
-                        show_message(tl!("favorites-deleted")).ok();
-                    }
-                    false
-                })
-                .show();
+                Dialog::plain(tl!("favorites-delete"), tl!("favorites-delete-confirm"))
+                    .buttons(vec![tl!("favorites-all").to_string(), tl!("favorites-delete").to_string()])
+                    .listener(move |_dialog, pos| {
+                        if pos == 1 {
+                            get_data_mut().favorites.delete_folder(&folder);
+                            get_data_mut().favorites.covers.remove(&folder);
+                            let _ = save_data();
+                            show_message(tl!("favorites-deleted")).ok();
+                        }
+                        false
+                    })
+                    .show();
                 self.editing_folder = None;
                 self.need_rebuild = true;
                 return Ok(true);
