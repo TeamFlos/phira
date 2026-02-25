@@ -1,5 +1,9 @@
 prpr_l10n::tl_file!("import" itl);
 
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 mod chart_order;
 pub use chart_order::{ChartOrder, ORDERS};
 
