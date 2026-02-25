@@ -54,7 +54,7 @@ phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475
 prpr = { path = "prpr", default-features = false }
 prpr-avc = { path = "prpr-avc" }
 prpr-l10n = { path = "prpr-l10n" }
-sasa = { git = "https://github.com/Mivik/sasa", rev = "5c110595bd0a1f0d299602c4ab85fe3e349addc7", default-features = false }
+sasa = { git = "https://github.com/Mivik/sasa", rev = "63d019c54466589bdb9b35da01ae97a2e7a35328", default-features = false }
 
 [profile.release]
 opt-level = 2
