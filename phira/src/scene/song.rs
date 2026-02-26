@@ -282,7 +282,6 @@ pub struct SongScene {
     info_btn: RectButton,
     info_scroll: Scroll,
 
-    // 收藏按钮 || Favorites button
     fav_btn: RectButton,
     fav_touch_start: Option<f32>,
     fav_menu: Popup,
@@ -324,6 +323,28 @@ pub struct SongScene {
     update_cksum_passed: Option<bool>,
     update_cksum_task: Option<Task<Result<bool>>>,
     chart_type: ChartType,
+}
+/// 构建收藏夹菜单的选项列表。
+/// 已或包含该谱面的条目会以“\u2713 \u201d前缀标记。
+fn fav_folder_menu_options(local_path: &str) -> Vec<String> {
+    get_data_mut().favorites.ensure_default();
+    let all_names = get_data().favorites.all_folder_names();
+    all_names
+        .iter()
+        .map(|name| {
+            let display = if name == DEFAULT_FAVORITES_KEY {
+                tl!("fav-default-folder").to_string()
+            } else {
+                name.clone()
+            };
+            let in_folder = get_data().favorites.get_paths(name).contains(&local_path.to_string());
+            if in_folder {
+                format!("\u{2713} {display}")
+            } else {
+                format!("  {display}")
+            }
+        })
+        .collect()
 }
 
 impl SongScene {
@@ -1498,8 +1519,7 @@ impl Scene for SongScene {
             self.need_show_menu = true;
             return Ok(true);
         }
-        // 收藏按钮：短按切换默认收藏夹，长按选择收藏夹 || Fav button: short press toggles default, long press selects folder
-        if self.local_path.is_some() {
+        if let Some(local_path) = &self.local_path {
             match touch.phase {
                 TouchPhase::Started => {
                     if self.fav_btn.contains(touch.position) {
@@ -1510,35 +1530,12 @@ impl Scene for SongScene {
                     if let Some(start) = self.fav_touch_start.take() {
                         if self.fav_btn.contains(touch.position) {
                             button_hit();
-                            let elapsed = rt - start;
-                            if elapsed >= 0.5 {
-                                // 长按：显示收藏夹菜单 || Long press: show folder menu
-                                get_data_mut().favorites.ensure_default();
-                                let all_names = get_data().favorites.all_folder_names();
-                                let local_path = self.local_path.as_ref().unwrap();
-                                let options: Vec<String> = all_names
-                                    .iter()
-                                    .map(|name| {
-                                        let display = if name == DEFAULT_FAVORITES_KEY {
-                                            tl!("fav-default-folder").to_string()
-                                        } else {
-                                            name.clone()
-                                        };
-                                        let in_folder = get_data().favorites.get_paths(name).contains(&local_path.to_string());
-                                        if in_folder {
-                                            format!("\u{2713} {display}")
-                                        } else {
-                                            format!("  {display}")
-                                        }
-                                    })
-                                    .collect();
-                                self.fav_menu.set_options(options);
+                            if rt - start >= 0.5 {
+                                self.fav_menu.set_options(fav_folder_menu_options(local_path));
                                 self.need_show_fav_menu = true;
                             } else {
-                                // 短按：切换默认收藏夹 || Short press: toggle default folder
                                 get_data_mut().favorites.ensure_default();
-                                let path = self.local_path.as_ref().unwrap().clone();
-                                let added = get_data_mut().favorites.toggle_default(&path);
+                                let added = get_data_mut().favorites.toggle_default(local_path);
                                 let _ = save_data();
                                 if added {
                                     show_message(tl!("fav-added")).ok();
@@ -1835,7 +1832,6 @@ impl Scene for SongScene {
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
         }
-        // 处理收藏夹菜单选择 || Handle folder menu selection
         if self.fav_menu.changed() {
             let selected = self.fav_menu.selected();
             let all_names = get_data().favorites.all_folder_names();
@@ -2375,8 +2371,8 @@ impl Scene for SongScene {
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
                 // 收藏按钮 || Favorites button
-                if self.local_path.is_some() {
-                    let is_fav = self.local_path.as_ref().is_some_and(|p| get_data().favorites.is_in_default(p));
+                if let Some(local_path) = &self.local_path {
+                    let is_fav = get_data().favorites.is_in_default(local_path);
                     let fav_icon = if is_fav { &self.icons.starred } else { &self.icons.star };
                     ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
                     self.fav_btn.set(ui, r);

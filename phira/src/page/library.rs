@@ -88,7 +88,7 @@ pub struct LibraryPage {
 
     // 收藏夹 || Favorites
     fav_btn: DRectButton,
-    // None = 显示全部 || show all, Some(folder_name) = 过滤指定收藏夹 || filter by folder
+    // None = 显示全部 || show all,      Some(folder_name) = 过滤指定收藏夹 || filter by folder
     current_fav_folder: Option<String>,
 
     next_page: Option<NextPage>,
@@ -389,7 +389,7 @@ impl Page for LibraryPage {
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
 
-        // 处理收藏夹选择结果 || Handle favorites selection result
+        // 在 update 中处理收藏夹选择结果，绕开fader那个的0.7秒延迟  ||  Handle the favorites folder selection result in update, bypassing the 0.7-second delay of the fader
         if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {
             self.current_fav_folder = result;
             self.sync_local(s);
