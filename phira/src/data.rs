@@ -67,6 +67,8 @@ pub struct LocalChart {
     pub mods: Mods,
     #[serde(default)]
     pub played_unlock: bool,
+    #[serde(default)]
+    pub folder: Option<String>, // 文件夹名称，None表示根目录
 }
 
 fn default_anys_gateway() -> String {
@@ -96,6 +98,12 @@ pub struct Data {
     pub enable_anys: bool,
     #[serde(default = "default_anys_gateway")]
     pub anys_gateway: String,
+
+    #[serde(default)]
+    pub folders: HashMap<String, bool>, // 文件夹路径 -> 保留字段（未来可能用于其他用途）
+
+    #[serde(default)]
+    pub folder_icons: HashMap<String, String>, // 文件夹路径 -> 图标文件路径
 }
 
 impl Data {
@@ -123,6 +131,7 @@ impl Data {
                     record: None,
                     mods: Mods::default(),
                     played_unlock: false,
+                    folder: None,
                 });
             }
         }
@@ -147,6 +156,7 @@ impl Data {
                     record: None,
                     mods: Mods::default(),
                     played_unlock: false,
+                    folder: None,
                 });
             }
         }

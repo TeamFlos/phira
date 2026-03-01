@@ -204,6 +204,7 @@ impl Scene for ChapterScene {
                     illu: Illustration::from_done(chart.illu.clone()),
                     local_path: Some(local_path.clone()),
                     chart_type: ChartType::Integrated,
+                    folder: None,
                 };
                 let info = &item.info;
                 let dir = format!("{}/{}", dir::charts()?, item.local_path.as_ref().unwrap().replace(':', "_"));

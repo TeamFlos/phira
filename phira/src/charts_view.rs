@@ -10,7 +10,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::{Tweenable, BOLD_FONT},
-    ext::{semi_black, RectExt, SafeTexture, BLACK_TEXTURE},
+    ext::{semi_black, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     scene::{show_message, NextScene},
     task::Task,
     ui::{button_hit_large, DRectButton, Scroll, Ui},
@@ -35,6 +35,7 @@ pub struct ChartDisplayItem {
     chart: Option<ChartItem>,
     symbol: Option<char>,
     btn: DRectButton,
+    menu_btn: DRectButton, // 菜单按钮
 }
 
 impl ChartDisplayItem {
@@ -43,6 +44,7 @@ impl ChartDisplayItem {
             chart,
             symbol,
             btn: DRectButton::new(),
+            menu_btn: DRectButton::new(),
         }
     }
 
@@ -68,6 +70,7 @@ impl ChartDisplayItem {
                 },
                 local_path: None,
                 chart_type: ChartType::Downloaded,
+                folder: None,
             }),
             if chart.stable_request {
                 Some('+')
@@ -109,6 +112,9 @@ pub struct ChartsView {
     pub can_refresh: bool,
 
     pub clicked_special: bool,
+    pub clicked_menu: Option<usize>,        // 点击了哪个铺面的菜单
+    pub clicked_folder: Option<String>,     // 点击了哪个文件夹
+    pub clicked_chart_path: Option<String>, // 被点击铺面的 local_path
 }
 
 impl ChartsView {
@@ -131,6 +137,9 @@ impl ChartsView {
             can_refresh: true,
 
             clicked_special: false,
+            clicked_menu: None,
+            clicked_folder: None,
+            clicked_chart_path: None,
         }
     }
 
@@ -179,8 +188,21 @@ impl ChartsView {
             if let Some(charts) = &mut self.charts {
                 for (id, item) in charts.iter_mut().enumerate() {
                     if let Some(chart) = &item.chart {
+                        // 检查菜单按钮点击
+                        if item.menu_btn.touch(touch, t) {
+                            button_hit_large();
+                            self.clicked_menu = Some(id);
+                            self.clicked_chart_path = chart.local_path.clone();
+                            return Ok(true);
+                        }
+                        // 检查铺面主按钮点击
                         if item.btn.touch(touch, t) {
                             button_hit_large();
+                            // 检查是否是文件夹
+                            if chart.info.level == "Folder" && chart.folder.is_some() {
+                                self.clicked_folder = chart.folder.clone();
+                                return Ok(true);
+                            }
                             let handled_by_mp = MP_PANEL.with(|it| {
                                 if let Some(panel) = it.borrow_mut().as_mut() {
                                     if panel.in_room() {
@@ -199,6 +221,9 @@ impl ChartsView {
                             if handled_by_mp {
                                 continue;
                             }
+                            // 设置 clicked_chart_path（用于回放列表）
+                            self.clicked_chart_path = chart.local_path.clone();
+
                             let download_path = chart.info.id.map(|it| format!("download/{it}"));
                             let scene = SongScene::new(
                                 chart.clone(),
@@ -328,6 +353,7 @@ impl ChartsView {
                             return;
                         }
                         f.render(ui, t, |ui| {
+                            let time = t; // 保存时间变量，避免被 ui.text() 覆盖
                             let mut c = WHITE;
 
                             let item = &mut charts[id as usize];
@@ -353,7 +379,9 @@ impl ChartsView {
 
                                     let info = &chart.info;
                                     let mut level = info.level.clone();
-                                    if !level.contains("Lv.") {
+                                    // 如果是文件夹，只显示 "Folder"，不显示难度
+                                    // 如果 difficulty 为负数，也不显示难度
+                                    if level != "Folder" && !level.contains("Lv.") && info.difficulty >= 0.0 {
                                         use std::fmt::Write;
                                         write!(&mut level, " Lv.{}", info.difficulty as i32).unwrap();
                                     }
@@ -386,6 +414,18 @@ impl ChartsView {
                                             .size(0.8 * r.w / cw)
                                             .color(c)
                                             .draw();
+                                    }
+
+                                    // 渲染菜单按钮（只在本地铺面显示，且不是回放项，也不是文件夹）
+                                    // 回放项的 difficulty 为负数，用于区分
+                                    // 文件夹的 level 为 "Folder"
+                                    if chart.local_path.is_some() && info.difficulty >= 0.0 && info.level != "Folder" {
+                                        let menu_size = 0.08;
+                                        let menu_r = Rect::new(r.right() - menu_size - 0.01, r.bottom() - menu_size - 0.01, menu_size, menu_size);
+                                        item.menu_btn.render_shadow(ui, menu_r, time, |ui, path| {
+                                            ui.fill_path(&path, semi_black(0.4));
+                                        });
+                                        ui.fill_rect(menu_r, (*self.icons.menu, menu_r, ScaleType::Fit));
                                     }
                                 } else {
                                     ui.fill_path(&path, (*self.icons.r#abstract, r));

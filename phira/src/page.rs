@@ -46,6 +46,7 @@ use std::{
     any::Any,
     borrow::Cow,
     cell::RefCell,
+    collections::HashMap,
     ops::DerefMut,
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -101,6 +102,7 @@ pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
             local_path: Some(it.local_path.clone()),
             illu: local_illustration(it.local_path.clone(), tex.clone(), false),
             chart_type: ChartType::Imported,
+            folder: it.folder.clone(),
         })
         .collect();
     order.0.apply(&mut res);
@@ -195,6 +197,7 @@ pub struct ChartItem {
     pub local_path: Option<String>,
     pub illu: Illustration,
     pub chart_type: ChartType,
+    pub folder: Option<String>, // 文件夹名称
 }
 
 #[derive(Clone, Copy)]
@@ -404,6 +407,8 @@ pub struct SharedState {
     pub rt: f32,
     pub fader: Fader,
     pub charts_local: Vec<ChartItem>,
+    pub folders: HashMap<String, bool>,        // 文件夹名 -> 是否展开
+    pub folder_icons: HashMap<String, String>, // 文件夹路径 -> 图标文件路径
 
     pub icons: [SafeTexture; 8],
 }
@@ -447,6 +452,8 @@ impl SharedState {
             rt: 0.,
             fader: Fader::new(),
             charts_local: Vec::new(),
+            folders: HashMap::new(),
+            folder_icons: HashMap::new(),
 
             icons: Resource::load_icons().await?,
         })
@@ -463,6 +470,8 @@ impl SharedState {
 
     pub fn reload_local_charts(&mut self) {
         self.charts_local = load_local(&(ChartOrder::Default, false));
+        self.folders = get_data().folders.clone();
+        self.folder_icons = get_data().folder_icons.clone();
     }
 }
 

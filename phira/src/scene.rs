@@ -296,6 +296,7 @@ pub async fn import_chart_to(dir: &Path, id: Uuid, path: String) -> Result<Local
         record: None,
         mods: Mods::default(),
         played_unlock: false,
+        folder: None,
     })
 }
 
