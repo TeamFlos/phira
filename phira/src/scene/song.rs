@@ -1,5 +1,9 @@
 prpr_l10n::tl_file!("song");
 
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 #[cfg(feature = "video")]
 use super::UnlockScene;
 use super::{
