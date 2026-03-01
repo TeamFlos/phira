@@ -1312,7 +1312,7 @@ impl SongScene {
 
     fn toggle_in(&mut self, col: &mut LocalCollection) {
         if col.id.is_some() && self.info.id.is_none() {
-            show_message(tl!("favorites-local-only")).ok();
+            Dialog::simple(ttl!("favorites-online-only")).show();
             return;
         }
 
@@ -1892,8 +1892,11 @@ impl Scene for SongScene {
         }
         if self.fav_menu.changed() {
             let selected = self.fav_menu.selected();
+            self.fav_menu.set_selected(usize::MAX);
             self.toggle_in(&mut get_data_mut().collections[self.fav_menu_options[selected]]);
             let _ = save_data();
+            let options = self.get_fav_menu_options();
+            self.fav_menu.set_options(options);
         }
         if self.chart_should_delete.fetch_and(false, Ordering::Relaxed) {
             let id = self.info.id.unwrap();

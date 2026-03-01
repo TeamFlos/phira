@@ -1,8 +1,8 @@
 use crate::{
-    client::Chart,
+    client::{Chart, CollectionCover},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{ChartItem, ChartType, Fader, Illustration},
+    page::{ChartItem, ChartType, Fader, Illustration, CHOOSE_COVER, CHOSEN_COVER},
     save_data,
     scene::{render_release_to_refresh, SongScene, MP_PANEL},
 };
@@ -180,6 +180,16 @@ impl ChartsView {
                                 false
                             });
                             if handled_by_mp {
+                                continue;
+                            }
+                            if CHOOSE_COVER.load(Ordering::Relaxed) {
+                                CHOSEN_COVER.with(|it| {
+                                    *it.borrow_mut() = Some(if let Some(id) = chart.info.id {
+                                        Ok(id)
+                                    } else {
+                                        Err(chart.local_path.clone().unwrap())
+                                    });
+                                });
                                 continue;
                             }
                             let download_path = chart.info.id.map(|it| format!("download/{it}"));

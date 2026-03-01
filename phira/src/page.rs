@@ -11,7 +11,7 @@ mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::{LibraryPage, FAV_UPDATED};
+pub use library::{LibraryPage, CHOOSE_COVER, CHOSEN_COVER, FAV_UPDATED};
 
 mod message;
 pub use message::MessagePage;

@@ -24,6 +24,7 @@ use prpr::{
 use std::{
     any::Any,
     borrow::Cow,
+    cell::RefCell,
     ops::Deref,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -33,6 +34,11 @@ use std::{
 use tap::Tap;
 
 pub static FAV_UPDATED: AtomicBool = AtomicBool::new(false);
+pub static CHOOSE_COVER: AtomicBool = AtomicBool::new(false);
+
+thread_local! {
+    pub static CHOSEN_COVER: RefCell<Option<Result<i32, String>>> = const { RefCell::new(None) };
+}
 
 const PAGE_NUM: u64 = 28;
 
@@ -306,24 +312,30 @@ impl Page for LibraryPage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
-        if self.order_menu.showing() {
-            self.order_menu.touch(touch, t);
-            return Ok(true);
-        }
-        if self.tabs.touch(touch, s.rt) {
-            return Ok(true);
-        }
-        if self.tags.touch(touch, t) {
-            return Ok(true);
-        }
-        if self.rating.touch(touch, t) {
-            return Ok(true);
+        let choose_cover = CHOOSE_COVER.load(Ordering::Relaxed);
+        if !choose_cover {
+            if self.order_menu.showing() {
+                self.order_menu.touch(touch, t);
+                return Ok(true);
+            }
+            if self.tabs.touch(touch, s.rt) {
+                return Ok(true);
+            }
+            if self.tags.touch(touch, t) {
+                return Ok(true);
+            }
+            if self.rating.touch(touch, t) {
+                return Ok(true);
+            }
         }
         let charts_view = &mut self.tabs.selected_mut().view;
         if charts_view.transiting() {
             return Ok(true);
         }
         if charts_view.touch(touch, t, s.rt)? {
+            return Ok(true);
+        }
+        if choose_cover {
             return Ok(true);
         }
         if !matches!(self.tabs.selected().ty, ChartListType::Local) {
@@ -351,7 +363,7 @@ impl Page for LibraryPage {
                 }
                 if self.fav_btn.touch(touch, t) {
                     self.next_page =
-                        Some(NextPage::Overlay(Box::new(FavoritesPage::new(self.icons.clone(), self.rank_icons.clone(), self.current_fav_index))));
+                        Some(NextPage::Overlay(Box::new(FavoritesPage::new(self.icons.clone(), self.rank_icons.clone(), self.current_fav_index, None))));
                     return Ok(true);
                 }
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
@@ -397,6 +409,16 @@ impl Page for LibraryPage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+
+        if let Some(chosen_cover) = CHOSEN_COVER.with(|it| it.borrow_mut().take()) {
+            CHOOSE_COVER.store(false, Ordering::Relaxed);
+            self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(
+                self.icons.clone(),
+                self.rank_icons.clone(),
+                self.current_fav_index,
+                Some(chosen_cover),
+            ))));
+        }
 
         // 在 update 中处理收藏夹选择结果，绕开fader那个的0.7秒延迟  ||  Handle the favorites folder selection result in update, bypassing the 0.7-second delay of the fader
         if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {

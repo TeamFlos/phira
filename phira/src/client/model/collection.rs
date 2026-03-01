@@ -125,6 +125,7 @@ impl LocalCollection {
 pub enum CollectionPatch {
     Toggle(i32),
     Public(bool),
+    Cover(i32),
 }
 
 #[derive(Serialize)]

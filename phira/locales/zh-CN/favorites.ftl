@@ -13,6 +13,8 @@ invalid-import = 无效的导入代码
 
 rename = 重命名
 set-description = 设置描述
+set-cover = 设置封面
+select-cover = 请选择一个谱面作为封面
 
 delete = 删除收藏夹
 deleted = 已删除收藏夹

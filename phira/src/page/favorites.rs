@@ -2,13 +2,13 @@ prpr_l10n::tl_file!("favorites");
 
 use super::{Illustration, NextPage, Page, SharedState};
 use crate::{
-    client::{recv_raw, Chart, ChartRef, Client, Collection, CollectionContent, CollectionPatch, LocalCollection, UserManager},
+    client::{Chart, ChartRef, Client, Collection, CollectionContent, CollectionCover, CollectionPatch, File, LocalCollection, Ptr, UserManager, recv_raw},
     get_data, get_data_mut,
     icons::Icons,
-    page::SFader,
+    page::{CHOOSE_COVER, SFader},
     popup::Popup,
     save_data,
-    scene::{confirm_dialog, ProfileScene, TEX_BACKGROUND},
+    scene::{ProfileScene, TEX_BACKGROUND, confirm_dialog},
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -96,16 +96,19 @@ pub struct FavoritesPage {
     sf: SFader,
     next_page: Option<NextPage>,
 
+    chosen_cover: Option<Result<i32, String>>,
+
     upload_task: Option<Task<Result<Collection>>>,
     delete_from_cloud_task: Option<Task<Result<()>>>,
     set_public_task: Option<Task<Result<Collection>>>,
     sync_task: Option<Task<Result<Option<Collection>>>>,
     import_task: Option<Task<Result<Collection>>>,
     batch_import_task: Option<Task<Result<Vec<Chart>>>>,
+    set_cover_task: Option<Task<Result<Result<Collection, File>>>>,
 }
 
 impl FavoritesPage {
-    pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8], active_folder: Option<usize>) -> Self {
+    pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8], active_folder: Option<usize>, chosen_cover: Option<Result<i32, String>>) -> Self {
         let mut page = Self {
             icons,
             rank_icons,
@@ -142,12 +145,15 @@ impl FavoritesPage {
             sf: SFader::new(),
             next_page: None,
 
+            chosen_cover,
+
             upload_task: None,
             delete_from_cloud_task: None,
             set_public_task: None,
             sync_task: None,
             import_task: None,
             batch_import_task: None,
+            set_cover_task: None,
         };
         page.rebuild_folders();
         page
@@ -239,6 +245,7 @@ impl FavoritesPage {
             || self.sync_task.is_some()
             || self.import_task.is_some()
             || self.batch_import_task.is_some()
+            || self.set_cover_task.is_some()
     }
 
     fn collect_chart_ids(&self, col: &LocalCollection, allow_local: bool) -> Option<Vec<i32>> {
@@ -400,6 +407,7 @@ impl Page for FavoritesPage {
                 if col.is_owned() {
                     options.push("rename");
                     options.push("set-description");
+                    options.push("set-cover");
                 }
                 if !is_default && col.is_owned() {
                     options.push("set-as-default");
@@ -475,6 +483,42 @@ impl Page for FavoritesPage {
 
         for folder in &mut self.folders {
             folder.cover.settle(t);
+        }
+
+        if let Some(chosen_cover) = self.chosen_cover.take() {
+            let data = get_data_mut();
+            let col = &mut data.collections[self.active_folder.unwrap()];
+            match chosen_cover {
+                Ok(chart_id) => {
+                    let col_id = col.id;
+                    self.set_cover_task = Some(Task::new(async move {
+                        if let Some(col_id) = col_id {
+                            // Collection is synced, update cloud directly
+                            let resp: Collection =
+                                recv_raw(Client::request(Method::PATCH, format!("/collection/{col_id}")).json(&CollectionPatch::Cover(chart_id)))
+                                    .await?
+                                    .json()
+                                    .await?;
+                            Ok(Ok(resp))
+                        } else {
+                            // Collection is not synced, fetch chart
+                            // illustration and set as cover locally
+                            let chart = Ptr::<Chart>::new(chart_id).fetch().await?;
+                            Ok(Err(chart.illustration.clone()))
+                        }
+                    }));
+                }
+                Err(local_path) => {
+                    if col.id.is_some() {
+                        Dialog::simple(ttl!("favorites-online-only")).show();
+                    } else {
+                        col.cover = CollectionCover::LocalChart(local_path);
+                        let _ = save_data();
+                        show_message(tl!("updated")).ok();
+                        self.rebuild_folders();
+                    }
+                }
+            }
         }
 
         // 处理输入事件 || Handle input events
@@ -577,6 +621,12 @@ impl Page for FavoritesPage {
                     }
                     "set-description" => {
                         request_input("fav_description", &data.collections[index].description);
+                    }
+                    "set-cover" => {
+                        FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(Some(index)));
+                        CHOOSE_COVER.store(true, Ordering::Relaxed);
+                        show_message(tl!("select-cover"));
+                        self.next_page = Some(NextPage::Pop);
                     }
                     "duplicate" => {
                         let col = &data.collections[index];
@@ -820,6 +870,33 @@ impl Page for FavoritesPage {
                     }
                 }
                 self.batch_import_task = None;
+            }
+        }
+        if let Some(task) = &mut self.set_cover_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(Ok(col)) => {
+                        let data = get_data_mut();
+                        let local = &mut data.collections[self.active_folder.unwrap()];
+                        local.id = Some(col.id);
+                        local.assign_from(&col);
+                        let _ = save_data();
+                        show_message(tl!("updated")).ok();
+                        self.rebuild_folders();
+                    }
+                    Ok(Err(cover)) => {
+                        let data = get_data_mut();
+                        let col = &mut data.collections[self.active_folder.unwrap()];
+                        col.cover = CollectionCover::Online(cover);
+                        let _ = save_data();
+                        show_message(tl!("updated")).ok();
+                        self.rebuild_folders();
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.set_cover_task = None;
             }
         }
 

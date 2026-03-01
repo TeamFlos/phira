@@ -13,6 +13,8 @@ invalid-import = Invalid import code
 
 rename = Rename
 set-description = Set description
+set-cover = Set cover
+select-cover = Please select a chart as cover
 
 delete = Delete Folder
 deleted = Folder deleted
