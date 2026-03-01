@@ -1,7 +1,6 @@
 
 load-preview-failed = 曲のプレビューの読み込みに失敗しました。
 load-charts-failed = ビートマップの読み込みに失敗しました。
-no-chart-for-download = このビートマップはダウンロードできません。
 
 load-chart-failed = ビートマップの読み込みに失敗しました。
 
@@ -59,7 +58,6 @@ mods-autoplay = オートプレイ
 mods-autoplay-sub = これを有効にすると、リザルトの記録が無効になります
 
 # fav-added = お気に入りに追加しました
-# fav-removed = お気に入りから削除しました
 # fav-add-to = 追加先...
 # fav-select-folder = フォルダを選択
 # fav-default-folder = デフォルト

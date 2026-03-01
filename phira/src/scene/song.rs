@@ -7,11 +7,14 @@ use super::{
 };
 use crate::{
     charts_view::NEED_UPDATE,
-    client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
-    data::{BriefChartInfo, LocalChart, DEFAULT_FAVORITES_KEY},
+    client::{
+        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionPatch, LocalCollection, Permissions, Ptr, Record, UserManager,
+        CLIENT_TOKEN,
+    },
+    data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{local_illustration, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader},
+    page::{local_illustration, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader, FAV_UPDATED},
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -60,6 +63,7 @@ use std::{
     },
     thread_local,
 };
+use tap::Tap;
 use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
@@ -285,6 +289,7 @@ pub struct SongScene {
     fav_btn: RectButton,
     fav_touch_start: Option<f32>,
     fav_menu: Popup,
+    fav_menu_options: Vec<usize>,
     need_show_fav_menu: bool,
 
     review_task: Option<Task<Result<String>>>,
@@ -323,28 +328,8 @@ pub struct SongScene {
     update_cksum_passed: Option<bool>,
     update_cksum_task: Option<Task<Result<bool>>>,
     chart_type: ChartType,
-}
-/// 构建收藏夹菜单的选项列表。
-/// 已或包含该谱面的条目会以“\u2713 \u201d前缀标记。
-fn fav_folder_menu_options(local_path: &str) -> Vec<String> {
-    get_data_mut().favorites.ensure_default();
-    let all_names = get_data().favorites.all_folder_names();
-    all_names
-        .iter()
-        .map(|name| {
-            let display = if name == DEFAULT_FAVORITES_KEY {
-                tl!("fav-default-folder").to_string()
-            } else {
-                name.clone()
-            };
-            let in_folder = get_data().favorites.get_paths(name).contains(&local_path.to_string());
-            if in_folder {
-                format!("\u{2713} {display}")
-            } else {
-                format!("  {display}")
-            }
-        })
-        .collect()
+
+    toggle_fav_task: Option<Task<Result<(Collection, bool)>>>,
 }
 
 impl SongScene {
@@ -470,7 +455,8 @@ impl SongScene {
 
             fav_btn: RectButton::new(),
             fav_touch_start: None,
-            fav_menu: Popup::new(),
+            fav_menu: Popup::new().tap_mut(|it| it.set_auto_dismiss(false)),
+            fav_menu_options: Vec::new(),
             need_show_fav_menu: false,
 
             review_task: None,
@@ -521,13 +507,15 @@ impl SongScene {
             update_cksum_passed: None,
             update_cksum_task: None,
             chart_type: chart.chart_type,
+
+            toggle_fav_task: None,
         }
     }
 
     fn start_download(&mut self) -> Result<()> {
         let chart = self.info.clone();
         let Some(entity) = self.entity.clone() else {
-            show_error(anyhow!(tl!("no-chart-for-download")));
+            show_error(anyhow!(tl!("still-loading")));
             return Ok(());
         };
         self.loading_last = 0.;
@@ -1303,6 +1291,77 @@ impl SongScene {
 
         Ok(())
     }
+
+    fn matches_ref(&self, r: &ChartRef) -> bool {
+        r.matches(self.info.id, self.local_path.as_deref())
+    }
+
+    fn to_chart_ref(&self) -> Option<ChartRef> {
+        Some(if self.info.id.is_some() {
+            match self.entity.clone() {
+                Some(entity) => ChartRef::Online(Box::new(entity)),
+                None => {
+                    show_message(tl!("still-loading")).error();
+                    return None;
+                }
+            }
+        } else {
+            ChartRef::Local(self.local_path.clone().unwrap())
+        })
+    }
+
+    fn toggle_in(&mut self, col: &mut LocalCollection) {
+        if col.id.is_some() && self.info.id.is_none() {
+            show_message(tl!("favorites-local-only")).ok();
+            return;
+        }
+
+        let should_upload = col.id.is_some() && !get_data().config.offline_mode;
+        let index = col.charts.iter().position(|it| self.matches_ref(it));
+        if let Some(index) = index {
+            col.charts.remove(index);
+        } else if let Some(chart) = self.to_chart_ref() {
+            col.charts.push(chart);
+            if !should_upload {
+                show_message(tl!("fav-added")).ok();
+            }
+        } else {
+            return;
+        }
+        let _ = save_data();
+        FAV_UPDATED.store(true, Ordering::SeqCst);
+        if !should_upload {
+            return;
+        }
+
+        if let Some(col_id) = col.id {
+            let id = self.info.id.unwrap();
+            self.toggle_fav_task = Some(Task::new(async move {
+                let resp: Collection = recv_raw(Client::request(Method::PATCH, format!("/collection/{col_id}")).json(&CollectionPatch::Toggle(id)))
+                    .await?
+                    .json()
+                    .await?;
+                let added = resp.charts.iter().any(|it| it.id == id);
+                Ok((resp, added))
+            }));
+        }
+    }
+
+    /// 构建收藏夹菜单的选项列表。
+    /// 已或包含该谱面的条目会以“\u2713 前缀标记。
+    fn get_fav_menu_options(&mut self) -> Vec<String> {
+        let mut options = Vec::new();
+        self.fav_menu_options.clear();
+        for (index, col) in get_data().collections.iter().enumerate() {
+            if !col.is_owned() {
+                continue;
+            }
+            self.fav_menu_options.push(index);
+            let contains = col.charts.iter().any(|it| self.matches_ref(it));
+            options.push(format!("{} {}", if contains { '\u{2713}' } else { ' ' }, col.name));
+        }
+        options
+    }
 }
 
 impl Scene for SongScene {
@@ -1399,6 +1458,7 @@ impl Scene for SongScene {
             || self.rate_task.is_some()
             || self.overwrite_task.is_some()
             || self.update_cksum_task.is_some()
+            || self.toggle_fav_task.is_some()
         {
             return Ok(true);
         }
@@ -1426,7 +1486,7 @@ impl Scene for SongScene {
             self.fav_menu.touch(touch, t);
             return Ok(true);
         }
-        if !self.side_enter_time.is_infinite() {
+        if self.side_enter_time.is_finite() {
             if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
                 if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
                     if matches!(self.side_content, SideContent::Mods) {
@@ -1519,38 +1579,36 @@ impl Scene for SongScene {
             self.need_show_menu = true;
             return Ok(true);
         }
-        if let Some(local_path) = &self.local_path {
-            match touch.phase {
-                TouchPhase::Started => {
-                    if self.fav_btn.contains(touch.position) {
-                        self.fav_touch_start = Some(rt);
-                    }
+        match touch.phase {
+            TouchPhase::Started => {
+                if self.fav_btn.contains(touch.position) {
+                    self.fav_touch_start = Some(rt);
                 }
-                TouchPhase::Ended => {
-                    if let Some(start) = self.fav_touch_start.take() {
-                        if self.fav_btn.contains(touch.position) {
+            }
+            TouchPhase::Moved | TouchPhase::Stationary | TouchPhase::Ended => {
+                if let Some(start) = &self.fav_touch_start {
+                    if self.fav_btn.contains(touch.position) {
+                        if rt - *start >= 0.5 {
+                            self.fav_touch_start = None;
                             button_hit();
-                            if rt - start >= 0.5 {
-                                self.fav_menu.set_options(fav_folder_menu_options(local_path));
-                                self.need_show_fav_menu = true;
-                            } else {
-                                get_data_mut().favorites.ensure_default();
-                                let added = get_data_mut().favorites.toggle_default(local_path);
-                                let _ = save_data();
-                                if added {
-                                    show_message(tl!("fav-added")).ok();
-                                } else {
-                                    show_message(tl!("fav-removed")).ok();
-                                }
+                            let options = self.get_fav_menu_options();
+                            self.fav_menu.set_options(options);
+                            self.need_show_fav_menu = true;
+                            return Ok(true);
+                        } else if matches!(touch.phase, TouchPhase::Ended) {
+                            self.fav_touch_start = None;
+                            button_hit();
+                            let data = get_data_mut();
+                            if let Some(col) = data.collections.iter_mut().find(|it| it.is_default) {
+                                self.toggle_in(col);
                             }
                             return Ok(true);
                         }
                     }
                 }
-                TouchPhase::Cancelled => {
-                    self.fav_touch_start = None;
-                }
-                _ => {}
+            }
+            TouchPhase::Cancelled => {
+                self.fav_touch_start = None;
             }
         }
         if let Some(path) = &self.local_path {
@@ -1600,7 +1658,7 @@ impl Scene for SongScene {
         if self.tags.confirmed.take() == Some(true) {
             let mut tags = self.tags.tags.tags().to_vec();
             tags.push(self.tags.division.to_owned());
-            if !self.side_enter_time.is_infinite() && matches!(self.side_content, SideContent::Edit) {
+            if self.side_enter_time.is_finite() && matches!(self.side_content, SideContent::Edit) {
                 let edit = self.info_edit.as_mut().unwrap();
                 edit.info.tags = tags;
                 edit.updated = true;
@@ -1834,22 +1892,8 @@ impl Scene for SongScene {
         }
         if self.fav_menu.changed() {
             let selected = self.fav_menu.selected();
-            let all_names = get_data().favorites.all_folder_names();
-            if selected < all_names.len() {
-                if let Some(path) = self.local_path.as_ref() {
-                    let folder = all_names[selected].clone();
-                    let path = path.clone();
-                    let in_folder = get_data().favorites.get_paths(&folder).contains(&path);
-                    if in_folder {
-                        get_data_mut().favorites.remove_from(&folder, &path);
-                        show_message(tl!("fav-removed")).ok();
-                    } else {
-                        get_data_mut().favorites.add_to(&folder, &path);
-                        show_message(tl!("fav-added")).ok();
-                    }
-                    let _ = save_data();
-                }
-            }
+            self.toggle_in(&mut get_data_mut().collections[self.fav_menu_options[selected]]);
+            let _ = save_data();
         }
         if self.chart_should_delete.fetch_and(false, Ordering::Relaxed) {
             let id = self.info.id.unwrap();
@@ -2248,6 +2292,27 @@ impl Scene for SongScene {
                 self.scene_task = None;
             }
         }
+        if let Some(task) = &mut self.toggle_fav_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err);
+                    }
+                    Ok((col, added)) => {
+                        let data = get_data_mut();
+                        if let Some(local) = data.collections.iter_mut().find(|it| it.id == Some(col.id)) {
+                            local.assign_from(&col);
+                            let _ = save_data();
+                        }
+                        if added {
+                            show_message(tl!("fav-added")).ok();
+                        }
+                        FAV_UPDATED.store(true, Ordering::SeqCst);
+                    }
+                }
+                self.toggle_fav_task = None;
+            }
+        }
         if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() {
             self.tr_start = rt;
         }
@@ -2371,20 +2436,22 @@ impl Scene for SongScene {
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
                 // 收藏按钮 || Favorites button
-                if let Some(local_path) = &self.local_path {
-                    let is_fav = get_data().favorites.is_in_default(local_path);
-                    let fav_icon = if is_fav { &self.icons.starred } else { &self.icons.star };
-                    ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
-                    self.fav_btn.set(ui, r);
-                    if self.need_show_fav_menu {
-                        self.need_show_fav_menu = false;
-                        self.fav_menu.set_bottom(true);
-                        self.fav_menu.set_selected(usize::MAX);
-                        let d = 0.28;
-                        self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
-                    }
-                    ui.dx(-r.w - 0.03);
+                let is_fav = get_data()
+                    .collections
+                    .iter()
+                    .any(|col| col.is_default && col.charts.iter().any(|it| self.matches_ref(it)));
+                let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
+                ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
+                self.fav_btn.set(ui, r);
+                if self.need_show_fav_menu {
+                    self.need_show_fav_menu = false;
+                    self.fav_menu.set_bottom(true);
+                    self.fav_menu.set_selected(usize::MAX);
+                    let d = 0.28;
+                    self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
                 }
+                ui.dx(-r.w - 0.03);
+
                 if self.local_path.as_ref().is_none_or(|it| !it.starts_with(':')) {
                     ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                     self.edit_btn.set(ui, r);
@@ -2445,7 +2512,12 @@ impl Scene for SongScene {
         if self.review_task.is_some() {
             ui.full_loading(tl!("review-doing"), t);
         }
-        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() || self.update_cksum_task.is_some() {
+        if self.edit_tags_task.is_some()
+            || self.rate_task.is_some()
+            || self.overwrite_task.is_some()
+            || self.update_cksum_task.is_some()
+            || self.toggle_fav_task.is_some()
+        {
             ui.full_loading("", t);
         }
         let rt = tm.real_time() as f32;

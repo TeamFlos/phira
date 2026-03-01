@@ -1,7 +1,6 @@
 
 load-preview-failed = Şarkı önizlemesi yüklenemedi
 load-charts-failed = Ritim haritaları yüklenemedi
-no-chart-for-download = Bu ritim haritası indirilemez
 
 load-chart-failed = Ritim haritası yüklenemedi
 
@@ -128,7 +127,6 @@ stabilize-denied = Reddedildi
 stabilize-denied-passed = Reddedildi, bu ritim reddedildi.
 
 # fav-added = Favorilere eklendi
-# fav-removed = Favorilerden kaldırıldı
 # fav-add-to = Ekle...
 # fav-select-folder = Klasör seçin
 # fav-default-folder = Varsayılan

@@ -3,8 +3,7 @@ prpr_l10n::tl_file!("library");
 use super::{CollectionPage, FavoritesPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
-    client::{Chart, Client},
-    data::DEFAULT_FAVORITES_KEY,
+    client::{Chart, ChartRef, Client},
     get_data,
     icons::Icons,
     page::favorites::FAV_PAGE_RESULT,
@@ -17,7 +16,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
 use prpr::{
-    ext::{poll_future, semi_black, semi_white, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
+    ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
     task::Task,
     ui::{button_hit, DRectButton, RectButton, Ui},
@@ -26,9 +25,14 @@ use std::{
     any::Any,
     borrow::Cow,
     ops::Deref,
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use tap::Tap;
+
+pub static FAV_UPDATED: AtomicBool = AtomicBool::new(false);
 
 const PAGE_NUM: u64 = 28;
 
@@ -67,6 +71,7 @@ pub struct LibraryPage {
     online_task: Option<OnlineTask>,
 
     icons: Arc<Icons>,
+    rank_icons: [SafeTexture; 8],
 
     import_btn: DRectButton,
 
@@ -89,7 +94,7 @@ pub struct LibraryPage {
     // 收藏夹 || Favorites
     fav_btn: DRectButton,
     // None = 显示全部 || show all,      Some(folder_name) = 过滤指定收藏夹 || filter by folder
-    current_fav_folder: Option<String>,
+    current_fav_index: Option<usize>,
 
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
@@ -117,6 +122,7 @@ impl LibraryPage {
             online_task: None,
 
             icons,
+            rank_icons,
 
             import_btn: DRectButton::new(),
 
@@ -140,7 +146,7 @@ impl LibraryPage {
             filter_show_tag: true,
 
             fav_btn: DRectButton::new(),
-            current_fav_folder: None,
+            current_fav_index: None,
 
             next_page: None,
             next_page_task: None,
@@ -249,28 +255,27 @@ impl LibraryPage {
     fn sync_local(&mut self, s: &SharedState) {
         let list = self.tabs.selected_mut();
         if list.ty == ChartListType::Local {
-            let search = self.search_str.clone();
-            let fav_folder = self.current_fav_folder.clone();
             let mut charts = Vec::new();
-            if fav_folder.is_none() {
+            if let Some(fav_index) = self.current_fav_index {
+                charts.extend(get_data().collections[fav_index].charts.iter().filter_map(|it| {
+                    match it {
+                        ChartRef::Online(chart) => chart.name.contains(&self.search_str).then(|| ChartDisplayItem::from_remote(chart)),
+                        ChartRef::Local(path) => s
+                            .charts_local
+                            .iter()
+                            .find(|it| it.local_path.as_ref().is_some_and(|its_path| its_path == path) && it.info.name.contains(&self.search_str))
+                            .map(|it| ChartDisplayItem::new(Some(it.clone()), None)),
+                    }
+                }))
+            } else {
                 charts.push(ChartDisplayItem::new(None, None));
+                charts.extend(
+                    s.charts_local
+                        .iter()
+                        .filter(|it| it.info.name.contains(&self.search_str))
+                        .map(|it| ChartDisplayItem::new(Some(it.clone()), None)),
+                )
             }
-            let fav_paths: Option<Vec<String>> = fav_folder.as_ref().map(|folder| get_data().favorites.get_paths(folder));
-            charts.append(
-                &mut s
-                    .charts_local
-                    .iter()
-                    .filter(|it| {
-                        let name_match = it.info.name.contains(&search);
-                        let fav_match = match &fav_paths {
-                            Some(paths) => it.local_path.as_ref().is_some_and(|p| paths.contains(p)),
-                            None => true,
-                        };
-                        name_match && fav_match
-                    })
-                    .map(|it| ChartDisplayItem::new(Some(it.clone()), None))
-                    .collect::<Vec<ChartDisplayItem>>(),
-            );
             list.view.set(s.t, charts);
         }
     }
@@ -281,7 +286,10 @@ impl Page for LibraryPage {
         tl!("label")
     }
 
-    fn enter(&mut self, _s: &mut SharedState) -> Result<()> {
+    fn enter(&mut self, s: &mut SharedState) -> Result<()> {
+        if FAV_UPDATED.swap(false, Ordering::SeqCst) {
+            self.sync_local(s);
+        }
         Ok(())
     }
 
@@ -342,7 +350,8 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
                 if self.fav_btn.touch(touch, t) {
-                    self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new())));
+                    self.next_page =
+                        Some(NextPage::Overlay(Box::new(FavoritesPage::new(self.icons.clone(), self.rank_icons.clone(), self.current_fav_index))));
                     return Ok(true);
                 }
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
@@ -391,7 +400,7 @@ impl Page for LibraryPage {
 
         // 在 update 中处理收藏夹选择结果，绕开fader那个的0.7秒延迟  ||  Handle the favorites folder selection result in update, bypassing the 0.7-second delay of the fader
         if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {
-            self.current_fav_folder = result;
+            self.current_fav_index = result;
             self.sync_local(s);
         }
 
@@ -545,17 +554,16 @@ impl Page for LibraryPage {
                     ui.text(tl!("import")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(0.6).draw();
                     // 收藏夹按钮（导入按钮左侧） || Favorites button (left of import)
                     let fav_r = Rect::new(import_r.x - btn_w - 0.02, r.y, btn_w, r.h);
-                    let fav_text = if let Some(ref folder) = self.current_fav_folder {
-                        if folder == DEFAULT_FAVORITES_KEY {
-                            tl!("favorites-default")
-                        } else {
-                            folder.clone().into()
-                        }
+                    let data = get_data();
+                    let fav_text = if let Some(folder) = self.current_fav_index {
+                        data.collections[folder].name.as_str().into()
                     } else {
-                        tl!("favorites")
+                        ttl!("favorites")
                     };
+
+                    let active = self.current_fav_index.is_some();
                     self.fav_btn.render_shadow(ui, fav_r, t, |ui, path| {
-                        ui.fill_path(&path, semi_black(0.4));
+                        ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
                     });
                     let ct = fav_r.center();
                     ui.text(fav_text)
@@ -564,7 +572,7 @@ impl Page for LibraryPage {
                         .no_baseline()
                         .size(0.5)
                         .max_width(btn_w - 0.02)
-                        .color(semi_white(if self.current_fav_folder.is_some() { 1.0 } else { 0.7 }))
+                        .color(if active { BLACK } else { WHITE })
                         .draw();
                 } else {
                     self.order_btn.render_shadow(ui, r, t, |ui, path| {

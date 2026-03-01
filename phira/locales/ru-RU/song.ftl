@@ -1,7 +1,6 @@
 
 load-preview-failed = Ошибка загрузки превью трека
 load-charts-failed = Ошибка загрузки чарта
-no-chart-for-download = Этот чарт невозможно загрузить
 
 load-chart-failed = Ошибка загрузки чарта
 
@@ -131,7 +130,6 @@ stabilize-denied = Отклонëн
 stabilize-denied-passed = Ваша заявка на подтвержение была отклонена
 
 # fav-added = Добавлено в избранное
-# fav-removed = Удалено из избранного
 # fav-add-to = Добавить в...
 # fav-select-folder = Выбрать папку
 # fav-default-folder = По умолчанию

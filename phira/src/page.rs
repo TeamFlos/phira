@@ -11,7 +11,7 @@ mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::LibraryPage;
+pub use library::{LibraryPage, FAV_UPDATED};
 
 mod message;
 pub use message::MessagePage;
@@ -135,6 +135,20 @@ impl Illustration {
             task: Some(Task::new(async move {
                 notify.notified().await;
                 Ok((file.load_image().await?, None))
+            })),
+            loaded: Arc::default(),
+            load_time: f32::NAN,
+        }
+    }
+
+    pub fn from_file_thumbnail(file: File) -> Self {
+        let notify = Arc::default();
+        Self {
+            texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
+            notify: Arc::clone(&notify),
+            task: Some(Task::new(async move {
+                notify.notified().await;
+                Ok((file.load_thumbnail().await?, None))
             })),
             loaded: Arc::default(),
             load_time: f32::NAN,

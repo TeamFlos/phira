@@ -1,7 +1,6 @@
 
 load-preview-failed = ไม่สามารถโหลด Preview เพลงได้
 load-charts-failed = ไม่สามารถโหลด Charts ได้
-no-chart-for-download = Chart ไม่สามารถ Download ได้
 
 load-chart-failed = ไม่สามารถโหลด Chart ได้
 
@@ -122,7 +121,6 @@ stabilize-denied = ถูกปฏิเสธ
 stabilize-denied-passed = ถูกปฏิเสธ, Chart ได้ถูกปฏิเสธการ Stabilize
 
 # fav-added = เพิ่มลงในรายการโปรดแล้ว
-# fav-removed = ลบออกจากรายการโปรดแล้ว
 # fav-add-to = เพิ่มไปยัง...
 # fav-select-folder = เลือกโฟลเดอร์
 # fav-default-folder = ค่าเริ่มต้น

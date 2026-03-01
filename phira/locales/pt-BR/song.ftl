@@ -1,7 +1,6 @@
 
 load-preview-failed = Falha ao carregar a visualização da música 
 load-charts-failed = Falha ao carregar beatmaps
-no-chart-for-download = Este beatmap não pode ser baixado 
 
 load-chart-failed = Falha ao carregar o beatmap 
 
@@ -127,7 +126,6 @@ stabilize-denied = Negado
 stabilize-denied-passed = Negado, o beatmap foi rejeitado 
 
 # fav-added = Adicionado aos favoritos
-# fav-removed = Removido dos favoritos
 # fav-add-to = Adicionar a...
 # fav-select-folder = Selecionar pasta
 # fav-default-folder = Padrão

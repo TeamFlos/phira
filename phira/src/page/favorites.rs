@@ -1,79 +1,153 @@
-prpr_l10n::tl_file!("library");
+prpr_l10n::tl_file!("favorites");
 
-use super::{local_illustration, Illustration, NextPage, Page, SharedState};
-use crate::{data::DEFAULT_FAVORITES_KEY, get_data, get_data_mut, save_data};
+use super::{Illustration, NextPage, Page, SharedState};
+use crate::{
+    client::{recv_raw, Chart, ChartRef, Client, Collection, CollectionContent, CollectionPatch, LocalCollection, UserManager},
+    get_data, get_data_mut,
+    icons::Icons,
+    page::SFader,
+    popup::Popup,
+    save_data,
+    scene::{confirm_dialog, ProfileScene, TEX_BACKGROUND},
+};
 use anyhow::Result;
-use image::DynamicImage;
+use chrono::{DateTime, Utc};
 use macroquad::prelude::*;
 use prpr::{
-    ext::{semi_black, semi_white, RectExt, SafeTexture, BLACK_TEXTURE},
-    scene::{request_file, request_input, show_message, take_file, take_input},
+    core::Tweenable,
+    ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
+    scene::{request_input, show_error, show_message, take_input},
     task::Task,
     ui::{button_hit, DRectButton, Dialog, RectButton, Scroll, Ui},
 };
-use std::{borrow::Cow, cell::RefCell, sync::Arc};
-use tokio::sync::Notify;
+use regex::Regex;
+use reqwest::Method;
+use serde::Serialize;
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::HashSet,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
-// 收藏夹页面选择结果 || Favorites page selection result
-// None = 显示全部 || show all, Some(folder_name) = 过滤指定收藏夹 || filter by folder
 thread_local! {
-    pub static FAV_PAGE_RESULT: RefCell<Option<Option<String>>> = RefCell::default();
+    pub static FAV_PAGE_RESULT: RefCell<Option<Option<usize>>> = const { RefCell::new(None) };
 }
 
 const CARD_WIDTH: f32 = 0.41;
-const CARD_HEIGHT: f32 = 0.32;
+const CARD_HEIGHT: f32 = 0.3;
 const CARD_PAD: f32 = 0.033;
+
+const INFO_TRANSIT: f32 = 0.32;
+const INFO_WIDTH: f32 = 0.75;
+
+#[derive(Serialize)]
+struct PutCollection {
+    #[serde(flatten)]
+    content: CollectionContent,
+    updated: Option<DateTime<Utc>>,
+}
 
 // 收藏夹文件夹项 || Folder item
 struct FolderItem {
-    // 收藏夹名称，None 表示"显示全部谱面" || Folder name, None = "show all charts"
-    folder_name: Option<String>,
-    display_name: String,
-    illu: Illustration,
+    index: Option<usize>,
+    name: String,
+    cover: Illustration,
     btn: RectButton,
-    menu_btn: DRectButton,
 }
 
 pub struct FavoritesPage {
+    icons: Arc<Icons>,
+    rank_icons: [SafeTexture; 8],
+
     folders: Vec<FolderItem>,
     scroll: Scroll,
 
-    bg_tex: Option<SafeTexture>,
-    bg_task: Option<Task<Result<DynamicImage>>>,
-
     create_btn: DRectButton,
+    import_btn: DRectButton,
+    all_illu: Illustration,
+
+    active_folder: Option<usize>,
+
+    info_btn: RectButton,
+    info_scroll: Scroll,
+    side_enter_time: f32,
+    open_web_btn: DRectButton,
+    owner_btn: RectButton,
+
+    cloud_btn: RectButton,
+    cloud_menu: Popup,
+    cloud_options: Vec<&'static str>,
+    need_show_cloud_menu: bool,
+    cloud_delete: Arc<AtomicBool>,
+    sync_from_cloud: Arc<AtomicBool>,
+    force_sync_to_cloud: Arc<AtomicBool>,
 
     // 编辑状态 || Editing state
-    editing_folder: Option<String>,
-    edit_cover_btn: DRectButton,
-    edit_rename_btn: DRectButton,
-    edit_delete_btn: DRectButton,
+    edit_menu_btn: RectButton,
+    edit_menu: Popup,
+    edit_options: Vec<&'static str>,
+    edit_delete: Arc<AtomicBool>,
+    need_show_edit_menu: bool,
 
+    sf: SFader,
     next_page: Option<NextPage>,
-    need_rebuild: bool,
+
+    upload_task: Option<Task<Result<Collection>>>,
+    delete_from_cloud_task: Option<Task<Result<()>>>,
+    set_public_task: Option<Task<Result<Collection>>>,
+    sync_task: Option<Task<Result<Option<Collection>>>>,
+    import_task: Option<Task<Result<Collection>>>,
+    batch_import_task: Option<Task<Result<Vec<Chart>>>>,
 }
 
 impl FavoritesPage {
-    pub fn new() -> Self {
+    pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8], active_folder: Option<usize>) -> Self {
         let mut page = Self {
+            icons,
+            rank_icons,
+
             folders: Vec::new(),
             scroll: Scroll::new(),
-            bg_tex: None,
-            bg_task: Some(Task::new(async move {
-                let bytes = load_file("background.jpg").await.unwrap_or_default();
-                if bytes.is_empty() {
-                    Ok(DynamicImage::new_rgba8(1, 1))
-                } else {
-                    Ok(image::load_from_memory(&bytes)?)
-                }
-            })),
+
             create_btn: DRectButton::new(),
-            editing_folder: None,
-            edit_cover_btn: DRectButton::new(),
-            edit_rename_btn: DRectButton::new(),
-            edit_delete_btn: DRectButton::new(),
+            import_btn: DRectButton::new(),
+            all_illu: Illustration::from_done(TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap())),
+
+            active_folder,
+
+            info_btn: RectButton::new(),
+            info_scroll: Scroll::new(),
+            side_enter_time: f32::INFINITY,
+            open_web_btn: DRectButton::new(),
+            owner_btn: RectButton::new(),
+
+            cloud_btn: RectButton::new(),
+            cloud_menu: Popup::new(),
+            cloud_options: Vec::new(),
+            need_show_cloud_menu: false,
+            cloud_delete: Arc::default(),
+            sync_from_cloud: Arc::default(),
+            force_sync_to_cloud: Arc::default(),
+
+            edit_menu_btn: RectButton::new(),
+            edit_menu: Popup::new(),
+            edit_options: Vec::new(),
+            edit_delete: Arc::default(),
+            need_show_edit_menu: false,
+
+            sf: SFader::new(),
             next_page: None,
-            need_rebuild: true,
+
+            upload_task: None,
+            delete_from_cloud_task: None,
+            set_public_task: None,
+            sync_task: None,
+            import_task: None,
+            batch_import_task: None,
         };
         page.rebuild_folders();
         page
@@ -81,180 +155,311 @@ impl FavoritesPage {
 
     // 根据当前收藏夹数据重建文件夹列表 || Rebuild folder list from current data
     fn rebuild_folders(&mut self) {
-        let tex = BLACK_TEXTURE.clone();
         let data = get_data();
         let mut folders = Vec::new();
 
         // "显示全部谱面"卡片 || "Show all charts" card
-        let all_illu = if let Some(ref bg) = self.bg_tex {
-            Illustration::from_done(bg.clone())
-        } else {
-            Illustration::from_done(tex.clone())
-        };
         folders.push(FolderItem {
-            folder_name: None,
-            display_name: tl!("favorites-show-all").to_string(),
-            illu: all_illu,
+            index: None,
+            name: tl!("show-all").to_string(),
+            cover: self.all_illu.clone(),
             btn: RectButton::new(),
-            menu_btn: DRectButton::new(),
         });
 
-        // 默认收藏夹 || Default favorites folder
-        if data.favorites.folders.contains_key(DEFAULT_FAVORITES_KEY) {
-            let last_path = Self::last_chart_path(DEFAULT_FAVORITES_KEY);
-            let cover = data.favorites.covers.get(DEFAULT_FAVORITES_KEY).cloned();
-            let illu = Self::make_cover_illu(&tex, last_path.as_deref(), cover.as_deref());
+        for (index, col) in data.collections.iter().enumerate() {
             folders.push(FolderItem {
-                folder_name: Some(DEFAULT_FAVORITES_KEY.to_string()),
-                display_name: tl!("favorites-default").to_string(),
-                illu,
+                index: Some(index),
+                name: col.name.clone(),
+                cover: col.cover(),
                 btn: RectButton::new(),
-                menu_btn: DRectButton::new(),
-            });
-        }
-
-        // 自定义收藏夹 || Custom folders
-        for name in data.favorites.custom_folder_names() {
-            let last_path = Self::last_chart_path(&name);
-            let cover = data.favorites.covers.get(&name).cloned();
-            let illu = Self::make_cover_illu(&tex, last_path.as_deref(), cover.as_deref());
-            folders.push(FolderItem {
-                folder_name: Some(name.clone()),
-                display_name: name,
-                illu,
-                btn: RectButton::new(),
-                menu_btn: DRectButton::new(),
             });
         }
 
         self.folders = folders;
-        self.need_rebuild = false;
     }
 
-    // 获取收藏夹中最新谱面的 local_path || Get the last chart path in a folder
-    fn last_chart_path(folder: &str) -> Option<String> {
+    fn render_info(&mut self, ui: &mut Ui, rt: f32) {
         let data = get_data();
-        let paths = data.favorites.get_paths(folder);
-        for p in paths.iter().rev() {
-            if data.charts.iter().any(|c| &c.local_path == p) {
-                return Some(p.clone());
+        let col = &data.collections[self.active_folder.unwrap()];
+        let pad = 0.03;
+        ui.dx(pad);
+        ui.dy(0.03);
+        let width = INFO_WIDTH - pad;
+        self.info_scroll.size((width - pad, ui.top * 2. - 0.06));
+        self.info_scroll.render(ui, |ui| {
+            let mut h = 0.;
+            macro_rules! dy {
+                ($e:expr) => {{
+                    let dy = $e;
+                    h += dy;
+                    ui.dy(dy);
+                }};
+            }
+            let mw = width - pad * 3.;
+            if col.id.is_some() {
+                let r = Rect::new(0.03, 0., mw, 0.12).nonuniform_feather(-0.03, -0.01);
+                self.open_web_btn.render_text(ui, r, rt, ttl!("open-in-web"), 0.6, true);
+                dy!(r.h + 0.04);
+            }
+            if let Some(uploader) = &col.owner {
+                let c = 0.06;
+                let s = 0.05;
+                let r = ui.avatar(c, c, s, rt, UserManager::opt_avatar(uploader.id, &self.icons.user));
+                self.owner_btn.set(ui, Rect::new(c - s, c - s, s * 2., s * 2.));
+                if let Some((name, color)) = UserManager::name_and_color(uploader.id) {
+                    ui.text(name)
+                        .pos(r.right() + 0.02, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .max_width(width - 0.15)
+                        .size(0.6)
+                        .color(color)
+                        .draw();
+                }
+                dy!(0.14);
+            }
+            let mut item = |title: Cow<'_, str>, content: Cow<'_, str>| {
+                dy!(ui.text(title).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
+                dy!(ui.text(content).pos(pad, 0.).size(0.6).multiline().max_width(mw).draw().h + 0.03);
+            };
+            item(tl!("info-name"), col.name.as_str().into());
+            item(tl!("info-description"), col.description.as_str().into());
+            item(tl!("info-count"), col.charts.len().to_string().into());
+            if let Some(id) = col.id {
+                item("ID".into(), id.to_string().into());
+            }
+            (width, h)
+        });
+    }
+
+    fn has_task(&self) -> bool {
+        self.upload_task.is_some()
+            || self.delete_from_cloud_task.is_some()
+            || self.set_public_task.is_some()
+            || self.sync_task.is_some()
+            || self.import_task.is_some()
+            || self.batch_import_task.is_some()
+    }
+
+    fn collect_chart_ids(&self, col: &LocalCollection, allow_local: bool) -> Option<Vec<i32>> {
+        let data = get_data();
+        let mut chart_ids = Vec::with_capacity(col.charts.len());
+        for chart in &col.charts {
+            match chart {
+                ChartRef::Online(chart) => {
+                    chart_ids.push(chart.id);
+                }
+                ChartRef::Local(path) => {
+                    if let Some(id) = data.charts.iter().find(|it| it.local_path == *path).and_then(|it| it.info.id) {
+                        chart_ids.push(id);
+                    } else if !allow_local {
+                        Dialog::simple(ttl!("favorites-online-only")).show();
+                        return None;
+                    }
+                }
             }
         }
-        None
+        Some(chart_ids)
     }
 
-    fn make_cover_illu(tex: &SafeTexture, last_chart_path: Option<&str>, custom_cover: Option<&str>) -> Illustration {
-        // 优先使用自定义封面 || Prefer custom cover
-        if let Some(cover_path) = custom_cover {
-            let path = cover_path.to_string();
-            let notify = Arc::new(Notify::new());
-            let notify_clone = Arc::clone(&notify);
-            return Illustration {
-                texture: (tex.clone(), tex.clone()),
-                notify,
-                task: Some(Task::new(async move {
-                    notify_clone.notified().await;
-                    let bytes = tokio::fs::read(&path).await?;
-                    let img = image::load_from_memory(&bytes)?;
-                    Ok((img, None))
-                })),
-                loaded: Arc::default(),
-                load_time: f32::NAN,
-            };
+    fn try_import(&mut self, text: String) -> bool {
+        let text = text.trim();
+
+        let mut id = text.parse::<i32>().ok();
+        if id.is_none() {
+            let regex = Regex::new(r"phira\.moe/collection/(\d+)").unwrap();
+            if let Some(caps) = regex.captures(text) {
+                if let Some(id_str) = caps.get(1) {
+                    id = id_str.as_str().parse::<i32>().ok();
+                } else {
+                    return false;
+                }
+            }
         }
-        // 其次使用最新收藏谱面封面 || Fallback to latest chart illustration
-        if let Some(path) = last_chart_path {
-            local_illustration(path.to_string(), tex.clone(), false)
-        } else {
-            Illustration::from_done(tex.clone())
+        if let Some(id) = id {
+            if get_data().collections.iter().any(|col| col.id == Some(id)) {
+                show_message(tl!("already-imported")).error();
+            } else {
+                self.import_task = Some(Task::new(async move {
+                    let resp: Collection = recv_raw(Client::get(format!("/collection/{id}"))).await?.json().await?;
+                    Ok(resp)
+                }));
+            }
+            return true;
         }
+
+        false
     }
 
-    fn has_menu(folder_name: &Option<String>) -> bool {
-        folder_name.is_some()
+    fn sync_to_cloud(&mut self) {
+        let data = get_data();
+        let col = &data.collections[self.active_folder.unwrap()];
+        let Some(chart_ids) = self.collect_chart_ids(col, false) else {
+            return;
+        };
+
+        assert!(col.remote_updated.is_some());
+        let body = PutCollection {
+            content: CollectionContent {
+                name: col.name.clone(),
+                description: col.description.clone(),
+                charts: chart_ids,
+                public: col.public,
+            },
+            updated: col.remote_updated,
+        };
+        let col_id = col.id.unwrap();
+        self.sync_task = Some(Task::new(async move {
+            let result = recv_raw(Client::request(Method::PUT, format!("/collection/{col_id}")).json(&body)).await;
+            match result {
+                Ok(resp) => {
+                    let resp: Collection = resp.json().await?;
+                    Ok(Some(resp))
+                }
+                Err(err) => {
+                    if err.to_string().starts_with("request failed (412)") {
+                        Ok(None)
+                    } else {
+                        Err(err)
+                    }
+                }
+            }
+        }));
     }
 }
 
 impl Page for FavoritesPage {
     fn label(&self) -> Cow<'static, str> {
-        tl!("favorites")
-    }
-
-    fn on_back_pressed(&mut self, _s: &mut SharedState) -> bool {
-        // 编辑模式下先退出编辑 || Exit editing mode first
-        if self.editing_folder.is_some() {
-            self.editing_folder = None;
-            return true;
-        }
-        false
+        ttl!("favorites")
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
         let rt = s.rt;
 
-        // 编辑栏按钮处理 || Edit bar button handling
-        if let Some(ref editing) = self.editing_folder.clone() {
-            let is_default = editing == DEFAULT_FAVORITES_KEY;
-            if self.edit_cover_btn.touch(touch, t) {
-                request_file("fav_cover");
-                return Ok(true);
+        if self.has_task() {
+            return Ok(true);
+        }
+
+        if self.side_enter_time.is_finite() {
+            if self.side_enter_time > 0. && rt > self.side_enter_time + INFO_TRANSIT {
+                if touch.position.x < 1. - INFO_WIDTH && touch.phase == TouchPhase::Started {
+                    self.side_enter_time = -rt;
+                    return Ok(true);
+                }
+                if self.info_scroll.touch(touch, t) {
+                    return Ok(true);
+                }
+                if self.open_web_btn.touch(touch, rt) {
+                    if let Some(index) = self.active_folder {
+                        let col = &get_data().collections[index];
+                        open_url(&format!("https://phira.moe/collection/{}", col.id.unwrap()))?;
+                    }
+                    return Ok(true);
+                }
+                if self.owner_btn.touch(touch) {
+                    button_hit();
+                    let col = &get_data().collections[self.active_folder.unwrap()];
+                    self.sf
+                        .goto(t, ProfileScene::new(col.owner.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()));
+                    return Ok(true);
+                }
             }
-            if !is_default && self.edit_rename_btn.touch(touch, t) {
-                request_input("fav_rename", editing);
-                return Ok(true);
-            }
-            if !is_default && self.edit_delete_btn.touch(touch, t) {
-                let folder = editing.clone();
-                Dialog::plain(tl!("favorites-delete"), tl!("favorites-delete-confirm"))
-                    .buttons(vec![tl!("favorites-all").to_string(), tl!("favorites-delete").to_string()])
-                    .listener(move |_dialog, pos| {
-                        if pos == 1 {
-                            get_data_mut().favorites.delete_folder(&folder);
-                            get_data_mut().favorites.covers.remove(&folder);
-                            let _ = save_data();
-                            show_message(tl!("favorites-deleted")).ok();
-                        }
-                        false
-                    })
-                    .show();
-                self.editing_folder = None;
-                self.need_rebuild = true;
-                return Ok(true);
-            }
+            return Ok(false);
+        }
+
+        if self.edit_menu.showing() {
+            self.edit_menu.touch(touch, t);
+            return Ok(true);
+        }
+        if self.cloud_menu.showing() {
+            self.cloud_menu.touch(touch, t);
+            return Ok(true);
         }
 
         if self.create_btn.touch(touch, t) {
             request_input("fav_create", "");
             return Ok(true);
         }
-
-        // 编辑按钮检测 || Edit button detection
-        for folder in self.folders.iter_mut() {
-            if Self::has_menu(&folder.folder_name) && folder.menu_btn.touch(touch, t) {
-                if let Some(name) = &folder.folder_name {
-                    button_hit();
-                    self.editing_folder = Some(name.clone());
-                    return Ok(true);
-                }
-            }
-        }
-
-        // 卡片点击检测 || Card click detection
-        if touch.phase == TouchPhase::Ended {
-            for folder in self.folders.iter() {
-                if folder.btn.contains(touch.position) {
-                    let folder_name = folder.folder_name.clone();
-                    button_hit();
-                    FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(folder_name));
-                    self.next_page = Some(NextPage::Pop);
-                    return Ok(true);
-                }
-            }
+        if self.import_btn.touch(touch, t) {
+            request_input("fav_import", "");
+            return Ok(true);
         }
 
         if self.scroll.touch(touch, rt) {
             return Ok(true);
+        }
+
+        if let Some(index) = self.active_folder {
+            if self.edit_menu_btn.touch(touch) {
+                button_hit();
+                let data = get_data();
+                let col = &data.collections[index];
+                let is_default = col.is_default;
+                let mut options = Vec::new();
+                if col.is_owned() {
+                    options.push("rename");
+                    options.push("set-description");
+                }
+                if !is_default && col.is_owned() {
+                    options.push("set-as-default");
+                }
+                options.push("duplicate");
+                if col.is_owned() {
+                    options.push("batch-import");
+                }
+                if !is_default {
+                    options.push("delete");
+                }
+
+                self.edit_menu.set_selected(usize::MAX);
+                self.edit_menu.set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
+                self.edit_options = options;
+                self.need_show_edit_menu = true;
+                return Ok(true);
+            }
+            if self.cloud_btn.touch(touch) {
+                button_hit();
+                let data = get_data();
+                let col = &data.collections[index];
+                let mut options = Vec::new();
+                if col.id.is_some() {
+                    options.push("sync-to-cloud");
+                    options.push("sync-from-cloud");
+                    if col.public {
+                        options.push("make-private");
+                    } else {
+                        options.push("make-public");
+                    }
+                    options.push("delete-from-cloud");
+                } else {
+                    options.push("upload-to-cloud");
+                }
+                self.cloud_menu.set_selected(usize::MAX);
+                self.cloud_menu.set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
+                self.cloud_options = options;
+                self.need_show_cloud_menu = true;
+                return Ok(true);
+            }
+            if self.info_btn.touch(touch) {
+                button_hit();
+                self.side_enter_time = rt;
+                return Ok(true);
+            }
+        }
+
+        // 编辑按钮检测 || Edit button detection
+        for folder in self.folders.iter_mut() {
+            if folder.btn.touch(touch) {
+                button_hit();
+                if self.active_folder == folder.index {
+                    FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(folder.index));
+                    self.next_page = Some(NextPage::Pop);
+                } else {
+                    self.active_folder = folder.index;
+                }
+                return Ok(true);
+            }
         }
 
         Ok(false)
@@ -263,70 +468,358 @@ impl Page for FavoritesPage {
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
         self.scroll.update(s.rt);
+        self.info_scroll.update(s.rt);
 
-        // 加载背景图 || Load background image
-        if let Some(task) = &mut self.bg_task {
-            if let Some(res) = task.take() {
-                if let Ok(image) = res {
-                    let tex: SafeTexture = image.into();
-                    self.bg_tex = Some(tex);
-                    self.need_rebuild = true;
-                }
-                self.bg_task = None;
-            }
-        }
+        self.edit_menu.update(t);
+        self.cloud_menu.update(t);
 
         for folder in &mut self.folders {
-            folder.illu.settle(t);
-        }
-
-        if self.need_rebuild {
-            self.rebuild_folders();
+            folder.cover.settle(t);
         }
 
         // 处理输入事件 || Handle input events
         if let Some((id, text)) = take_input() {
-            if id == "fav_create" {
-                let name = text.trim().to_string();
-                if name.is_empty() {
-                    show_message(tl!("favorites-name-empty")).error();
-                } else if get_data().favorites.folders.contains_key(&name) {
-                    show_message(tl!("favorites-name-exists")).error();
-                } else {
-                    get_data_mut().favorites.create_folder(&name);
-                    let _ = save_data();
-                    show_message(tl!("favorites-created")).ok();
-                    self.need_rebuild = true;
-                }
-            } else if id == "fav_rename" {
-                let new_name = text.trim().to_string();
-                if new_name.is_empty() {
-                    show_message(tl!("favorites-name-empty")).error();
-                } else if let Some(old_name) = &self.editing_folder {
-                    let old = old_name.clone();
-                    if get_data_mut().favorites.rename_folder(&old, &new_name) {
-                        if let Some(cover) = get_data_mut().favorites.covers.remove(&old) {
-                            get_data_mut().favorites.covers.insert(new_name.clone(), cover);
-                        }
-                        let _ = save_data();
-                        show_message(tl!("favorites-renamed")).ok();
-                        self.editing_folder = Some(new_name);
-                        self.need_rebuild = true;
+            match id.as_str() {
+                "fav_create" => {
+                    let name = text.trim().to_string();
+                    if name.is_empty() {
+                        show_message(tl!("name-empty")).error();
                     } else {
-                        show_message(tl!("favorites-name-exists")).error();
+                        get_data_mut().collections.push(LocalCollection::new(name));
+                        let _ = save_data();
+                        show_message(tl!("created")).ok();
+                        self.rebuild_folders();
                     }
                 }
+                "fav_rename" => {
+                    let new_name = text.trim().to_string();
+                    if new_name.is_empty() {
+                        show_message(tl!("name-empty")).error();
+                    } else if let Some(index) = self.active_folder {
+                        let data = get_data_mut();
+                        let col = &mut data.collections[index];
+                        col.name = new_name.clone();
+                        let _ = save_data();
+                        show_message(tl!("updated")).ok();
+                        self.rebuild_folders();
+                        if col.id.is_some() && !data.config.offline_mode {
+                            self.sync_to_cloud();
+                        }
+                    }
+                }
+                "fav_description" => {
+                    let new_description = text.trim().to_string();
+                    if let Some(index) = self.active_folder {
+                        let data = get_data_mut();
+                        let col = &mut data.collections[index];
+                        col.description = new_description.clone();
+                        let _ = save_data();
+                        show_message(tl!("updated")).ok();
+                        self.rebuild_folders();
+                        if col.id.is_some() && !data.config.offline_mode {
+                            self.sync_to_cloud();
+                        }
+                    }
+                }
+                "fav_import" => {
+                    if !self.try_import(text) {
+                        show_message(tl!("invalid-import")).error();
+                    }
+                }
+                "fav_batch_import" => {
+                    let data = get_data_mut();
+                    let col = &mut data.collections[self.active_folder.unwrap()];
+                    let local_chart_ids = self.collect_chart_ids(col, true).unwrap().into_iter().collect::<HashSet<_>>();
+                    let Ok(mut chart_ids) = text
+                        .split([',', ' '])
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty())
+                        .map(|it| it.parse::<i32>())
+                        .collect::<Result<Vec<_>, _>>()
+                    else {
+                        show_message(tl!("invalid-import")).error();
+                        return Ok(());
+                    };
+                    chart_ids.retain(|id| !local_chart_ids.contains(id));
+                    if chart_ids.is_empty() {
+                        return Ok(());
+                    }
+                    self.batch_import_task = Some(Task::new(async move {
+                        let mut ids_str = String::new();
+                        for id in &chart_ids {
+                            ids_str.push_str(&id.to_string());
+                            ids_str.push(',');
+                        }
+                        ids_str.pop();
+
+                        let resp: Vec<Chart> = recv_raw(Client::get(format!("/chart/multi-get?ids={ids_str}"))).await?.json().await?;
+                        Ok(resp)
+                    }));
+                }
+                _ => {}
             }
         }
 
+        if let Some(index) = self.active_folder {
+            let data = get_data_mut();
+            if self.edit_menu.changed() {
+                match self.edit_options[self.edit_menu.selected()] {
+                    "set-as-default" => {
+                        data.collections.iter_mut().for_each(|col| col.is_default = false);
+                        data.collections[index].is_default = true;
+                        let _ = save_data();
+                    }
+                    "delete" => {
+                        confirm_dialog(tl!("delete"), tl!("delete-confirm"), self.edit_delete.clone());
+                    }
+                    "rename" => {
+                        request_input("fav_rename", &data.collections[index].name);
+                    }
+                    "set-description" => {
+                        request_input("fav_description", &data.collections[index].description);
+                    }
+                    "duplicate" => {
+                        let col = &data.collections[index];
+                        data.collections.push(LocalCollection {
+                            id: None,
+                            public: false,
+                            remote_updated: None,
+                            is_default: false,
+                            ..col.clone()
+                        });
+                        let _ = save_data();
+                        self.rebuild_folders();
+                    }
+                    "batch-import" => {
+                        request_input("fav_batch_import", "");
+                    }
+                    _ => {}
+                }
+            }
+            if self.edit_delete.swap(false, Ordering::SeqCst) {
+                data.collections.remove(index);
+                let _ = save_data();
+                show_message(tl!("deleted")).ok();
+                self.active_folder = if data.collections.is_empty() {
+                    None
+                } else {
+                    self.active_folder.map(|it| it.min(data.collections.len() - 1))
+                };
+                self.rebuild_folders();
+            }
+            if self.cloud_delete.swap(false, Ordering::SeqCst) {
+                let col_id = data.collections[index].id.unwrap();
+                self.delete_from_cloud_task = Some(Task::new(async move {
+                    recv_raw(Client::delete(format!("/collection/{col_id}"))).await?;
+                    Ok(())
+                }));
+            }
+
+            if self.cloud_menu.changed() {
+                match self.cloud_options[self.cloud_menu.selected()] {
+                    "upload-to-cloud" => {
+                        let data = get_data();
+                        let col = &data.collections[index];
+                        let Some(chart_ids) = self.collect_chart_ids(col, false) else {
+                            return Ok(());
+                        };
+
+                        let body = CollectionContent {
+                            name: col.name.clone(),
+                            description: col.description.clone(),
+                            charts: chart_ids,
+                            public: false,
+                        };
+                        self.upload_task = Some(Task::new(async move {
+                            let resp: Collection = recv_raw(Client::post("/collection", &body)).await?.json().await?;
+                            Ok(resp)
+                        }));
+                    }
+                    "delete-from-cloud" => {
+                        confirm_dialog(tl!("delete-from-cloud"), tl!("delete-from-cloud-confirm"), self.cloud_delete.clone());
+                    }
+                    "make-public" | "make-private" => {
+                        let data = get_data();
+                        let col = &data.collections[index];
+                        let col_id = col.id.unwrap();
+                        let new_public = !col.public;
+                        self.set_public_task = Some(Task::new(async move {
+                            let resp =
+                                recv_raw(Client::request(Method::PATCH, format!("/collection/{col_id}")).json(&CollectionPatch::Public(new_public)))
+                                    .await?
+                                    .json()
+                                    .await?;
+                            Ok(resp)
+                        }));
+                    }
+                    "sync-to-cloud" => {
+                        self.sync_to_cloud();
+                    }
+                    "sync-from-cloud" => {
+                        confirm_dialog(tl!("sync-from-cloud"), tl!("sync-confirm"), self.sync_from_cloud.clone());
+                    }
+                    _ => {}
+                }
+            }
+            if self.sync_from_cloud.swap(false, Ordering::SeqCst) {
+                let col_id = data.collections[index].id.unwrap();
+                self.sync_task = Some(Task::new(async move {
+                    let resp: Collection = recv_raw(Client::get(format!("/collection/{col_id}"))).await?.json().await?;
+                    Ok(Some(resp))
+                }));
+            }
+            if self.force_sync_to_cloud.swap(false, Ordering::SeqCst) {
+                let data = get_data();
+                let col = &data.collections[index];
+                let Some(chart_ids) = self.collect_chart_ids(col, false) else {
+                    return Ok(());
+                };
+
+                let body = PutCollection {
+                    content: CollectionContent {
+                        name: col.name.clone(),
+                        description: col.description.clone(),
+                        charts: chart_ids,
+                        public: col.public,
+                    },
+                    updated: None,
+                };
+                let col_id = col.id.unwrap();
+                self.sync_task = Some(Task::new(async move {
+                    let resp = recv_raw(Client::request(Method::PUT, format!("/collection/{col_id}")).json(&body))
+                        .await?
+                        .json()
+                        .await?;
+                    Ok(Some(resp))
+                }));
+            }
+        }
+
+        if self.side_enter_time < 0. && -s.rt + INFO_TRANSIT < self.side_enter_time {
+            self.side_enter_time = f32::INFINITY;
+        }
+
         // 处理文件选择（自定义封面） || Handle file selection (custom cover)
-        if let Some((id, path)) = take_file() {
+        /* if let Some((id, path)) = take_file() {
             if id == "fav_cover" {
                 if let Some(ref folder) = self.editing_folder {
                     get_data_mut().favorites.covers.insert(folder.clone(), path);
                     let _ = save_data();
                     self.need_rebuild = true;
                 }
+            }
+        } */
+
+        if let Some(task) = &mut self.upload_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(col) => {
+                        let data = get_data_mut();
+                        let local = &mut data.collections[self.active_folder.unwrap()];
+                        local.id = Some(col.id);
+                        local.assign_from(&col);
+                        let _ = save_data();
+                        show_message(tl!("uploaded")).ok();
+                        self.rebuild_folders();
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.upload_task = None;
+            }
+        }
+        if let Some(task) = &mut self.delete_from_cloud_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(()) => {
+                        let data = get_data_mut();
+                        data.collections[self.active_folder.unwrap()].id = None;
+                        let _ = save_data();
+                        show_message(tl!("deleted")).ok();
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.delete_from_cloud_task = None;
+            }
+        }
+        if let Some(task) = &mut self.set_public_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(col) => {
+                        let data = get_data_mut();
+                        data.collections[self.active_folder.unwrap()].assign_from(&col);
+                        let _ = save_data();
+                        show_message(tl!("updated")).ok();
+                        self.rebuild_folders();
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.set_public_task = None;
+            }
+        }
+        if let Some(task) = &mut self.sync_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(Some(col)) => {
+                        let data = get_data_mut();
+                        data.collections[self.active_folder.unwrap()].assign_from(&col);
+                        let _ = save_data();
+                        show_message(tl!("synced")).ok();
+                        self.rebuild_folders();
+                    }
+                    Ok(None) => {
+                        confirm_dialog(tl!("sync-to-cloud"), tl!("sync-outdated"), self.force_sync_to_cloud.clone());
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.sync_task = None;
+            }
+        }
+        if let Some(task) = &mut self.import_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(col) => {
+                        let data = get_data_mut();
+                        let mut local = LocalCollection::new(String::new());
+                        local.id = Some(col.id);
+                        local.assign_from(&col);
+                        data.collections.push(local);
+                        let _ = save_data();
+                        show_message(tl!("imported")).ok();
+                        self.rebuild_folders();
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.import_task = None;
+            }
+        }
+        if let Some(task) = &mut self.batch_import_task {
+            if let Some(result) = task.take() {
+                match result {
+                    Ok(charts) => {
+                        let data = get_data_mut();
+                        let col = &mut data.collections[self.active_folder.unwrap()];
+                        col.charts.extend(charts.into_iter().map(|chart| ChartRef::Online(Box::new(chart))));
+                        let _ = save_data();
+                        show_message(tl!("imported")).ok();
+                        if col.id.is_some() && !data.config.offline_mode {
+                            self.sync_to_cloud();
+                        }
+                    }
+                    Err(err) => {
+                        show_error(err);
+                    }
+                }
+                self.batch_import_task = None;
             }
         }
 
@@ -336,17 +829,58 @@ impl Page for FavoritesPage {
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
         let t = s.t;
         for folder in &self.folders {
-            folder.illu.notify();
+            folder.cover.notify();
         }
-
-        let edit_bar_height = if self.editing_folder.is_some() { 0.09 } else { 0.0 };
 
         s.render_fader(ui, |ui| {
             let top = -ui.top + 0.13;
-            let bottom = ui.top - edit_bar_height;
+            let bottom = ui.top;
             let content_h = bottom - top;
 
+            if let Some(index) = self.active_folder {
+                ui.scope(|ui| {
+                    ui.dx(1. - 0.03);
+                    ui.dy(-ui.top + 0.03);
+                    let s = 0.08;
+                    let r = Rect::new(-s, 0., s, s);
+                    ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, WHITE));
+                    self.edit_menu_btn.set(ui, r);
+                    if self.need_show_edit_menu {
+                        self.need_show_edit_menu = false;
+                        self.edit_menu.set_bottom(true);
+                        self.edit_menu.set_selected(usize::MAX);
+                        let d = 0.28;
+                        self.edit_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    }
+                    ui.dx(-r.w - 0.03);
+                    ui.fill_rect(
+                        r,
+                        (
+                            if get_data().collections[index].id.is_some() {
+                                *self.icons.cloud_check
+                            } else {
+                                *self.icons.cloud_none
+                            },
+                            r,
+                            ScaleType::Fit,
+                        ),
+                    );
+                    self.cloud_btn.set(ui, r);
+                    if self.need_show_cloud_menu {
+                        self.need_show_cloud_menu = false;
+                        self.cloud_menu.set_bottom(true);
+                        self.cloud_menu.set_selected(usize::MAX);
+                        let d = 0.28;
+                        self.cloud_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    }
+                    ui.dx(-r.w - 0.03);
+                    ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                    self.info_btn.set(ui, r);
+                });
+            }
+
             self.scroll.size((2., content_h));
+
             ui.scope(|ui| {
                 ui.dx(-1.);
                 ui.dy(top);
@@ -366,51 +900,42 @@ impl Page for FavoritesPage {
 
                         let r = Rect::new(x, y, CARD_WIDTH, CARD_HEIGHT);
                         folder.btn.set(ui, r);
-                        ui.fill_rect(r, semi_black(0.5));
-                        let illu_r = r;
-                        let alpha = folder.illu.alpha(t);
-                        if alpha > 0. {
-                            ui.fill_rect(illu_r, folder.illu.shading(illu_r, t));
+                        if self.active_folder == folder.index {
+                            ui.fill_rect(r.feather(0.005), WHITE);
                         }
-                        ui.fill_rect(illu_r, semi_black(0.15));
-                        ui.text(&folder.display_name)
+
+                        let illu_r = r;
+                        let alpha = folder.cover.alpha(t);
+                        if alpha > 0. {
+                            ui.fill_rect(illu_r, folder.cover.shading(illu_r, t));
+                        }
+                        ui.fill_rect(illu_r, semi_black(0.3));
+                        let mut name_max_w = r.w;
+                        if folder.index.is_some_and(|it| get_data().collections[it].is_default) {
+                            let mut text = ui.text(tl!("default")).size(0.5).color(WHITE);
+                            let mut text_r = text.measure();
+                            let pad_x = 0.02;
+                            let pad_y = 0.01;
+                            text_r.x = r.right() - text_r.w - pad_x;
+                            text_r.y = r.bottom() - text_r.h - pad_y;
+                            text.ui.fill_rect(text_r.nonuniform_feather(pad_x, pad_y), ORANGE);
+                            text.pos(text_r.x, text_r.y).draw();
+                            name_max_w -= text_r.w + pad_x * 2.;
+                        }
+
+                        ui.text(&folder.name)
                             .pos(r.x + 0.03, r.bottom() - 0.03)
                             .anchor(0., 1.)
                             .no_baseline()
                             .size(0.42)
-                            .max_width(r.w - 0.06)
+                            .max_width(name_max_w)
                             .color(semi_white(0.9))
                             .draw();
 
-                        // 编辑按钮（左上角） || Edit button (top-left)
-                        if Self::has_menu(&folder.folder_name) {
-                            let menu_size = 0.05;
-                            let menu_r = Rect::new(r.left() + menu_size - 0.03, r.y + 0.01, menu_size, menu_size);
-                            folder.menu_btn.render_shadow(ui, menu_r, t, |ui, path| {
-                                ui.fill_path(&path, semi_black(0.4));
-                            });
-                            ui.text("...")
-                                .pos(menu_r.center().x, menu_r.center().y - 0.01)
-                                .anchor(0.5, 0.5)
-                                .no_baseline()
-                                .size(0.5)
-                                .color(semi_white(0.9))
-                                .draw();
-                        }
-
-                        // 编辑中高亮边框 || Highlight border when editing
-                        if self.editing_folder.as_ref() == folder.folder_name.as_ref() {
-                            let border = r.feather(0.003);
-                            ui.fill_rect(Rect::new(border.x, border.y, border.w, 0.003), semi_white(0.8));
-                            ui.fill_rect(Rect::new(border.x, border.bottom() - 0.003, border.w, 0.003), semi_white(0.8));
-                            ui.fill_rect(Rect::new(border.x, border.y, 0.003, border.h), semi_white(0.8));
-                            ui.fill_rect(Rect::new(border.right() - 0.003, border.y, 0.003, border.h), semi_white(0.8));
-                        }
-
                         // 谱面数量 || Chart count
-                        if let Some(ref name) = folder.folder_name {
-                            let count = get_data().favorites.get_paths(name).len();
-                            ui.text(format!("{}", count))
+                        if let Some(index) = folder.index {
+                            let count = get_data().collections[index].charts.len();
+                            ui.text(count.to_string())
                                 .pos(r.right() - 0.02, r.y + 0.02)
                                 .anchor(1., 0.)
                                 .size(0.35)
@@ -428,13 +953,26 @@ impl Page for FavoritesPage {
 
             // 新建收藏夹按钮 || Create folder button
             let btn_w = 0.28;
-            let btn_h = 0.06;
-            let btn_r = Rect::new(1.0 - btn_w - 0.04, bottom - btn_h - 0.02, btn_w, btn_h);
+            let btn_h = 0.1;
+            let mut btn_r = Rect::new(1.0 - btn_w - 0.04, bottom - btn_h - 0.02, btn_w, btn_h);
             let ct = btn_r.center();
             self.create_btn.render_shadow(ui, btn_r, t, |ui, path| {
                 ui.fill_path(&path, semi_black(0.5));
             });
-            ui.text(tl!("favorites-create"))
+            ui.text(tl!("create"))
+                .pos(ct.x, ct.y)
+                .anchor(0.5, 0.5)
+                .no_baseline()
+                .size(0.45)
+                .color(semi_white(0.9))
+                .draw();
+
+            btn_r.x -= btn_w + 0.02;
+            let ct = btn_r.center();
+            self.import_btn.render_shadow(ui, btn_r, t, |ui, path| {
+                ui.fill_path(&path, semi_black(0.5));
+            });
+            ui.text(tl!("import"))
                 .pos(ct.x, ct.y)
                 .anchor(0.5, 0.5)
                 .no_baseline()
@@ -443,73 +981,29 @@ impl Page for FavoritesPage {
                 .draw();
         });
 
-        // 编辑栏 || Edit bar
-        if let Some(ref editing) = self.editing_folder {
-            let is_default = editing == DEFAULT_FAVORITES_KEY;
-            let bar_y = ui.top - edit_bar_height;
-            let bar_r = Rect::new(-1., bar_y, 2., edit_bar_height);
-            ui.fill_rect(bar_r, semi_black(0.7));
-            ui.fill_rect(Rect::new(-1., bar_y, 2., 0.002), semi_white(0.3));
+        let rt = s.rt;
+        if self.side_enter_time.is_finite() {
+            let p = ((rt - self.side_enter_time.abs()) / INFO_TRANSIT).min(1.);
+            let p = 1. - (1f32 - p).powi(3);
+            let p = if self.side_enter_time < 0. { 1. - p } else { p };
+            ui.fill_rect(ui.screen_rect(), semi_black(p * 0.6));
+            let w = INFO_WIDTH;
+            let lf = f32::tween(&1.04, &(1. - w), p);
+            ui.scope(|ui| {
+                ui.dx(lf);
+                ui.dy(-ui.top);
+                let r = Rect::new(-0.2, 0., 0.2 + w, ui.top * 2.);
+                ui.fill_rect(r, (Color::default(), (r.x, r.y), Color::new(0., 0., 0., p * 0.7), (r.right(), r.y)));
+                self.render_info(ui, rt);
+            });
+        }
 
-            let btn_w = 0.3;
-            let btn_h = 0.055;
-            let btn_y = bar_y + (edit_bar_height - btn_h) / 2.;
-            let gap = 0.08;
+        self.edit_menu.render(ui, t, 1.);
+        self.cloud_menu.render(ui, t, 1.);
+        self.sf.render(ui, t);
 
-            if is_default {
-                // 默认收藏夹仅可修改封面 || Default folder: cover only
-                let r = Rect::new(-btn_w / 2., btn_y, btn_w, btn_h);
-                self.edit_cover_btn.render_shadow(ui, r, s.t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                });
-                ui.text(tl!("favorites-custom-cover"))
-                    .pos(r.center().x, r.center().y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.4)
-                    .color(semi_white(0.9))
-                    .draw();
-            } else {
-                // 自定义收藏夹：封面、重命名、删除 || Custom folder: cover, rename, delete
-                let total_w = btn_w * 3. + gap * 2.;
-                let start_x = -total_w / 2.;
-
-                let r = Rect::new(start_x, btn_y, btn_w, btn_h);
-                self.edit_cover_btn.render_shadow(ui, r, s.t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                });
-                ui.text(tl!("favorites-custom-cover"))
-                    .pos(r.center().x, r.center().y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.4)
-                    .color(semi_white(0.9))
-                    .draw();
-
-                let r = Rect::new(start_x + btn_w + gap, btn_y, btn_w, btn_h);
-                self.edit_rename_btn.render_shadow(ui, r, s.t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                });
-                ui.text(tl!("favorites-rename"))
-                    .pos(r.center().x, r.center().y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.4)
-                    .color(semi_white(0.9))
-                    .draw();
-
-                let r = Rect::new(start_x + (btn_w + gap) * 2., btn_y, btn_w, btn_h);
-                self.edit_delete_btn.render_shadow(ui, r, s.t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                });
-                ui.text(tl!("favorites-delete"))
-                    .pos(r.center().x, r.center().y)
-                    .anchor(0.5, 0.5)
-                    .no_baseline()
-                    .size(0.4)
-                    .color(Color::new(1., 0.3, 0.3, 0.9))
-                    .draw();
-            }
+        if self.has_task() {
+            ui.full_loading("", t);
         }
 
         Ok(())

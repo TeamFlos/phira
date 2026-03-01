@@ -1,7 +1,6 @@
 
 load-preview-failed = Không thể tải nhạc nghe trước
 load-charts-failed = Không thể tải các Chart
-no-chart-for-download = Chart này không tải được
 
 load-chart-failed = Không thể tải Chart
 
@@ -128,7 +127,6 @@ stabilize-denied = Từ chối
 stabilize-denied-passed = Đã từ chối, Chart này đã bị bỏ qua
 
 # fav-added = Đã thêm vào yêu thích
-# fav-removed = Đã xóa khỏi yêu thích
 # fav-add-to = Thêm vào...
 # fav-select-folder = Chọn thư mục
 # fav-default-folder = Mặc định

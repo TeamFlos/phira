@@ -1,7 +1,6 @@
 
 load-preview-failed = 載入歌曲預覽失敗
 load-charts-failed = 載入難度失敗
-no-chart-for-download = 該譜面不提供下載
 
 load-chart-failed = 載入譜面失敗
 
@@ -128,7 +127,6 @@ stabilize-denied = 已拒絕
 stabilize-denied-passed = 已拒絕，譜面已撤回
 
 fav-added = 已收藏
-fav-removed = 已取消收藏
 fav-add-to = 收藏到…
 fav-select-folder = 選擇收藏夾
 fav-default-folder = 預設收藏夾

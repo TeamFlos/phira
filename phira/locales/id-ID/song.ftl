@@ -1,7 +1,6 @@
 
 load-preview-failed = Gagal memuat preview lagu.
 load-charts-failed = Gagal memuat chart.
-no-chart-for-download = Chart ini tidak bisa didownload.
 
 load-chart-failed = Gagal memuat chart.
 
@@ -121,7 +120,6 @@ stabilize-denied = Denied
 stabilize-denied-passed = Denied, beatmap ditolak
 
 # fav-added = Ditambahkan ke favorit
-# fav-removed = Dihapus dari favorit
 # fav-add-to = Tambahkan ke...
 # fav-select-folder = Pilih folder
 # fav-default-folder = Default

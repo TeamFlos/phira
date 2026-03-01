@@ -1,0 +1,13 @@
+# default = Varsayılan
+# create = Yeni Klasör
+# enter-name = Klasör adını girin
+# name-empty = Ad boş olamaz
+# # created = Oluşturuldu
+# deleted = Klasör silindi
+# renamed = Yeniden adlandırıldı
+# rename = Yeniden Adlandır
+# delete = Klasörü Sil
+# delete-confirm = Bu klasörü silmek istiyor musunuz? (Chartlar silinmeyecektir)
+# custom-cover = Özel Kapak
+# all = Tümü
+# show-all = Tüm chartları göster

@@ -10,9 +10,8 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
     core::{Tweenable, BOLD_FONT},
-    ext::{semi_black, RectExt, SafeTexture, BLACK_TEXTURE},
+    ext::{semi_black, RectExt, SafeTexture},
     scene::{show_message, NextScene},
-    task::Task,
     ui::{button_hit_large, DRectButton, Scroll, Ui},
 };
 use std::{
@@ -23,7 +22,6 @@ use std::{
         Arc,
     },
 };
-use tokio::sync::Notify;
 
 pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 
@@ -50,22 +48,7 @@ impl ChartDisplayItem {
         Self::new(
             Some(ChartItem {
                 info: chart.to_info(),
-                illu: {
-                    let notify = Arc::new(Notify::new());
-                    Illustration {
-                        texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
-                        notify: Arc::clone(&notify),
-                        task: Some(Task::new({
-                            let illu = chart.illustration.clone();
-                            async move {
-                                notify.notified().await;
-                                Ok((illu.load_thumbnail().await?, None))
-                            }
-                        })),
-                        loaded: Arc::default(),
-                        load_time: f32::NAN,
-                    }
-                },
+                illu: Illustration::from_file_thumbnail(chart.illustration.clone()),
                 local_path: None,
                 chart_type: ChartType::Downloaded,
             }),

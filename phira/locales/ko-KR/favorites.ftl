@@ -1,0 +1,13 @@
+# default = 기본
+# create = 새 폴더
+# enter-name = 폴더 이름을 입력하세요
+# name-empty = 이름은 비워둘 수 없습니다
+# # created = 생성됨
+# deleted = 폴더 삭제됨
+# renamed = 이름 변경됨
+# rename = 이름 변경
+# delete = 폴더 삭제
+# delete-confirm = 이 폴더를 삭제하시겠습니까? (채보는 삭제되지 않습니다)
+# custom-cover = 사용자 지정 커버
+# all = 모두
+# show-all = 모든 채보 보기
