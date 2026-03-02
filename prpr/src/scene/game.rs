@@ -43,9 +43,10 @@ use tracing::{debug, warn};
 
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(closed)]
 mod inner;
-#[cfg(feature = "closed")]
+#[cfg(closed)]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
@@ -215,6 +216,7 @@ impl GameScene {
         Ok((chart, bytes, format))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mode: GameMode,
         info: ChartInfo,
@@ -889,7 +891,7 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(feature = "closed")]
+                    #[cfg(closed)]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {

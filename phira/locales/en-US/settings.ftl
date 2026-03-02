@@ -39,6 +39,7 @@ item-music = Music Volume
 item-sfx = SFX Volume
 item-bgm = BGM Volume
 item-cali = Adjust Offset
+item-preferred-sample-rate = Preferred Sample Rate
 
 item-show-acc = Real-Time Accuracy
 item-dc-pause = Double-Tap to Pause

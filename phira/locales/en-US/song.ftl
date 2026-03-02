@@ -1,7 +1,6 @@
 
 load-preview-failed = Failed to load song preview
 load-charts-failed = Failed to load beatmaps
-no-chart-for-download = This beatmap is not downloadable
 
 load-chart-failed = Failed to load the beatmap
 
@@ -128,3 +127,10 @@ stabilize-approved = Approved
 stabilize-approved-passed = The chart has been stabilized.
 stabilize-denied = Denied
 stabilize-denied-passed = Denied, the beatmap is rejected
+
+fav-added = Added to favorites
+fav-add-to = Add to...
+fav-select-folder = Select folder
+fav-default-folder = Default
+
+still-loading = Still loading...

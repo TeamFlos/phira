@@ -1,0 +1,14 @@
+favorites = 收藏夾
+default = 預設收藏夾
+create = 新建收藏夾
+enter-name = 輸入收藏夾名稱
+name-empty = 收藏夾名稱不能為空
+created = 創建成功
+deleted = 已刪除收藏夾
+renamed = 已重命名
+rename = 重命名
+delete = 刪除收藏夾
+delete-confirm = 確定刪除該收藏夾嗎？（不會刪除其中的譜面）
+custom-cover = 自訂封面
+all = 全部
+show-all = 顯示全部譜面

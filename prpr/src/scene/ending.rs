@@ -59,6 +59,7 @@ pub struct EndingScene {
 }
 
 impl EndingScene {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         background: SafeTexture,
         illustration: SafeTexture,

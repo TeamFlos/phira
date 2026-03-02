@@ -10,8 +10,11 @@ use prpr::{
 };
 use std::path::Path;
 
+type LaunchResult = Result<(GameScene, Vec<PlayerView>)>;
+type LaunchTask = LocalTask<LaunchResult>;
+
 #[must_use = "futures do nothing unless you `.await` or poll them"]
-pub fn launch_task(id: i32, players: Vec<UserInfo>) -> Result<LocalTask<Result<(GameScene, Vec<PlayerView>)>>> {
+pub fn launch_task(id: i32, players: Vec<UserInfo>) -> Result<LaunchTask> {
     let mut fs = fs::fs_from_file(Path::new(&format!("{}/{id}", dir::downloaded_charts()?)))?;
     Ok(Some(Box::pin(async move {
         let mut info = fs::load_info(fs.as_mut()).await?;

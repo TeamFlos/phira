@@ -8,7 +8,6 @@ use crate::{
     scene::BGM_VOLUME_UPDATED,
     sync_data,
     tabs::{Tabs, TitleFn},
-    ttl,
 };
 use anyhow::Result;
 use bytesize::ByteSize;
@@ -528,7 +527,7 @@ struct AudioList {
     sfx_slider: Slider,
     bgm_slider: Slider,
     cali_btn: DRectButton,
-
+    preferred_sample_rate_btn: DRectButton,
     cali_task: LocalTask<Result<OffsetPage>>,
     next_page: Option<NextPage>,
 }
@@ -541,6 +540,7 @@ impl AudioList {
             sfx_slider: Slider::new(0.0..2.0, 0.05),
             bgm_slider: Slider::new(0.0..2.0, 0.05),
             cali_btn: DRectButton::new(),
+            preferred_sample_rate_btn: DRectButton::new(),
 
             cali_task: None,
             next_page: None,
@@ -574,6 +574,13 @@ impl AudioList {
         if self.cali_btn.touch(touch, t) {
             self.cali_task = Some(Box::pin(OffsetPage::new()));
             return Ok(Some(false));
+        }
+        if self.preferred_sample_rate_btn.touch(touch, t) {
+            let options = [44100, 48000, 88200, 96000, 192000];
+            let current = config.preferred_sample_rate;
+            let selected = options.iter().position(|&r| r == current).unwrap_or(0);
+            config.preferred_sample_rate = options[(selected + 1) % options.len()];
+            return Ok(Some(true));
         }
         Ok(None)
     }
@@ -626,6 +633,10 @@ impl AudioList {
         item! {
             render_title(ui, tl!("item-cali"), None);
             self.cali_btn.render_text(ui, rr, t, format!("{:.0}ms", config.offset * 1000.), 0.5, true);
+        }
+        item! {
+            render_title(ui, tl!("item-preferred-sample-rate"), None);
+            self.preferred_sample_rate_btn.render_text(ui, rr, t, format!("{} Hz", config.preferred_sample_rate), 0.5, false);
         }
         (w, h)
     }

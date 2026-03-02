@@ -338,8 +338,10 @@ impl ParticleEmitter {
     }
 }
 
+type NoteBufferMap = BTreeMap<(i8, GLuint), Vec<(Vec<Vertex>, Vec<u16>)>>;
+
 #[derive(Default)]
-pub struct NoteBuffer(BTreeMap<(i8, GLuint), Vec<(Vec<Vertex>, Vec<u16>)>>);
+pub struct NoteBuffer(NoteBufferMap);
 
 impl NoteBuffer {
     pub fn push(&mut self, key: (i8, GLuint), vertices: [Vertex; 4]) {

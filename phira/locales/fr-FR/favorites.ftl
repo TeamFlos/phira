@@ -1,0 +1,13 @@
+# default = Par défaut
+# create = Nouveau dossier
+# enter-name = Entrez le nom du dossier
+# name-empty = Le nom ne peut pas être vide
+# # created = Créé
+# deleted = Dossier supprimé
+# renamed = Renommé
+# rename = Renommer
+# delete = Supprimer le dossier
+# delete-confirm = Supprimer ce dossier ? (Les charts ne seront pas supprimés)
+# custom-cover = Couverture personnalisée
+# all = Tous
+# show-all = Afficher tous les charts

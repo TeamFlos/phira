@@ -1,7 +1,6 @@
 
 load-preview-failed = 加载歌曲预览失败
 load-charts-failed = 加载难度失败
-no-chart-for-download = 该谱面不提供下载
 
 load-chart-failed = 加载谱面失败
 
@@ -126,3 +125,10 @@ stabilize-approved = 已通过
 stabilize-approved-passed = 已通过，谱面已 stable
 stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
+
+fav-added = 已收藏
+fav-add-to = 收藏到…
+fav-select-folder = 选择收藏夹
+fav-default-folder = 默认收藏夹
+
+still-loading = 仍在加载中…

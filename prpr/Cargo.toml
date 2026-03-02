@@ -4,11 +4,13 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 
+[lints]
+workspace = true
+
 [lib]
 
 [features]
 default = ["log", "video"]
-closed = []
 video = ["dep:prpr-avc"]
 log = ["dep:tracing-subscriber", "dep:colored"]
 

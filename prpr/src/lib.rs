@@ -16,7 +16,8 @@ pub mod ui;
 #[cfg(feature = "log")]
 pub mod log;
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(closed)]
 pub mod inner;
 
 #[cfg(target_os = "ios")]

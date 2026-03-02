@@ -41,6 +41,7 @@ pub struct UnlockScene {
 }
 
 impl UnlockScene {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mode: GameMode,
         info: ChartInfo,
@@ -156,7 +157,7 @@ impl Scene for UnlockScene {
             }
             State::Blanking => {
                 if t > 1. && self.game_scene.is_some() {
-                    self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
+                    self.next_scene = self.game_scene.take().map(NextScene::Replace);
                 } else {
                     self.state = State::Loading;
                     tm.reset();
@@ -172,7 +173,7 @@ impl Scene for UnlockScene {
                     if self.game_scene.is_none() {
                         bail!("UnlockScene exited at State::Blank3 without GameScene");
                     }
-                    self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
+                    self.next_scene = self.game_scene.take().map(NextScene::Replace);
                 }
             }
         }
