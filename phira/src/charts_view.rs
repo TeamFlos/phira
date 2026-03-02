@@ -1,5 +1,5 @@
 use crate::{
-    client::{Chart, CollectionCover},
+    client::Chart,
     dir, get_data, get_data_mut,
     icons::Icons,
     page::{ChartItem, ChartType, Fader, Illustration, CHOOSE_COVER, CHOSEN_COVER},

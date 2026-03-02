@@ -1312,7 +1312,7 @@ impl SongScene {
 
     fn toggle_in(&mut self, col: &mut LocalCollection) {
         if col.id.is_some() && self.info.id.is_none() {
-            Dialog::simple(ttl!("favorites-online-only")).show();
+            Dialog::simple(ttl!("favorites-online-only", "charts" => &self.info.name)).show();
             return;
         }
 

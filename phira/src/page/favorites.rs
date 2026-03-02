@@ -2,13 +2,15 @@ prpr_l10n::tl_file!("favorites");
 
 use super::{Illustration, NextPage, Page, SharedState};
 use crate::{
-    client::{Chart, ChartRef, Client, Collection, CollectionContent, CollectionCover, CollectionPatch, File, LocalCollection, Ptr, UserManager, recv_raw},
+    client::{
+        recv_raw, Chart, ChartRef, Client, Collection, CollectionContent, CollectionCover, CollectionPatch, File, LocalCollection, Ptr, UserManager,
+    },
     get_data, get_data_mut,
     icons::Icons,
-    page::{CHOOSE_COVER, SFader},
+    page::{SFader, CHOOSE_COVER},
     popup::Popup,
     save_data,
-    scene::{ProfileScene, TEX_BACKGROUND, confirm_dialog},
+    scene::{confirm_dialog, ProfileScene, TEX_BACKGROUND},
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -251,6 +253,7 @@ impl FavoritesPage {
     fn collect_chart_ids(&self, col: &LocalCollection, allow_local: bool) -> Option<Vec<i32>> {
         let data = get_data();
         let mut chart_ids = Vec::with_capacity(col.charts.len());
+        let mut local_charts = Vec::new();
         for chart in &col.charts {
             match chart {
                 ChartRef::Online(chart) => {
@@ -260,11 +263,24 @@ impl FavoritesPage {
                     if let Some(id) = data.charts.iter().find(|it| it.local_path == *path).and_then(|it| it.info.id) {
                         chart_ids.push(id);
                     } else if !allow_local {
-                        Dialog::simple(ttl!("favorites-online-only")).show();
-                        return None;
+                        local_charts.push(path);
                     }
                 }
             }
+        }
+        if !local_charts.is_empty() {
+            let mut charts = String::new();
+            for path in local_charts {
+                if let Some(index) = data.find_chart_by_path(path) {
+                    charts.push_str(&data.charts[index].info.name);
+                    charts.push_str(", ");
+                }
+            }
+            if !charts.is_empty() {
+                charts.truncate(charts.len() - 2);
+            }
+            Dialog::simple(ttl!("favorites-online-only", "charts" => charts)).show();
+            return None;
         }
         Some(chart_ids)
     }
@@ -510,7 +526,12 @@ impl Page for FavoritesPage {
                 }
                 Err(local_path) => {
                     if col.id.is_some() {
-                        Dialog::simple(ttl!("favorites-online-only")).show();
+                        let chart = if let Some(index) = data.find_chart_by_path(&local_path) {
+                            data.charts[index].info.name.clone()
+                        } else {
+                            String::new()
+                        };
+                        Dialog::simple(ttl!("favorites-online-only", "charts" => chart)).show();
                     } else {
                         col.cover = CollectionCover::LocalChart(local_path);
                         let _ = save_data();

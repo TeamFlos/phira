@@ -126,6 +126,9 @@ impl Dialog {
                     }
                     self.listener = Some(listener);
                     break;
+                } else {
+                    exit = true;
+                    break;
                 }
             }
         }
