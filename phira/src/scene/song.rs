@@ -24,6 +24,7 @@ use ::rand::{thread_rng, Rng};
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
+use core::f32;
 use futures_util::StreamExt;
 use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
@@ -287,7 +288,7 @@ pub struct SongScene {
     info_scroll: Scroll,
 
     fav_btn: RectButton,
-    fav_touch_start: Option<f32>,
+    fav_touch_start: f32,
     fav_menu: Popup,
     fav_menu_options: Vec<usize>,
     need_show_fav_menu: bool,
@@ -454,7 +455,7 @@ impl SongScene {
             info_scroll: Scroll::new(),
 
             fav_btn: RectButton::new(),
-            fav_touch_start: None,
+            fav_touch_start: f32::INFINITY,
             fav_menu: Popup::new().tap_mut(|it| it.set_auto_dismiss(false)),
             fav_menu_options: Vec::new(),
             need_show_fav_menu: false,
@@ -1579,37 +1580,21 @@ impl Scene for SongScene {
             self.need_show_menu = true;
             return Ok(true);
         }
-        match touch.phase {
-            TouchPhase::Started => {
-                if self.fav_btn.contains(touch.position) {
-                    self.fav_touch_start = Some(rt);
-                }
+        if self.fav_btn.touch(touch) {
+            self.fav_touch_start = f32::INFINITY;
+            button_hit();
+            let data = get_data_mut();
+            if let Some(col) = data.collections.iter_mut().find(|it| it.is_default) {
+                self.toggle_in(col);
             }
-            TouchPhase::Moved | TouchPhase::Stationary | TouchPhase::Ended => {
-                if let Some(start) = &self.fav_touch_start {
-                    if self.fav_btn.contains(touch.position) {
-                        if rt - *start >= 0.5 {
-                            self.fav_touch_start = None;
-                            button_hit();
-                            let options = self.get_fav_menu_options();
-                            self.fav_menu.set_options(options);
-                            self.need_show_fav_menu = true;
-                            return Ok(true);
-                        } else if matches!(touch.phase, TouchPhase::Ended) {
-                            self.fav_touch_start = None;
-                            button_hit();
-                            let data = get_data_mut();
-                            if let Some(col) = data.collections.iter_mut().find(|it| it.is_default) {
-                                self.toggle_in(col);
-                            }
-                            return Ok(true);
-                        }
-                    }
-                }
-            }
-            TouchPhase::Cancelled => {
-                self.fav_touch_start = None;
-            }
+            return Ok(true);
+        }
+        if self.fav_btn.long_touch(t, &mut self.fav_touch_start) {
+            button_hit();
+            let options = self.get_fav_menu_options();
+            self.fav_menu.set_options(options);
+            self.need_show_fav_menu = true;
+            return Ok(true);
         }
         if let Some(path) = &self.local_path {
             if self.edit_btn.touch(touch) {

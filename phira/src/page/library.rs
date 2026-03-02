@@ -3,13 +3,14 @@ prpr_l10n::tl_file!("library");
 use super::{CollectionPage, FavoritesPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
-    client::{Chart, ChartRef, Client},
-    get_data,
+    client::{Chart, ChartRef, Client, Collection},
+    get_data, get_data_mut,
     icons::Icons,
     page::favorites::FAV_PAGE_RESULT,
     popup::Popup,
     rate::RateDialog,
-    scene::{check_read_tos_and_policy, ChartOrder, JUST_LOADED_TOS, ORDERS},
+    save_data,
+    scene::{ChartOrder, JUST_LOADED_TOS, ORDERS, check_read_tos_and_policy, confirm_dialog},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
 };
@@ -101,6 +102,8 @@ pub struct LibraryPage {
     fav_btn: DRectButton,
     // None = 显示全部 || show all,      Some(folder_name) = 过滤指定收藏夹 || filter by folder
     current_fav_index: Option<usize>,
+    sync_fav_task: Option<Task<Result<Option<Collection>>>>,
+    force_sync_to_cloud: Arc<AtomicBool>,
 
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
@@ -153,6 +156,8 @@ impl LibraryPage {
 
             fav_btn: DRectButton::new(),
             current_fav_index: None,
+            sync_fav_task: None,
+            force_sync_to_cloud: Arc::default(),
 
             next_page: None,
             next_page_task: None,
@@ -312,6 +317,9 @@ impl Page for LibraryPage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
+        if self.sync_fav_task.is_some() {
+            return Ok(true);
+        }
         let choose_cover = CHOOSE_COVER.load(Ordering::Relaxed);
         if !choose_cover {
             if self.order_menu.showing() {
@@ -362,8 +370,12 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
                 if self.fav_btn.touch(touch, t) {
-                    self.next_page =
-                        Some(NextPage::Overlay(Box::new(FavoritesPage::new(self.icons.clone(), self.rank_icons.clone(), self.current_fav_index, None))));
+                    self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(
+                        self.icons.clone(),
+                        self.rank_icons.clone(),
+                        self.current_fav_index,
+                        None,
+                    ))));
                     return Ok(true);
                 }
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
@@ -514,6 +526,59 @@ impl Page for LibraryPage {
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
         }
+        let list = self.tabs.selected_mut();
+        let view = &mut list.view;
+        if let Some((from, to)) = view.take_movement() {
+            let data = get_data_mut();
+            if let Some(index) = self.current_fav_index {
+                let col = &mut data.collections[index];
+                let chart = col.charts.remove(from);
+                col.charts.insert(to, chart);
+                let _ = save_data();
+                if col.id.is_some() && !data.config.offline_mode {
+                    if let Some(task) = FavoritesPage::sync_to_cloud_task(index, false) {
+                        self.sync_fav_task = Some(task);
+                    }
+                }
+            } else {
+                let chart = data.charts.remove(data.charts.len() - from - 1);
+                data.charts.insert(data.charts.len() - to, chart);
+                let _ = save_data();
+            }
+            show_message(tl!("order-updated")).ok();
+        }
+        view.allow_edit(
+            list.ty == ChartListType::Local
+                && self.search_str.is_empty()
+                && self.current_fav_index.is_none_or(|it| get_data().collections[it].is_owned()),
+        );
+
+        if let Some(task) = &mut self.sync_fav_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("fav-sync-failed"))),
+                    Ok(Some(col)) => {
+                        let data = get_data_mut();
+                        data.collections[self.current_fav_index.unwrap()].assign_from(&col);
+                        let _ = save_data();
+                        show_message(tl!("fav-synced")).ok();
+                    }
+                    Ok(None) => {
+                        use crate::page::favorites::{tl as ftl, L10N_LOCAL};
+                        confirm_dialog(ftl!("sync-to-cloud"), ftl!("sync-outdated"), self.force_sync_to_cloud.clone());
+                    }
+                }
+                self.sync_fav_task = None;
+            }
+        }
+        if self.force_sync_to_cloud.swap(false, Ordering::SeqCst) {
+            if let Some(index) = self.current_fav_index {
+                if let Some(task) = FavoritesPage::sync_to_cloud_task(index, true) {
+                    self.sync_fav_task = Some(task);
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -640,6 +705,9 @@ impl Page for LibraryPage {
         self.order_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
         self.rating.render(ui, t);
+        if self.sync_fav_task.is_some() {
+            ui.full_loading("", t);
+        }
         Ok(())
     }
 

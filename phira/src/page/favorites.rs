@@ -250,7 +250,7 @@ impl FavoritesPage {
             || self.set_cover_task.is_some()
     }
 
-    fn collect_chart_ids(&self, col: &LocalCollection, allow_local: bool) -> Option<Vec<i32>> {
+    fn collect_chart_ids(col: &LocalCollection, allow_local: bool) -> Option<Vec<i32>> {
         let data = get_data();
         let mut chart_ids = Vec::with_capacity(col.charts.len());
         let mut local_charts = Vec::new();
@@ -314,14 +314,11 @@ impl FavoritesPage {
         false
     }
 
-    fn sync_to_cloud(&mut self) {
+    pub fn sync_to_cloud_task(index: usize, force: bool) -> Option<Task<Result<Option<Collection>>>> {
         let data = get_data();
-        let col = &data.collections[self.active_folder.unwrap()];
-        let Some(chart_ids) = self.collect_chart_ids(col, false) else {
-            return;
-        };
+        let col = &data.collections[index];
+        let chart_ids = Self::collect_chart_ids(col, false)?;
 
-        assert!(col.remote_updated.is_some());
         let body = PutCollection {
             content: CollectionContent {
                 name: col.name.clone(),
@@ -329,10 +326,10 @@ impl FavoritesPage {
                 charts: chart_ids,
                 public: col.public,
             },
-            updated: col.remote_updated,
+            updated: if force { None } else { col.remote_updated },
         };
         let col_id = col.id.unwrap();
-        self.sync_task = Some(Task::new(async move {
+        Some(Task::new(async move {
             let result = recv_raw(Client::request(Method::PUT, format!("/collection/{col_id}")).json(&body)).await;
             match result {
                 Ok(resp) => {
@@ -347,7 +344,13 @@ impl FavoritesPage {
                     }
                 }
             }
-        }));
+        }))
+    }
+
+    fn sync_to_cloud(&mut self, force: bool) {
+        if let Some(task) = Self::sync_to_cloud_task(self.active_folder.unwrap(), force) {
+            self.sync_task = Some(task);
+        }
     }
 }
 
@@ -568,7 +571,7 @@ impl Page for FavoritesPage {
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
                         if col.id.is_some() && !data.config.offline_mode {
-                            self.sync_to_cloud();
+                            self.sync_to_cloud(false);
                         }
                     }
                 }
@@ -582,7 +585,7 @@ impl Page for FavoritesPage {
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
                         if col.id.is_some() && !data.config.offline_mode {
-                            self.sync_to_cloud();
+                            self.sync_to_cloud(false);
                         }
                     }
                 }
@@ -594,7 +597,7 @@ impl Page for FavoritesPage {
                 "fav_batch_import" => {
                     let data = get_data_mut();
                     let col = &mut data.collections[self.active_folder.unwrap()];
-                    let local_chart_ids = self.collect_chart_ids(col, true).unwrap().into_iter().collect::<HashSet<_>>();
+                    let local_chart_ids = Self::collect_chart_ids(col, true).unwrap().into_iter().collect::<HashSet<_>>();
                     let Ok(mut chart_ids) = text
                         .split([',', ' '])
                         .map(|s| s.trim())
@@ -692,7 +695,7 @@ impl Page for FavoritesPage {
                     "upload-to-cloud" => {
                         let data = get_data();
                         let col = &data.collections[index];
-                        let Some(chart_ids) = self.collect_chart_ids(col, false) else {
+                        let Some(chart_ids) = Self::collect_chart_ids(col, false) else {
                             return Ok(());
                         };
 
@@ -725,7 +728,7 @@ impl Page for FavoritesPage {
                         }));
                     }
                     "sync-to-cloud" => {
-                        self.sync_to_cloud();
+                        self.sync_to_cloud(false);
                     }
                     "sync-from-cloud" => {
                         confirm_dialog(tl!("sync-from-cloud"), tl!("sync-confirm"), self.sync_from_cloud.clone());
@@ -741,46 +744,13 @@ impl Page for FavoritesPage {
                 }));
             }
             if self.force_sync_to_cloud.swap(false, Ordering::SeqCst) {
-                let data = get_data();
-                let col = &data.collections[index];
-                let Some(chart_ids) = self.collect_chart_ids(col, false) else {
-                    return Ok(());
-                };
-
-                let body = PutCollection {
-                    content: CollectionContent {
-                        name: col.name.clone(),
-                        description: col.description.clone(),
-                        charts: chart_ids,
-                        public: col.public,
-                    },
-                    updated: None,
-                };
-                let col_id = col.id.unwrap();
-                self.sync_task = Some(Task::new(async move {
-                    let resp = recv_raw(Client::request(Method::PUT, format!("/collection/{col_id}")).json(&body))
-                        .await?
-                        .json()
-                        .await?;
-                    Ok(Some(resp))
-                }));
+                self.sync_to_cloud(true);
             }
         }
 
         if self.side_enter_time < 0. && -s.rt + INFO_TRANSIT < self.side_enter_time {
             self.side_enter_time = f32::INFINITY;
         }
-
-        // 处理文件选择（自定义封面） || Handle file selection (custom cover)
-        /* if let Some((id, path)) = take_file() {
-            if id == "fav_cover" {
-                if let Some(ref folder) = self.editing_folder {
-                    get_data_mut().favorites.covers.insert(folder.clone(), path);
-                    let _ = save_data();
-                    self.need_rebuild = true;
-                }
-            }
-        } */
 
         if let Some(task) = &mut self.upload_task {
             if let Some(result) = task.take() {
@@ -884,7 +854,7 @@ impl Page for FavoritesPage {
                         let _ = save_data();
                         show_message(tl!("imported")).ok();
                         if col.id.is_some() && !data.config.offline_mode {
-                            self.sync_to_cloud();
+                            self.sync_to_cloud(false);
                         }
                     }
                     Err(err) => {

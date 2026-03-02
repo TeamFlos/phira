@@ -203,6 +203,23 @@ impl RectButton {
         }
         false
     }
+
+    pub fn long_touch(&mut self, t: f32, start_time: &mut f32) -> bool {
+        if self.touching() {
+            if start_time.is_finite() {
+                if t > *start_time + 0.5 {
+                    *start_time = f32::INFINITY;
+                    self.id = None;
+                    return true;
+                }
+            } else {
+                *start_time = t;
+            }
+        } else {
+            *start_time = f32::INFINITY;
+        }
+        false
+    }
 }
 
 #[derive(Clone)]
@@ -367,6 +384,19 @@ impl DRectButton {
             button_hit();
         }
         res
+    }
+
+    pub fn long_touch(&mut self, t: f32, start_touch: &mut f32) -> bool {
+        if self.inner.long_touch(t, start_touch) {
+            self.last_touching = false;
+            self.start_time = Some(t);
+            if self.play_sound {
+                button_hit();
+            }
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -1003,13 +1033,13 @@ impl<'a> Ui<'a> {
         })
     }
 
-    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32)) -> (f32, f32) {
+    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32, (f32, f32))) -> (f32, f32) {
         let mut sh = 0.;
         let w = width / row_num as f32;
         for i in (0..count).step_by(row_num as usize) {
             let mut sw = 0.;
             for j in 0..(count - i).min(row_num) {
-                content(self, i + j);
+                content(self, i + j, (sw, sh));
                 self.dx(w);
                 sw += w;
             }
