@@ -389,7 +389,9 @@ impl BinaryData for JudgeLine {
             0 => None,
             x => Some(x as usize - 1),
         };
-        let show_below = r.read()?;
+        let flags = r.read::<u8>()?;
+        let show_below = flags & 1 != 0;
+        let rot_with_parent = flags & 2 != 0;
         let cache = JudgeLineCache::new(&mut notes);
         let attach_ui = UIElement::from_u8(r.read()?);
         let ctrl_obj = RefCell::new(r.read()?);
@@ -402,6 +404,7 @@ impl BinaryData for JudgeLine {
             notes,
             color,
             parent,
+            rot_with_parent,
             show_below,
 
             attach_ui,
@@ -440,7 +443,7 @@ impl BinaryData for JudgeLine {
             None => 0,
             Some(index) => index as u64 + 1,
         })?;
-        w.write_val(self.show_below)?;
+        w.write_val(self.show_below as u8 + self.rot_with_parent as u8 * 2)?;
         w.write_val(self.attach_ui.map_or(0, |it| it as u8))?;
         w.write(self.ctrl_obj.borrow().deref())?;
         w.write(&self.incline)?;
