@@ -2041,7 +2041,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.3.25"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=0f2c9d8#0f2c9d8b62dfcfeec21292c0a2efc5aa26239549"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=f4e746d#f4e746d499270a1716a4281480c57ac47f2e5f40"
 dependencies = [
  "bumpalo",
  "fontdue",
@@ -2055,7 +2055,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.7"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=0f2c9d8#0f2c9d8b62dfcfeec21292c0a2efc5aa26239549"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=f4e746d#f4e746d499270a1716a4281480c57ac47f2e5f40"
 
 [[package]]
 name = "malloc_buf"
@@ -2124,8 +2124,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad?rev=3dfb072#3dfb0725bc82037b357d59150c88b6868921545d"
+source = "git+https://github.com/Mivik/prpr-miniquad?rev=4451516#4451516c411c2f943fd0c92f7cbbede8324bf2b7"
 dependencies = [
+ "jni",
  "keyboard-types",
  "libc",
  "napi-build-ohos",
@@ -2145,6 +2146,7 @@ dependencies = [
  "ohos-xcomponent-sys",
  "ohos_enum_macro 0.0.2",
  "raw-window-handle",
+ "rustls-platform-verifier",
  "winapi",
  "xcomponent-sys",
 ]
