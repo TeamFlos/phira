@@ -68,6 +68,7 @@ symphonia = { version = "0.5", features = [
 ] }
 sys-locale = { workspace = true }
 tempfile = { workspace = true }
+tfd = "=0.1.0"
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.22", optional = true }
 unic-langid = { version = "0.9.6", features = ["macros"] }

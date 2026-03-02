@@ -219,8 +219,9 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                 ];
             }
         } else {
-            INPUT_TEXT.lock().unwrap().1 = Some(unsafe { get_internal_gl() }.quad_context.clipboard_get().unwrap_or_default());
-            show_message(ttl!("pasted")).ok();
+            if let Some(text) = tfd::InputBox::new(ttl!("input"), ttl!("input-msg")).with_default(text).run_modal() {
+                INPUT_TEXT.lock().unwrap().1 = Some(text);
+            }
         }
     }
 }
