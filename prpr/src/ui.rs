@@ -927,7 +927,7 @@ impl<'a> Ui<'a> {
             let mut state = state.borrow_mut();
             let entry = state.entry(format!("chkbox#{text}")).or_default();
             let w = 0.08;
-            let s = 0.03;
+            let s = 0.025;
             let text = self.text(text).pos(w, 0.).size(0.47).no_baseline().draw();
             let r = Rect::new(w / 2. - s, text.center().y - s, s * 2., s * 2.);
             self.fill_path(

@@ -202,7 +202,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
 
             let r = ui.text(tl!("enable-unlock")).size(0.47).anchor(1., 0.).draw();
             let r = Rect::new(0.02, r.y - 0.01, r.h + 0.02, r.h + 0.02);
-            let check_str = if edit.enable_unlock { "v" } else { "" };
+            let check_str = if edit.enable_unlock { "\u{2713}" } else { "" };
             if ui.button("unlockchk", r, check_str.to_string()) {
                 if edit.enable_unlock {
                     info.unlock_video = None;
