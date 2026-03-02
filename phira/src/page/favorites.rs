@@ -647,10 +647,14 @@ impl Page for FavoritesPage {
                         request_input("fav_description", &data.collections[index].description);
                     }
                     "set-cover" => {
-                        FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(Some(index)));
-                        CHOOSE_COVER.store(true, Ordering::Relaxed);
-                        show_message(tl!("select-cover"));
-                        self.next_page = Some(NextPage::Pop);
+                        if data.collections[index].id.is_none() {
+                            show_message(tl!("no-charts")).error();
+                        } else {
+                            FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(Some(index)));
+                            CHOOSE_COVER.store(true, Ordering::Relaxed);
+                            show_message(tl!("select-cover"));
+                            self.next_page = Some(NextPage::Pop);
+                        }
                     }
                     "duplicate" => {
                         let col = &data.collections[index];
