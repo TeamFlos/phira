@@ -208,11 +208,11 @@ impl JudgeLine {
         });
     }
 
-    pub fn fetch_rot(&self, res: &Resource, lines: &[JudgeLine]) -> f32 {
+    pub fn fetch_rot(&self, lines: &[JudgeLine]) -> f32 {
         let mut rot = self.object.rotation.now();
         if self.rot_with_parent {
             if let Some(parent) = self.parent {
-                rot += lines[parent].fetch_rot(res, lines);
+                rot += lines[parent].fetch_rot(lines);
             }
         }
         rot
@@ -222,14 +222,15 @@ impl JudgeLine {
         if let Some(parent) = self.parent {
             let parent = &lines[parent];
             let parent_translation = parent.fetch_pos(res, lines);
-            return parent_translation
-                + Rotation2::new(parent.fetch_rot(res, lines).to_radians()) * self.object.now_translation(res);
+            return parent_translation + Rotation2::new(parent.fetch_rot(lines).to_radians()) * self.object.now_translation(res);
         }
         self.object.now_translation(res)
     }
 
     pub fn now_transform(&self, res: &Resource, lines: &[JudgeLine]) -> Matrix {
-        Rotation2::new(self.fetch_rot(res, lines).to_radians()).to_homogeneous().append_translation(&self.fetch_pos(res, lines))
+        Rotation2::new(self.fetch_rot(lines).to_radians())
+            .to_homogeneous()
+            .append_translation(&self.fetch_pos(res, lines))
     }
 
     pub fn render(&self, ui: &mut Ui, res: &mut Resource, lines: &[JudgeLine], bpm_list: &mut BpmList, settings: &ChartSettings, id: usize) {
