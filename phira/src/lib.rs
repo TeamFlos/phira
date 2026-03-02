@@ -299,9 +299,20 @@ fn show_and_exit(msg: &str) {
         .show();
 }
 
+fn build_global_window_conf() -> Conf {
+    let mut conf = build_conf();
+    conf.window_title = "Phira".to_owned();
+    conf.icon = Some(miniquad::conf::Icon {
+        small: *include_bytes!("../icon/small"),
+        medium: *include_bytes!("../icon/medium"),
+        big: *include_bytes!("../icon/big"),
+    });
+    conf
+}
+
 #[no_mangle]
 pub extern "C" fn quad_main() {
-    macroquad::Window::from_config(build_conf(), async {
+    macroquad::Window::from_config(build_global_window_conf(), async {
         if let Err(err) = the_main().await {
             error!(?err, "global error");
         }
