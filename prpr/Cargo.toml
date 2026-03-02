@@ -10,7 +10,7 @@ workspace = true
 [lib]
 
 [features]
-default = ["log", "video"]
+default = ["log"]
 video = ["dep:prpr-avc"]
 log = ["dep:tracing-subscriber", "dep:colored"]
 
