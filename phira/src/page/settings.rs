@@ -470,7 +470,7 @@ impl GeneralList {
 
         #[cfg(target_os = "windows")]
         item! {
-            render_title(ui, tl!("item-fullscreen"), Some(tl!("item-fullscreen-sub")));
+            render_title(ui, tl!("item-fullscreen"), None);
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
         }
 

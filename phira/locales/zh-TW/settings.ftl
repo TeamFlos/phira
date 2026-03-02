@@ -8,6 +8,7 @@ debug = 除錯
 about = 關於
 
 item-lang = 語言
+item-fullscreen = 全螢幕模式
 item-offline = 離線模式
 item-offline-sub = 離線模式下無法上傳成績
 item-server-status = 伺服器狀態
