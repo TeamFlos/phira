@@ -1,6 +1,6 @@
 
 del-confirm = Xác nhận xóa
-del-confirm-content = Bạn có chắc chắn muốn xóa không?, hành động này không thể hoàn tác.
+del-confirm-content = Bạn có chắc chắn muốn xóa không? Hành động này không thể hoàn tác.
 
 cancel = Huỷ
 confirm = Xác nhận
