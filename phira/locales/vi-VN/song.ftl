@@ -22,7 +22,7 @@ warn-unrated = Lượt này sẽ không lưu vào tài khoản của bạn
 failed-to-play = Không thể bắt đầu
 play-cancel = Huỷ
 play-switch-to-offline = Bạn muốn chuyển sang chế độ Offline?
-switched-to-offline = Đã chuyến sang chế độ Offline.
+switched-to-offline = Đã chuyển sang chế độ Offline.
 
 delete = Xoá
 rate = Đánh giá
