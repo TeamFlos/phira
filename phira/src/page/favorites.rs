@@ -655,6 +655,7 @@ impl Page for FavoritesPage {
                 } else {
                     self.active_folder.map(|it| it.min(data.collections.len() - 1))
                 };
+                FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(self.active_folder));
                 self.rebuild_folders();
             }
             if self.cloud_delete.swap(false, Ordering::SeqCst) {
