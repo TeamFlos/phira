@@ -1,5 +1,5 @@
 //! UI utilities.
-
+prpr_l10n::tl_file!("scene" ttl);
 mod billboard;
 pub use billboard::{BillBoard, Message, MessageHandle, MessageKind};
 
@@ -27,7 +27,7 @@ use crate::{
     core::{Matrix, Point, Vector},
     ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
-    scene::{request_input_full, return_input, take_input},
+    scene::{request_input_full, return_input, show_error, take_input},
 };
 use lyon::{
     lyon_tessellation::{
@@ -203,6 +203,23 @@ impl RectButton {
         }
         false
     }
+
+    pub fn long_touch(&mut self, t: f32, start_time: &mut f32) -> bool {
+        if self.touching() {
+            if start_time.is_finite() {
+                if t > *start_time + 0.5 {
+                    *start_time = f32::INFINITY;
+                    self.id = None;
+                    return true;
+                }
+            } else {
+                *start_time = t;
+            }
+        } else {
+            *start_time = f32::INFINITY;
+        }
+        false
+    }
 }
 
 #[derive(Clone)]
@@ -284,6 +301,7 @@ impl DRectButton {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) {
         let oh = r.h;
         self.build(ui, t, r, |ui, path| {
@@ -366,6 +384,19 @@ impl DRectButton {
             button_hit();
         }
         res
+    }
+
+    pub fn long_touch(&mut self, t: f32, start_touch: &mut f32) -> bool {
+        if self.inner.long_touch(t, start_touch) {
+            self.last_touching = false;
+            self.start_time = Some(t);
+            if self.play_sound {
+                button_hit();
+            }
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -1002,13 +1033,13 @@ impl<'a> Ui<'a> {
         })
     }
 
-    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32)) -> (f32, f32) {
+    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32, (f32, f32))) -> (f32, f32) {
         let mut sh = 0.;
         let w = width / row_num as f32;
         for i in (0..count).step_by(row_num as usize) {
             let mut sw = 0.;
             for j in 0..(count - i).min(row_num) {
-                content(self, i + j);
+                content(self, i + j, (sw, sh));
                 self.dx(w);
                 sw += w;
             }
@@ -1182,21 +1213,44 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
     }
 }
 
+#[allow(clippy::blocks_in_conditions)]
 fn build_audio() -> AudioManager {
-    #[cfg(target_os = "android")]
-    {
-        use sasa::backend::oboe::*;
-        AudioManager::new(OboeBackend::new(OboeSettings {
-            performance_mode: PerformanceMode::PowerSaving,
-            usage: Usage::Game,
-            ..Default::default()
-        }))
-        .unwrap()
+    match {
+        #[cfg(target_os = "android")]
+        {
+            use sasa::backend::oboe::*;
+            AudioManager::new(OboeBackend::new(OboeSettings {
+                performance_mode: PerformanceMode::PowerSaving,
+                usage: Usage::Game,
+                ..Default::default()
+            }))
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            use sasa::backend::cpal::*;
+            AudioManager::new(CpalBackend::new(CpalSettings::default()))
+        }
+    } {
+        Ok(manager) => manager,
+        Err(e) => {
+            show_error(e.context(ttl!("audio-backend-init-failed")));
+            AudioManager::new(DummyBackend).expect("Failed to create dummy audio backend, this should not happen")
+        }
     }
-    #[cfg(not(target_os = "android"))]
-    {
-        use sasa::backend::cpal::*;
-        AudioManager::new(CpalBackend::new(CpalSettings::default())).unwrap()
+}
+
+struct DummyBackend;
+
+impl sasa::backend::Backend for DummyBackend {
+    fn setup(&mut self, setup: sasa::backend::BackendSetup) -> anyhow::Result<()> {
+        let _ = setup;
+        Ok(())
+    }
+    fn start(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn consume_broken(&self) -> bool {
+        false
     }
 }
 

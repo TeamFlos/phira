@@ -1,7 +1,6 @@
 
 load-preview-failed = Échec du chargement de l'aperçu
 load-charts-failed = Impossible de charger les partitions
-no-chart-for-download = Cette partition n'est pas téléchargeable
 
 load-chart-failed = Impossible de charger la partition
 
@@ -128,3 +127,8 @@ stabilize-approved = Approuvé
 stabilize-approved-passed = La partition est stabilisée.
 stabilize-denied = Refusé
 stabilize-denied-passed = La partition est rejetée.
+
+# fav-added = Ajouté aux favoris
+# fav-add-to = Ajouter à...
+# fav-select-folder = Sélectionner le dossier
+# fav-default-folder = Par défaut

@@ -135,6 +135,7 @@ struct RPEJudgeLine {
     texture: String,
     #[serde(rename = "father")]
     parent: Option<isize>,
+    rotate_with_father: Option<bool>,
     event_layers: Vec<Option<RPEEventLayer>>,
     extended: Option<RPEExtendedEvents>,
     notes: Option<Vec<RPENote>>,
@@ -473,7 +474,8 @@ async fn parse_judge_line(
                                         && rpe
                                             .extended
                                             .as_ref()
-                                            .is_none_or(|it| it.text_events.as_ref().is_some_and(|it| it.is_empty()))
+                                            .and_then(|it| it.text_events.as_ref())
+                                            .is_none_or(|it| it.is_empty())
                                         && rpe.attach_ui.is_none()
                                     {
                                         0.5
@@ -581,6 +583,7 @@ async fn parse_judge_line(
                 Some(parent as usize)
             }
         },
+        rot_with_parent: rpe.rotate_with_father.unwrap_or(false),
         z_index: rpe.z_order,
         show_below: rpe.is_cover != 1,
         attach_ui: rpe.attach_ui,

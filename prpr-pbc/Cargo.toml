@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.69.0"
 
 [dependencies]
-anyhow = "1.0.98"
-async-trait = "0.1.88"
-pollster = "0.4.0"
-prpr = { path = "../prpr" }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+pollster = { workspace = true }
+prpr = { workspace = true }

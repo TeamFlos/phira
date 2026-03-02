@@ -1,7 +1,6 @@
-﻿
+
 load-preview-failed = Fehler beim Laden der Songvorschau
 load-charts-failed = Fehler beim Laden der Level
-no-chart-for-download = Dieses Level kann nicht heruntergeladen werden.
 
 load-chart-failed = Fehler beim Laden des Level
 
@@ -128,3 +127,8 @@ stabilize-approved = Genehmigt
 stabilize-approved-passed = Das Level wurde stabilisiert.
 stabilize-denied = Abgelehnt
 stabilize-denied-passed = Abgelehnt, das Level wurde zurückgewiesen.
+
+# fav-added = Zu Favoriten hinzugefügt
+# fav-add-to = Hinzufügen zu...
+# fav-select-folder = Ordner auswählen
+# fav-default-folder = Standard

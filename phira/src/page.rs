@@ -4,11 +4,14 @@ pub use coll::CollectionPage;
 mod event;
 pub use event::EventPage;
 
+pub mod favorites;
+pub use favorites::FavoritesPage;
+
 mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::LibraryPage;
+pub use library::{LibraryPage, CHOOSE_COVER, CHOSEN_COVER, FAV_UPDATED};
 
 mod message;
 pub use message::MessagePage;
@@ -110,11 +113,13 @@ pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
     res
 }
 
+type IllustrationTask = Task<Result<(DynamicImage, Option<DynamicImage>)>>;
+
 #[derive(Clone)]
 pub struct Illustration {
     pub texture: (SafeTexture, SafeTexture),
     pub notify: Arc<Notify>,
-    pub task: Option<Task<Result<(DynamicImage, Option<DynamicImage>)>>>,
+    pub task: Option<IllustrationTask>,
     pub loaded: Arc<Mutex<Option<(SafeTexture, SafeTexture)>>>,
     pub load_time: f32,
 }
@@ -130,6 +135,20 @@ impl Illustration {
             task: Some(Task::new(async move {
                 notify.notified().await;
                 Ok((file.load_image().await?, None))
+            })),
+            loaded: Arc::default(),
+            load_time: f32::NAN,
+        }
+    }
+
+    pub fn from_file_thumbnail(file: File) -> Self {
+        let notify = Arc::default();
+        Self {
+            texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
+            notify: Arc::clone(&notify),
+            task: Some(Task::new(async move {
+                notify.notified().await;
+                Ok((file.load_thumbnail().await?, None))
             })),
             loaded: Arc::default(),
             load_time: f32::NAN,

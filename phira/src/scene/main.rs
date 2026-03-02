@@ -1,4 +1,4 @@
-use super::{import_chart, itl, L10N_LOCAL};
+use super::{import_chart, L10N_LOCAL};
 use crate::{
     charts_view::NEED_UPDATE,
     data::LocalChart,
@@ -71,7 +71,7 @@ impl MainScene {
     pub async fn new(fallback: FontArc) -> Result<Self> {
         Self::init().await?;
 
-        #[cfg(feature = "closed")]
+        #[cfg(closed)]
         let bgm = {
             let bgm_clip = AudioClip::new(crate::load_res("res/bgm").await)?;
             Some(UI_AUDIO.with(|it| {
@@ -86,7 +86,7 @@ impl MainScene {
                 )
             })?)
         };
-        #[cfg(not(feature = "closed"))]
+        #[cfg(not(closed))]
         let bgm = None;
 
         let mut sf = Self::new_inner(bgm, fallback).await?;

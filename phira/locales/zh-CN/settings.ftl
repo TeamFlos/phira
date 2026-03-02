@@ -9,7 +9,6 @@ about = 关于
 
 item-lang = 语言
 item-fullscreen = 全屏模式
-item-fullscreen-sub = 铺满整个屏幕
 item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
 item-server-status = 服务器状态
@@ -41,6 +40,7 @@ item-music = 音乐音量
 item-sfx = 音效音量
 item-bgm = BGM 音量
 item-cali = 调整延迟
+item-preferred-sample-rate = 首选采样率
 
 item-show-acc = 显示实时准度
 item-dc-pause = 双击暂停

@@ -14,7 +14,7 @@ use lyon::{
 use macroquad::prelude::*;
 use miniquad::{gl::GLenum, BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
 use once_cell::sync::Lazy;
-use ordered_float::{Float, NotNan};
+use ordered_float::{FloatCore, NotNan};
 use sasa::AudioManager;
 use serde::Deserialize;
 use std::{
@@ -50,7 +50,7 @@ pub trait NotNanExt: Sized {
     fn not_nan(self) -> NotNan<Self>;
 }
 
-impl<T: Sized + Float> NotNanExt for T {
+impl<T: FloatCore> NotNanExt for T {
     fn not_nan(self) -> NotNan<Self> {
         NotNan::new(self).unwrap()
     }
@@ -404,6 +404,7 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
     {
         use sasa::backend::cpal::*;
         AudioManager::new(CpalBackend::new(CpalSettings {
+            preferred_sample_rate: config.preferred_sample_rate,
             buffer_size: config.audio_buffer_size,
         }))
     }
