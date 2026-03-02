@@ -5,7 +5,7 @@ prpr_l10n::tl_file!("game");
 use super::{
     draw_background,
     ending::RecordUpdateState,
-    loading::{BasicPlayer, UpdateFn, UploadFn, SaveFn},
+    loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn},
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
@@ -970,7 +970,8 @@ impl Scene for GameScene {
                                 record_data,
                                 self.best_record.clone(),
                                 if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
-                        )?)))},
+                            )?)))
+                        }
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
                     };
@@ -1214,7 +1215,7 @@ impl Scene for GameScene {
                     } else {
                         NextScene::Pop
                     }
-                },
+                }
                 // not sure if they need result. just keep it
                 GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),

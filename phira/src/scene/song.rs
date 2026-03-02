@@ -40,7 +40,7 @@ use prpr::{
     judge::{icon_index, Judge},
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn, SaveFn,
+        LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
     },
     task::Task,
     time::TimeManager,

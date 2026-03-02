@@ -6,7 +6,7 @@ use prpr::{
     ext::{create_audio_manger, semi_black, semi_white, SafeTexture, ScaleType},
     fs::FileSystem,
     info::ChartInfo,
-    scene::{BasicPlayer, GameMode, LoadingScene, NextScene, Scene, UpdateFn, UploadFn, SaveFn},
+    scene::{BasicPlayer, GameMode, LoadingScene, NextScene, SaveFn, Scene, UpdateFn, UploadFn},
     time::TimeManager,
     ui::LoadingParams,
 };
