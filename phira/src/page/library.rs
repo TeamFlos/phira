@@ -1,17 +1,18 @@
 prpr_l10n::tl_file!("library");
 
-use super::{CollectionPage, NextPage, Page, SharedState};
+use super::{CollectionPage, FavoritesPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
-    client::{Chart, Client},
-    get_data,
+    client::{Chart, ChartRef, Client, Collection},
+    get_data, get_data_mut,
     icons::Icons,
+    page::favorites::FAV_PAGE_RESULT,
     popup::Popup,
     rate::RateDialog,
-    scene::{check_read_tos_and_policy, ChartOrder, JUST_LOADED_TOS, ORDERS},
+    save_data,
+    scene::{check_read_tos_and_policy, confirm_dialog, ChartOrder, JUST_LOADED_TOS, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
-    ttl,
 };
 use anyhow::{anyhow, Result};
 use macroquad::prelude::*;
@@ -24,10 +25,21 @@ use prpr::{
 use std::{
     any::Any,
     borrow::Cow,
+    cell::RefCell,
     ops::Deref,
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use tap::Tap;
+
+pub static FAV_UPDATED: AtomicBool = AtomicBool::new(false);
+pub static CHOOSE_COVER: AtomicBool = AtomicBool::new(false);
+
+thread_local! {
+    pub static CHOSEN_COVER: RefCell<Option<Result<i32, String>>> = const { RefCell::new(None) };
+}
 
 const PAGE_NUM: u64 = 28;
 
@@ -66,6 +78,7 @@ pub struct LibraryPage {
     online_task: Option<OnlineTask>,
 
     icons: Arc<Icons>,
+    rank_icons: [SafeTexture; 8],
 
     import_btn: DRectButton,
 
@@ -84,6 +97,13 @@ pub struct LibraryPage {
     rating: RateDialog,
     rating_last_show: bool,
     filter_show_tag: bool,
+
+    // 收藏夹 || Favorites
+    fav_btn: DRectButton,
+    // None = 显示全部 || show all,      Some(folder_name) = 过滤指定收藏夹 || filter by folder
+    current_fav_index: Option<usize>,
+    sync_fav_task: Option<Task<Result<Option<Collection>>>>,
+    force_sync_to_cloud: Arc<AtomicBool>,
 
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
@@ -111,6 +131,7 @@ impl LibraryPage {
             online_task: None,
 
             icons,
+            rank_icons,
 
             import_btn: DRectButton::new(),
 
@@ -132,6 +153,11 @@ impl LibraryPage {
             }),
             rating_last_show: false,
             filter_show_tag: true,
+
+            fav_btn: DRectButton::new(),
+            current_fav_index: None,
+            sync_fav_task: None,
+            force_sync_to_cloud: Arc::default(),
 
             next_page: None,
             next_page_task: None,
@@ -240,17 +266,27 @@ impl LibraryPage {
     fn sync_local(&mut self, s: &SharedState) {
         let list = self.tabs.selected_mut();
         if list.ty == ChartListType::Local {
-            let search = self.search_str.clone();
             let mut charts = Vec::new();
-            charts.push(ChartDisplayItem::new(None, None));
-            charts.append(
-                &mut s
-                    .charts_local
-                    .iter()
-                    .filter(|it| it.info.name.contains(&search))
-                    .map(|it| ChartDisplayItem::new(Some(it.clone()), None))
-                    .collect::<Vec<ChartDisplayItem>>(),
-            );
+            if let Some(fav_index) = self.current_fav_index {
+                charts.extend(get_data().collections[fav_index].charts.iter().filter_map(|it| {
+                    match it {
+                        ChartRef::Online(chart) => chart.name.contains(&self.search_str).then(|| ChartDisplayItem::from_remote(chart)),
+                        ChartRef::Local(path) => s
+                            .charts_local
+                            .iter()
+                            .find(|it| it.local_path.as_ref().is_some_and(|its_path| its_path == path) && it.info.name.contains(&self.search_str))
+                            .map(|it| ChartDisplayItem::new(Some(it.clone()), None)),
+                    }
+                }))
+            } else {
+                charts.push(ChartDisplayItem::new(None, None));
+                charts.extend(
+                    s.charts_local
+                        .iter()
+                        .filter(|it| it.info.name.contains(&self.search_str))
+                        .map(|it| ChartDisplayItem::new(Some(it.clone()), None)),
+                )
+            }
             list.view.set(s.t, charts);
         }
     }
@@ -259,6 +295,13 @@ impl LibraryPage {
 impl Page for LibraryPage {
     fn label(&self) -> Cow<'static, str> {
         tl!("label")
+    }
+
+    fn enter(&mut self, s: &mut SharedState) -> Result<()> {
+        if FAV_UPDATED.swap(false, Ordering::SeqCst) {
+            self.sync_local(s);
+        }
+        Ok(())
     }
 
     fn on_result(&mut self, res: Box<dyn Any>, s: &mut SharedState) -> Result<()> {
@@ -274,24 +317,33 @@ impl Page for LibraryPage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
-        if self.order_menu.showing() {
-            self.order_menu.touch(touch, t);
+        if self.sync_fav_task.is_some() {
             return Ok(true);
         }
-        if self.tabs.touch(touch, s.rt) {
-            return Ok(true);
-        }
-        if self.tags.touch(touch, t) {
-            return Ok(true);
-        }
-        if self.rating.touch(touch, t) {
-            return Ok(true);
+        let choose_cover = CHOOSE_COVER.load(Ordering::Relaxed);
+        if !choose_cover {
+            if self.order_menu.showing() {
+                self.order_menu.touch(touch, t);
+                return Ok(true);
+            }
+            if self.tabs.touch(touch, s.rt) {
+                return Ok(true);
+            }
+            if self.tags.touch(touch, t) {
+                return Ok(true);
+            }
+            if self.rating.touch(touch, t) {
+                return Ok(true);
+            }
         }
         let charts_view = &mut self.tabs.selected_mut().view;
         if charts_view.transiting() {
             return Ok(true);
         }
         if charts_view.touch(touch, t, s.rt)? {
+            return Ok(true);
+        }
+        if choose_cover {
             return Ok(true);
         }
         if !matches!(self.tabs.selected().ty, ChartListType::Local) {
@@ -315,6 +367,15 @@ impl Page for LibraryPage {
             ChartListType::Local => {
                 if self.import_btn.touch(touch, t) {
                     request_file("_import");
+                    return Ok(true);
+                }
+                if self.fav_btn.touch(touch, t) {
+                    self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(
+                        self.icons.clone(),
+                        self.rank_icons.clone(),
+                        self.current_fav_index,
+                        None,
+                    ))));
                     return Ok(true);
                 }
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
@@ -360,6 +421,23 @@ impl Page for LibraryPage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+
+        if let Some(chosen_cover) = CHOSEN_COVER.with(|it| it.borrow_mut().take()) {
+            CHOOSE_COVER.store(false, Ordering::Relaxed);
+            self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(
+                self.icons.clone(),
+                self.rank_icons.clone(),
+                self.current_fav_index,
+                Some(chosen_cover),
+            ))));
+        }
+
+        // 在 update 中处理收藏夹选择结果，绕开fader那个的0.7秒延迟  ||  Handle the favorites folder selection result in update, bypassing the 0.7-second delay of the fader
+        if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {
+            self.current_fav_index = result;
+            self.sync_local(s);
+        }
+
         self.tags.update(t);
         self.rating.update(t);
 
@@ -448,6 +526,59 @@ impl Page for LibraryPage {
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
         }
+        let list = self.tabs.selected_mut();
+        let view = &mut list.view;
+        if let Some((from, to)) = view.take_movement() {
+            let data = get_data_mut();
+            if let Some(index) = self.current_fav_index {
+                let col = &mut data.collections[index];
+                let chart = col.charts.remove(from);
+                col.charts.insert(to, chart);
+                let _ = save_data();
+                if col.id.is_some() && !data.config.offline_mode {
+                    if let Some(task) = FavoritesPage::sync_to_cloud_task(index, false) {
+                        self.sync_fav_task = Some(task);
+                    }
+                }
+            } else {
+                let chart = data.charts.remove(data.charts.len() - from - 1);
+                data.charts.insert(data.charts.len() - to, chart);
+                let _ = save_data();
+            }
+            show_message(tl!("order-updated")).ok();
+        }
+        view.allow_edit(
+            list.ty == ChartListType::Local
+                && self.search_str.is_empty()
+                && self.current_fav_index.is_none_or(|it| get_data().collections[it].is_owned()),
+        );
+
+        if let Some(task) = &mut self.sync_fav_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("fav-sync-failed"))),
+                    Ok(Some(col)) => {
+                        let data = get_data_mut();
+                        data.collections[self.current_fav_index.unwrap()].assign_from(&col);
+                        let _ = save_data();
+                        show_message(tl!("fav-synced")).ok();
+                    }
+                    Ok(None) => {
+                        use crate::page::favorites::{tl as ftl, L10N_LOCAL};
+                        confirm_dialog(ftl!("sync-to-cloud"), ftl!("sync-outdated"), self.force_sync_to_cloud.clone());
+                    }
+                }
+                self.sync_fav_task = None;
+            }
+        }
+        if self.force_sync_to_cloud.swap(false, Ordering::SeqCst) {
+            if let Some(index) = self.current_fav_index {
+                if let Some(task) = FavoritesPage::sync_to_cloud_task(index, true) {
+                    self.sync_fav_task = Some(task);
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -500,14 +631,36 @@ impl Page for LibraryPage {
                     r.x += r.w;
                 }
                 if chosen == ChartListType::Local {
-                    let w = 0.24;
-                    r.x = r.x + r.w - w;
-                    r.w = w;
-                    let ct = r.center();
-                    self.import_btn.render_shadow(ui, r, t, |ui, path| {
+                    let btn_w = 0.24;
+                    // 导入按钮（右侧） || Import button (right side)
+                    let import_r = Rect::new(r.x + r.w - btn_w, r.y, btn_w, r.h);
+                    let ct = import_r.center();
+                    self.import_btn.render_shadow(ui, import_r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                     });
                     ui.text(tl!("import")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(0.6).draw();
+                    // 收藏夹按钮（导入按钮左侧） || Favorites button (left of import)
+                    let fav_r = Rect::new(import_r.x - btn_w - 0.02, r.y, btn_w, r.h);
+                    let data = get_data();
+                    let fav_text = if let Some(folder) = self.current_fav_index {
+                        data.collections[folder].name.as_str().into()
+                    } else {
+                        ttl!("favorites")
+                    };
+
+                    let active = self.current_fav_index.is_some();
+                    self.fav_btn.render_shadow(ui, fav_r, t, |ui, path| {
+                        ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
+                    });
+                    let ct = fav_r.center();
+                    ui.text(fav_text)
+                        .pos(ct.x, ct.y)
+                        .anchor(0.5, 0.5)
+                        .no_baseline()
+                        .size(0.5)
+                        .max_width(btn_w - 0.02)
+                        .color(if active { BLACK } else { WHITE })
+                        .draw();
                 } else {
                     self.order_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
@@ -552,6 +705,9 @@ impl Page for LibraryPage {
         self.order_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
         self.rating.render(ui, t);
+        if self.sync_fav_task.is_some() {
+            ui.full_loading("", t);
+        }
         Ok(())
     }
 

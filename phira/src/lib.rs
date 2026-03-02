@@ -1,6 +1,7 @@
 prpr_l10n::tl_file!("common" ttl crate::);
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(closed)]
 mod inner;
 
 mod anim;
@@ -45,7 +46,7 @@ static DATA_PATH: Mutex<Option<String>> = Mutex::new(None);
 static CACHE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static mut DATA: Option<Data> = None;
 
-#[cfg(feature = "closed")]
+#[cfg(closed)]
 pub async fn load_res(name: &str) -> Vec<u8> {
     let bytes = load_file(name).await.unwrap();
     inner::resolve_data(bytes)
@@ -53,13 +54,13 @@ pub async fn load_res(name: &str) -> Vec<u8> {
 
 #[allow(unused)]
 pub async fn load_res_tex(name: &str) -> SafeTexture {
-    #[cfg(feature = "closed")]
+    #[cfg(closed)]
     {
         let bytes = load_res(name).await;
         let image = image::load_from_memory(&bytes).unwrap();
         image.into()
     }
-    #[cfg(not(feature = "closed"))]
+    #[cfg(not(closed))]
     prpr::ext::BLACK_TEXTURE.clone()
 }
 
@@ -77,10 +78,12 @@ pub fn set_data(data: Data) {
     }
 }
 
+#[allow(static_mut_refs)]
 pub fn get_data() -> &'static Data {
     unsafe { DATA.as_ref().unwrap() }
 }
 
+#[allow(static_mut_refs)]
 pub fn get_data_mut() -> &'static mut Data {
     unsafe { DATA.as_mut().unwrap() }
 }
@@ -284,9 +287,6 @@ async fn the_main() -> Result<()> {
             info!("FPS {}", (1. / (t - frame_start)) as u32);
         }
 
-        #[cfg(target_os = "windows")]
-        macroquad::window::set_fullscreen(get_data().config.fullscreen_mode);
-
         next_frame().await;
     }
     Ok(())
@@ -299,9 +299,20 @@ fn show_and_exit(msg: &str) {
         .show();
 }
 
+fn build_global_window_conf() -> Conf {
+    let mut conf = build_conf();
+    conf.window_title = "Phira".to_owned();
+    conf.icon = Some(miniquad::conf::Icon {
+        small: *include_bytes!("../icon/small"),
+        medium: *include_bytes!("../icon/medium"),
+        big: *include_bytes!("../icon/big"),
+    });
+    conf
+}
+
 #[no_mangle]
 pub extern "C" fn quad_main() {
-    macroquad::Window::from_config(build_conf(), async {
+    macroquad::Window::from_config(build_global_window_conf(), async {
         if let Err(err) = the_main().await {
             error!(?err, "global error");
         }

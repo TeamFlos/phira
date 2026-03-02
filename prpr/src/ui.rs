@@ -203,6 +203,23 @@ impl RectButton {
         }
         false
     }
+
+    pub fn long_touch(&mut self, t: f32, start_time: &mut f32) -> bool {
+        if self.touching() {
+            if start_time.is_finite() {
+                if t > *start_time + 0.5 {
+                    *start_time = f32::INFINITY;
+                    self.id = None;
+                    return true;
+                }
+            } else {
+                *start_time = t;
+            }
+        } else {
+            *start_time = f32::INFINITY;
+        }
+        false
+    }
 }
 
 #[derive(Clone)]
@@ -284,6 +301,7 @@ impl DRectButton {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) {
         let oh = r.h;
         self.build(ui, t, r, |ui, path| {
@@ -366,6 +384,19 @@ impl DRectButton {
             button_hit();
         }
         res
+    }
+
+    pub fn long_touch(&mut self, t: f32, start_touch: &mut f32) -> bool {
+        if self.inner.long_touch(t, start_touch) {
+            self.last_touching = false;
+            self.start_time = Some(t);
+            if self.play_sound {
+                button_hit();
+            }
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -896,10 +927,16 @@ impl<'a> Ui<'a> {
             let mut state = state.borrow_mut();
             let entry = state.entry(format!("chkbox#{text}")).or_default();
             let w = 0.08;
-            let s = 0.03;
-            let text = self.text(text).pos(w, 0.).size(0.5).no_baseline().draw();
+            let s = 0.025;
+            let text = self.text(text).pos(w, 0.).size(0.47).no_baseline().draw();
             let r = Rect::new(w / 2. - s, text.center().y - s, s * 2., s * 2.);
-            self.fill_rect(r, if *value { self.accent() } else { WHITE });
+            self.fill_path(
+                &r.rounded(0.01),
+                Color {
+                    a: if entry.is_some() { 0.5 } else { 1. },
+                    ..if *value { WHITE } else { self.background() }
+                },
+            );
             let r = Rect::new(r.x, r.y, text.right() - r.x, (text.bottom() - r.y).max(w));
             if self.clicked(r, entry) {
                 *value ^= true;
@@ -1002,13 +1039,13 @@ impl<'a> Ui<'a> {
         })
     }
 
-    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32)) -> (f32, f32) {
+    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32, (f32, f32))) -> (f32, f32) {
         let mut sh = 0.;
         let w = width / row_num as f32;
         for i in (0..count).step_by(row_num as usize) {
             let mut sw = 0.;
             for j in 0..(count - i).min(row_num) {
-                content(self, i + j);
+                content(self, i + j, (sw, sh));
                 self.dx(w);
                 sw += w;
             }
@@ -1182,6 +1219,7 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
     }
 }
 
+#[allow(clippy::blocks_in_conditions)]
 fn build_audio() -> AudioManager {
     match {
         #[cfg(target_os = "android")]

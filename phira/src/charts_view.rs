@@ -1,19 +1,21 @@
+prpr_l10n::tl_file!("charts_view");
+
 use crate::{
     client::Chart,
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{ChartItem, ChartType, Fader, Illustration},
+    page::{ChartItem, ChartType, Fader, Illustration, CHOOSE_COVER, CHOSEN_COVER},
+    popup::Popup,
     save_data,
     scene::{render_release_to_refresh, SongScene, MP_PANEL},
-    ttl,
 };
 use anyhow::Result;
+use core::f32;
 use macroquad::prelude::*;
 use prpr::{
     core::{Tweenable, BOLD_FONT},
-    ext::{semi_black, RectExt, SafeTexture, BLACK_TEXTURE},
+    ext::{semi_black, RectExt, SafeTexture},
     scene::{show_message, NextScene},
-    task::Task,
     ui::{button_hit_large, DRectButton, Scroll, Ui},
 };
 use std::{
@@ -24,7 +26,7 @@ use std::{
         Arc,
     },
 };
-use tokio::sync::Notify;
+use tap::Tap;
 
 pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 
@@ -36,6 +38,7 @@ pub struct ChartDisplayItem {
     chart: Option<ChartItem>,
     symbol: Option<char>,
     btn: DRectButton,
+    touch_start: f32,
 }
 
 impl ChartDisplayItem {
@@ -44,6 +47,7 @@ impl ChartDisplayItem {
             chart,
             symbol,
             btn: DRectButton::new(),
+            touch_start: f32::INFINITY,
         }
     }
 
@@ -51,22 +55,7 @@ impl ChartDisplayItem {
         Self::new(
             Some(ChartItem {
                 info: chart.to_info(),
-                illu: {
-                    let notify = Arc::new(Notify::new());
-                    Illustration {
-                        texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
-                        notify: Arc::clone(&notify),
-                        task: Some(Task::new({
-                            let illu = chart.illustration.clone();
-                            async move {
-                                notify.notified().await;
-                                Ok((illu.load_thumbnail().await?, None))
-                            }
-                        })),
-                        loaded: Arc::default(),
-                        load_time: f32::NAN,
-                    }
-                },
+                illu: Illustration::from_file_thumbnail(chart.illustration.clone()),
                 local_path: None,
                 chart_type: ChartType::Downloaded,
             }),
@@ -110,6 +99,13 @@ pub struct ChartsView {
     pub can_refresh: bool,
 
     pub clicked_special: bool,
+
+    allow_edit: bool,
+    editing_chart: Option<usize>,
+    chart_menu: Popup,
+    need_show_chart_menu: bool,
+    edit_move_state: Option<bool>,
+    movement: Option<(usize, usize)>,
 }
 
 impl ChartsView {
@@ -132,7 +128,34 @@ impl ChartsView {
             can_refresh: true,
 
             clicked_special: false,
+
+            allow_edit: false,
+            editing_chart: None,
+            chart_menu: Popup::new().tap_mut(|menu| {
+                menu.set_options(vec![
+                    tl!("move-to-first").into_owned(),
+                    tl!("move-to-last").into_owned(),
+                    tl!("move-before").into_owned(),
+                    tl!("move-after").into_owned(),
+                ])
+            }),
+            need_show_chart_menu: false,
+            edit_move_state: None,
+            movement: None,
         }
+    }
+
+    pub fn allow_edit(&mut self, allow: bool) {
+        self.allow_edit = allow;
+        if !allow {
+            self.editing_chart = None;
+            self.edit_move_state = None;
+            self.movement = None;
+        }
+    }
+
+    pub fn take_movement(&mut self) -> Option<(usize, usize)> {
+        self.movement.take()
     }
 
     fn charts_display_range(&self, content_size: (f32, f32)) -> Range<u32> {
@@ -173,80 +196,154 @@ impl ChartsView {
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32, rt: f32) -> Result<bool> {
+        if self.chart_menu.showing() {
+            self.chart_menu.touch(touch, t);
+            return Ok(true);
+        }
         if self.scroll.touch(touch, t) {
             return Ok(true);
         }
-        if self.scroll.contains(touch) {
-            if let Some(charts) = &mut self.charts {
-                for (id, item) in charts.iter_mut().enumerate() {
-                    if let Some(chart) = &item.chart {
-                        if item.btn.touch(touch, t) {
-                            button_hit_large();
-                            let handled_by_mp = MP_PANEL.with(|it| {
-                                if let Some(panel) = it.borrow_mut().as_mut() {
-                                    if panel.in_room() {
-                                        if let Some(id) = chart.info.id {
-                                            panel.select_chart(id);
-                                            panel.show(rt);
-                                        } else {
-                                            use crate::mp::{mtl, L10N_LOCAL};
-                                            show_message(mtl!("select-chart-local")).error();
-                                        }
-                                        return true;
-                                    }
-                                }
-                                false
-                            });
-                            if handled_by_mp {
-                                continue;
-                            }
-                            let download_path = chart.info.id.map(|it| format!("download/{it}"));
-                            let scene = SongScene::new(
-                                chart.clone(),
-                                if let Some(path) = &chart.local_path {
-                                    Some(path.clone())
-                                } else {
-                                    let path = download_path.clone().unwrap();
-                                    if Path::new(&format!("{}/{path}", dir::charts()?)).exists() {
-                                        Some(path)
-                                    } else {
-                                        None
-                                    }
-                                },
-                                Arc::clone(&self.icons),
-                                self.rank_icons.clone(),
-                                get_data()
-                                    .charts
-                                    .iter()
-                                    .find(|it| Some(&it.local_path) == download_path.as_ref())
-                                    .map(|it| it.mods)
-                                    .unwrap_or_default(),
-                            );
-                            self.transit = Some(TransitState {
-                                id: id as _,
-                                rect: None,
-                                chart: chart.clone(),
-                                start_time: t,
-                                next_scene: Some(NextScene::Overlay(Box::new(scene))),
-                                back: false,
-                                done: false,
-                                delete: false,
-                            });
-                            return Ok(true);
-                        }
-                    } else if item.btn.touch(touch, t) {
+        if !self.scroll.contains(touch) {
+            return Ok(false);
+        }
+        let mut movement = None;
+        if let Some(charts) = &mut self.charts {
+            for (id, item) in charts.iter_mut().enumerate() {
+                if let Some(chart) = &item.chart {
+                    if item.btn.touch(touch, t) {
+                        item.touch_start = f32::INFINITY;
                         button_hit_large();
-                        self.clicked_special = true;
+                        let handled_by_mp = MP_PANEL.with(|it| {
+                            if let Some(panel) = it.borrow_mut().as_mut() {
+                                if panel.in_room() {
+                                    if let Some(id) = chart.info.id {
+                                        panel.select_chart(id);
+                                        panel.show(rt);
+                                    } else {
+                                        use crate::mp::{mtl, L10N_LOCAL};
+                                        show_message(mtl!("select-chart-local")).error();
+                                    }
+                                    return true;
+                                }
+                            }
+                            false
+                        });
+                        if handled_by_mp {
+                            continue;
+                        }
+                        if let Some(after) = self.edit_move_state.take() {
+                            movement = Some((id, after));
+                            continue;
+                        }
+                        if CHOOSE_COVER.load(Ordering::Relaxed) {
+                            CHOSEN_COVER.with(|it| {
+                                *it.borrow_mut() = Some(if let Some(id) = chart.info.id {
+                                    Ok(id)
+                                } else {
+                                    Err(chart.local_path.clone().unwrap())
+                                });
+                            });
+                            continue;
+                        }
+                        let download_path = chart.info.id.map(|it| format!("download/{it}"));
+                        let scene = SongScene::new(
+                            chart.clone(),
+                            if let Some(path) = &chart.local_path {
+                                Some(path.clone())
+                            } else {
+                                let path = download_path.clone().unwrap();
+                                if Path::new(&format!("{}/{path}", dir::charts()?)).exists() {
+                                    Some(path)
+                                } else {
+                                    None
+                                }
+                            },
+                            Arc::clone(&self.icons),
+                            self.rank_icons.clone(),
+                            get_data()
+                                .charts
+                                .iter()
+                                .find(|it| Some(&it.local_path) == download_path.as_ref())
+                                .map(|it| it.mods)
+                                .unwrap_or_default(),
+                        );
+                        self.transit = Some(TransitState {
+                            id: id as _,
+                            rect: None,
+                            chart: chart.clone(),
+                            start_time: t,
+                            next_scene: Some(NextScene::Overlay(Box::new(scene))),
+                            back: false,
+                            done: false,
+                            delete: false,
+                        });
+                        return Ok(true);
                     }
+                    if self.allow_edit && item.btn.long_touch(t, &mut item.touch_start) {
+                        self.editing_chart = Some(id);
+                        self.chart_menu.set_selected(usize::MAX);
+                        self.need_show_chart_menu = true;
+                        return Ok(true);
+                    }
+                } else if item.btn.touch(touch, t) {
+                    self.editing_chart = None;
+                    self.edit_move_state = None;
+                    button_hit_large();
+                    self.clicked_special = true;
                 }
+            }
+        }
+        if let Some((id, after)) = movement {
+            let has_header = self.has_header();
+            let editing = self.editing_chart.unwrap();
+            let to = if after {
+                id + (id < editing) as usize
+            } else {
+                id - (id > editing) as usize
+            };
+            if let Some(charts) = &mut self.charts {
+                let chart = charts.remove(editing);
+                charts.insert(to, chart);
+                assert!(to >= has_header as usize);
+                self.movement = Some((editing - has_header as usize, to - has_header as usize));
             }
         }
         Ok(false)
     }
 
+    fn has_header(&self) -> bool {
+        self.charts.as_ref().is_some_and(|it| it.first().is_some_and(|item| item.chart.is_none()))
+    }
+
     pub fn update(&mut self, t: f32) -> Result<bool> {
         let refreshed = self.can_refresh && self.scroll.y_scroller.pulled;
         self.scroll.update(t);
+        self.chart_menu.update(t);
+        if self.chart_menu.changed() {
+            let has_header = self.has_header();
+            let editing = self.editing_chart.unwrap();
+            match self.chart_menu.selected() {
+                0 => {
+                    self.movement = Some((editing - has_header as usize, 0));
+                    if let Some(charts) = &mut self.charts {
+                        let chart = charts.remove(editing);
+                        charts.insert(has_header as usize, chart);
+                    }
+                }
+                1 => {
+                    self.movement = Some((editing - has_header as usize, self.charts.as_ref().unwrap().len() - 1 - has_header as usize));
+                    if let Some(charts) = &mut self.charts {
+                        let chart = charts.remove(editing);
+                        charts.push(chart);
+                    }
+                }
+                2 | 3 => {
+                    self.edit_move_state = Some(self.chart_menu.selected() == 3);
+                    show_message(tl!("choose-target"));
+                }
+                _ => {}
+            }
+        }
         if let Some(transit) = &mut self.transit {
             transit.chart.illu.settle(t);
             if t > transit.start_time + TRANSIT_TIME {
@@ -316,11 +413,18 @@ impl ChartsView {
                 let r = Rect::new(p, p, cw - p * 2., ch - p * 2.);
                 self.fader.reset();
                 self.fader.for_sub(|f| {
-                    ui.hgrids(content_size.0, ch, self.row_num, charts.len() as u32, |ui, id| {
+                    ui.hgrids(content_size.0, ch, self.row_num, charts.len() as u32, |ui, id, (ox, oy)| {
                         if let Some(transit) = &mut self.transit {
                             if transit.id == id {
                                 transit.rect = Some(ui.rect_to_global(r));
                             }
+                        }
+                        if self.editing_chart == Some(id as usize) && self.need_show_chart_menu {
+                            self.need_show_chart_menu = false;
+                            let mut menu_r = Rect::new(cw * 2. / 3., ch * 2. / 3., 0.35, 0.4);
+                            menu_r.x = menu_r.x.min(content_size.0 - ox - menu_r.w - 0.02);
+                            menu_r.y = menu_r.y.min(content_size.1 - oy - menu_r.h - 0.02);
+                            self.chart_menu.show(ui, t, menu_r);
                         }
                         if !range.contains(&id) {
                             if let Some(item) = charts.get_mut(id as usize) {
@@ -392,8 +496,8 @@ impl ChartsView {
                                     ui.fill_path(&path, (*self.icons.r#abstract, r));
                                     ui.fill_path(&path, semi_black(0.2));
                                     let ct = r.center();
-                                    use crate::page::coll::*;
-                                    ui.text(tl!("label"))
+                                    use crate::page::coll::{tl as page_tl, L10N_LOCAL};
+                                    ui.text(page_tl!("label"))
                                         .pos(ct.x, ct.y)
                                         .anchor(0.5, 0.5)
                                         .no_baseline()
@@ -406,6 +510,7 @@ impl ChartsView {
                 })
             });
         });
+        self.chart_menu.render(ui, t, 1.);
     }
 
     pub fn render_top(&mut self, ui: &mut Ui, t: f32) {

@@ -16,6 +16,8 @@ pub struct Popup {
     height: f32,
     fader: Fader,
     changed: bool,
+    auto_dismiss: bool,
+    pending_dismiss: bool,
 }
 
 impl Popup {
@@ -31,6 +33,8 @@ impl Popup {
             height: 0.1,
             fader: Fader::new().with_time(0.4).with_distance(0.04),
             changed: false,
+            auto_dismiss: true,
+            pending_dismiss: false,
         }
     }
 
@@ -53,6 +57,11 @@ impl Popup {
     #[inline]
     pub fn set_selected(&mut self, selected: usize) {
         self.selected = selected;
+    }
+
+    #[inline]
+    pub fn set_auto_dismiss(&mut self, auto_dismiss: bool) {
+        self.auto_dismiss = auto_dismiss;
     }
 
     pub fn set_bottom(&mut self, bottom: bool) {
@@ -125,6 +134,13 @@ impl Popup {
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
+        if self.pending_dismiss {
+            if touch.phase == TouchPhase::Ended {
+                self.dismiss(t);
+                self.pending_dismiss = false;
+            }
+            return true;
+        }
         if self.showing {
             if touch.phase != TouchPhase::Started || self.rect.contains(touch.position) {
                 if self.scroll.touch(touch, t) {
@@ -137,14 +153,16 @@ impl Popup {
                                 self.selected = id;
                                 self.changed = true;
                             }
-                            self.dismiss(t);
+                            if self.auto_dismiss {
+                                self.dismiss(t);
+                            }
                             return true;
                         }
                     }
                     false
                 }
             } else if touch.phase == TouchPhase::Started {
-                self.dismiss(t);
+                self.pending_dismiss = true;
                 true
             } else {
                 false

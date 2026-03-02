@@ -15,6 +15,7 @@ offset = Décalage
 aspect-ratio = rapport hauteur/largeur
 ps = P.S.
 aspect-hint = Le rapport hauteur/largeur peut être soit un nombre réel, soit des textes comme "l:h"
+force-aspect-ratio = Forcer le rapport hauteur/largeur
 dim = Fond sombre
 chart-file = Partition
 music-file = Musique

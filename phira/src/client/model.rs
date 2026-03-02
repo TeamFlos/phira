@@ -20,7 +20,6 @@ use super::{basic_client_builder, Client, API_URL, CLIENT_TOKEN};
 use crate::{
     dir, get_data,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
-    ttl,
 };
 use anyhow::{bail, Result};
 use bytes::Bytes;
@@ -38,7 +37,8 @@ use std::{
 use tracing::debug;
 
 pub(crate) type ObjectMap<T> = LruCache<i32, Arc<T>>;
-static CACHES: Lazy<Mutex<HashMap<&'static str, Arc<Mutex<Box<dyn Any + Send + Sync>>>>>> = Lazy::new(Mutex::default);
+type CacheMap = HashMap<&'static str, Arc<Mutex<Box<dyn Any + Send + Sync>>>>;
+static CACHES: Lazy<Mutex<CacheMap>> = Lazy::new(Mutex::default);
 
 pub(crate) fn obtain_map_cache<T: Object + 'static>() -> Arc<Mutex<Box<dyn Any + Send + Sync>>> {
     let mut caches = CACHES.lock().unwrap();
@@ -85,6 +85,7 @@ impl From<MusicPosition> for String {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(try_from = "u8")]
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum LevelType {
     EZ = 0,
     HD,

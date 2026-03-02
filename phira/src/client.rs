@@ -1,3 +1,5 @@
+//! Http client for Phira API.
+
 mod model;
 pub use model::*;
 use tracing::debug;

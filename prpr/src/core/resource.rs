@@ -338,8 +338,10 @@ impl ParticleEmitter {
     }
 }
 
+type NoteBufferMap = BTreeMap<(i8, GLuint), Vec<(Vec<Vertex>, Vec<u16>)>>;
+
 #[derive(Default)]
-pub struct NoteBuffer(BTreeMap<(i8, GLuint), Vec<(Vec<Vertex>, Vec<u16>)>>);
+pub struct NoteBuffer(NoteBufferMap);
 
 impl NoteBuffer {
     pub fn push(&mut self, key: (i8, GLuint), vertices: [Vertex; 4]) {
@@ -559,7 +561,7 @@ impl Resource {
             (x + ((w - rw) / 2.).round() as i32, y + ((h - rh) / 2.).round() as i32, rw as i32, rh as i32)
         }
         let aspect_ratio = self.config.aspect_ratio.unwrap_or(self.info.aspect_ratio);
-        if self.config.fix_aspect_ratio {
+        if self.info.force_aspect_ratio {
             self.aspect_ratio = aspect_ratio;
             self.camera.viewport = Some(viewport(aspect_ratio, vp));
         } else {

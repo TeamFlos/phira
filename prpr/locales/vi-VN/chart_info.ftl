@@ -17,6 +17,7 @@ ps = Ghi chú
 aspect-hint = Tỉ lệ màn hình có thể là số hoặc chữ dạng như "rộng:cao"
 dim = Độ sáng nền
 enable-unlock = Bật video mở màn
+force-aspect-ratio = Đóng khung theo tỉ lệ màn hình
 chart-file = Tệp Chart
 music-file = Tệp nhạc
 illu-file = Ảnh minh hoạ
