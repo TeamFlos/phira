@@ -355,7 +355,8 @@ impl Scene for EndingScene {
             let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
 
             let r = ui.text(tl!("error")).pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
-            let r = ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
+            let r = ui
+                .text(format!("±{}ms", (res.std * 1000.).round() as i32))
                 .pos(r.right() + 0.02, r.y)
                 .size(s)
                 .color(ct)
