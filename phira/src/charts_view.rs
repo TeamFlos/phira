@@ -100,7 +100,7 @@ pub struct ChartsView {
 
     pub clicked_special: bool,
 
-     allow_edit: bool,
+    allow_edit: bool,
     editing_chart: Option<usize>,
     chart_menu: Popup,
     need_show_chart_menu: bool,

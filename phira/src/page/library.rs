@@ -10,7 +10,7 @@ use crate::{
     popup::Popup,
     rate::RateDialog,
     save_data,
-    scene::{ChartOrder, JUST_LOADED_TOS, ORDERS, check_read_tos_and_policy, confirm_dialog},
+    scene::{check_read_tos_and_policy, confirm_dialog, ChartOrder, JUST_LOADED_TOS, ORDERS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
 };
