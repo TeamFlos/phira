@@ -9,7 +9,7 @@ name-empty = 資料夾名稱不能為空
 import = 匯入
 imported = 已匯入
 already-imported = 已經匯入過了
-invalid-import = 欲匯入的代碼無效
+invalid-import = 解析欲匯入的內容失敗
 
 rename = 重新命名
 set-description = 編輯簡介
