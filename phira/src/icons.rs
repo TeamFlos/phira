@@ -28,6 +28,8 @@ pub struct Icons {
     pub star_outline: SafeTexture,
     pub cloud_none: SafeTexture,
     pub cloud_check: SafeTexture,
+    pub sort_asc: SafeTexture,
+    pub sort_desc: SafeTexture,
 
     pub r#abstract: SafeTexture,
 }
@@ -59,6 +61,8 @@ impl Icons {
             star_outline: load_texture("star_outline.png").await?.into(),
             cloud_none: load_texture("cloud_none.png").await?.into(),
             cloud_check: load_texture("cloud_check.png").await?.into(),
+            sort_asc: load_texture("sort_asc.png").await?.into(),
+            sort_desc: load_texture("sort_desc.png").await?.into(),
 
             r#abstract: load_texture("abstract.jpg").await?.into(),
         })

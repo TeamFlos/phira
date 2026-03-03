@@ -1,8 +1,4 @@
-time = Time (Desc.)
-rev-time = Time (Asc.)
-name = Name (Asc.)
-rev-name = Name (Desc.)
-rating = Rating (Desc.)
-rev-rating = Rating (Asc.)
-difficulty = Difficulty (Asc.)
-rev-difficulty = Difficulty (Desc.)
+time = Time
+name = Name
+rating = Rating
+difficulty = Difficulty

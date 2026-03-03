@@ -91,6 +91,9 @@ pub struct LibraryPage {
     need_show_order_menu: bool,
     current_order: usize,
 
+    order_rev_btn: DRectButton,
+    order_rev: bool,
+
     filter_btn: DRectButton,
     tags: TagsDialog,
     tags_last_show: bool,
@@ -144,6 +147,9 @@ impl LibraryPage {
             need_show_order_menu: false,
             current_order: 0,
 
+            order_rev_btn: DRectButton::new(),
+            order_rev: false,
+
             filter_btn: DRectButton::new(),
             tags: TagsDialog::new(true).tap_mut(|it| it.perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default()),
             tags_last_show: false,
@@ -191,17 +197,14 @@ impl LibraryPage {
         let page = self.current_page;
         let search = self.search_str.clone();
         let order = {
-            let (order, mut rev) = ORDERS[self.current_order];
+            let order = ORDERS[self.current_order];
             let order = match order {
-                ChartOrder::Default => {
-                    rev ^= true;
-                    "updated"
-                }
+                ChartOrder::Default => "updated",
                 ChartOrder::Name => "name",
                 ChartOrder::Rating => "rating",
                 ChartOrder::Difficulty => "difficulty",
             };
-            if rev {
+            if self.order_rev {
                 format!("-{order}")
             } else {
                 order.to_owned()
@@ -400,6 +403,12 @@ impl Page for LibraryPage {
                 }
                 if self.order_btn.touch(touch, t) {
                     self.need_show_order_menu = true;
+                    return Ok(true);
+                }
+                if self.order_rev_btn.touch(touch, t) {
+                    self.order_rev = !self.order_rev;
+                    self.current_page = 0;
+                    self.load_online();
                     return Ok(true);
                 }
                 if self.filter_btn.touch(touch, t) {
@@ -660,6 +669,14 @@ impl Page for LibraryPage {
                         .color(if active { BLACK } else { WHITE })
                         .draw();
                 } else {
+                    self.order_rev_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, semi_black(0.4));
+                        ui.fill_rect(
+                            r,
+                            (if self.order_rev { *self.icons.sort_desc } else { *self.icons.sort_asc }, r.feather(-0.01), ScaleType::Fit),
+                        );
+                    });
+                    r.x -= r.w + 0.02;
                     self.order_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                         ui.fill_rect(r, (*self.icons.order, r, ScaleType::Fit));
