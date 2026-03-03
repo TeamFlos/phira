@@ -6,6 +6,7 @@ use crate::page::ChartItem;
 pub enum ChartOrder {
     Default,
     Name,
+    Difficulty,
     Rating,
 }
 
@@ -26,13 +27,21 @@ impl ChartOrder {
             Self::Name => {
                 charts.sort_by(|x, y| f(x).info.name.cmp(&f(y).info.name));
             }
+            Self::Difficulty => {
+                charts.sort_by(|x, y| {
+                    f(x).info
+                        .difficulty
+                        .partial_cmp(&f(y).info.difficulty)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
             Self::Rating => {}
         }
     }
 }
 
-const ORDER_NUM: usize = 6;
-const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rev-time", "rating", "rev-rating", "name", "rev-name"];
+const ORDER_NUM: usize = 8;
+const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rev-time", "rating", "rev-rating", "name", "rev-name", "difficulty", "rev-difficulty"];
 pub static ORDERS: [(ChartOrder, bool); ORDER_NUM] = [
     (ChartOrder::Default, false),
     (ChartOrder::Default, true),
@@ -40,4 +49,6 @@ pub static ORDERS: [(ChartOrder, bool); ORDER_NUM] = [
     (ChartOrder::Rating, false),
     (ChartOrder::Name, false),
     (ChartOrder::Name, true),
+    (ChartOrder::Difficulty, false),
+    (ChartOrder::Difficulty, true),
 ];

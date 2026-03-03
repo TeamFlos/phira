@@ -4,3 +4,5 @@ name = 名字正序
 rev-name = 名字倒序
 rating = 评分顺序
 rev-rating = 评分逆序
+difficulty = 难度正序
+rev-difficulty = 难度逆序
