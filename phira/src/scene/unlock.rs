@@ -6,7 +6,7 @@ use prpr::{
     ext::{create_audio_manger, semi_black, semi_white, SafeTexture, ScaleType},
     fs::FileSystem,
     info::ChartInfo,
-    scene::{BasicPlayer, GameMode, LoadingScene, NextScene, Scene, UpdateFn, UploadFn},
+    scene::{BasicPlayer, GameMode, LoadingScene, NextScene, SaveFn, Scene, UpdateFn, UploadFn},
     time::TimeManager,
     ui::LoadingParams,
 };
@@ -50,6 +50,7 @@ impl UnlockScene {
         player: Option<BasicPlayer>,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
+        save_fn: Option<SaveFn>,
         preloaded: Option<(prpr::ext::SafeTexture, prpr::ext::SafeTexture, Color)>,
     ) -> Result<UnlockScene> {
         let bytes = fs
@@ -75,7 +76,7 @@ impl UnlockScene {
         };
 
         let (_, background, _) = preloaded.clone().unwrap_or(LoadingScene::load(&mut *fs, &info.illustration).await?);
-        let loading_scene = Box::new(LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, preloaded).await?);
+        let loading_scene = Box::new(LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, preloaded).await?);
 
         Ok(UnlockScene {
             loading_scene,

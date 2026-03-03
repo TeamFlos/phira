@@ -50,7 +50,7 @@ pub struct EndingScene {
     upload_fn: Option<UploadFn>,
     upload_task: Option<(Task<Result<RecordUpdateState>>, MessageHandle)>,
     record_data: Option<Vec<u8>>,
-    record: Option<SimpleRecord>,
+    best_record: Option<SimpleRecord>,
 
     btn_retry: DRectButton,
     btn_proceed: DRectButton,
@@ -77,7 +77,7 @@ impl EndingScene {
         player_rks: Option<f32>,
         historic_best: u32,
         record_data: Option<Vec<u8>>,
-        record: Option<SimpleRecord>,
+        best_record: Option<SimpleRecord>,
         avg_fps: Option<f32>,
     ) -> Result<Self> {
         let mut audio = create_audio_manger(config)?;
@@ -130,7 +130,7 @@ impl EndingScene {
             upload_fn,
             upload_task,
             record_data,
-            record,
+            best_record,
 
             btn_retry: DRectButton::new(),
             btn_proceed: DRectButton::new(),
@@ -606,7 +606,7 @@ impl Scene for EndingScene {
             0 => NextScene::None,
             1 => NextScene::Pop,
             2 => {
-                if let Some(rec) = &self.record {
+                if let Some(rec) = &self.best_record {
                     NextScene::PopNWithResult(2, Box::new(rec.clone()))
                 } else {
                     NextScene::PopN(2)
