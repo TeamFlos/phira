@@ -168,11 +168,7 @@ impl LibraryPage {
 impl LibraryPage {
     fn total_page(&self, s: &SharedState) -> u64 {
         if self.tabs.selected().ty == ChartListType::Local {
-            if s.charts_local.is_empty() {
-                0
-            } else {
-                (s.charts_local.len() - 1) as u64 / PAGE_NUM + 1
-            }
+            0
         } else {
             self.online_total_page
         }
@@ -544,6 +540,7 @@ impl Page for LibraryPage {
                 let chart = data.charts.remove(data.charts.len() - from - 1);
                 data.charts.insert(data.charts.len() - to, chart);
                 let _ = save_data();
+                s.reload_local_charts();
             }
             show_message(tl!("order-updated")).ok();
         }
