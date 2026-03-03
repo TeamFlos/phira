@@ -534,6 +534,7 @@ struct AudioList {
     sfx_slider: Slider,
     bgm_slider: Slider,
     cali_btn: DRectButton,
+    #[cfg(not(target_os = "android"))]
     preferred_sample_rate_btn: DRectButton,
     cali_task: LocalTask<Result<OffsetPage>>,
     next_page: Option<NextPage>,
@@ -547,6 +548,7 @@ impl AudioList {
             sfx_slider: Slider::new(0.0..2.0, 0.05),
             bgm_slider: Slider::new(0.0..2.0, 0.05),
             cali_btn: DRectButton::new(),
+            #[cfg(not(target_os = "android"))]
             preferred_sample_rate_btn: DRectButton::new(),
 
             cali_task: None,
@@ -582,6 +584,7 @@ impl AudioList {
             self.cali_task = Some(Box::pin(OffsetPage::new()));
             return Ok(Some(false));
         }
+        #[cfg(not(target_os = "android"))]
         if self.preferred_sample_rate_btn.touch(touch, t) {
             let options = [44100, 48000, 88200, 96000, 192000];
             let current = config.preferred_sample_rate;
@@ -641,6 +644,7 @@ impl AudioList {
             render_title(ui, tl!("item-cali"), None);
             self.cali_btn.render_text(ui, rr, t, format!("{:.0}ms", config.offset * 1000.), 0.5, true);
         }
+        #[cfg(not(target_os = "android"))]
         item! {
             render_title(ui, tl!("item-preferred-sample-rate"), None);
             self.preferred_sample_rate_btn.render_text(ui, rr, t, format!("{} Hz", config.preferred_sample_rate), 0.5, false);
