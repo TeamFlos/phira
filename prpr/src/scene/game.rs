@@ -941,18 +941,18 @@ impl Scene for GameScene {
                             if let Some(new_rec) = &record {
                                 if let Some(f) = &self.save_fn {
                                     f(new_rec.clone())?;
-                                };
+                                }
                                 if let Some(best) = &mut self.best_record {
                                     best.update(new_rec);
                                 } else {
                                     self.best_record = record.clone();
-                                };
+                                }
                                 if let Some(best) = &self.best_record {
                                     if let Some(player) = &mut self.player {
                                         player.historic_best = player.historic_best.max(best.score as _);
-                                    };
-                                };
-                            };
+                                    }
+                                }
+                            }
                             Some(NextScene::Overlay(Box::new(EndingScene::new(
                                 self.res.background.clone(),
                                 self.res.illustration.clone(),
