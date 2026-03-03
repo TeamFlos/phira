@@ -671,15 +671,14 @@ impl Page for LibraryPage {
                 } else {
                     self.order_rev_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
-                        ui.fill_rect(
-                            r,
-                            (if self.order_rev { *self.icons.sort_desc } else { *self.icons.sort_asc }, r.feather(-0.01), ScaleType::Fit),
-                        );
+                        let cr = r.feather(-0.01);
+                        ui.fill_rect(cr, (if self.order_rev { *self.icons.sort_desc } else { *self.icons.sort_asc }, cr, ScaleType::Fit));
                     });
                     r.x -= r.w + 0.02;
                     self.order_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
-                        ui.fill_rect(r, (*self.icons.order, r, ScaleType::Fit));
+                        let cr = r.feather(-0.01);
+                        ui.fill_rect(cr, (*self.icons.order, cr, ScaleType::Fit));
                     });
                     if self.need_show_order_menu {
                         self.need_show_order_menu = false;
@@ -690,7 +689,7 @@ impl Page for LibraryPage {
                     r.x -= r.w + 0.02;
                     self.filter_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
-                        let cr = r.feather(-0.005);
+                        let cr = r.feather(-0.01);
                         ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
                     });
                 }
