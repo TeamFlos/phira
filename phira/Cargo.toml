@@ -75,11 +75,12 @@ walkdir = { workspace = true }
 zip = { workspace = true }
 zstd = "0.13"
 
+miniquad = { workspace = true }
 phira-mp-client = { workspace = true }
 phira-mp-common = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-sys = "0.2"
+jni = "0.21.1"
 ndk-context = "0.1"
 sasa = { workspace = true, default-features = false, features = ["oboe"] }
 

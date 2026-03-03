@@ -163,7 +163,7 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                 let env = miniquad::native::attach_jni_env();
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
-                let method = (**env).GetMethodID.unwrap()(env, class, b"inputText\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                let method = (**env).GetMethodID.unwrap()(env, class, c"inputText".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
                 let text = std::ffi::CString::new(text.to_owned()).unwrap();
                 (**env).CallVoidMethod.unwrap()(env, ctx, method, (**env).NewStringUTF.unwrap()(env, text.as_ptr()));
             }
@@ -246,7 +246,7 @@ pub fn request_file(id: impl Into<String>) {
                 let env = miniquad::native::attach_jni_env();
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
-                let method = (**env).GetMethodID.unwrap()(env, class, b"chooseFile\0".as_ptr() as _, b"()V\0".as_ptr() as _);
+                let method = (**env).GetMethodID.unwrap()(env, class, c"chooseFile".as_ptr() as _, c"()V".as_ptr() as _);
                 (**env).CallVoidMethod.unwrap()(env, ctx, method);
             }
         } else if #[cfg(target_os = "ios")] {

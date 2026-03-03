@@ -90,7 +90,7 @@ objc_id = "*"
 objc-foundation = "0.1.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-sys = "0.2"
+jni = "0.21.1"
 ndk-context = "0.1"
 sasa = { workspace = true, default-features = false, features = ["oboe"] }
 

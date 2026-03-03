@@ -540,7 +540,7 @@ pub fn open_url(url: &str) -> Result<()> {
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
                 let method =
-                    (**env).GetMethodID.unwrap()(env, class, b"openUrl\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                    (**env).GetMethodID.unwrap()(env, class, c"openUrl".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
                 let url = std::ffi::CString::new(url.to_owned()).unwrap();
                 (**env).CallVoidMethod.unwrap()(
                     env,
