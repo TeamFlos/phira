@@ -29,6 +29,7 @@ use crate::{
     judge::Judge,
     scene::{request_input_full, return_input, show_error, take_input},
 };
+use core::f32;
 use lyon::{
     lyon_tessellation::{
         BuffersBuilder, FillOptions, FillTessellator, FillVertex, FillVertexConstructor, StrokeOptions, StrokeTessellator, StrokeVertex,
@@ -132,6 +133,16 @@ impl<T: Shading> VertexBuilder<T> {
     }
 }
 
+#[derive(Default)]
+pub struct LongTouchState {
+    start: Option<(Vec2, f32)>,
+}
+impl LongTouchState {
+    pub fn reset(&mut self) {
+        self.start = None;
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct RectButton {
     pts: Option<[Vec2; 4]>,
@@ -204,19 +215,35 @@ impl RectButton {
         false
     }
 
-    pub fn long_touch(&mut self, t: f32, start_time: &mut f32) -> bool {
-        if self.touching() {
-            if start_time.is_finite() {
-                if t > *start_time + 0.5 {
-                    *start_time = f32::INFINITY;
-                    self.id = None;
-                    return true;
+    pub fn long_touch(&mut self, touch: &Touch, t: f32, state: &mut LongTouchState) -> bool {
+        match touch.phase {
+            TouchPhase::Started => {
+                if self.id == Some(touch.id) {
+                    state.start = Some((touch.position, t));
                 }
-            } else {
-                *start_time = t;
             }
-        } else {
-            *start_time = f32::INFINITY;
+            TouchPhase::Moved | TouchPhase::Stationary => {
+                if self.id == Some(touch.id) {
+                    if let Some((start_pos, start_time)) = state.start {
+                        if (touch.position - start_pos).length() > 0.02 {
+                            state.reset();
+                        } else if t > start_time + 0.5 {
+                            state.reset();
+                            return true;
+                        }
+                    }
+                }
+            }
+            TouchPhase::Cancelled => {
+                if self.id == Some(touch.id) {
+                    state.reset();
+                }
+            }
+            TouchPhase::Ended => {
+                if self.id.take() == Some(touch.id) {
+                    state.reset();
+                }
+            }
         }
         false
     }
@@ -366,7 +393,7 @@ impl DRectButton {
         } else {
             1.
         };
-        if self.inner.touching() {
+        if self.last_touching {
             1. - p
         } else {
             p
@@ -386,8 +413,8 @@ impl DRectButton {
         res
     }
 
-    pub fn long_touch(&mut self, t: f32, start_touch: &mut f32) -> bool {
-        if self.inner.long_touch(t, start_touch) {
+    pub fn long_touch(&mut self, touch: &Touch, t: f32, state: &mut LongTouchState) -> bool {
+        if self.inner.long_touch(touch, t, state) {
             self.last_touching = false;
             self.start_time = Some(t);
             if self.play_sound {
@@ -1039,13 +1066,13 @@ impl<'a> Ui<'a> {
         })
     }
 
-    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32, (f32, f32))) -> (f32, f32) {
+    pub fn hgrids(&mut self, width: f32, height: f32, row_num: u32, count: u32, mut content: impl FnMut(&mut Self, u32)) -> (f32, f32) {
         let mut sh = 0.;
         let w = width / row_num as f32;
         for i in (0..count).step_by(row_num as usize) {
             let mut sw = 0.;
             for j in 0..(count - i).min(row_num) {
-                content(self, i + j, (sw, sh));
+                content(self, i + j);
                 self.dx(w);
                 sw += w;
             }

@@ -16,7 +16,7 @@ use prpr::{
     core::{Tweenable, BOLD_FONT},
     ext::{semi_black, RectExt, SafeTexture},
     scene::{show_message, NextScene},
-    ui::{button_hit_large, DRectButton, Scroll, Ui},
+    ui::{button_hit_large, DRectButton, LongTouchState, Scroll, Ui},
 };
 use std::{
     ops::Range,
@@ -38,7 +38,7 @@ pub struct ChartDisplayItem {
     chart: Option<ChartItem>,
     symbol: Option<char>,
     btn: DRectButton,
-    touch_start: f32,
+    long_touch: LongTouchState,
 }
 
 impl ChartDisplayItem {
@@ -47,7 +47,7 @@ impl ChartDisplayItem {
             chart,
             symbol,
             btn: DRectButton::new(),
-            touch_start: f32::INFINITY,
+            long_touch: LongTouchState::default(),
         }
     }
 
@@ -137,7 +137,7 @@ impl ChartsView {
                     tl!("move-to-last").into_owned(),
                     tl!("move-before").into_owned(),
                     tl!("move-after").into_owned(),
-                ])
+                ]);
             }),
             need_show_chart_menu: false,
             edit_move_state: None,
@@ -211,7 +211,7 @@ impl ChartsView {
             for (id, item) in charts.iter_mut().enumerate() {
                 if let Some(chart) = &item.chart {
                     if item.btn.touch(touch, t) {
-                        item.touch_start = f32::INFINITY;
+                        item.long_touch.reset();
                         button_hit_large();
                         let handled_by_mp = MP_PANEL.with(|it| {
                             if let Some(panel) = it.borrow_mut().as_mut() {
@@ -279,7 +279,7 @@ impl ChartsView {
                         });
                         return Ok(true);
                     }
-                    if self.allow_edit && item.btn.long_touch(t, &mut item.touch_start) {
+                    if self.allow_edit && item.btn.long_touch(touch, t, &mut item.long_touch) {
                         self.editing_chart = Some(id);
                         self.chart_menu.set_selected(usize::MAX);
                         self.need_show_chart_menu = true;
@@ -413,18 +413,17 @@ impl ChartsView {
                 let r = Rect::new(p, p, cw - p * 2., ch - p * 2.);
                 self.fader.reset();
                 self.fader.for_sub(|f| {
-                    ui.hgrids(content_size.0, ch, self.row_num, charts.len() as u32, |ui, id, (ox, oy)| {
+                    ui.hgrids(content_size.0, ch, self.row_num, charts.len() as u32, |ui, id| {
                         if let Some(transit) = &mut self.transit {
                             if transit.id == id {
+                                dbg!(&ui.rect_to_global(r));
                                 transit.rect = Some(ui.rect_to_global(r));
                             }
                         }
                         if self.editing_chart == Some(id as usize) && self.need_show_chart_menu {
                             self.need_show_chart_menu = false;
-                            let mut menu_r = Rect::new(cw * 2. / 3., ch * 2. / 3., 0.35, 0.4);
-                            menu_r.x = menu_r.x.min(content_size.0 - ox - menu_r.w - 0.02);
-                            menu_r.y = menu_r.y.min(content_size.1 - oy - menu_r.h - 0.02);
-                            self.chart_menu.show(ui, t, menu_r);
+                            self.chart_menu.set_auto_adjust(Some(ui.screen_rect().nonuniform_feather(-0.03, -0.05)));
+                            self.chart_menu.show(ui, t, Rect::new(cw * 2. / 3., ch * 2. / 3., 0.35, 0.4));
                         }
                         if !range.contains(&id) {
                             if let Some(item) = charts.get_mut(id as usize) {

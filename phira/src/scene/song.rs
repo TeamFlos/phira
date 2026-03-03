@@ -30,21 +30,19 @@ use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::{Tweenable, BOLD_FONT},
+    core::{BOLD_FONT, Tweenable},
     ext::{
-        open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType,
-        BLACK_TEXTURE,
+        BLACK_TEXTURE, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType, open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into
     },
     fs::{self},
     info::ChartInfo,
-    judge::{icon_index, Judge},
+    judge::{Judge, icon_index},
     scene::{
-        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn,
+        BasicPlayer, GameMode, LoadingScene, LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn, request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input
     },
     task::Task,
     time::TimeManager,
-    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui, UI_AUDIO},
+    ui::{ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, UI_AUDIO, Ui, button_hit, render_chart_info},
 };
 use reqwest::Method;
 use sasa::{AudioClip, Frame, Music, MusicParams};
@@ -288,7 +286,7 @@ pub struct SongScene {
     info_scroll: Scroll,
 
     fav_btn: RectButton,
-    fav_touch_start: f32,
+    fav_long_touch: LongTouchState,
     fav_menu: Popup,
     fav_menu_options: Vec<usize>,
     need_show_fav_menu: bool,
@@ -455,7 +453,7 @@ impl SongScene {
             info_scroll: Scroll::new(),
 
             fav_btn: RectButton::new(),
-            fav_touch_start: f32::INFINITY,
+            fav_long_touch: LongTouchState::default(),
             fav_menu: Popup::new().tap_mut(|it| it.set_auto_dismiss(false)),
             fav_menu_options: Vec::new(),
             need_show_fav_menu: false,
@@ -1581,7 +1579,7 @@ impl Scene for SongScene {
             return Ok(true);
         }
         if self.fav_btn.touch(touch) {
-            self.fav_touch_start = f32::INFINITY;
+            self.fav_long_touch.reset();
             button_hit();
             let data = get_data_mut();
             if let Some(col) = data.collections.iter_mut().find(|it| it.is_default) {
@@ -1589,7 +1587,7 @@ impl Scene for SongScene {
             }
             return Ok(true);
         }
-        if self.fav_btn.long_touch(t, &mut self.fav_touch_start) {
+        if self.fav_btn.long_touch(touch, t, &mut self.fav_long_touch) {
             button_hit();
             let options = self.get_fav_menu_options();
             self.fav_menu.set_options(options);
