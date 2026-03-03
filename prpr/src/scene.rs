@@ -218,6 +218,8 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                     completion: 0 as ObjcId
                 ];
             }
+        }else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
             if let Some(text) = tfd::InputBox::new(ttl!("input"), ttl!("input-msg")).with_default(text).run_modal() {
                 INPUT_TEXT.lock().unwrap().1 = Some(text);
@@ -314,6 +316,8 @@ pub fn request_file(id: impl Into<String>) {
                     completion: 0 as ObjcId
                 ];
             }
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(r#"{"action": "chooseFile"}"#.to_string());
         } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }

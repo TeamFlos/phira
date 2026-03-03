@@ -46,6 +46,9 @@ static DATA_PATH: Mutex<Option<String>> = Mutex::new(None);
 static CACHE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static mut DATA: Option<Data> = None;
 
+#[cfg(target_env = "ohos")]
+use napi_derive_ohos::napi;
+
 #[cfg(closed)]
 pub async fn load_res(name: &str) -> Vec<u8> {
     let bytes = load_file(name).await.unwrap();
@@ -146,6 +149,12 @@ mod dir {
 
 async fn the_main() -> Result<()> {
     log::register();
+    #[cfg(target_env = "ohos")]
+    unsafe {
+        *DATA_PATH.lock().unwrap() = Some("/data/storage/el2/base".to_owned());
+        *CACHE_DIR.lock().unwrap() = Some("/data/storage/el2/base/cache".to_owned());
+        prpr::core::DPI_VALUE.store(250, std::sync::atomic::Ordering::Relaxed);
+    };
 
     init_assets();
 
@@ -447,4 +456,32 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(
             let _ = tx.send(code);
         }
     }
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn set_input_text(text: String) {
+    use prpr::scene::INPUT_TEXT;
+    INPUT_TEXT.lock().unwrap().1 = Some(text);
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn set_chosen_file(file: String) {
+    use prpr::scene::CHOSEN_FILE;
+    CHOSEN_FILE.lock().unwrap().1 = Some(file);
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn mark_import() {
+    use prpr::scene::CHOSEN_FILE;
+    CHOSEN_FILE.lock().unwrap().0 = Some("_import".to_owned());
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn mark_import_respack() {
+    use prpr::scene::CHOSEN_FILE;
+    CHOSEN_FILE.lock().unwrap().0 = Some("_import_respack".to_owned());
 }
