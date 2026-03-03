@@ -1073,12 +1073,33 @@ impl Page for FavoritesPage {
 
         self.edit_menu.render(ui, t, 1.);
         self.cloud_menu.render(ui, t, 1.);
-        self.sf.render(ui, t);
 
         if self.has_task() {
             ui.full_loading("", t);
         }
 
+        Ok(())
+    }
+
+    fn render_top(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
+        let rt = s.rt;
+        if self.side_enter_time.is_finite() {
+            let p = ((rt - self.side_enter_time.abs()) / INFO_TRANSIT).min(1.);
+            let p = 1. - (1f32 - p).powi(3);
+            let p = if self.side_enter_time < 0. { 1. - p } else { p };
+            ui.fill_rect(ui.screen_rect(), semi_black(p * 0.6));
+            let w = INFO_WIDTH;
+            let lf = f32::tween(&1.04, &(1. - w), p);
+            ui.scope(|ui| {
+                ui.dx(lf);
+                ui.dy(-ui.top);
+                let r = Rect::new(-0.2, 0., 0.2 + w, ui.top * 2.);
+                ui.fill_rect(r, (Color::default(), (r.x, r.y), Color::new(0., 0., 0., p * 0.7), (r.right(), r.y)));
+                self.render_info(ui, rt);
+            });
+        }
+
+        self.sf.render(ui, s.t);
         Ok(())
     }
 
