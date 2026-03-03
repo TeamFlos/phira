@@ -32,7 +32,7 @@ jobs:
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
   clippy-android:
-    name: Clippy
+    name: Clippy (Android)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -53,6 +53,10 @@ jobs:
 
       - name: Clippy
         run: |
+          export CC_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          export CXX_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++"
+          export AR_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          export RANLIB_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
           cargo clippy --all-targets --all-features --workspace \
             --target aarch64-linux-android -- \
             -D warnings -A clippy::missing_const_for_thread_local
