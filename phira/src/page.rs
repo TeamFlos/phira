@@ -26,13 +26,7 @@ mod settings;
 pub use settings::SettingsPage;
 use tokio::sync::Notify;
 
-use crate::{
-    client::File,
-    data::BriefChartInfo,
-    dir, get_data,
-    images::Images,
-    scene::{fs_from_path, ChartOrder},
-};
+use crate::{client::File, data::BriefChartInfo, dir, get_data, images::Images, scene::fs_from_path};
 use anyhow::Result;
 use image::DynamicImage;
 use macroquad::prelude::*;
@@ -94,9 +88,9 @@ pub fn local_illustration(path: String, def: SafeTexture, full: bool) -> Illustr
     }
 }
 
-pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
+pub fn load_local() -> Vec<ChartItem> {
     let tex = BLACK_TEXTURE.clone();
-    let mut res: Vec<_> = get_data()
+    get_data()
         .charts
         .iter()
         .map(|it| ChartItem {
@@ -105,12 +99,7 @@ pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
             illu: local_illustration(it.local_path.clone(), tex.clone(), false),
             chart_type: ChartType::Imported,
         })
-        .collect();
-    order.0.apply(&mut res);
-    if order.1 {
-        res.reverse();
-    }
-    res
+        .collect()
 }
 
 type IllustrationTask = Task<Result<(DynamicImage, Option<DynamicImage>)>>;
@@ -479,7 +468,7 @@ impl SharedState {
     }
 
     pub fn reload_local_charts(&mut self) {
-        self.charts_local = load_local(&(ChartOrder::Default, false));
+        self.charts_local = load_local();
     }
 }
 

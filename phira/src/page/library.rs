@@ -10,7 +10,7 @@ use crate::{
     popup::Popup,
     rate::RateDialog,
     save_data,
-    scene::{check_read_tos_and_policy, confirm_dialog, ChartOrder, JUST_LOADED_TOS, ORDERS},
+    scene::{check_read_tos_and_policy, confirm_dialog, ChartOrder, JUST_LOADED_TOS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
 };
@@ -88,8 +88,9 @@ pub struct LibraryPage {
 
     order_btn: DRectButton,
     order_menu: Popup,
+    order_menu_options: Vec<ChartOrder>,
     need_show_order_menu: bool,
-    current_order: usize,
+    current_order: ChartOrder,
 
     order_rev_btn: DRectButton,
     order_rev: bool,
@@ -143,12 +144,13 @@ impl LibraryPage {
             search_clr_btn: RectButton::new(),
 
             order_btn: DRectButton::new(),
-            order_menu: Popup::new().with_options(ChartOrder::names()),
+            order_menu: Popup::new(),
+            order_menu_options: Vec::new(),
             need_show_order_menu: false,
-            current_order: 0,
+            current_order: ChartOrder::Default,
 
             order_rev_btn: DRectButton::new(),
-            order_rev: false,
+            order_rev: true,
 
             filter_btn: DRectButton::new(),
             tags: TagsDialog::new(true).tap_mut(|it| it.perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default()),
@@ -197,8 +199,7 @@ impl LibraryPage {
         let page = self.current_page;
         let search = self.search_str.clone();
         let order = {
-            let order = ORDERS[self.current_order];
-            let order = match order {
+            let order = match self.current_order {
                 ChartOrder::Default => "updated",
                 ChartOrder::Name => "name",
                 ChartOrder::Rating => "rating",
@@ -264,6 +265,12 @@ impl LibraryPage {
     }
 
     fn sync_local(&mut self, s: &SharedState) {
+        let mut charts_local = s.charts_local.iter().collect::<Vec<_>>();
+        self.current_order.apply(&mut charts_local, |it| it);
+        if self.order_rev {
+            charts_local.reverse();
+        }
+
         let list = self.tabs.selected_mut();
         if list.ty == ChartListType::Local {
             let mut charts = Vec::new();
@@ -271,23 +278,32 @@ impl LibraryPage {
                 charts.extend(get_data().collections[fav_index].charts.iter().filter_map(|it| {
                     match it {
                         ChartRef::Online(chart) => chart.name.contains(&self.search_str).then(|| ChartDisplayItem::from_remote(chart)),
-                        ChartRef::Local(path) => s
-                            .charts_local
+                        ChartRef::Local(path) => charts_local
                             .iter()
                             .find(|it| it.local_path.as_ref().is_some_and(|its_path| its_path == path) && it.info.name.contains(&self.search_str))
-                            .map(|it| ChartDisplayItem::new(Some(it.clone()), None)),
+                            .map(|it| ChartDisplayItem::new(Some((*it).clone()), None)),
                     }
                 }))
             } else {
                 charts.push(ChartDisplayItem::new(None, None));
                 charts.extend(
-                    s.charts_local
+                    charts_local
                         .iter()
                         .filter(|it| it.info.name.contains(&self.search_str))
-                        .map(|it| ChartDisplayItem::new(Some(it.clone()), None)),
+                        .map(|it| ChartDisplayItem::new(Some((*it).clone()), None)),
                 )
             }
             list.view.set(s.t, charts);
+        }
+    }
+
+    fn on_order_update(&mut self, s: &mut SharedState) {
+        let list = self.tabs.selected_mut();
+        if list.ty == ChartListType::Local {
+            self.sync_local(s);
+        } else {
+            self.current_page = 0;
+            self.load_online();
         }
     }
 }
@@ -401,16 +417,6 @@ impl Page for LibraryPage {
                     request_input("search", &self.search_str);
                     return Ok(true);
                 }
-                if self.order_btn.touch(touch, t) {
-                    self.need_show_order_menu = true;
-                    return Ok(true);
-                }
-                if self.order_rev_btn.touch(touch, t) {
-                    self.order_rev = !self.order_rev;
-                    self.current_page = 0;
-                    self.load_online();
-                    return Ok(true);
-                }
                 if self.filter_btn.touch(touch, t) {
                     if self.filter_show_tag {
                         self.tags.enter(t);
@@ -421,6 +427,22 @@ impl Page for LibraryPage {
                 }
             }
             ChartListType::Popular => {}
+        }
+        if self.order_btn.touch(touch, t) {
+            if self.tabs.selected().ty == ChartListType::Local {
+                self.order_menu_options = vec![ChartOrder::Default, ChartOrder::Name, ChartOrder::Difficulty];
+            } else {
+                self.order_menu_options = vec![ChartOrder::Default, ChartOrder::Rating, ChartOrder::Name, ChartOrder::Difficulty];
+            }
+            self.order_menu
+                .set_options(self.order_menu_options.iter().map(|it| it.label().into_owned()).collect());
+            self.need_show_order_menu = true;
+            return Ok(true);
+        }
+        if self.order_rev_btn.touch(touch, t) {
+            self.order_rev = !self.order_rev;
+            self.on_order_update(s);
+            return Ok(true);
         }
         Ok(false)
     }
@@ -442,6 +464,11 @@ impl Page for LibraryPage {
         if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {
             self.current_fav_index = result;
             self.sync_local(s);
+        }
+
+        if self.tabs.selected().ty == ChartListType::Local && self.current_order == ChartOrder::Rating {
+            self.current_order = ChartOrder::Default;
+            self.order_rev = true;
         }
 
         self.tags.update(t);
@@ -525,9 +552,9 @@ impl Page for LibraryPage {
             }
         }
         if self.order_menu.changed() {
-            self.current_order = self.order_menu.selected();
-            self.current_page = 0;
-            self.load_online();
+            self.current_order = self.order_menu_options[self.order_menu.selected()];
+            self.order_rev = self.current_order == ChartOrder::Default;
+            self.on_order_update(s);
         }
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
@@ -535,6 +562,10 @@ impl Page for LibraryPage {
         let list = self.tabs.selected_mut();
         let view = &mut list.view;
         if let Some((from, to)) = view.take_movement() {
+            if self.current_order != ChartOrder::Default && self.current_fav_index.is_none() {
+                show_message(tl!("order-update-failed-sort")).error();
+                return Ok(());
+            }
             let data = get_data_mut();
             if let Some(index) = self.current_fav_index {
                 let col = &mut data.collections[index];
@@ -547,8 +578,13 @@ impl Page for LibraryPage {
                     }
                 }
             } else {
-                let chart = data.charts.remove(data.charts.len() - from - 1);
-                data.charts.insert(data.charts.len() - to, chart);
+                if self.order_rev {
+                    let chart = data.charts.remove(data.charts.len() - from - 1);
+                    data.charts.insert(data.charts.len() - to, chart);
+                } else {
+                    let chart = data.charts.remove(from);
+                    data.charts.insert(to, chart);
+                }
                 let _ = save_data();
                 s.reload_local_charts();
             }
@@ -668,24 +704,27 @@ impl Page for LibraryPage {
                         .max_width(btn_w - 0.02)
                         .color(if active { BLACK } else { WHITE })
                         .draw();
-                } else {
-                    self.order_rev_btn.render_shadow(ui, r, t, |ui, path| {
-                        ui.fill_path(&path, semi_black(0.4));
-                        let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (if self.order_rev { *self.icons.sort_desc } else { *self.icons.sort_asc }, cr, ScaleType::Fit));
-                    });
-                    r.x -= r.w + 0.02;
-                    self.order_btn.render_shadow(ui, r, t, |ui, path| {
-                        ui.fill_path(&path, semi_black(0.4));
-                        let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.order, cr, ScaleType::Fit));
-                    });
-                    if self.need_show_order_menu {
-                        self.need_show_order_menu = false;
-                        self.order_menu.set_bottom(true);
-                        self.order_menu.set_selected(self.current_order);
-                        self.order_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.3, 0.4));
-                    }
+                    r.x = fav_r.x - 0.02 - r.w;
+                }
+                self.order_rev_btn.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let cr = r.feather(-0.01);
+                    ui.fill_rect(cr, (if self.order_rev { *self.icons.sort_desc } else { *self.icons.sort_asc }, cr, ScaleType::Fit));
+                });
+                r.x -= r.w + 0.02;
+                self.order_btn.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let cr = r.feather(-0.01);
+                    ui.fill_rect(cr, (*self.icons.order, cr, ScaleType::Fit));
+                });
+                if self.need_show_order_menu {
+                    self.need_show_order_menu = false;
+                    self.order_menu.set_bottom(true);
+                    self.order_menu
+                        .set_selected(self.order_menu_options.iter().position(|&it| it == self.current_order).unwrap_or(0));
+                    self.order_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.3, 0.4));
+                }
+                if chosen != ChartListType::Local {
                     r.x -= r.w + 0.02;
                     self.filter_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));

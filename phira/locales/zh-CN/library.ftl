@@ -18,5 +18,6 @@ offline-mode = 离线模式下无法加载在线谱面
 must-login = 登录才可查看在线谱面
 
 order-updated = 排序已更新
+order-update-failed-sort = 只能在默认排序方式下更新排序
 fav-synced = 收藏夹已同步
 fav-sync-failed = 收藏夹同步失败

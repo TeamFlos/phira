@@ -1,8 +1,10 @@
 prpr_l10n::tl_file!("chart_order");
 
+use std::borrow::Cow;
+
 use crate::page::ChartItem;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ChartOrder {
     Default,
     Name,
@@ -11,19 +13,18 @@ pub enum ChartOrder {
 }
 
 impl ChartOrder {
-    pub fn names() -> Vec<String> {
-        ORDER_LABELS.iter().map(|it| tl!(*it).into_owned()).collect()
-    }
-
-    pub fn apply(&self, charts: &mut [ChartItem]) {
-        self.apply_delegate(charts, |it| it)
-    }
-
-    pub fn apply_delegate<T>(&self, charts: &mut [T], f: impl Fn(&T) -> &ChartItem) {
+    pub fn label(&self) -> Cow<'static, str> {
         match self {
-            Self::Default => {
-                charts.reverse();
-            }
+            Self::Default => tl!("time"),
+            Self::Name => tl!("name"),
+            Self::Difficulty => tl!("difficulty"),
+            Self::Rating => tl!("rating"),
+        }
+    }
+
+    pub fn apply<T>(&self, charts: &mut [T], f: impl Fn(&T) -> &ChartItem) {
+        match self {
+            Self::Default => {}
             Self::Name => {
                 charts.sort_by(|x, y| f(x).info.name.cmp(&f(y).info.name));
             }
@@ -39,7 +40,3 @@ impl ChartOrder {
         }
     }
 }
-
-const ORDER_NUM: usize = 4;
-const ORDER_LABELS: [&str; ORDER_NUM] = ["time", "rating", "name", "difficulty"];
-pub static ORDERS: [ChartOrder; ORDER_NUM] = [ChartOrder::Default, ChartOrder::Rating, ChartOrder::Name, ChartOrder::Difficulty];

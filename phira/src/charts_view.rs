@@ -131,14 +131,12 @@ impl ChartsView {
 
             allow_edit: false,
             editing_chart: None,
-            chart_menu: Popup::new().tap_mut(|menu| {
-                menu.set_options(vec![
-                    tl!("move-to-first").into_owned(),
-                    tl!("move-to-last").into_owned(),
-                    tl!("move-before").into_owned(),
-                    tl!("move-after").into_owned(),
-                ]);
-            }),
+            chart_menu: Popup::new().with_options(vec![
+                tl!("move-to-first").into_owned(),
+                tl!("move-to-last").into_owned(),
+                tl!("move-before").into_owned(),
+                tl!("move-after").into_owned(),
+            ]),
             need_show_chart_menu: false,
             edit_move_state: None,
             movement: None,
