@@ -485,4 +485,3 @@ pub fn mark_import_respack() {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().0 = Some("_import_respack".to_owned());
 }
-
