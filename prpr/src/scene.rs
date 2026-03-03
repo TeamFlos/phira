@@ -1,4 +1,5 @@
 //! Scene management module.
+#![allow(unused_macros)]
 
 prpr_l10n::tl_file!("scene" ttl);
 
