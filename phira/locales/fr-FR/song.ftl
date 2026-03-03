@@ -127,8 +127,3 @@ stabilize-approved = Approuvé
 stabilize-approved-passed = La partition est stabilisée.
 stabilize-denied = Refusé
 stabilize-denied-passed = La partition est rejetée.
-
-# fav-added = Ajouté aux favoris
-# fav-add-to = Ajouter à...
-# fav-select-folder = Sélectionner le dossier
-# fav-default-folder = Par défaut
