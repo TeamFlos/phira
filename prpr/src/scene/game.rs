@@ -1088,13 +1088,15 @@ impl Scene for GameScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        let current_time = tm.real_time();
-        if matches!(self.state, State::Playing) && !tm.paused() {
-            let frame_delta = current_time - self.fps_last_frame_time;
-            self.fps_total_time += frame_delta;
-            self.fps_frame_count += 1;
+        if self.res.config.show_avg_fps {
+            let current_time = tm.real_time();
+            if matches!(self.state, State::Playing) && !tm.paused() {
+                let frame_delta = current_time - self.fps_last_frame_time;
+                self.fps_total_time += frame_delta;
+                self.fps_frame_count += 1;
+            }
+            self.fps_last_frame_time = current_time;
         }
-        self.fps_last_frame_time = current_time;
 
         let res = &mut self.res;
         let asp = ui.viewport.2 as f32 / ui.viewport.3 as f32;
