@@ -4,11 +4,14 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 
+[lints]
+workspace = true
+
 [lib]
 crate-type = ["lib", "cdylib"]
 
 [features]
-closed = ["prpr/closed"]
+default = ["video"]
 video = ["prpr/video"]
 chat = []
 aa = []

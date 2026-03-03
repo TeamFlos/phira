@@ -33,7 +33,7 @@ expected-tween = 應當為 tween
 
 no-notes-inserted = 未插入音符
 unknown-command = 未知指令: { $cmd }
-bp-error = Bpm 事件 (bp) 應當連續且位於文件開頭
+bp-error = Bpm 事件 (bp) 應當連續且位於檔案開頭
 expected-01 = 應當為 0 / 1 (真 note / 假 note)
 unexpected-extra = 未知的附加內容: { $next }
 line-location = #{ $lid } 行中

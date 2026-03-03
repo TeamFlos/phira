@@ -29,6 +29,7 @@ use crate::{
     judge::Judge,
     scene::{request_input_full, return_input, show_error, take_input},
 };
+use core::f32;
 use lyon::{
     lyon_tessellation::{
         BuffersBuilder, FillOptions, FillTessellator, FillVertex, FillVertexConstructor, StrokeOptions, StrokeTessellator, StrokeVertex,
@@ -132,6 +133,16 @@ impl<T: Shading> VertexBuilder<T> {
     }
 }
 
+#[derive(Default)]
+pub struct LongTouchState {
+    start: Option<(Vec2, f32)>,
+}
+impl LongTouchState {
+    pub fn reset(&mut self) {
+        self.start = None;
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct RectButton {
     pts: Option<[Vec2; 4]>,
@@ -198,6 +209,39 @@ impl RectButton {
             TouchPhase::Ended => {
                 if self.id.take() == Some(touch.id) && inside {
                     return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn long_touch(&mut self, touch: &Touch, t: f32, state: &mut LongTouchState) -> bool {
+        match touch.phase {
+            TouchPhase::Started => {
+                if self.id == Some(touch.id) {
+                    state.start = Some((touch.position, t));
+                }
+            }
+            TouchPhase::Moved | TouchPhase::Stationary => {
+                if self.id == Some(touch.id) {
+                    if let Some((start_pos, start_time)) = state.start {
+                        if (touch.position - start_pos).length() > 0.02 {
+                            state.reset();
+                        } else if t > start_time + 0.5 {
+                            state.reset();
+                            return true;
+                        }
+                    }
+                }
+            }
+            TouchPhase::Cancelled => {
+                if self.id == Some(touch.id) {
+                    state.reset();
+                }
+            }
+            TouchPhase::Ended => {
+                if self.id.take() == Some(touch.id) {
+                    state.reset();
                 }
             }
         }
@@ -284,6 +328,7 @@ impl DRectButton {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) {
         let oh = r.h;
         self.build(ui, t, r, |ui, path| {
@@ -348,7 +393,7 @@ impl DRectButton {
         } else {
             1.
         };
-        if self.inner.touching() {
+        if self.last_touching {
             1. - p
         } else {
             p
@@ -366,6 +411,19 @@ impl DRectButton {
             button_hit();
         }
         res
+    }
+
+    pub fn long_touch(&mut self, touch: &Touch, t: f32, state: &mut LongTouchState) -> bool {
+        if self.inner.long_touch(touch, t, state) {
+            self.last_touching = false;
+            self.start_time = Some(t);
+            if self.play_sound {
+                button_hit();
+            }
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -896,10 +954,16 @@ impl<'a> Ui<'a> {
             let mut state = state.borrow_mut();
             let entry = state.entry(format!("chkbox#{text}")).or_default();
             let w = 0.08;
-            let s = 0.03;
-            let text = self.text(text).pos(w, 0.).size(0.5).no_baseline().draw();
+            let s = 0.025;
+            let text = self.text(text).pos(w, 0.).size(0.47).no_baseline().draw();
             let r = Rect::new(w / 2. - s, text.center().y - s, s * 2., s * 2.);
-            self.fill_rect(r, if *value { self.accent() } else { WHITE });
+            self.fill_path(
+                &r.rounded(0.01),
+                Color {
+                    a: if entry.is_some() { 0.5 } else { 1. },
+                    ..if *value { WHITE } else { self.background() }
+                },
+            );
             let r = Rect::new(r.x, r.y, text.right() - r.x, (text.bottom() - r.y).max(w));
             if self.clicked(r, entry) {
                 *value ^= true;
@@ -1182,6 +1246,7 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
     }
 }
 
+#[allow(clippy::blocks_in_conditions)]
 fn build_audio() -> AudioManager {
     match {
         #[cfg(target_os = "android")]

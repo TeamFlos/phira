@@ -14,7 +14,6 @@ use crate::{
     scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
     sync_data,
     threed::ThreeD,
-    ttl,
 };
 use ::rand::{random, thread_rng, Rng};
 use anyhow::{bail, Context, Result};
@@ -41,6 +40,8 @@ use tracing::{info, warn};
 
 const BOARD_SWITCH_TIME: f32 = 4.;
 const BOARD_TRANSIT_TIME: f32 = 1.2;
+
+type BoldFontUpdateTask = Task<Result<Option<(FontArc, String)>>>;
 
 #[derive(Deserialize)]
 struct Version {
@@ -79,7 +80,7 @@ pub struct HomePage {
     has_new: bool,
 
     check_update_task: Option<Task<Result<Option<Version>>>>,
-    check_bold_font_update_task: Option<Task<Result<Option<(FontArc, String)>>>>,
+    check_bold_font_update_task: Option<BoldFontUpdateTask>,
 
     btn_play_3d: ThreeD,
     btn_other_3d: ThreeD,
@@ -228,7 +229,7 @@ impl HomePage {
 
         self.char_appear_p.set(0.);
 
-        #[cfg(feature = "closed")]
+        #[cfg(closed)]
         if self.character.illust == "@" {
             let id = self.character.id.clone();
             self.char_illu_task =
@@ -509,7 +510,7 @@ impl Page for HomePage {
                     Ok(image) => {
                         if let Some(image) = image {
                             let tex: SafeTexture = image.into();
-                            self.board_tex_last = std::mem::replace(&mut self.board_tex, Some(tex));
+                            self.board_tex_last = self.board_tex.replace(tex);
                             self.board_dir = random();
                         }
                     }

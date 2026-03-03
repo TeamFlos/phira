@@ -15,6 +15,7 @@ offset = Offset(s)
 aspect-ratio = Tỉ lệ màn hình
 ps = Ghi chú
 aspect-hint = Tỉ lệ màn hình có thể là số hoặc chữ dạng như "rộng:cao"
+force-aspect-ratio = Đóng khung theo tỉ lệ màn hình
 dim = Độ tối nền
 chart-file = Tệp Chart
 music-file = Tệp nhạc
