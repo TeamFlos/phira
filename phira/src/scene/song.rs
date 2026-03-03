@@ -2446,10 +2446,7 @@ impl Scene for SongScene {
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
                 // 收藏按钮 || Favorites button
-                let is_fav = get_data()
-                    .collections
-                    .iter()
-                    .any(|col| col.is_default && col.charts.iter().any(|it| self.matches_ref(it)));
+                let is_fav = get_data().collections.iter().any(|col| col.charts.iter().any(|it| self.matches_ref(it)));
                 let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
                 ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
                 self.fav_btn.set(ui, r);
