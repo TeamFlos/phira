@@ -30,19 +30,21 @@ use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::{BOLD_FONT, Tweenable},
+    core::{Tweenable, BOLD_FONT},
     ext::{
-        BLACK_TEXTURE, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType, open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into
+        open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType,
+        BLACK_TEXTURE,
     },
     fs::{self},
     info::ChartInfo,
-    judge::{Judge, icon_index},
+    judge::{icon_index, Judge},
     scene::{
-        BasicPlayer, GameMode, LoadingScene, LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn, request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input
+        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
+        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn,
     },
     task::Task,
     time::TimeManager,
-    ui::{ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, UI_AUDIO, Ui, button_hit, render_chart_info},
+    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, Ui, UI_AUDIO},
 };
 use reqwest::Method;
 use sasa::{AudioClip, Frame, Music, MusicParams};

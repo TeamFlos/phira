@@ -166,7 +166,7 @@ impl LibraryPage {
 }
 
 impl LibraryPage {
-    fn total_page(&self, s: &SharedState) -> u64 {
+    fn total_page(&self) -> u64 {
         if self.tabs.selected().ty == ChartListType::Local {
             0
         } else {
@@ -351,7 +351,7 @@ impl Page for LibraryPage {
                 return Ok(true);
             }
             if self.next_page_btn.touch(touch, t) {
-                if self.current_page + 1 < self.total_page(s) {
+                if self.current_page + 1 < self.total_page() {
                     self.current_page += 1;
                     self.load_online();
                 }
@@ -679,7 +679,7 @@ impl Page for LibraryPage {
             });
         }
         if chosen != ChartListType::Local {
-            let total_page = self.total_page(s);
+            let total_page = self.total_page();
             s.render_fader(ui, |ui| {
                 let cx = r.center().x;
                 let r = ui
