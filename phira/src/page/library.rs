@@ -6,7 +6,7 @@ use crate::{
     client::{Chart, ChartRef, Client, Collection},
     get_data, get_data_mut,
     icons::Icons,
-    page::favorites::FAV_PAGE_RESULT,
+    page::{favorites::FAV_PAGE_RESULT, ChartItem},
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -271,16 +271,31 @@ impl LibraryPage {
             charts_local.reverse();
         }
 
+        let search_by_id = if let Some(id_str) = self.search_str.strip_prefix('#') {
+            id_str.trim().parse::<i32>().ok()
+        } else {
+            None
+        };
+        let local_matcher = |chart: &ChartItem| {
+            if let Some(search_id) = search_by_id {
+                chart.info.id == Some(search_id)
+            } else {
+                chart.info.name.contains(&self.search_str)
+            }
+        };
+
         let list = self.tabs.selected_mut();
         if list.ty == ChartListType::Local {
             let mut charts = Vec::new();
             if let Some(fav_index) = self.current_fav_index {
                 charts.extend(get_data().collections[fav_index].charts.iter().filter_map(|it| {
                     match it {
-                        ChartRef::Online(chart) => chart.name.contains(&self.search_str).then(|| ChartDisplayItem::from_remote(chart)),
+                        ChartRef::Online(chart) => search_by_id
+                            .map_or_else(|| chart.name.contains(&self.search_str), |search_id| chart.id == search_id)
+                            .then(|| ChartDisplayItem::from_remote(chart)),
                         ChartRef::Local(path) => charts_local
                             .iter()
-                            .find(|it| it.local_path.as_ref().is_some_and(|its_path| its_path == path) && it.info.name.contains(&self.search_str))
+                            .find(|it| it.local_path.as_ref().is_some_and(|its_path| its_path == path) && local_matcher(it))
                             .map(|it| ChartDisplayItem::new(Some((*it).clone()), None)),
                     }
                 }))
@@ -289,7 +304,7 @@ impl LibraryPage {
                 charts.extend(
                     charts_local
                         .iter()
-                        .filter(|it| it.info.name.contains(&self.search_str))
+                        .filter(|it| local_matcher(it))
                         .map(|it| ChartDisplayItem::new(Some((*it).clone()), None)),
                 )
             }
