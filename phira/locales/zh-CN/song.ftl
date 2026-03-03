@@ -127,8 +127,5 @@ stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
 
 fav-added = 已收藏
-fav-add-to = 收藏到…
-fav-select-folder = 选择收藏夹
-fav-default-folder = 默认收藏夹
 
 still-loading = 仍在加载中…
