@@ -26,7 +26,6 @@ use std::{
         Arc,
     },
 };
-use tap::Tap;
 
 pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 

@@ -306,6 +306,13 @@ impl LibraryPage {
             self.load_online();
         }
     }
+
+    fn check_fav_page(&mut self, s: &mut SharedState) {
+        if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {
+            self.current_fav_index = result;
+            self.sync_local(s);
+        }
+    }
 }
 
 impl Page for LibraryPage {
@@ -460,11 +467,7 @@ impl Page for LibraryPage {
             ))));
         }
 
-        // 在 update 中处理收藏夹选择结果，绕开fader那个的0.7秒延迟  ||  Handle the favorites folder selection result in update, bypassing the 0.7-second delay of the fader
-        if let Some(result) = FAV_PAGE_RESULT.with(|it| it.borrow_mut().take()) {
-            self.current_fav_index = result;
-            self.sync_local(s);
-        }
+        self.check_fav_page(s);
 
         if self.tabs.selected().ty == ChartListType::Local && self.current_order == ChartOrder::Rating {
             self.current_order = ChartOrder::Default;
@@ -626,6 +629,8 @@ impl Page for LibraryPage {
     }
 
     fn render(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
+        self.check_fav_page(s);
+
         let t = s.t;
         let rt = s.rt;
         let mut r = ui.content_rect();
