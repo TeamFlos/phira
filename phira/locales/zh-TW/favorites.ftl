@@ -9,7 +9,7 @@ name-empty = 資料夾名稱不能為空
 import = 匯入
 imported = 已匯入
 already-imported = 已經匯入過了
-invalid-import = 解析欲匯入的內容失敗
+invalid-import = 解析輸入的目標失敗
 
 rename = 重新命名
 set-description = 編輯簡介
@@ -32,8 +32,8 @@ info-count = 譜面數量
 
 sync-to-cloud = 同步到雲端
 sync-from-cloud = 從雲端同步
-sync-confirm = 同步可能會覆蓋現有內容，是否繼續？
-sync-outdated = 雲端內容自上次同步起已被其他裝置更新是否仍要同步（覆蓋雲端內容）
+sync-confirm = 同步可能會覆蓋現有資料，是否繼續？
+sync-outdated = 雲端資料容自上次同步起已被其他裝置更新是否仍要同步（覆蓋雲端資料）
 synced = 同步完成
 upload-to-cloud = 上傳到雲端
 uploaded = 已上傳
