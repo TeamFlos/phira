@@ -185,15 +185,15 @@ impl LibraryPage {
     }
 
     pub fn load_online(&mut self) {
-        if !check_read_tos_and_policy(false, false) {
-            return;
-        }
         if get_data().config.offline_mode {
             show_message(tl!("offline-mode")).error();
             return;
         }
         if get_data().me.is_none() {
             show_error(anyhow!(tl!("must-login")));
+            return;
+        }
+        if !check_read_tos_and_policy(false, false) {
             return;
         }
         self.tabs.selected_mut().view.reset_scroll();
