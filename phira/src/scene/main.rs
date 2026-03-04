@@ -245,6 +245,9 @@ impl Scene for MainScene {
 
         let s = &mut self.state;
         s.update(tm);
+        if self.pages.last_mut().unwrap().touch(touch, s)? {
+            return Ok(true);
+        }
         if self.btn_back.touch(touch) && self.pages.len() > 1 {
             button_hit();
             if !self.pages.last_mut().unwrap().on_back_pressed(&mut self.state) {
@@ -255,9 +258,6 @@ impl Scene for MainScene {
                 }
                 self.pop();
             }
-            return Ok(true);
-        }
-        if self.pages.last_mut().unwrap().touch(touch, s)? {
             return Ok(true);
         }
         Ok(false)
