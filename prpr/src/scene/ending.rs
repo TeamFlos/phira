@@ -552,11 +552,10 @@ impl Scene for EndingScene {
             let w = s * 2. + pad + ui.text(&self.player_name).size(0.6).measure().w.min(mw) + 0.02;
             let r = Rect::new(-0.96, -top + 0.04, w, s * 2.);
             ui.fill_path(&r.feather(0.01).rounded(s + 0.01), semi_black(0.6));
-            ui.fill_rect(Rect::new(r.x, r.y + s + 0.003, r.w + 0.01, 0.).nonuniform_feather(-0.01, 0.002), WHITE);
             ui.avatar(r.x + s, r.y + s, s, t, Ok(Some(self.player.clone())));
             let lf = r.x + s * 2. + pad;
             ui.text(&self.player_name)
-                .pos(lf, r.y + s - 0.007)
+                .pos(lf, r.y + s)
                 .anchor(0., 1.)
                 .max_width(mw)
                 .size(0.6)
@@ -570,7 +569,7 @@ impl Scene for EndingScene {
             })
             .pos(lf, r.y + s + 0.008)
             .size(0.4)
-            .color(semi_white(0.6))
+            .color(semi_white(0.7))
             .draw();
         });
 

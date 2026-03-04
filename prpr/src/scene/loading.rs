@@ -187,7 +187,7 @@ impl Scene for LoadingScene {
 
             rounded_rect_shadow(ui, r, &config);
             clip_rounded_rect(ui, r, config.radius, |ui| {
-                ui.fill_rect(r, Color { a: 0.65, ..self.theme_color });
+                ui.fill_rect(r, Color { a: 0.6, ..self.theme_color });
                 ui.fill_rect(ir, (*self.illustration, ir));
                 ui.fill_rect(ir, (semi_black(0.5), (ir.x, ir.bottom()), Color::default(), (ir.x, ir.y)));
             });
