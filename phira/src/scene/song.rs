@@ -1589,7 +1589,7 @@ impl Scene for SongScene {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(false)));
             return Ok(true);
         }
-        if self.play_btn.touch(touch, t) {
+        if self.scene_task.is_none() && self.next_scene.is_none() && self.play_btn.touch(touch, t) {
             if self.local_path.is_some() {
                 self.launch(GameMode::Normal, false)?;
             } else {
