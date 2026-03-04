@@ -588,6 +588,7 @@ impl Page for LibraryPage {
             self.current_order = self.order_menu_options[self.order_menu.selected()];
             self.order_rev = self.current_order == ChartOrder::Default;
             self.order_meta_menu.set_selected(usize::MAX);
+            self.update_order_meta_menu_options();
             self.on_order_update(s);
         }
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
