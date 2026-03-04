@@ -1,15 +1,15 @@
 use super::{draw_background, ending::RecordUpdateState, game::GameMode, GameScene, NextScene, Scene};
 use crate::{
     config::Config,
-    core::{BOLD_FONT, Resource},
-    ext::{BLACK_TEXTURE, LocalTask, RectExt, SafeTexture, poll_future, semi_black, semi_white},
+    core::{Resource, BOLD_FONT},
+    ext::{poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture, BLACK_TEXTURE},
     fs::FileSystem,
     info::ChartInfo,
     judge::Judge,
     scene::game::SimpleRecord,
     task::Task,
     time::TimeManager,
-    ui::{LoadingParams, ShadowConfig, Ui, clip_rounded_rect, rounded_rect_shadow},
+    ui::{clip_rounded_rect, rounded_rect_shadow, LoadingParams, ShadowConfig, Ui},
 };
 use ::rand::{seq::SliceRandom, thread_rng};
 use anyhow::{Context, Result};

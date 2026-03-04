@@ -554,12 +554,7 @@ impl Scene for EndingScene {
             ui.fill_path(&r.feather(0.01).rounded(s + 0.01), semi_black(0.6));
             ui.avatar(r.x + s, r.y + s, s, t, Ok(Some(self.player.clone())));
             let lf = r.x + s * 2. + pad;
-            ui.text(&self.player_name)
-                .pos(lf, r.y + s)
-                .anchor(0., 1.)
-                .max_width(mw)
-                .size(0.6)
-                .draw();
+            ui.text(&self.player_name).pos(lf, r.y + s).anchor(0., 1.).max_width(mw).size(0.6).draw();
             ui.text(if let Some(new_rks) = self.update_state.as_ref().and_then(|it| it.new_rks) {
                 format!("{new_rks:.2}")
             } else if let Some(rks) = &self.player_rks {
