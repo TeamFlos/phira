@@ -44,9 +44,9 @@ use tracing::{debug, warn};
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
 #[rustfmt::skip]
-#[cfg(closed)]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 mod inner;
-#[cfg(closed)]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
@@ -915,7 +915,7 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(closed)]
+                    #[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {
