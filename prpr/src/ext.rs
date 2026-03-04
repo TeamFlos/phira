@@ -400,7 +400,16 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
             usage: Usage::Game,
         }))
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(target_env = "ohos")]
+    {
+        use sasa::backend::ohos::*;
+        AudioManager::new(OhosBackend::new(OhosSettings {
+            buffer_size: Some(256),
+            sample_rate: Some(config.preferred_sample_rate),
+            channels: 2,
+        }))
+    }
+    #[cfg(not(any(target_os = "android", target_env = "ohos")))]
     {
         use sasa::backend::cpal::*;
         AudioManager::new(CpalBackend::new(CpalSettings {
@@ -531,7 +540,7 @@ pub fn open_url(url: &str) -> Result<()> {
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
                 let method =
-                    (**env).GetMethodID.unwrap()(env, class, b"openUrl\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                    (**env).GetMethodID.unwrap()(env, class, c"openUrl".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
                 let url = std::ffi::CString::new(url.to_owned()).unwrap();
                 (**env).CallVoidMethod.unwrap()(
                     env,
@@ -548,7 +557,10 @@ pub fn open_url(url: &str) -> Result<()> {
                 let url: ObjcId = msg_send![class!(NSURL), URLWithString: str_to_ns(url)];
                 let _: () = msg_send![application, openURL: url];
             }
-        } else {
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(format!("{{\"action\":\"openurl\",\"payload\":\"{}\"}}", url));
+        }
+        else {
             open::that(url)?;
         }
     }

@@ -17,7 +17,7 @@ pub mod ui;
 pub mod log;
 
 #[rustfmt::skip]
-#[cfg(feature = "closed")]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 pub mod inner;
 
 #[cfg(target_os = "ios")]

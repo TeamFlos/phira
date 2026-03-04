@@ -5,7 +5,7 @@ prpr_l10n::tl_file!("game");
 use super::{
     draw_background,
     ending::RecordUpdateState,
-    loading::{BasicPlayer, UpdateFn, UploadFn},
+    loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn},
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
@@ -44,9 +44,9 @@ use tracing::{debug, warn};
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
 #[rustfmt::skip]
-#[cfg(feature = "closed")]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 mod inner;
-#[cfg(feature = "closed")]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
@@ -144,8 +144,14 @@ pub struct GameScene {
 
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
+    save_fn: Option<SaveFn>,
+
+    best_record: Option<SimpleRecord>,
 
     pub touch_points: Vec<(f32, f32)>,
+    fps_frame_count: u32,
+    fps_total_time: f64,
+    fps_last_frame_time: f64,
 }
 
 macro_rules! reset {
@@ -160,6 +166,9 @@ macro_rules! reset {
         $tm.reset();
         $self.last_update_time = $tm.now();
         $self.state = State::Starting;
+        $self.fps_frame_count = 0;
+        $self.fps_total_time = 0.0;
+        $self.fps_last_frame_time = $tm.real_time();
     }};
 }
 
@@ -216,6 +225,7 @@ impl GameScene {
         Ok((chart, bytes, format))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mode: GameMode,
         info: ChartInfo,
@@ -226,6 +236,7 @@ impl GameScene {
         illustration: SafeTexture,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
+        save_fn: Option<SaveFn>,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -302,8 +313,15 @@ impl GameScene {
 
             upload_fn,
             update_fn,
+            save_fn,
+
+            best_record: None,
 
             touch_points: Vec::new(),
+
+            fps_frame_count: 0,
+            fps_total_time: 0.0,
+            fps_last_frame_time: 0.0,
         })
     }
 
@@ -784,6 +802,13 @@ impl GameScene {
             }
         });
     }
+    pub fn get_avg_fps(&self) -> Option<f32> {
+        if self.fps_frame_count > 0 && self.fps_total_time > 0.0 {
+            Some(self.fps_frame_count as f32 / self.fps_total_time as f32)
+        } else {
+            None
+        }
+    }
 }
 
 impl Scene for GameScene {
@@ -890,7 +915,7 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(feature = "closed")]
+                    #[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {
@@ -911,23 +936,42 @@ impl Scene for GameScene {
                         })
                     };
                     self.next_scene = match self.mode {
-                        GameMode::Normal | GameMode::NoRetry | GameMode::View => Some(NextScene::Overlay(Box::new(EndingScene::new(
-                            self.res.background.clone(),
-                            self.res.illustration.clone(),
-                            self.res.player.clone(),
-                            self.res.icons.clone(),
-                            self.res.icon_retry.clone(),
-                            self.res.icon_proceed.clone(),
-                            self.res.info.clone(),
-                            self.judge.result(),
-                            &self.res.config,
-                            self.res.res_pack.ending.clone(),
-                            self.upload_fn.as_ref().map(Arc::clone),
-                            self.player.as_ref().map(|it| it.rks),
-                            self.player.as_ref().map_or(0, |it| it.historic_best),
-                            record_data,
-                            record,
-                        )?))),
+                        GameMode::Normal | GameMode::NoRetry | GameMode::View => {
+                            let historic_best = self.player.as_ref().map_or(0, |it| it.historic_best);
+                            if let Some(new_rec) = &record {
+                                if let Some(f) = &self.save_fn {
+                                    f(new_rec.clone())?;
+                                }
+                                if let Some(best) = &mut self.best_record {
+                                    best.update(new_rec);
+                                } else {
+                                    self.best_record = record.clone();
+                                }
+                                if let Some(best) = &self.best_record {
+                                    if let Some(player) = &mut self.player {
+                                        player.historic_best = player.historic_best.max(best.score as _);
+                                    }
+                                }
+                            }
+                            Some(NextScene::Overlay(Box::new(EndingScene::new(
+                                self.res.background.clone(),
+                                self.res.illustration.clone(),
+                                self.res.player.clone(),
+                                self.res.icons.clone(),
+                                self.res.icon_retry.clone(),
+                                self.res.icon_proceed.clone(),
+                                self.res.info.clone(),
+                                self.judge.result(),
+                                &self.res.config,
+                                self.res.res_pack.ending.clone(),
+                                self.upload_fn.as_ref().map(Arc::clone),
+                                self.player.as_ref().map(|it| it.rks),
+                                historic_best,
+                                record_data,
+                                self.best_record.clone(),
+                                if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
+                            )?)))
+                        }
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
                     };
@@ -1044,6 +1088,16 @@ impl Scene for GameScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
+        if self.res.config.show_avg_fps {
+            let current_time = tm.real_time();
+            if matches!(self.state, State::Playing) && !tm.paused() {
+                let frame_delta = current_time - self.fps_last_frame_time;
+                self.fps_total_time += frame_delta;
+                self.fps_frame_count += 1;
+            }
+            self.fps_last_frame_time = current_time;
+        }
+
         let res = &mut self.res;
         let asp = ui.viewport.2 as f32 / ui.viewport.3 as f32;
         if res.update_size(ui.viewport) || self.mode == GameMode::View {
@@ -1157,7 +1211,16 @@ impl Scene for GameScene {
             tm.speed = 1.0;
             tm.adjust_time = false;
             match self.mode {
-                GameMode::Normal | GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
+                // return result to update score and refresh
+                GameMode::Normal => {
+                    if let Some(rec) = &self.best_record {
+                        NextScene::PopWithResult(Box::new(rec.clone()))
+                    } else {
+                        NextScene::Pop
+                    }
+                }
+                // not sure if they need result. just keep it
+                GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),
             }
         } else if let Some(next_scene) = self.next_scene.take() {

@@ -251,6 +251,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f32, format_version: u32) -> Re
         notes,
         color: Anim::default(),
         parent: None,
+        rot_with_parent: false,
         z_index: 0,
         show_below: false,
         attach_ui: None,

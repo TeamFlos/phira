@@ -53,6 +53,7 @@ pub struct RenderConfig<'a> {
     pub incline_sin: f32,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_tex(res: &Resource, texture: Texture2D, order: i8, x: f32, y: f32, color: Color, mut params: DrawTextureParams, clip: bool) {
     let Vec2 { x: w, y: h } = params.dest_size.unwrap();
     if h < 0. {

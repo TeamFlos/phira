@@ -1,0 +1,13 @@
+# default = Mặc định
+# create = Thư mục mới
+# enter-name = Nhập tên thư mục
+# name-empty = Tên không được để trống
+# # created = Đã tạo
+# deleted = Đã xóa thư mục
+# renamed = Đã đổi tên
+# rename = Đổi tên
+# delete = Xóa thư mục
+# delete-confirm = Xóa thư mục này? (Các chart sẽ không bị xóa)
+# custom-cover = Ảnh bìa tùy chỉnh
+# all = Tất cả
+# show-all = Hiển thị tất cả chart

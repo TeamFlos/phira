@@ -1,7 +1,6 @@
 
 load-preview-failed = 載入歌曲預覽失敗
 load-charts-failed = 載入難度失敗
-no-chart-for-download = 該譜面不提供下載
 
 load-chart-failed = 載入譜面失敗
 
@@ -12,7 +11,7 @@ dl-status-chart = 下載譜面
 dl-status-extract = 解壓縮中…
 dl-status-illustration = 下載插圖
 dl-status-assets = 下載資源
-dl-status-saving = 保存中…
+dl-status-saving = 儲存中…
 dl-failed = 下載失敗
 dl-success = 下載完成
 
@@ -31,38 +30,38 @@ offset = 調整延遲
 unlock = 播放解鎖動畫
 
 edit-cancel = 取消
-edit-save = 保存
-edit-saving = 保存中…
-edit-load-file-failed = 載入外部文件失敗
-edit-save-failed = 保存失敗
-edit-saved = 保存成功
+edit-save = 儲存
+edit-saving = 儲存中…
+edit-load-file-failed = 載入外部檔案失敗
+edit-save-failed = 儲存失敗
+edit-saved = 儲存成功
 edit-preview-invalid = 預覽時間超出範圍
 edit-tags = 編輯標籤
 edit-downloaded = 您無法編輯下載的譜面！
 edit-overwrite = 覆蓋
-edit-overwrite-confirm = 確定要使用外部的譜面覆蓋當前的譜面嗎？（只有在點擊"更新"後才會同步到線上平臺）
+edit-overwrite-confirm = 確定要使用外部的譜面覆蓋現有譜面嗎？（只有在點擊"更新"後才會同步到線上平臺）
 edit-overwrite-success = 覆蓋成功
 edit-overwrite-failed = 覆蓋失敗
 
 edit-upload = 上傳
 edit-update = 更新
 
-upload-not-saved = 你尚未保存譜面，確定要繼續上傳嗎？
+upload-not-saved = 你尚未儲存譜面，確定要繼續上傳嗎？
 upload-login-first = 請先登入
 upload-builtin = 不能上傳內置譜面
 upload-rules = 上傳須知
 upload-rules-content =
   在上傳前，你需要確認：
   1. ！譜面必須為本人創作，合作需具有所有創作者的上傳許可，否則可能面臨永久禁止上傳的懲罰
-  2. 建議使用辨識度高的頭像和 ID；如果你在 Phira 使用的頭像 ID 與自制譜視頻發布平臺（具體而言，BiliBili）有較大出入，需要額外標註。同時請註明方便使用的語言（若非漢語）
-  3. 譜面內容（包括音樂、插圖、文字等）須符合中華人民共和國其他法律與法規，不得違法或包含不良信息
+  2. 建議使用辨識度高的頭像和 ID；如果你在 Phira 使用的頭像 ID 與自制譜影音分享平臺（具體而言，bilibili）有較大出入，需要額外標註。同時請註明方便使用的語言（若非漢語）
+  3. 譜面內容（包括音樂、插圖、文字等）須符合中華人民共和國其他法律與法規，不得違法或包含不良內容
   4. 上傳者上傳即同意譜面可用於 Phira 的公開宣傳，其他方式利用仍需譜師許可
   5. 本須知最終解釋權歸 TeamFlos 所有
 uploading = 上傳中…
 upload-chart-failed = 上傳譜面失敗
 upload-success = 上傳成功，請等待審核！
 upload-failed = 上傳失敗
-upload-confirm-clear-ldb = 由於當前譜面文件和遠端譜面文件不同，上傳譜面後將清空該譜面的排行榜，確定要繼續嗎？
+upload-confirm-clear-ldb = 由於現有譜面檔案和遠端譜面檔案不同，上傳譜面後將清空該譜面的排行榜，確定要繼續嗎？
 
 ldb = 排行榜
 ldb-load-failed = 載入排行榜失敗
@@ -125,4 +124,9 @@ stabilize-deny = stable 已拒絕
 stabilize-approved = 已通過
 stabilize-approved-passed = 已通過，譜面已 stable
 stabilize-denied = 已拒絕
-stabilize-denied-passed = 已拒絕，譜面已撤回
+stabilize-denied-passed = 已拒絕，譜面已退件
+
+fav-added = 已收藏
+fav-add-to = 收藏到…
+fav-select-folder = 選擇收藏夾
+fav-default-folder = 預設收藏夾

@@ -6,6 +6,11 @@ edition = "2021"
 [lib]
 
 [dependencies]
-sasa = { workspace = true, default-features = false }
 thiserror = "2.0.18"
 tracing = { workspace = true }
+
+[target.'cfg(target_env = "ohos")'.dependencies]
+sasa = { workspace = true, default-features = false, features = ["ohos"] }
+
+[target.'cfg(not(target_env = "ohos"))'.dependencies]
+sasa = { workspace = true, default-features = false }

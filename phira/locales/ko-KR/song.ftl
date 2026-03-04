@@ -1,7 +1,6 @@
 
 load-preview-failed = 미리듣기를 불러오는데 실패했습니다.
 load-charts-failed = 비트맵을 불러오는데 실패했습니다.
-no-chart-for-download = 이 비트맵은 다운로드할 수 없습니다.
 
 load-chart-failed = 비트맵을 불러오는데 실패했습니다.
 
@@ -126,3 +125,8 @@ stabilize-approved = 승인됨
 stabilize-approved-passed = 승인됨, 비트맵이 안정화되었습니다.
 stabilize-denied = 거부됨
 stabilize-denied-passed = 거부됨, 비트맵이 거부되었습니다.
+
+# fav-added = 즐겨찾기에 추가됨
+# fav-add-to = 추가...
+# fav-select-folder = 폴더 선택
+# fav-default-folder = 기본

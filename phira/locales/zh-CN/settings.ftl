@@ -8,6 +8,7 @@ debug = 调试
 about = 关于
 
 item-lang = 语言
+item-fullscreen = 全屏模式
 item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
 item-server-status = 服务器状态
@@ -42,6 +43,7 @@ item-cali = 调整延迟
 item-preferred-sample-rate = 首选采样率
 
 item-show-acc = 显示实时准度
+item-show-avg-fps = 显示平均帧率
 item-dc-pause = 双击暂停
 item-dhint = 双押提示
 item-dhint-sub = 同时触线的音符将会被高亮

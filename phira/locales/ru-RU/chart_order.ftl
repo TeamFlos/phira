@@ -1,6 +1,3 @@
 time = Время
-rev-time = Время (обр.)
-name = Имя (А-Я)
-rev-name = Имя (Я-А)
+name = Имя
 rating = Оценка
-rev-rating = Оценка (обр.)
