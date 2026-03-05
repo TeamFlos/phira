@@ -279,17 +279,19 @@ pub fn gen_custom_dir() -> Result<(PathBuf, Uuid)> {
 }
 
 pub async fn import_chart_to(dir: &Path, id: Uuid, path: String) -> Result<LocalChart> {
-    let path = Path::new(&path);
+    let path_str = path.clone();
+    let path = Path::new(&path_str);
     if !path.exists() || !path.is_file() {
         bail!("not a file");
     }
-    let dir = prpr::dir::Dir::new(dir)?;
-    unzip_into(BufReader::new(File::open(path)?), &dir, true)?;
+    let dir_obj = prpr::dir::Dir::new(dir)?;
+    unzip_into(BufReader::new(File::open(path)?), &dir_obj, true)?;
+    let _ = std::fs::remove_file(path);
     let local_path = format!("custom/{id}");
     let mut fs = fs_from_path(&local_path)?;
     let mut info = fs::load_info(fs.as_mut()).await.with_context(|| itl!("info-fail"))?;
     fs::fix_info(fs.as_mut(), &mut info).await.with_context(|| itl!("invalid-chart"))?;
-    dir.create("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
+    dir_obj.create("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
     Ok(LocalChart {
         info: info.into(),
         local_path,

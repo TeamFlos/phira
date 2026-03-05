@@ -14,7 +14,7 @@ use once_cell::sync::Lazy;
 use prpr::{
     core::ResPackInfo,
     ext::{unzip_into, RectExt, SafeTexture},
-    scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
+    scene::{return_file, show_error, show_message, take_file, CHOSEN_FILE, NextScene, Scene},
     task::Task,
     time::TimeManager,
     ui::{button_hit, FontArc, RectButton, Ui, UI_AUDIO},
@@ -333,8 +333,10 @@ impl Scene for MainScene {
             match id.as_str() {
                 "_import" => {
                     self.import_task = Some(Task::new(import_chart(file)));
+                    *CHOSEN_FILE.lock().unwrap() = (None, None);
                 }
                 "_import_respack" => {
+                    *CHOSEN_FILE.lock().unwrap() = (None, None);
                     let root = dir::respacks()?;
                     let dir = prpr::dir::Dir::new(&root)?;
                     let mut dir_id = String::new();
@@ -346,8 +348,9 @@ impl Scene for MainScene {
                         dir_id = uuid.to_string();
                         dir.create_dir_all(&dir_id)?;
                         let dir = dir.open_dir(&dir_id)?;
-                        unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
+                        unzip_into(BufReader::new(File::open(&file)?), &dir, false).context("failed to unzip")?;
                         let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;
+                        let _ = std::fs::remove_file(file);
                         get_data_mut().respacks.push(dir_id.clone());
                         save_data()?;
                         Ok(ResPackItem::new(Some(format!("{root}/{dir_id}").into()), config.name))
