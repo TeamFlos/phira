@@ -1,4 +1,7 @@
-use std::{borrow::Cow, hash::{Hash, Hasher}};
+use std::{
+    borrow::Cow,
+    hash::{Hash, Hasher},
+};
 
 use crate::{
     client::File,

@@ -184,6 +184,9 @@ fn parse_events<T: Tweenable, V: Clone + Into<T>>(
     default: Option<T>,
     bezier_map: &BezierMap,
 ) -> Result<Anim<T>> {
+    if rpe.is_empty() {
+        return Ok(Anim::default());
+    }
     let mut kfs = Vec::new();
     if let Some(default) = default {
         if rpe[0].start_time.beats() != 0.0 {
@@ -218,15 +221,21 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
     };
     let anis: Vec<_> = rpe
         .into_iter()
-        .map(|it| {
+        .filter_map(|it| {
+            if it.is_empty() {
+                return None;
+            }
             let mut kfs = Vec::new();
             for e in it {
                 kfs.push(Keyframe::new(r.time(&e.start_time), e.start, 2));
                 kfs.push(Keyframe::new(r.time(&e.end_time), e.end, 0));
             }
-            AnimFloat::new(kfs)
+            Some(AnimFloat::new(kfs))
         })
         .collect();
+    if anis.is_empty() {
+        return Ok(AnimFloat::default());
+    }
     let mut pts: Vec<_> = anis.iter().flat_map(|it| it.keyframes.iter().map(|it| it.time.not_nan())).collect();
     pts.push(max_time.not_nan());
     pts.sort();
@@ -274,6 +283,9 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
         });
         height += (speed + end_speed) * (end_time - now_time) / 2.;
     }
+    if kfs.is_empty() {
+        return Ok(Anim::default());
+    }
     kfs.push(Keyframe::new(max_time, height, 0));
     Ok(AnimFloat::new(kfs))
 }
@@ -314,6 +326,9 @@ fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], 
         kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
         kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
         next_rep_time += gif.total_time();
+    }
+    if kfs.is_empty() {
+        return Ok(Anim::default());
     }
     Ok(Anim::new(kfs))
 }
@@ -436,6 +451,9 @@ async fn parse_judge_line(
             .collect::<Result<_>>()
             .with_context(|| ptl!("type-events-parse-failed", "type" => desc))?;
         let mut res = AnimFloat::chain(anis);
+        if res.is_default() {
+            return Ok(AnimFloat::fixed(0.0));
+        }
         res.map_value(|v| v * factor);
         Ok(res)
     }
