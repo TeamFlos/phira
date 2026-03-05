@@ -1,4 +1,5 @@
 //! Chart parsers
+prpr_l10n::tl_file!("parser" ptl);
 
 mod extra;
 pub use extra::parse_extra;

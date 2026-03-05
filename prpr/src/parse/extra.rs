@@ -1,6 +1,10 @@
-prpr_l10n::tl_file!("parser" ptl);
-
 use super::RPE_TWEEN_MAP;
+use anyhow::{Context, Result};
+use macroquad::prelude::{Color, Vec2};
+use serde::Deserialize;
+use std::{collections::HashMap, rc::Rc};
+
+use super::L10N_LOCAL;
 #[cfg(feature = "video")]
 use crate::core::Video;
 use crate::{
@@ -8,10 +12,6 @@ use crate::{
     ext::ScaleType,
     fs::FileSystem,
 };
-use anyhow::{Context, Result};
-use macroquad::prelude::{Color, Vec2};
-use serde::Deserialize;
-use std::{collections::HashMap, rc::Rc};
 
 // serde is weird...
 fn f32_zero() -> f32 {
