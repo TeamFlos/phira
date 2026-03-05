@@ -220,7 +220,12 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                 ];
             }
         }else if #[cfg(target_env = "ohos")] {
-            miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
+            let json = if is_password {
+                r#"{"action": "show_input_window", "isPassword": true}"#
+            } else {
+                r#"{"action": "show_input_window"}"#
+            };
+            miniquad::native::call_request_callback(json.to_string());
         } else {
             // if let Some(text) = tfd::InputBox::new(ttl!("input"), ttl!("input-msg")).with_default(text).run_modal() {
                 // INPUT_TEXT.lock().unwrap().1 = Some(text);
