@@ -1,6 +1,6 @@
 
 info-fail = 載入譜面資訊失敗
-invalid-chart = 無效的譜面
+invalid-chart = 譜面有誤
 
 importing = 匯入中…
 import-success = 匯入成功

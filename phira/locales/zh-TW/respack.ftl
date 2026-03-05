@@ -10,5 +10,5 @@ info-content =
   作者：{ $author }
   描述：{ $desc }
 
-cant-delete-builtin = 不能刪除內置資源包
+cant-delete-builtin = 不能刪除內建資源包
 deleted = 資源包已刪除

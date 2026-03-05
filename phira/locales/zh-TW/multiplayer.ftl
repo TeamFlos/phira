@@ -14,7 +14,7 @@ create-room-failed = 建立房間失敗
 create-invalid-id = 房間 ID 應由不多於 20 個大小寫英文字母、數字以及 -_ 組成
 
 join-room = 加入房間
-join-room-invalid-id = 無效的房間 ID
+join-room-invalid-id = 房間 ID 無效
 join-room-failed = 加入房間失敗
 
 leave-room = 離開房間
