@@ -1,4 +1,5 @@
 //! Scene management module.
+#![allow(unused_macros)]
 
 prpr_l10n::tl_file!("scene" ttl);
 
@@ -9,7 +10,7 @@ mod game;
 pub use game::{GameMode, GameScene, SimpleRecord};
 
 mod loading;
-pub use loading::{BasicPlayer, LoadingScene, UpdateFn, UploadFn};
+pub use loading::{BasicPlayer, LoadingScene, SaveFn, UpdateFn, UploadFn};
 
 use crate::{
     ext::{draw_image, screen_aspect, LocalTask, SafeTexture, ScaleType},
@@ -43,8 +44,8 @@ pub enum NextScene {
 
 thread_local! {
     pub static BILLBOARD: RefCell<(BillBoard, TimeManager)> = RefCell::new((BillBoard::new(), TimeManager::default()));
-    pub static DIALOG: RefCell<Option<Dialog>> = RefCell::new(None);
-    pub static FULL_LOADING: RefCell<Option<FullLoadingView>> = RefCell::new(None);
+    pub static DIALOG: RefCell<Option<Dialog>> = const { RefCell::new(None) };
+    pub static FULL_LOADING: RefCell<Option<FullLoadingView>> = const { RefCell::new(None) };
 }
 
 pub struct FullLoadingView {
@@ -163,7 +164,7 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                 let env = miniquad::native::attach_jni_env();
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
-                let method = (**env).GetMethodID.unwrap()(env, class, b"inputText\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                let method = (**env).GetMethodID.unwrap()(env, class, c"inputText".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
                 let text = std::ffi::CString::new(text.to_owned()).unwrap();
                 (**env).CallVoidMethod.unwrap()(env, ctx, method, (**env).NewStringUTF.unwrap()(env, text.as_ptr()));
             }
@@ -218,9 +219,13 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                     completion: 0 as ObjcId
                 ];
             }
+        }else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
-            INPUT_TEXT.lock().unwrap().1 = Some(unsafe { get_internal_gl() }.quad_context.clipboard_get().unwrap_or_default());
-            show_message(ttl!("pasted")).ok();
+            // if let Some(text) = tfd::InputBox::new(ttl!("input"), ttl!("input-msg")).with_default(text).run_modal() {
+                // INPUT_TEXT.lock().unwrap().1 = Some(text);
+            // }
+            std::process::Command::new("kdialog").arg("--inputbox").arg(ttl!("input-msg").into_owned()).arg(text).arg("--title").arg(ttl!("input").into_owned()).status().ok();
         }
     }
 }
@@ -243,7 +248,7 @@ pub fn request_file(id: impl Into<String>) {
                 let env = miniquad::native::attach_jni_env();
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
-                let method = (**env).GetMethodID.unwrap()(env, class, b"chooseFile\0".as_ptr() as _, b"()V\0".as_ptr() as _);
+                let method = (**env).GetMethodID.unwrap()(env, class, c"chooseFile".as_ptr() as _, c"()V".as_ptr() as _);
                 (**env).CallVoidMethod.unwrap()(env, ctx, method);
             }
         } else if #[cfg(target_os = "ios")] {
@@ -313,6 +318,8 @@ pub fn request_file(id: impl Into<String>) {
                     completion: 0 as ObjcId
                 ];
             }
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(r#"{"action": "chooseFile"}"#.to_string());
         } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }
@@ -535,8 +542,7 @@ impl Main {
                     if Arc::strong_count(&loading.keep_alive) > 1 {
                         if let Some(text) = loading.text.as_ref() {
                             ui.full_loading(text.clone(), self.tm.now() as _);
-                        }
-                        else {
+                        } else {
                             ui.full_loading_simple(self.tm.now() as _);
                         }
                         return false;

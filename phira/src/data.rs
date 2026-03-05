@@ -1,4 +1,7 @@
-use crate::{client::{Character, Ptr, User}, dir};
+use crate::{
+    client::{Character, LocalCollection, Ptr, User},
+    dir,
+};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use prpr::{
@@ -93,6 +96,9 @@ pub struct Data {
     pub enable_anys: bool,
     #[serde(default = "default_anys_gateway")]
     pub anys_gateway: String,
+
+    #[serde(default)]
+    pub collections: Vec<LocalCollection>,
 }
 
 impl Data {
@@ -147,7 +153,7 @@ impl Data {
                 });
             }
         }
-        let respacks: HashSet<_> = self.respacks.iter().map(|s| s.clone()).collect();
+        let respacks: HashSet<_> = self.respacks.iter().cloned().collect();
         for entry in std::fs::read_dir(dir::respacks()?)? {
             let entry = entry?;
             let filename = entry.file_name();
@@ -167,6 +173,15 @@ impl Data {
             debug!("migrating from old version");
             self.terms_modified = Some("Mon, 05 Aug 2024 17:32:41 GMT".to_owned());
             self.read_tos_and_policy = false;
+        }
+        if !self.collections.iter().any(|it| it.is_default) {
+            self.collections.insert(
+                0,
+                LocalCollection {
+                    is_default: true,
+                    ..LocalCollection::new(crate::ttl!("default-fav-folder").into_owned())
+                },
+            );
         }
         self.config.init();
         Ok(())

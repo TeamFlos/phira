@@ -1,7 +1,7 @@
 
 label = 資源包
 
-default = 默認資源包
+default = 預設資源包
 load-failed = 載入資源包失敗
 
 info = 資源包資訊

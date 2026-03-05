@@ -56,6 +56,12 @@ impl Object {
         tr
     }
 
+    pub fn new_rotation_wrt_point(rot: Rotation2<f32>, pt: Vector) -> Matrix {
+        let translation_back = Matrix::new_translation(&pt);
+        let translation_to = Matrix::new_translation(&-pt);
+        translation_back * rot.to_homogeneous() * translation_to
+    }
+
     #[inline]
     pub fn now_alpha(&self) -> f32 {
         self.alpha.now_opt().unwrap_or(1.0).max(0.)

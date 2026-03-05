@@ -67,7 +67,7 @@ impl Video {
                             while codec_ctx.receive_frame(&mut in_frame)? {
                                 sws.scale(&in_frame, &mut out_frame);
                                 let mut frame = mutex.0.lock().unwrap();
-                                *frame = Some(Some(unsafe { std::mem::transmute(&out_frame) }));
+                                *frame = Some(Some(unsafe { std::mem::transmute::<&AVFrame, &'static AVFrame>(&out_frame) }));
                                 mutex.1.notify_one();
                                 while frame.is_some() {
                                     if dropped.load(Ordering::Relaxed) {

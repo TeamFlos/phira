@@ -93,7 +93,7 @@ impl PlayerView {
         let player = client.live_player(self.id);
 
         let mut guard = player.touch_frames.blocking_lock();
-        if guard.len() != 0 {
+        if !guard.is_empty() {
             debug!("received {} touch frames from {}", guard.len(), self.id);
         }
         self.touches.extend(guard.drain(..));
@@ -104,7 +104,7 @@ impl PlayerView {
         }
 
         let mut guard = player.judge_events.blocking_lock();
-        if guard.len() != 0 {
+        if !guard.is_empty() {
             debug!("received {} judge events from {}", guard.len(), self.id);
         }
         self.judges.extend(guard.drain(..));
@@ -115,7 +115,7 @@ impl PlayerView {
         let t = res.time;
 
         let mut updated = false;
-        while self.touches.front().map_or(false, |it| it.time < t) {
+        while self.touches.front().is_some_and(|it| it.time < t) {
             let Some(frame) = self.touches.pop_front() else { unreachable!() };
             for (id, pos) in frame.points {
                 if id >= 0 {
@@ -456,8 +456,8 @@ impl Scene for MainScene {
                                 .unwrap()
                                 .users
                                 .values()
-                                .cloned()
                                 .filter(|it| !it.monitor)
+                                .cloned()
                                 .collect(),
                         )?;
                     }
@@ -528,7 +528,7 @@ impl Scene for MainScene {
             }
         }
 
-        if self.client.as_ref().map_or(false, |it| it.ping_fail_count() >= 2) && self.init_task.is_none() {
+        if self.client.as_ref().is_some_and(|it| it.ping_fail_count() >= 2) && self.init_task.is_none() {
             warn!("lost connection, re-connecting…");
             self.init_task = Some(create_init_task(self.config.clone(), self.token.clone()));
         }
@@ -602,7 +602,7 @@ impl Scene for MainScene {
             }
             _ => {
                 let (row_count, col_count) = if self.players.len() > 2 {
-                    (2, (self.players.len() + 1) / 2)
+                    (2, self.players.len().div_ceil(2))
                 } else {
                     (1, self.players.len())
                 };
@@ -624,7 +624,7 @@ impl Scene for MainScene {
                 if let Some(scene) = &mut self.game_scene {
                     if !self.render_started
                         && !self.start_playing_time.is_nan()
-                        && (self.players.iter().all(|it| it.latest_time.map_or(false, |it| it > 5.)) || self.start_playing_time + 10. < t)
+                        && (self.players.iter().all(|it| it.latest_time.is_some_and(|it| it > 5.)) || self.start_playing_time + 10. < t)
                     {
                         self.start_playing_time = f32::NAN;
                         self.tm.speed = 1.;

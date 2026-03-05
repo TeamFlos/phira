@@ -17,6 +17,7 @@ mod macros;
 pub mod tools;
 
 langs! {
+    "de-DE": "Deutsch",
     "en-US": "English",
     "fr-FR": "Français",
     "id-ID": "Bahasa Indonesia",
@@ -26,6 +27,7 @@ langs! {
     "pt-BR": "Português",
     "ru-RU": "Русский",
     "th-TH": "แบบไทย",
+    "tr-TR": "Türkçe",
     "vi-VN": "Tiếng Việt",
     "zh-CN": "简体中文",
     "zh-TW": "繁體中文"

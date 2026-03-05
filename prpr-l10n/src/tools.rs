@@ -24,7 +24,7 @@ fn get_ftl_files(path: &Path) -> Result<HashSet<String>, Box<dyn Error>> {
         let entry = entry?;
         if entry.file_type().is_file() {
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "ftl") {
+            if path.extension().is_some_and(|ext| ext == "ftl") {
                 let relative_path = path.strip_prefix(path.parent().unwrap())?;
                 let normalized = relative_path.to_string_lossy().replace('\\', "/");
                 files.insert(normalized);
@@ -37,7 +37,7 @@ fn get_ftl_files(path: &Path) -> Result<HashSet<String>, Box<dyn Error>> {
 pub fn check_langfile(path: &str) -> Result<(), Box<dyn Error>> {
     let locales_dir = Path::new(path);
     let zh_cn_dir = locales_dir.join("zh-CN");
-    let all_locales: [std::path::PathBuf; 12] = LANGS.map(|x| locales_dir.join(x));
+    let all_locales: [std::path::PathBuf; _] = LANGS.map(|x| locales_dir.join(x));
     let zh_cn_files = get_ftl_files(&zh_cn_dir)?;
     let mut inconsistent_languages = Vec::new();
     let mut i = 0;

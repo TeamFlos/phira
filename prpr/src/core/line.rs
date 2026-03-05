@@ -15,23 +15,23 @@ use std::cell::RefCell;
 #[serde(rename_all = "lowercase")]
 #[repr(u8)]
 pub enum UIElement {
-    Bar = 1,
-    Pause,
-    ComboNumber,
-    Combo,
-    Score,
-    Name,
-    Level,
+    Pause = 1,
+    ComboNumber = 2,
+    Combo = 3,
+    Score = 4,
+    Bar = 5,
+    Name = 6,
+    Level = 7,
 }
 
 impl UIElement {
     pub fn from_u8(val: u8) -> Option<Self> {
         Some(match val {
-            1 => Self::Bar,
-            2 => Self::Pause,
-            3 => Self::ComboNumber,
-            4 => Self::Combo,
-            5 => Self::Score,
+            1 => Self::Pause,
+            2 => Self::ComboNumber,
+            3 => Self::Combo,
+            4 => Self::Score,
+            5 => Self::Bar,
             6 => Self::Name,
             7 => Self::Level,
             _ => return None,
@@ -92,7 +92,7 @@ pub struct JudgeLineCache {
 }
 
 impl JudgeLineCache {
-    pub fn new(notes: &mut Vec<Note>) -> Self {
+    pub fn new(notes: &mut [Note]) -> Self {
         notes.sort_by_key(|it| (it.plain(), !it.above, it.speed.not_nan(), ((it.height + it.object.translation.1.now()) * it.speed).not_nan()));
         let mut res = Self {
             update_order: Vec::new(),
@@ -104,18 +104,18 @@ impl JudgeLineCache {
         res
     }
 
-    pub(crate) fn reset(&mut self, notes: &mut Vec<Note>) {
+    pub(crate) fn reset(&mut self, notes: &mut [Note]) {
         self.update_order = (0..notes.len() as u32).collect();
         self.above_indices.clear();
         self.below_indices.clear();
         let mut index = notes.iter().position(|it| it.plain()).unwrap_or(notes.len());
         self.not_plain_count = index;
-        while notes.get(index).map_or(false, |it| it.above) {
+        while notes.get(index).is_some_and(|it| it.above) {
             self.above_indices.push(index);
             let speed = notes[index].speed;
             loop {
                 index += 1;
-                if !notes.get(index).map_or(false, |it| it.above && it.speed == speed) {
+                if !notes.get(index).is_some_and(|it| it.above && it.speed == speed) {
                     break;
                 }
             }
@@ -125,7 +125,7 @@ impl JudgeLineCache {
             let speed = notes[index].speed;
             loop {
                 index += 1;
-                if !notes.get(index).map_or(false, |it| it.speed == speed) {
+                if !notes.get(index).is_some_and(|it| it.speed == speed) {
                     break;
                 }
             }
@@ -146,6 +146,7 @@ pub struct JudgeLine {
     pub notes: Vec<Note>,
     pub color: Anim<Color>,
     pub parent: Option<usize>,
+    pub rot_with_parent: bool,
     pub z_index: i32,
     /// Whether to show notes below the line, here below is defined in the time axis, which means the note should already be judged
     ///
@@ -157,15 +158,14 @@ pub struct JudgeLine {
 }
 
 impl JudgeLine {
-    pub fn update(&mut self, res: &mut Resource, tr: Matrix) {
+    pub fn update(&mut self, res: &mut Resource, tr: Matrix, parent_rot: f32) {
         // self.object.set_time(res.time); // this is done by chart, chart has to calculate transform for us
-        let rot = self.object.rotation.now();
         self.height.set_time(res.time);
         let line_height = self.height.now();
         let mut ctrl_obj = self.ctrl_obj.borrow_mut();
         self.cache.update_order.retain(|id| {
             let note = &mut self.notes[*id as usize];
-            note.update(res, rot, &tr, &mut ctrl_obj, line_height);
+            note.update(res, parent_rot, &tr, &mut ctrl_obj, line_height);
             !note.dead()
         });
         drop(ctrl_obj);
@@ -187,7 +187,7 @@ impl JudgeLine {
                 if self
                     .notes
                     .get(*index + 1)
-                    .map_or(false, |it| it.above && it.speed == self.notes[*index].speed)
+                    .is_some_and(|it| it.above && it.speed == self.notes[*index].speed)
                 {
                     *index += 1;
                 } else {
@@ -198,7 +198,7 @@ impl JudgeLine {
         });
         self.cache.below_indices.retain_mut(|index| {
             while matches!(self.notes[*index].judge, JudgeStatus::Judged) {
-                if self.notes.get(*index + 1).map_or(false, |it| it.speed == self.notes[*index].speed) {
+                if self.notes.get(*index + 1).is_some_and(|it| it.speed == self.notes[*index].speed) {
                     *index += 1;
                 } else {
                     return false;
@@ -208,17 +208,29 @@ impl JudgeLine {
         });
     }
 
-    pub fn now_transform(&self, res: &Resource, lines: &[JudgeLine]) -> Matrix {
-        fn fetch_pos(line: &JudgeLine, res: &Resource, lines: &[JudgeLine]) -> Vector {
-            if let Some(parent) = line.parent {
-                let parent = &lines[parent];
-                let mut parent_translation = fetch_pos(parent, res, lines);
-                parent_translation += Rotation2::new(parent.object.rotation.now().to_radians()) * line.object.now_translation(res);
-                return parent_translation;
+    pub fn fetch_rot(&self, lines: &[JudgeLine]) -> f32 {
+        let mut rot = self.object.rotation.now();
+        if self.rot_with_parent {
+            if let Some(parent) = self.parent {
+                rot += lines[parent].fetch_rot(lines);
             }
-            line.object.now_translation(res)
         }
-        self.object.now_rotation().append_translation(&fetch_pos(self, res, lines))
+        rot
+    }
+
+    pub fn fetch_pos(&self, res: &Resource, lines: &[JudgeLine]) -> Vector {
+        if let Some(parent) = self.parent {
+            let parent = &lines[parent];
+            let parent_translation = parent.fetch_pos(res, lines);
+            return parent_translation + Rotation2::new(parent.fetch_rot(lines).to_radians()) * self.object.now_translation(res);
+        }
+        self.object.now_translation(res)
+    }
+
+    pub fn now_transform(&self, res: &Resource, lines: &[JudgeLine]) -> Matrix {
+        Rotation2::new(self.fetch_rot(lines).to_radians())
+            .to_homogeneous()
+            .append_translation(&self.fetch_pos(res, lines))
     }
 
     pub fn render(&self, ui: &mut Ui, res: &mut Resource, lines: &[JudgeLine], bpm_list: &mut BpmList, settings: &ChartSettings, id: usize) {
@@ -242,6 +254,9 @@ impl JudgeLine {
                     JudgeLineKind::Texture(texture, _) => {
                         let mut color = color.unwrap_or(WHITE);
                         color.a = alpha.max(0.0);
+                        if color.a == 0.0 {
+                            return;
+                        }
                         let hf = vec2(texture.width(), texture.height());
                         draw_texture_ex(
                             **texture,

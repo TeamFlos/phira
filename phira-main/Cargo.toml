@@ -1,8 +1,12 @@
 [package]
 name = "phira-main"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[features]
+default = ["video"]
+video = ["phira/video"]
 
 [dependencies]
-phira = { path = "../phira" }
+phira = { workspace = true, default-features = false }

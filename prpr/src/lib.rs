@@ -1,5 +1,3 @@
-#![feature(local_key_cell_methods)]
-
 pub mod bin;
 pub mod config;
 pub mod core;
@@ -18,7 +16,8 @@ pub mod ui;
 #[cfg(feature = "log")]
 pub mod log;
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 pub mod inner;
 
 #[cfg(target_os = "ios")]

@@ -1,7 +1,7 @@
 prpr_l10n::tl_file!("import" itl);
 
 mod chart_order;
-pub use chart_order::{ChartOrder, ORDERS};
+pub use chart_order::ChartOrder;
 
 mod chapter;
 pub use chapter::ChapterScene;
@@ -27,7 +27,7 @@ use crate::{
     data::LocalChart,
     dir, get_data, get_data_mut,
     page::Fader,
-    save_data, ttl,
+    save_data,
 };
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
@@ -57,16 +57,19 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 thread_local! {
-    pub static TEX_BACKGROUND: RefCell<Option<SafeTexture>> = RefCell::new(None);
-    pub static TEX_ICON_BACK: RefCell<Option<SafeTexture>> = RefCell::new(None);
+    pub static TEX_BACKGROUND: RefCell<Option<SafeTexture>> = const { RefCell::new(None) };
+    pub static TEX_ICON_BACK: RefCell<Option<SafeTexture>> = const { RefCell::new(None) };
 }
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
 pub static TERMS: OnceCell<Option<(String, String)>> = OnceCell::new();
-pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, String)>>>>>> = Lazy::new(Mutex::default);
+type LoadTosTask = Task<Result<Option<(String, String)>>>;
+pub static LOAD_TOS_TASK: Lazy<Mutex<Option<LoadTosTask>>> = Lazy::new(Mutex::default);
 pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 pub static JUST_LOADED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
+
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct AssetsChartFileSystem(pub String, pub String);
 
 #[async_trait]
@@ -75,7 +78,7 @@ impl FileSystem for AssetsChartFileSystem {
         if path == ":info" {
             return Ok(serde_yaml::to_string(&ASSET_CHART_INFO.lock().unwrap().clone())?.into_bytes());
         }
-        #[cfg(feature = "closed")]
+        #[cfg(closed)]
         {
             use crate::load_res;
             if path == ":music" {
@@ -220,7 +223,7 @@ pub fn dispatch_tos_task() -> Option<bool> {
                         let _ = save_data();
                         let _ = TERMS.set(res);
                     }
-                    // don't load None into it, 
+                    // don't load None into it,
                     // or it can't be updated when `strict` is true.
                 }
                 Err(e) => {
@@ -244,18 +247,16 @@ pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
     if guard.is_none() {
         let modified = get_data().terms_modified.clone();
         let loading = show_loading.then(|| FullLoadingView::begin_text(ttl!("loading_tos_policy")));
-        *guard = Some(
-            Task::new(async move {
-                let mut modified = modified.as_deref();
-                if strict {
-                    modified = None
-                }
-                let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
-                drop(loading);
-                JUST_LOADED_TOS.store(true, Ordering::Relaxed);
-                ret
-            }),
-        );
+        *guard = Some(Task::new(async move {
+            let mut modified = modified.as_deref();
+            if strict {
+                modified = None
+            }
+            let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
+            drop(loading);
+            JUST_LOADED_TOS.store(true, Ordering::Relaxed);
+            ret
+        }));
     }
 }
 
@@ -268,7 +269,7 @@ pub fn gen_custom_dir() -> Result<(PathBuf, Uuid)> {
     let dir = dir::custom_charts()?;
     let dir = Path::new(&dir);
     let mut id = Uuid::new_v4();
-    while dir.join(&id.to_string()).exists() {
+    while dir.join(id.to_string()).exists() {
         id = Uuid::new_v4();
     }
     let dir = dir.join(id.to_string());
@@ -317,6 +318,7 @@ pub struct LdbDisplayItem<'a> {
     pub btn: &'a mut RectButton,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_ldb<'a>(
     ui: &mut Ui,
     title: &str,

@@ -41,7 +41,7 @@ impl L10nLocal {
                 get_result
             }
         } {
-            unsafe { std::mem::transmute(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
+            unsafe { std::mem::transmute::<Cow<'_, str>, Cow<'s, str>>(self.bundles.inner[*id].format_pattern(pattern, args, errors)) }
         } else {
             warn!("no translation found for {key}, returning key");
             key

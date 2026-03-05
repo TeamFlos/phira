@@ -115,7 +115,7 @@ impl User {
     }
 
     pub fn has_perm(&self, perm: Permissions) -> bool {
-        Roles::from_bits(self.roles).map_or(false, |it| it.perms(false).contains(perm))
+        Roles::from_bits(self.roles).is_some_and(|it| it.perms(false).contains(perm))
     }
 
     pub fn name_color(&self) -> Color {
@@ -129,8 +129,13 @@ impl User {
     }
 }
 
-static TASKS: Lazy<Mutex<HashMap<i32, Task<Result<Option<DynamicImage>>>>>> = Lazy::new(Mutex::default);
-static RESULTS: Lazy<Mutex<HashMap<i32, (String, Color, Option<Option<SafeTexture>>)>>> = Lazy::new(Mutex::default);
+type UserTask = Task<Result<Option<DynamicImage>>>;
+type UserTaskMap = HashMap<i32, UserTask>;
+type UserResult = (String, Color, Option<Option<SafeTexture>>);
+type UserResultMap = HashMap<i32, UserResult>;
+
+static TASKS: Lazy<Mutex<UserTaskMap>> = Lazy::new(Mutex::default);
+static RESULTS: Lazy<Mutex<UserResultMap>> = Lazy::new(Mutex::default);
 
 pub struct UserManager;
 

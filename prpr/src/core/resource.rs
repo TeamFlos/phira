@@ -8,7 +8,10 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
-use miniquad::{gl::{GLuint, GL_LINEAR}, Texture, TextureWrap};
+use miniquad::{
+    gl::{GLuint, GL_LINEAR},
+    Texture, TextureWrap,
+};
 use sasa::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;
 use std::{
@@ -175,7 +178,8 @@ impl ResourcePack {
     pub async fn load(fs: &mut dyn FileSystem) -> Result<Self> {
         macro_rules! load_tex {
             ($path:literal) => {
-                SafeTexture::from(image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?).with_filter(GL_LINEAR)
+                SafeTexture::from(image::load_from_memory(&fs.load_file($path).await.with_context(|| format!("Missing {}", $path))?)?)
+                    .with_filter(GL_LINEAR)
             };
         }
         let info: ResPackInfo = serde_yaml::from_str(&String::from_utf8(fs.load_file("info.yml").await.context("Missing info.yml")?)?)?;
@@ -219,11 +223,29 @@ impl ResourcePack {
 
         macro_rules! load_clip {
             ($path:literal) => {
-                if let Some(sfx) = fs.load_file(format!("{}.ogg", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                if let Some(sfx) = fs
+                    .load_file(format!("{}.ogg", $path).as_str())
+                    .await
+                    .ok()
+                    .map(|it| AudioClip::new(it))
+                    .transpose()?
+                {
                     sfx
-                } else if let Some(sfx) = fs.load_file(format!("{}.wav", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                } else if let Some(sfx) = fs
+                    .load_file(format!("{}.wav", $path).as_str())
+                    .await
+                    .ok()
+                    .map(|it| AudioClip::new(it))
+                    .transpose()?
+                {
                     sfx
-                } else if let Some(sfx) = fs.load_file(format!("{}.mp3", $path).as_str()).await.ok().map(|it| AudioClip::new(it)).transpose()? {
+                } else if let Some(sfx) = fs
+                    .load_file(format!("{}.mp3", $path).as_str())
+                    .await
+                    .ok()
+                    .map(|it| AudioClip::new(it))
+                    .transpose()?
+                {
                     sfx
                 } else {
                     AudioClip::new(load_file(format!("{}.ogg", $path).as_str()).await?)?
@@ -245,10 +267,10 @@ impl ResourcePack {
 }
 
 pub struct ParticleEmitter {
-    scale: f32,
-    emitter: Emitter,
-    emitter_square: Emitter,
-    hide_particles: bool,
+    pub scale: f32,
+    pub emitter: Emitter,
+    pub emitter_square: Emitter,
+    pub hide_particles: bool,
 }
 
 impl ParticleEmitter {
@@ -316,13 +338,15 @@ impl ParticleEmitter {
     }
 }
 
+type NoteBufferMap = BTreeMap<(i8, GLuint), Vec<(Vec<Vertex>, Vec<u16>)>>;
+
 #[derive(Default)]
-pub struct NoteBuffer(BTreeMap<(i8, GLuint), Vec<(Vec<Vertex>, Vec<u16>)>>);
+pub struct NoteBuffer(NoteBufferMap);
 
 impl NoteBuffer {
     pub fn push(&mut self, key: (i8, GLuint), vertices: [Vertex; 4]) {
         let meshes = self.0.entry(key).or_default();
-        if meshes.last().map_or(true, |it| it.0.len() + 4 > MAX_SIZE * 4) {
+        if meshes.last().is_none_or(|it| it.0.len() + 4 > MAX_SIZE * 4) {
             meshes.push(Default::default());
         }
         let last = meshes.last_mut().unwrap();
@@ -537,7 +561,7 @@ impl Resource {
             (x + ((w - rw) / 2.).round() as i32, y + ((h - rh) / 2.).round() as i32, rw as i32, rh as i32)
         }
         let aspect_ratio = self.config.aspect_ratio.unwrap_or(self.info.aspect_ratio);
-        if self.config.fix_aspect_ratio {
+        if self.info.force_aspect_ratio {
             self.aspect_ratio = aspect_ratio;
             self.camera.viewport = Some(viewport(aspect_ratio, vp));
         } else {

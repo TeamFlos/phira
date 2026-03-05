@@ -16,7 +16,7 @@ impl SwrContext {
                 0,
                 null_mut(),
             ))
-            .map(|ctx| Self(ctx))
+            .map(Self)
             .ok_or(Error::AllocationFailed)
         }
     }

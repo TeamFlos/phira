@@ -1,6 +1,8 @@
-prpr_l10n::tl_file!("parser" ptl);
+use anyhow::{bail, Context, Result};
+use std::{cell::RefCell, collections::HashMap};
+use tracing::warn;
 
-use super::{process_lines, RPE_TWEEN_MAP};
+use super::{process_lines, L10N_LOCAL, RPE_TWEEN_MAP};
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind,
@@ -9,9 +11,6 @@ use crate::{
     ext::NotNanExt,
     judge::{HitSound, JudgeStatus},
 };
-use anyhow::{bail, Context, Result};
-use std::{cell::RefCell, collections::HashMap};
-use tracing::warn;
 
 trait Take {
     fn take_f32(&mut self) -> Result<f32>;
@@ -172,6 +171,7 @@ fn parse_judge_line(mut pec: PECJudgeLine, id: usize, max_time: f32) -> Result<J
         notes: pec.notes,
         color: Anim::default(),
         parent: None,
+        rot_with_parent: false,
         z_index: 0,
         show_below: false,
         attach_ui: None,
