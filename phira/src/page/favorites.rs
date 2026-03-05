@@ -89,11 +89,16 @@ pub struct FavoritesPage {
     force_sync_to_cloud: Arc<AtomicBool>,
 
     // 编辑状态 || Editing state
-    edit_menu_btn: RectButton,
+    edit_btn: RectButton,
     edit_menu: Popup,
     edit_options: Vec<&'static str>,
-    edit_delete: Arc<AtomicBool>,
     need_show_edit_menu: bool,
+
+    operations_menu_btn: RectButton,
+    operations_menu: Popup,
+    operations_options: Vec<&'static str>,
+    operations_delete: Arc<AtomicBool>,
+    need_show_operations_menu: bool,
 
     sf: SFader,
     next_page: Option<NextPage>,
@@ -138,11 +143,16 @@ impl FavoritesPage {
             sync_from_cloud: Arc::default(),
             force_sync_to_cloud: Arc::default(),
 
-            edit_menu_btn: RectButton::new(),
+            edit_btn: RectButton::new(),
             edit_menu: Popup::new(),
             edit_options: Vec::new(),
-            edit_delete: Arc::default(),
             need_show_edit_menu: false,
+
+            operations_menu_btn: RectButton::new(),
+            operations_menu: Popup::new(),
+            operations_options: Vec::new(),
+            operations_delete: Arc::default(),
+            need_show_operations_menu: false,
 
             sf: SFader::new(),
             next_page: None,
@@ -398,6 +408,10 @@ impl Page for FavoritesPage {
             self.edit_menu.touch(touch, t);
             return Ok(true);
         }
+        if self.operations_menu.showing() {
+            self.operations_menu.touch(touch, t);
+            return Ok(true);
+        }
         if self.cloud_menu.showing() {
             self.cloud_menu.touch(touch, t);
             return Ok(true);
@@ -417,17 +431,29 @@ impl Page for FavoritesPage {
         }
 
         if let Some(index) = self.active_folder {
-            if self.edit_menu_btn.touch(touch) {
+            if self.edit_btn.touch(touch) {
                 button_hit();
                 let data = get_data();
                 let col = &data.collections[index];
-                let is_default = col.is_default;
                 let mut options = Vec::new();
                 if col.is_owned() {
                     options.push("rename");
                     options.push("set-description");
                     options.push("set-cover");
                 }
+
+                self.edit_menu.set_selected(usize::MAX);
+                self.edit_menu.set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
+                self.edit_options = options;
+                self.need_show_edit_menu = true;
+                return Ok(true);
+            }
+            if self.operations_menu_btn.touch(touch) {
+                button_hit();
+                let data = get_data();
+                let col = &data.collections[index];
+                let is_default = col.is_default;
+                let mut options = Vec::new();
                 if !is_default && col.is_owned() {
                     options.push("set-as-default");
                 }
@@ -439,10 +465,10 @@ impl Page for FavoritesPage {
                     options.push("delete");
                 }
 
-                self.edit_menu.set_selected(usize::MAX);
-                self.edit_menu.set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
-                self.edit_options = options;
-                self.need_show_edit_menu = true;
+                self.operations_menu.set_selected(usize::MAX);
+                self.operations_menu.set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
+                self.operations_options = options;
+                self.need_show_operations_menu = true;
                 return Ok(true);
             }
             if self.cloud_btn.touch(touch) {
@@ -498,6 +524,7 @@ impl Page for FavoritesPage {
         self.info_scroll.update(s.rt);
 
         self.edit_menu.update(t);
+        self.operations_menu.update(t);
         self.cloud_menu.update(t);
 
         for folder in &mut self.folders {
@@ -632,14 +659,6 @@ impl Page for FavoritesPage {
             let data = get_data_mut();
             if self.edit_menu.changed() {
                 match self.edit_options[self.edit_menu.selected()] {
-                    "set-as-default" => {
-                        data.collections.iter_mut().for_each(|col| col.is_default = false);
-                        data.collections[index].is_default = true;
-                        let _ = save_data();
-                    }
-                    "delete" => {
-                        confirm_dialog(tl!("delete"), tl!("delete-confirm"), self.edit_delete.clone());
-                    }
                     "rename" => {
                         request_input("fav_rename", &data.collections[index].name);
                     }
@@ -655,6 +674,19 @@ impl Page for FavoritesPage {
                             show_message(tl!("select-cover"));
                             self.next_page = Some(NextPage::Pop);
                         }
+                    }
+                    _ => {}
+                }
+            }
+            if self.operations_menu.changed() {
+                match self.operations_options[self.operations_menu.selected()] {
+                    "set-as-default" => {
+                        data.collections.iter_mut().for_each(|col| col.is_default = false);
+                        data.collections[index].is_default = true;
+                        let _ = save_data();
+                    }
+                    "delete" => {
+                        confirm_dialog(tl!("delete"), tl!("delete-confirm"), self.operations_delete.clone());
                     }
                     "duplicate" => {
                         let col = &data.collections[index];
@@ -674,7 +706,7 @@ impl Page for FavoritesPage {
                     _ => {}
                 }
             }
-            if self.edit_delete.swap(false, Ordering::SeqCst) {
+            if self.operations_delete.swap(false, Ordering::SeqCst) {
                 data.collections.remove(index);
                 let _ = save_data();
                 show_message(tl!("deleted")).ok();
@@ -917,7 +949,17 @@ impl Page for FavoritesPage {
                     let s = 0.08;
                     let r = Rect::new(-s, 0., s, s);
                     ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, WHITE));
-                    self.edit_menu_btn.set(ui, r);
+                    self.operations_menu_btn.set(ui, r);
+                    if self.need_show_operations_menu {
+                        self.need_show_operations_menu = false;
+                        self.operations_menu.set_bottom(true);
+                        self.operations_menu.set_selected(usize::MAX);
+                        let d = 0.28;
+                        self.operations_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    }
+                    ui.dx(-r.w - 0.03);
+                    ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, WHITE));
+                    self.edit_btn.set(ui, r);
                     if self.need_show_edit_menu {
                         self.need_show_edit_menu = false;
                         self.edit_menu.set_bottom(true);
@@ -1072,6 +1114,7 @@ impl Page for FavoritesPage {
         }
 
         self.edit_menu.render(ui, t, 1.);
+        self.operations_menu.render(ui, t, 1.);
         self.cloud_menu.render(ui, t, 1.);
 
         if self.has_task() {
