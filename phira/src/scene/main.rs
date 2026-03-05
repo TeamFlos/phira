@@ -14,7 +14,7 @@ use once_cell::sync::Lazy;
 use prpr::{
     core::ResPackInfo,
     ext::{unzip_into, RectExt, SafeTexture},
-    scene::{return_file, show_error, show_message, take_file, CHOSEN_FILE, NextScene, Scene},
+    scene::{return_file, show_error, show_message, take_file, NextScene, Scene, CHOSEN_FILE},
     task::Task,
     time::TimeManager,
     ui::{button_hit, FontArc, RectButton, Ui, UI_AUDIO},
