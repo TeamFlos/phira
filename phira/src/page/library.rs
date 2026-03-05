@@ -3,8 +3,8 @@ prpr_l10n::tl_file!("library");
 use super::{CollectionPage, FavoritesPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
-    client::{Chart, ChartRef, Client, Collection},
-    get_data, get_data_mut,
+    client::{Chart, ChartRef, Client, Collection, LocalCollection},
+    dir, get_data, get_data_mut,
     icons::Icons,
     page::{favorites::FAV_PAGE_RESULT, ChartItem},
     popup::Popup,
@@ -26,6 +26,8 @@ use std::{
     any::Any,
     borrow::Cow,
     cell::RefCell,
+    collections::HashSet,
+    io, mem,
     ops::Deref,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -110,6 +112,17 @@ pub struct LibraryPage {
     sync_fav_task: Option<Task<Result<Option<Collection>>>>,
     force_sync_to_cloud: Arc<AtomicBool>,
 
+    multi_operation_btn: DRectButton,
+    multi_operation_menu: Popup,
+    need_show_multi_operation_menu: bool,
+
+    multi_select_btn: DRectButton,
+    multi_select_menu: Popup,
+    need_show_multi_select_menu: bool,
+
+    multi_select_cancel_btn: DRectButton,
+    delete_multi: Arc<AtomicBool>,
+
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
 }
@@ -168,6 +181,23 @@ impl LibraryPage {
             current_fav_index: None,
             sync_fav_task: None,
             force_sync_to_cloud: Arc::default(),
+
+            multi_operation_btn: DRectButton::new(),
+            multi_operation_menu: Popup::new().with_size(0.5).with_options(vec![
+                tl!("multi-export").into_owned(),
+                tl!("multi-create-fav").into_owned(),
+                tl!("multi-delete").into_owned(),
+            ]),
+            need_show_multi_operation_menu: false,
+
+            multi_select_btn: DRectButton::new(),
+            multi_select_menu: Popup::new()
+                .with_size(0.5)
+                .with_options(vec![tl!("multi-select-all").into_owned(), tl!("multi-select-invert").into_owned()]),
+            need_show_multi_select_menu: false,
+
+            multi_select_cancel_btn: DRectButton::new(),
+            delete_multi: Arc::default(),
 
             next_page: None,
             next_page_task: None,
@@ -292,9 +322,12 @@ impl LibraryPage {
             if let Some(fav_index) = self.current_fav_index {
                 charts.extend(get_data().collections[fav_index].charts.iter().filter_map(|it| {
                     match it {
-                        ChartRef::Online(chart) => search_by_id
-                            .map_or_else(|| chart.name.contains(&self.search_str), |search_id| chart.id == search_id)
-                            .then(|| ChartDisplayItem::from_remote(chart)),
+                        ChartRef::Online(_, chart) => {
+                            let chart = chart.as_ref().unwrap();
+                            search_by_id
+                                .map_or_else(|| chart.name.contains(&self.search_str), |search_id| chart.id == search_id)
+                                .then(|| ChartDisplayItem::from_remote(chart))
+                        }
                         ChartRef::Local(path) => charts_local
                             .iter()
                             .find(|it| it.local_path.as_ref().is_some_and(|its_path| its_path == path) && local_matcher(it))
@@ -377,6 +410,14 @@ impl Page for LibraryPage {
                 self.order_meta_menu.touch(touch, t);
                 return Ok(true);
             }
+            if self.multi_operation_menu.showing() {
+                self.multi_operation_menu.touch(touch, t);
+                return Ok(true);
+            }
+            if self.multi_select_menu.showing() {
+                self.multi_select_menu.touch(touch, t);
+                return Ok(true);
+            }
             if self.tabs.touch(touch, s.rt) {
                 return Ok(true);
             }
@@ -416,18 +457,33 @@ impl Page for LibraryPage {
 
         match self.tabs.selected().ty {
             ChartListType::Local => {
-                if self.import_btn.touch(touch, t) {
-                    request_file("_import");
-                    return Ok(true);
-                }
-                if self.fav_btn.touch(touch, t) {
-                    self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(
-                        self.icons.clone(),
-                        self.rank_icons.clone(),
-                        self.current_fav_index,
-                        None,
-                    ))));
-                    return Ok(true);
+                if self.tabs.selected_mut().view.multi_select.is_some() {
+                    if self.multi_operation_btn.touch(touch, t) {
+                        self.need_show_multi_operation_menu = true;
+                        return Ok(true);
+                    }
+                    if self.multi_select_btn.touch(touch, t) {
+                        self.need_show_multi_select_menu = true;
+                        return Ok(true);
+                    }
+                    if self.multi_select_cancel_btn.touch(touch, t) {
+                        self.tabs.selected_mut().view.multi_select = None;
+                        return Ok(true);
+                    }
+                } else {
+                    if self.import_btn.touch(touch, t) {
+                        request_file("_import");
+                        return Ok(true);
+                    }
+                    if self.fav_btn.touch(touch, t) {
+                        self.next_page = Some(NextPage::Overlay(Box::new(FavoritesPage::new(
+                            self.icons.clone(),
+                            self.rank_icons.clone(),
+                            self.current_fav_index,
+                            None,
+                        ))));
+                        return Ok(true);
+                    }
                 }
                 if !self.search_str.is_empty() && self.search_clr_btn.touch(touch) {
                     button_hit();
@@ -496,6 +552,7 @@ impl Page for LibraryPage {
         let is_local = self.tabs.selected().ty == ChartListType::Local;
         if self.tabs.changed() {
             self.tabs.selected_mut().view.reset_scroll();
+            self.tabs.iter_mut().for_each(|it| it.view.multi_select = None);
             self.online_task = None;
             if is_local {
                 self.sync_local(s);
@@ -566,9 +623,46 @@ impl Page for LibraryPage {
                     self.current_page = 0;
                     self.load_online();
                 }
+            } else if id == "new_fav" {
+                if text.is_empty() {
+                    use crate::page::favorites::{tl as ftl, L10N_LOCAL};
+                    show_message(ftl!("name-empty")).error();
+                } else {
+                    let charts_view = &mut self.tabs.selected_mut().view;
+                    if let Some(selected) = charts_view.multi_select.take() {
+                        let data = get_data_mut();
+                        let mut col = LocalCollection::new(text);
+                        col.charts = selected;
+                        data.collections.push(col);
+                        let _ = save_data();
+                        show_message(tl!("fav-created")).ok();
+                        self.current_fav_index = Some(data.collections.len() - 1);
+                        self.sync_local(s);
+                    }
+                }
             } else {
                 return_input(id, text);
             }
+        }
+        if self.delete_multi.swap(false, Ordering::Relaxed) {
+            let selected = self.tabs.selected_mut().view.multi_select.take().unwrap();
+            let selected = selected.into_iter().collect::<HashSet<_>>();
+            let data = get_data_mut();
+            let mut local_paths = HashSet::new();
+            for chart in &selected {
+                let path = chart.local_path();
+                match std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?)) {
+                    Ok(_) => {}
+                    Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+                    Err(err) => return Err(err.into()),
+                }
+                local_paths.insert(path);
+            }
+            data.charts.retain(|it| !local_paths.contains(it.local_path.as_str()));
+            let _ = save_data();
+            show_message(tl!("multi-deleted")).ok();
+            s.reload_local_charts();
+            self.sync_local(s);
         }
         if self.order_meta_menu.changed() {
             match self.order_meta_menu.selected() {
@@ -591,6 +685,46 @@ impl Page for LibraryPage {
             self.update_order_meta_menu_options();
             self.on_order_update(s);
         }
+        if self.multi_operation_menu.changed() {
+            let charts_view = &mut self.tabs.selected_mut().view;
+            let selected = charts_view.multi_select.as_mut().unwrap();
+            match self.multi_operation_menu.selected() {
+                0 => {
+                    todo!()
+                }
+                1 => {
+                    request_input("new_fav", "");
+                }
+                2 => {
+                    confirm_dialog(ttl!("del-confirm"), tl!("multi-delete-confirm", "count" => selected.len()), self.delete_multi.clone());
+                }
+                _ => {}
+            }
+        }
+        if self.multi_select_menu.changed() {
+            let charts_view = &mut self.tabs.selected_mut().view;
+            let sel = charts_view.multi_select.as_mut().unwrap();
+            let charts = charts_view.charts.as_ref().unwrap();
+            match self.multi_select_menu.selected() {
+                0 => {
+                    sel.clear();
+                    sel.extend(charts.iter().filter_map(|it| it.chart.as_ref()).map(ChartItem::to_ref));
+                }
+                1 => {
+                    let old_sel = mem::take(sel).into_iter().collect::<HashSet<_>>();
+                    for chart in charts {
+                        if let Some(chart) = &chart.chart {
+                            let r = chart.to_ref();
+                            if !old_sel.contains(&r) {
+                                sel.push(r);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        self.multi_operation_menu.update(t);
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
         }
@@ -678,15 +812,87 @@ impl Page for LibraryPage {
         })?;
         if chosen != ChartListType::Popular {
             s.render_fader(ui, |ui| {
+                let multi_select = self.tabs.selected().view.multi_select.is_some();
                 let mut r = Rect::new(r.right(), -ui.top + 0.04, 0., r.y + ui.top - 0.06);
                 r.w = r.h;
                 r.x -= r.w;
 
-                if chosen == ChartListType::Local {
+                // 多选模式操作按钮
+                if let Some(selected) = &mut self.tabs.selected_mut().view.multi_select {
+                    self.multi_operation_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, WHITE);
+                        let cr = r.feather(-0.01);
+                        ui.fill_rect(cr, (*self.icons.r#mod, cr, ScaleType::Fit, BLACK));
+                    });
+                    if self.need_show_multi_operation_menu {
+                        self.need_show_multi_operation_menu = false;
+                        self.multi_operation_menu
+                            .set_auto_adjust(Some(ui.screen_rect().nonuniform_feather(-0.03, -0.05)));
+                        self.multi_operation_menu.set_bottom(true);
+                        self.multi_operation_menu.set_selected(usize::MAX);
+                        self.multi_operation_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.35, 0.3));
+                    }
+
+                    let text = tl!("multi-select-status", "count" => selected.len());
+                    let tw = ui.text(&text).size(0.5).measure().w;
+                    let w = tw + 0.1;
+                    let sr = Rect::new(r.x - w - 0.02, r.y, w, r.h);
+                    self.multi_select_btn.render_shadow(ui, sr, t, |ui, path| {
+                        ui.fill_path(&path, WHITE);
+                        let ir = Rect::new(sr.x + 0.04, sr.center().y, 0., 0.).feather(0.025);
+                        ui.fill_rect(ir, (*self.icons.select, ir, ScaleType::Fit, BLACK));
+                        ui.text(text)
+                            .pos((ir.right() + sr.right() - 0.01) / 2., sr.center().y)
+                            .size(0.5)
+                            .anchor(0.5, 0.5)
+                            .no_baseline()
+                            .color(BLACK)
+                            .draw();
+                    });
+                    if self.need_show_multi_select_menu {
+                        self.need_show_multi_select_menu = false;
+                        self.multi_select_menu
+                            .set_auto_adjust(Some(ui.screen_rect().nonuniform_feather(-0.03, -0.05)));
+                        self.multi_select_menu.set_bottom(true);
+                        self.multi_select_menu.set_selected(usize::MAX);
+                        self.multi_select_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.3, 0.2));
+                    }
+                    r.x = sr.x - r.w - 0.02;
+
+                    self.multi_select_cancel_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, WHITE);
+                        let cr = r.feather(-0.01);
+                        ui.fill_rect(cr, (*self.icons.close, cr, ScaleType::Fit, BLACK));
+                    });
+                    r.x -= r.w + 0.02;
+                }
+
+                if chosen == ChartListType::Local && !multi_select {
                     self.import_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                         let cr = r.feather(-0.01);
                         ui.fill_rect(cr, (*self.icons.plus, cr, ScaleType::Fit));
+                    });
+                    r.x -= r.w + 0.02;
+                }
+
+                if chosen != ChartListType::Local {
+                    self.filter_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, semi_black(0.4));
+                        let cr = r.feather(-0.01);
+                        ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
+                    });
+                    r.x -= r.w + 0.02;
+                } else if !multi_select {
+                    let active = self.current_fav_index.is_some();
+                    self.fav_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
+                        let cr = r.feather(-0.01);
+                        if active {
+                            ui.fill_rect(cr, (*self.icons.star, cr, ScaleType::Fit, Color::from_rgba(255, 193, 7, 255)));
+                        } else {
+                            ui.fill_rect(cr, (*self.icons.star_outline, cr, ScaleType::Fit));
+                        }
                     });
                     r.x -= r.w + 0.02;
                 }
@@ -710,27 +916,6 @@ impl Page for LibraryPage {
                     self.update_order_meta_menu_options();
                     self.order_meta_menu.set_selected(usize::MAX);
                     self.order_meta_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.35, 0.2));
-                }
-
-                if chosen != ChartListType::Local {
-                    r.x -= r.w + 0.02;
-                    self.filter_btn.render_shadow(ui, r, t, |ui, path| {
-                        ui.fill_path(&path, semi_black(0.4));
-                        let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
-                    });
-                } else {
-                    r.x -= r.w + 0.02;
-                    let active = self.current_fav_index.is_some();
-                    self.fav_btn.render_shadow(ui, r, t, |ui, path| {
-                        ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
-                        let cr = r.feather(-0.01);
-                        if active {
-                            ui.fill_rect(cr, (*self.icons.star, cr, ScaleType::Fit, Color::from_rgba(255, 193, 7, 255)));
-                        } else {
-                            ui.fill_rect(cr, (*self.icons.star_outline, cr, ScaleType::Fit));
-                        }
-                    });
                 }
 
                 let empty = self.search_str.is_empty();
@@ -802,6 +987,8 @@ impl Page for LibraryPage {
             r.h = 0.4;
             self.order_menu.show(ui, t, r);
         }
+        self.multi_select_menu.render(ui, t, 1.);
+        self.multi_operation_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
         self.rating.render(ui, t);
         if self.sync_fav_task.is_some() {

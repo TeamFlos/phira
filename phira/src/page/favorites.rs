@@ -266,8 +266,8 @@ impl FavoritesPage {
         let mut local_charts = Vec::new();
         for chart in &col.charts {
             match chart {
-                ChartRef::Online(chart) => {
-                    chart_ids.push(chart.id);
+                ChartRef::Online(id, _) => {
+                    chart_ids.push(*id);
                 }
                 ChartRef::Local(path) => {
                     if let Some(id) = data.charts.iter().find(|it| it.local_path == *path).and_then(|it| it.info.id) {
@@ -886,7 +886,7 @@ impl Page for FavoritesPage {
                     Ok(charts) => {
                         let data = get_data_mut();
                         let col = &mut data.collections[self.active_folder.unwrap()];
-                        col.charts.extend(charts.into_iter().map(|chart| ChartRef::Online(Box::new(chart))));
+                        col.charts.extend(charts.into_iter().map(Into::into));
                         let _ = save_data();
                         show_message(tl!("imported")).ok();
                         if col.id.is_some() && !data.config.offline_mode {

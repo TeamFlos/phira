@@ -1322,20 +1322,20 @@ impl SongScene {
     }
 
     fn matches_ref(&self, r: &ChartRef) -> bool {
-        r.matches(self.info.id, self.local_path.as_deref())
+        r.matches(self.local_path.as_deref().ok_or_else(|| self.info.id.unwrap()))
     }
 
     fn to_chart_ref(&self) -> Option<ChartRef> {
-        Some(if self.info.id.is_some() {
+        Some(if let Some(local) = &self.local_path {
+            ChartRef::Local(local.clone())
+        } else {
             match self.entity.clone() {
-                Some(entity) => ChartRef::Online(Box::new(entity)),
+                Some(entity) => entity.into(),
                 None => {
                     show_message(tl!("still-loading")).error();
                     return None;
                 }
             }
-        } else {
-            ChartRef::Local(self.local_path.clone().unwrap())
         })
     }
 

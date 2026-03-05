@@ -24,3 +24,15 @@ order-updated = Order updated
 order-update-failed-sort = Order can only be updated in default sorting mode.
 fav-synced = Favorites synced
 fav-sync-failed = Failed to sync favorites.
+
+multi-select-status = { $count } selected
+multi-export = Export
+multi-create-fav = Create Favorites
+multi-delete = Delete
+multi-delete-confirm = Are you sure you want to delete { $count } charts? This action cannot be undone.
+multi-deleted = Deleted
+
+multi-select-all = Select All
+multi-select-invert = Invert Selection
+
+fav-created = Favorites created
