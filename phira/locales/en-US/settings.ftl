@@ -41,6 +41,7 @@ item-sfx = SFX Volume
 item-bgm = BGM Volume
 item-cali = Adjust Offset
 item-preferred-sample-rate = Preferred Sample Rate
+item-audio-buffer-size = Audio Buffer Size
 
 item-show-acc = Real-Time Accuracy
 item-show-avg-fps = Show AVG FPS

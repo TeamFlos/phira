@@ -536,6 +536,7 @@ struct AudioList {
     cali_btn: DRectButton,
     #[cfg(not(target_os = "android"))]
     preferred_sample_rate_btn: DRectButton,
+    audio_buffer_size_btn: DRectButton,
     cali_task: LocalTask<Result<OffsetPage>>,
     next_page: Option<NextPage>,
 }
@@ -550,6 +551,7 @@ impl AudioList {
             cali_btn: DRectButton::new(),
             #[cfg(not(target_os = "android"))]
             preferred_sample_rate_btn: DRectButton::new(),
+            audio_buffer_size_btn: DRectButton::new(),
 
             cali_task: None,
             next_page: None,
@@ -590,6 +592,13 @@ impl AudioList {
             let current = config.preferred_sample_rate;
             let selected = options.iter().position(|&r| r == current).unwrap_or(0);
             config.preferred_sample_rate = options[(selected + 1) % options.len()];
+            return Ok(Some(true));
+        }
+        if self.audio_buffer_size_btn.touch(touch, t) {
+            let options = [128u32, 256u32, 512u32];
+            let current = config.audio_buffer_size.unwrap_or(256);
+            let selected = options.iter().position(|&r| r == current).unwrap_or(1);
+            config.audio_buffer_size = Some(options[(selected + 1) % options.len()]);
             return Ok(Some(true));
         }
         Ok(None)
@@ -648,6 +657,11 @@ impl AudioList {
         item! {
             render_title(ui, tl!("item-preferred-sample-rate"), None);
             self.preferred_sample_rate_btn.render_text(ui, rr, t, format!("{} Hz", config.preferred_sample_rate), 0.5, false);
+        }
+        item! {
+            render_title(ui, tl!("item-audio-buffer-size"), None);
+            let buf_size = config.audio_buffer_size.unwrap_or(256);
+            self.audio_buffer_size_btn.render_text(ui, rr, t, format!("{}", buf_size), 0.5, false);
         }
         (w, h)
     }
