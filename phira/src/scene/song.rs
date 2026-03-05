@@ -141,6 +141,7 @@ pub struct Downloading {
     cancel_download_btn: DRectButton,
     status: Arc<Mutex<Cow<'static, str>>>,
     prog: Arc<Mutex<Option<f32>>>,
+    atomicity: Arc<Mutex<()>>,
     task: Task<Result<(LocalChart, LocalTuple)>>,
 }
 
@@ -529,6 +530,7 @@ impl SongScene {
         let prog_wk = Arc::downgrade(&progress);
         let status = Arc::new(Mutex::new(tl!("dl-status-fetch")));
         let status_shared = Arc::clone(&status);
+        let atomicity = Arc::new(Mutex::new(()));
         Ok(Downloading {
             info: chart.clone(),
             local_path,
@@ -536,6 +538,7 @@ impl SongScene {
             cancel_download_btn: DRectButton::new(),
             prog: progress,
             status: status_shared,
+            atomicity: atomicity.clone(),
             task: Task::new({
                 let path = format!("{}/{}", dir::downloaded_charts()?, Uuid::new_v4());
                 async move {
@@ -600,14 +603,17 @@ impl SongScene {
                     let local_path = format!("download/{}", chart.id.unwrap());
                     let to_path = format!("{}/{local_path}", dir::charts()?);
                     let to_path = Path::new(&to_path);
-                    if to_path.exists() {
-                        if to_path.is_file() {
-                            tokio::fs::remove_file(to_path).await?;
-                        } else {
-                            tokio::fs::remove_dir_all(to_path).await?;
+                    {
+                        let _guard = atomicity.lock().unwrap();
+                        if to_path.exists() {
+                            if to_path.is_file() {
+                                std::fs::remove_file(to_path)?;
+                            } else {
+                                std::fs::remove_dir_all(to_path)?;
+                            }
                         }
+                        std::fs::rename(path, to_path)?;
                     }
-                    tokio::fs::rename(path, to_path).await?;
 
                     let tuple = load_local_tuple(&local_path, BLACK_TEXTURE.clone(), info).await?;
 
@@ -1485,12 +1491,12 @@ impl Scene for SongScene {
         {
             return Ok(true);
         }
-        if self.downloading.is_some() {
-            if let Some(dl) = &mut self.downloading {
-                if dl.touch(touch, t) {
-                    self.downloading = None;
-                    return Ok(true);
-                }
+        if let Some(dl) = &mut self.downloading {
+            if dl.touch(touch, t) {
+                let atomicity = dl.atomicity.clone();
+                let _guard = atomicity.lock().unwrap();
+                self.downloading = None;
+                return Ok(true);
             }
             return Ok(false);
         }
@@ -1589,7 +1595,7 @@ impl Scene for SongScene {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(false)));
             return Ok(true);
         }
-        if self.play_btn.touch(touch, t) {
+        if self.scene_task.is_none() && self.next_scene.is_none() && self.play_btn.touch(touch, t) {
             if self.local_path.is_some() {
                 self.launch(GameMode::Normal, false)?;
             } else {

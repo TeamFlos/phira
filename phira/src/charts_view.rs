@@ -413,7 +413,6 @@ impl ChartsView {
                     ui.hgrids(content_size.0, ch, self.row_num, charts.len() as u32, |ui, id| {
                         if let Some(transit) = &mut self.transit {
                             if transit.id == id {
-                                dbg!(&ui.rect_to_global(r));
                                 transit.rect = Some(ui.rect_to_global(r));
                             }
                         }

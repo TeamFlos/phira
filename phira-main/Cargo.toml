@@ -4,5 +4,9 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 
+[features]
+default = ["video"]
+video = ["phira/video"]
+
 [dependencies]
-phira = { workspace = true }
+phira = { workspace = true, default-features = false }

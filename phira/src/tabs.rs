@@ -138,11 +138,12 @@ impl<T> Tabs<T> {
             ui,
             r,
             &ShadowConfig {
-                radius: 0.,
+                radius: 0.008,
+                base: 0.5,
                 ..Default::default()
             },
         );
-        ui.fill_rect(r, WHITE);
+        ui.fill_path(&r.rounded(0.008), WHITE);
         ui.scissor(r, |ui| self.render_plain(ui, BLACK, false));
 
         ui.fill_path(&cr.rounded(0.005), semi_black(0.4));

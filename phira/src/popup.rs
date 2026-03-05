@@ -47,6 +47,12 @@ impl Popup {
     }
 
     #[inline]
+    pub fn with_size(mut self, size: f32) -> Self {
+        self.size = size;
+        self
+    }
+
+    #[inline]
     pub fn selected(&self) -> usize {
         self.selected
     }
@@ -73,6 +79,10 @@ impl Popup {
 
     pub fn set_bottom(&mut self, bottom: bool) {
         self.fader.distance = self.fader.distance.abs() * if bottom { 1. } else { -1. };
+    }
+
+    pub fn rect(&self) -> Rect {
+        self.rect
     }
 
     pub fn show(&mut self, ui: &mut Ui, t: f32, r: Rect) {

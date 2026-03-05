@@ -91,8 +91,9 @@ pub struct LibraryPage {
     order_menu_options: Vec<ChartOrder>,
     need_show_order_menu: bool,
     current_order: ChartOrder,
+    order_meta_menu: Popup,
+    need_show_order_meta_menu: bool,
 
-    order_rev_btn: DRectButton,
     order_rev: bool,
 
     filter_btn: DRectButton,
@@ -144,12 +145,13 @@ impl LibraryPage {
             search_clr_btn: RectButton::new(),
 
             order_btn: DRectButton::new(),
-            order_menu: Popup::new(),
+            order_menu: Popup::new().with_size(0.5),
             order_menu_options: Vec::new(),
             need_show_order_menu: false,
             current_order: ChartOrder::Default,
+            order_meta_menu: Popup::new().with_size(0.5),
+            need_show_order_meta_menu: false,
 
-            order_rev_btn: DRectButton::new(),
             order_rev: true,
 
             filter_btn: DRectButton::new(),
@@ -183,15 +185,15 @@ impl LibraryPage {
     }
 
     pub fn load_online(&mut self) {
-        if !check_read_tos_and_policy(false, false) {
-            return;
-        }
         if get_data().config.offline_mode {
             show_message(tl!("offline-mode")).error();
             return;
         }
         if get_data().me.is_none() {
             show_error(anyhow!(tl!("must-login")));
+            return;
+        }
+        if !check_read_tos_and_policy(false, false) {
             return;
         }
         self.tabs.selected_mut().view.reset_scroll();
@@ -328,6 +330,13 @@ impl LibraryPage {
             self.sync_local(s);
         }
     }
+
+    fn update_order_meta_menu_options(&mut self) {
+        self.order_meta_menu.set_options(vec![
+            tl!("order-by", "order" => self.order_menu_options[self.current_order as usize].label()),
+            if self.order_rev { tl!("order-desc") } else { tl!("order-asc") }.into(),
+        ]);
+    }
 }
 
 impl Page for LibraryPage {
@@ -362,6 +371,10 @@ impl Page for LibraryPage {
         if !choose_cover {
             if self.order_menu.showing() {
                 self.order_menu.touch(touch, t);
+                return Ok(true);
+            }
+            if self.order_meta_menu.showing() {
+                self.order_meta_menu.touch(touch, t);
                 return Ok(true);
             }
             if self.tabs.touch(touch, s.rt) {
@@ -451,19 +464,7 @@ impl Page for LibraryPage {
             ChartListType::Popular => {}
         }
         if self.order_btn.touch(touch, t) {
-            if self.tabs.selected().ty == ChartListType::Local {
-                self.order_menu_options = vec![ChartOrder::Default, ChartOrder::Name, ChartOrder::Difficulty];
-            } else {
-                self.order_menu_options = vec![ChartOrder::Default, ChartOrder::Rating, ChartOrder::Name, ChartOrder::Difficulty];
-            }
-            self.order_menu
-                .set_options(self.order_menu_options.iter().map(|it| it.label().into_owned()).collect());
-            self.need_show_order_menu = true;
-            return Ok(true);
-        }
-        if self.order_rev_btn.touch(touch, t) {
-            self.order_rev = !self.order_rev;
-            self.on_order_update(s);
+            self.need_show_order_meta_menu = true;
             return Ok(true);
         }
         Ok(false)
@@ -569,9 +570,25 @@ impl Page for LibraryPage {
                 return_input(id, text);
             }
         }
+        if self.order_meta_menu.changed() {
+            match self.order_meta_menu.selected() {
+                0 => {
+                    self.need_show_order_menu = true;
+                }
+                1 => {
+                    self.order_rev = !self.order_rev;
+                    self.update_order_meta_menu_options();
+                    self.order_meta_menu.set_selected(usize::MAX);
+                    self.on_order_update(s);
+                }
+                _ => {}
+            }
+        }
         if self.order_menu.changed() {
             self.current_order = self.order_menu_options[self.order_menu.selected()];
             self.order_rev = self.current_order == ChartOrder::Default;
+            self.order_meta_menu.set_selected(usize::MAX);
+            self.update_order_meta_menu_options();
             self.on_order_update(s);
         }
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
@@ -661,9 +678,64 @@ impl Page for LibraryPage {
         })?;
         if chosen != ChartListType::Popular {
             s.render_fader(ui, |ui| {
+                let mut r = Rect::new(r.right(), -ui.top + 0.04, 0., r.y + ui.top - 0.06);
+                r.w = r.h;
+                r.x -= r.w;
+
+                if chosen == ChartListType::Local {
+                    self.import_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, semi_black(0.4));
+                        let cr = r.feather(-0.01);
+                        ui.fill_rect(cr, (*self.icons.plus, cr, ScaleType::Fit));
+                    });
+                    r.x -= r.w + 0.02;
+                }
+
+                self.order_btn.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let cr = r.feather(-0.01);
+                    ui.fill_rect(cr, (*self.icons.order, cr, ScaleType::Fit));
+                });
+                if self.need_show_order_meta_menu {
+                    self.need_show_order_meta_menu = false;
+                    self.order_meta_menu
+                        .set_auto_adjust(Some(ui.screen_rect().nonuniform_feather(-0.03, -0.05)));
+                    if self.tabs.selected().ty == ChartListType::Local {
+                        self.order_menu_options = vec![ChartOrder::Default, ChartOrder::Name, ChartOrder::Difficulty];
+                    } else {
+                        self.order_menu_options = vec![ChartOrder::Default, ChartOrder::Rating, ChartOrder::Name, ChartOrder::Difficulty];
+                    }
+                    self.order_meta_menu.set_bottom(true);
+                    self.order_meta_menu.set_auto_dismiss(false);
+                    self.update_order_meta_menu_options();
+                    self.order_meta_menu.set_selected(usize::MAX);
+                    self.order_meta_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.35, 0.2));
+                }
+
+                if chosen != ChartListType::Local {
+                    r.x -= r.w + 0.02;
+                    self.filter_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, semi_black(0.4));
+                        let cr = r.feather(-0.01);
+                        ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
+                    });
+                } else {
+                    r.x -= r.w + 0.02;
+                    let active = self.current_fav_index.is_some();
+                    self.fav_btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
+                        let cr = r.feather(-0.01);
+                        if active {
+                            ui.fill_rect(cr, (*self.icons.star, cr, ScaleType::Fit, Color::from_rgba(255, 193, 7, 255)));
+                        } else {
+                            ui.fill_rect(cr, (*self.icons.star_outline, cr, ScaleType::Fit));
+                        }
+                    });
+                }
+
                 let empty = self.search_str.is_empty();
-                let w = 0.53;
-                let mut r = Rect::new(r.right() - w, -ui.top + 0.04, w, r.y + ui.top - 0.06);
+                r.w = 0.53;
+                r.x -= r.w + 0.02;
                 if empty {
                     r.x += r.h;
                     r.w -= r.h;
@@ -687,71 +759,6 @@ impl Page for LibraryPage {
                     .size(0.6)
                     .max_width(rt - r.right() - 0.02)
                     .draw();
-                let mut r = r.feather(0.01);
-                // TODO: better shifting
-                r.x = 1. - w - r.w - 0.05;
-                if empty {
-                    r.x += r.w;
-                }
-                if chosen == ChartListType::Local {
-                    let btn_w = 0.24;
-                    // 导入按钮（右侧） || Import button (right side)
-                    let import_r = Rect::new(r.x + r.w - btn_w, r.y, btn_w, r.h);
-                    let ct = import_r.center();
-                    self.import_btn.render_shadow(ui, import_r, t, |ui, path| {
-                        ui.fill_path(&path, semi_black(0.4));
-                    });
-                    ui.text(tl!("import")).pos(ct.x, ct.y).anchor(0.5, 0.5).no_baseline().size(0.6).draw();
-                    // 收藏夹按钮（导入按钮左侧） || Favorites button (left of import)
-                    let fav_r = Rect::new(import_r.x - btn_w - 0.02, r.y, btn_w, r.h);
-                    let data = get_data();
-                    let fav_text = if let Some(folder) = self.current_fav_index {
-                        data.collections[folder].name.as_str().into()
-                    } else {
-                        ttl!("favorites")
-                    };
-
-                    let active = self.current_fav_index.is_some();
-                    self.fav_btn.render_shadow(ui, fav_r, t, |ui, path| {
-                        ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
-                    });
-                    let ct = fav_r.center();
-                    ui.text(fav_text)
-                        .pos(ct.x, ct.y)
-                        .anchor(0.5, 0.5)
-                        .no_baseline()
-                        .size(0.5)
-                        .max_width(btn_w - 0.02)
-                        .color(if active { BLACK } else { WHITE })
-                        .draw();
-                    r.x = fav_r.x - 0.02 - r.w;
-                }
-                self.order_rev_btn.render_shadow(ui, r, t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                    let cr = r.feather(-0.01);
-                    ui.fill_rect(cr, (if self.order_rev { *self.icons.sort_desc } else { *self.icons.sort_asc }, cr, ScaleType::Fit));
-                });
-                r.x -= r.w + 0.02;
-                self.order_btn.render_shadow(ui, r, t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                    let cr = r.feather(-0.01);
-                    ui.fill_rect(cr, (*self.icons.order, cr, ScaleType::Fit));
-                });
-                if self.need_show_order_menu {
-                    self.need_show_order_menu = false;
-                    self.order_menu.set_bottom(true);
-                    self.order_menu
-                        .set_selected(self.order_menu_options.iter().position(|&it| it == self.current_order).unwrap_or(0));
-                    self.order_menu.show(ui, t, Rect::new(r.x, r.bottom() + 0.02, 0.3, 0.4));
-                }
-                if chosen != ChartListType::Local {
-                    r.x -= r.w + 0.02;
-                    self.filter_btn.render_shadow(ui, r, t, |ui, path| {
-                        ui.fill_path(&path, semi_black(0.4));
-                        let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
-                    });
-                }
             });
         }
         if chosen != ChartListType::Local {
@@ -776,6 +783,25 @@ impl Page for LibraryPage {
             });
         }
         self.order_menu.render(ui, t, 1.);
+        self.order_meta_menu.render(ui, t, 1.);
+        if self.need_show_order_menu {
+            self.need_show_order_menu = false;
+            self.order_menu.set_bottom(true);
+            self.order_menu.set_selected(
+                self.order_menu_options
+                    .iter()
+                    .position(|&it| it == self.current_order)
+                    .unwrap_or(usize::MAX),
+            );
+            self.order_menu
+                .set_options(self.order_menu_options.iter().map(|it| it.label().into_owned()).collect());
+
+            let mut r = self.order_meta_menu.rect();
+            r.w = 0.3;
+            r.x -= r.w + 0.02;
+            r.h = 0.4;
+            self.order_menu.show(ui, t, r);
+        }
         self.tags.render(ui, t);
         self.rating.render(ui, t);
         if self.sync_fav_task.is_some() {

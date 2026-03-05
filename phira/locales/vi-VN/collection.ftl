@@ -1,5 +1,5 @@
 
-label = Bộ sưu tập
+label = BỘ SƯU TẬP
 
 wait-for-more = Còn nhiều hơn nữa...
 

@@ -1,3 +1,3 @@
-time = Времени
-name = Имени
+time = Время
+name = Имя
 rating = Оценка

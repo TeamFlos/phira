@@ -1,6 +1,9 @@
-prpr_l10n::tl_file!("parser" ptl);
+use anyhow::{Context, Result};
+use serde::Deserialize;
+use std::{cell::RefCell, collections::HashMap};
+use tracing::warn;
 
-use super::process_lines;
+use super::{process_lines, L10N_LOCAL};
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind,
@@ -9,10 +12,6 @@ use crate::{
     ext::NotNanExt,
     judge::{HitSound, JudgeStatus},
 };
-use anyhow::{Context, Result};
-use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap};
-use tracing::warn;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

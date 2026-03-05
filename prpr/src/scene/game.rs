@@ -44,9 +44,9 @@ use tracing::{debug, warn};
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
 #[rustfmt::skip]
-#[cfg(closed)]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 mod inner;
-#[cfg(closed)]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
@@ -915,7 +915,7 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(closed)]
+                    #[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {
@@ -1088,13 +1088,16 @@ impl Scene for GameScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        if matches!(self.state, State::Playing) && !tm.paused() {
+        if self.res.config.show_avg_fps {
             let current_time = tm.real_time();
-            let frame_delta = current_time - self.fps_last_frame_time;
+            if matches!(self.state, State::Playing) && !tm.paused() {
+                let frame_delta = current_time - self.fps_last_frame_time;
+                self.fps_total_time += frame_delta;
+                self.fps_frame_count += 1;
+            }
             self.fps_last_frame_time = current_time;
-            self.fps_total_time += frame_delta;
-            self.fps_frame_count += 1;
         }
+
         let res = &mut self.res;
         let asp = ui.viewport.2 as f32 / ui.viewport.3 as f32;
         if res.update_size(ui.viewport) || self.mode == GameMode::View {

@@ -43,6 +43,7 @@ item-cali = 調整延遲
 item-preferred-sample-rate = 偏好取樣率
 
 item-show-acc = 顯示即時準確率
+item-show-avg-fps = 顯示平均FPS
 item-dc-pause = 雙擊暫停
 item-dhint = 雙押提示
 item-dhint-sub = 同時觸線的音符將會被高亮

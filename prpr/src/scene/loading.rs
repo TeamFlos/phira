@@ -1,7 +1,7 @@
 use super::{draw_background, ending::RecordUpdateState, game::GameMode, GameScene, NextScene, Scene};
 use crate::{
     config::Config,
-    core::Resource,
+    core::{Resource, BOLD_FONT},
     ext::{poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture, BLACK_TEXTURE},
     fs::FileSystem,
     info::ChartInfo,
@@ -187,7 +187,7 @@ impl Scene for LoadingScene {
 
             rounded_rect_shadow(ui, r, &config);
             clip_rounded_rect(ui, r, config.radius, |ui| {
-                ui.fill_rect(r, self.theme_color);
+                ui.fill_rect(r, Color { a: 0.6, ..self.theme_color });
                 ui.fill_rect(ir, (*self.illustration, ir));
                 ui.fill_rect(ir, (semi_black(0.5), (ir.x, ir.bottom()), Color::default(), (ir.x, ir.y)));
             });
@@ -211,8 +211,6 @@ impl Scene for LoadingScene {
                 .max_width(mw)
                 .draw();
 
-            ui.fill_rect(Rect::new(rt, ct, 0., 0.).nonuniform_feather(0.001, bar_height * 0.4), sub);
-
             let lf = rt + 0.03;
             let dy = bar_height / 6.;
             let size = 0.45;
@@ -222,14 +220,14 @@ impl Scene for LoadingScene {
                 .no_baseline()
                 .size(size)
                 .color(sub)
-                .draw();
+                .draw_using(&BOLD_FONT);
             ui.text("Cover")
                 .pos(lf, ct + dy)
                 .anchor(0., 0.5)
                 .no_baseline()
                 .size(size)
                 .color(sub)
-                .draw();
+                .draw_using(&BOLD_FONT);
 
             let lf = lf + 0.12;
             let mw = r.right() - lf - 0.01;

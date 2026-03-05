@@ -49,9 +49,9 @@ uuid = "1.20.0"
 walkdir = "2.5.0"
 zip = { version = "7.2.0", default-features = false }
 
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "f4e746d", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "4451516" }
-phira = { path = "phira" }
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "039f957", default-features = false }
+miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "dc26ae9" }
+phira = { path = "phira", default-features = false }
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }
 prpr = { path = "prpr", default-features = false }

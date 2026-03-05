@@ -1,6 +1,12 @@
-prpr_l10n::tl_file!("parser" ptl);
+use anyhow::{Context, Result};
+use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
+use macroquad::prelude::{Color, WHITE};
+use sasa::AudioClip;
+use serde::Deserialize;
+use std::{cell::RefCell, collections::HashMap, future::IntoFuture, io::Cursor, rc::Rc, str::FromStr, time::Duration};
+use tracing::debug;
 
-use super::{process_lines, RPE_TWEEN_MAP};
+use super::{process_lines, L10N_LOCAL, RPE_TWEEN_MAP};
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GifFrames, HitSoundMap,
@@ -11,13 +17,6 @@ use crate::{
     fs::FileSystem,
     judge::{HitSound, JudgeStatus},
 };
-use anyhow::{Context, Result};
-use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
-use macroquad::prelude::{Color, WHITE};
-use sasa::AudioClip;
-use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, future::IntoFuture, io::Cursor, rc::Rc, str::FromStr, time::Duration};
-use tracing::debug;
 
 pub const RPE_WIDTH: f32 = 1350.;
 pub const RPE_HEIGHT: f32 = 900.;

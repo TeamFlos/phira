@@ -189,6 +189,10 @@ impl Scroller {
 
     pub fn update(&mut self, t: f32, extra_scroll: f32) {
         self.offset += extra_scroll * WHEEL_STEP;
+        if extra_scroll.abs() > 1e-5 {
+            self.speed = 0.;
+            self.goto = None;
+        }
 
         let dt = t - self.last_time;
         self.offset += self.speed * dt;
