@@ -13,10 +13,10 @@ use anyhow::Result;
 use core::f32;
 use macroquad::prelude::*;
 use prpr::{
-    core::{BOLD_FONT, Tweenable},
-    ext::{RectExt, SafeTexture, semi_black},
-    scene::{NextScene, show_message},
-    ui::{DRectButton, LongTouchState, Scroll, Ui, button_hit, button_hit_large},
+    core::{Tweenable, BOLD_FONT},
+    ext::{semi_black, RectExt, SafeTexture},
+    scene::{show_message, NextScene},
+    ui::{button_hit, button_hit_large, DRectButton, LongTouchState, Scroll, Ui},
 };
 use std::{
     ops::Range,
