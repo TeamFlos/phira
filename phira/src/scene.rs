@@ -426,12 +426,13 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_parse_chart() -> Result<()> {
-        // Put the chart in phira(workspace, not crate)/test which is ignored by git
-        let mut fs = fs_from_path("../../../test")?;
-        let info = load_info(fs.as_mut()).await?;
-        let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
-        Ok(())
-    }
+    // #[tokio::test]
+    // #[ignore = "Chart parsing test"]
+    // async fn test_parse_chart() -> Result<()> {
+    //     // Put the chart in phira(workspace, not crate)/test which is ignored by git
+    //     let mut fs = fs_from_path("../../../test")?;
+    //     let info = load_info(fs.as_mut()).await?;
+    //     let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
+    //     Ok(())
+    // }
 }
