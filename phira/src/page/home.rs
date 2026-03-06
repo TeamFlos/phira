@@ -246,6 +246,11 @@ impl HomePage {
     }
 
     fn fetch_has_new(&mut self) {
+        if get_data().config.offline_mode || get_data().me.is_none() || get_data().tokens.is_none() {
+            self.has_new_task = None;
+            self.has_new = false;
+            return;
+        }
         let time = get_data().message_check_time.unwrap_or_default();
         self.has_new_task = Some(Task::new(async move {
             #[derive(Deserialize)]
@@ -453,8 +458,12 @@ impl Page for HomePage {
         if self.char_last_user_id != current_user {
             let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
             self.char_last_user_id = current_user;
-            self.char_fetch_task =
-                Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
+            if get_data().config.offline_mode || get_data().me.is_none() || get_data().tokens.is_none() {
+                self.char_fetch_task = None;
+            } else {
+                self.char_fetch_task =
+                    Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
+            }
         }
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {
