@@ -422,12 +422,6 @@ pub fn render_release_to_refresh(ui: &mut Ui, cx: f32, off: f32) {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::DerefMut;
-
-    use fs::load_info;
-
-    use super::*;
-
     // #[tokio::test]
     // #[ignore = "Chart parsing test"]
     // async fn test_parse_chart() -> Result<()> {
