@@ -107,12 +107,9 @@ impl Data {
     pub async fn init(&mut self) -> Result<()> {
         fn persist_retry_state(data: &Data) {
             let res = (|| -> Result<()> {
-                let root = dir::root().map_err(|e| {
-                    anyhow::anyhow!("failed to get root directory: {}", e)
-                })?;
+                let root = dir::root().map_err(|e| anyhow::anyhow!("failed to get root directory: {}", e))?;
                 let path = format!("{}/data.json", root);
-                std::fs::write(&path, serde_json::to_string(data)?)
-                    .map_err(|e| anyhow::anyhow!("failed to write to {}: {}", path, e))?;
+                std::fs::write(&path, serde_json::to_string(data)?).map_err(|e| anyhow::anyhow!("failed to write to {}: {}", path, e))?;
                 Ok(())
             })();
             if let Err(err) = res {
