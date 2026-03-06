@@ -6,7 +6,7 @@ create = 新建資料夾
 created = 建立成功
 name-empty = 資料夾名稱不能為空
 
-import = 匯入線上收藏
+import = 匯入線上合集
 imported = 已匯入
 already-imported = 已經匯入過了
 invalid-import = 解析輸入的目標失敗
