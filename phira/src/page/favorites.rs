@@ -14,6 +14,7 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
@@ -418,11 +419,11 @@ impl Page for FavoritesPage {
         }
 
         if self.create_btn.touch(touch, t) {
-            request_input("fav_create", "");
+            request_input("fav_create", InputBox::new());
             return Ok(true);
         }
         if self.import_btn.touch(touch, t) {
-            request_input("fav_import", "");
+            request_input("fav_import", InputBox::new());
             return Ok(true);
         }
 
@@ -660,10 +661,10 @@ impl Page for FavoritesPage {
             if self.edit_menu.changed() {
                 match self.edit_options[self.edit_menu.selected()] {
                     "rename" => {
-                        request_input("fav_rename", &data.collections[index].name);
+                        request_input("fav_rename", InputBox::new().default_text(&data.collections[index].name));
                     }
                     "set-description" => {
-                        request_input("fav_description", &data.collections[index].description);
+                        request_input("fav_description", InputBox::new().default_text(&data.collections[index].description));
                     }
                     "set-cover" => {
                         if data.collections[index].id.is_none() {
@@ -701,7 +702,7 @@ impl Page for FavoritesPage {
                         self.rebuild_folders();
                     }
                     "batch-import" => {
-                        request_input("fav_batch_import", "");
+                        request_input("fav_batch_import", InputBox::new());
                     }
                     _ => {}
                 }

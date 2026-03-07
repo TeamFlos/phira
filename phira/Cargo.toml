@@ -39,6 +39,7 @@ image = { workspace = true, default-features = false, features = [
     "rayon",
     "webp",
 ] }
+inputbox = { workspace = true }
 logos = "0.16.1"
 lru = { workspace = true }
 lyon = { workspace = true }

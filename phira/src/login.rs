@@ -8,12 +8,13 @@ use crate::{
     scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
+use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{semi_black, semi_white, RectExt},
-    scene::{request_input, request_password, return_input, show_error, show_message, take_input},
+    scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
     ui::{DRectButton, Dialog, Ui},
 };
@@ -147,23 +148,23 @@ impl Login {
                 return true;
             }
             if self.input_email.touch(touch, t) {
-                request_input("email", &self.t_email);
+                request_input("email", InputBox::new().default_text(&self.t_email));
                 return true;
             }
             if self.input_pwd.touch(touch, t) {
-                request_password("pwd", &self.t_pwd);
+                request_input("pwd", InputBox::new().default_text(&self.t_pwd).mode(InputMode::Password));
                 return true;
             }
             if self.input_reg_email.touch(touch, t) {
-                request_input("reg_email", &self.t_reg_email);
+                request_input("reg_email", InputBox::new().default_text(&self.t_reg_email));
                 return true;
             }
             if self.input_reg_name.touch(touch, t) {
-                request_input("reg_name", &self.t_reg_name);
+                request_input("reg_name", InputBox::new().default_text(&self.t_reg_name));
                 return true;
             }
             if self.input_reg_pwd.touch(touch, t) {
-                request_password("reg_pwd", &self.t_reg_pwd);
+                request_input("reg_pwd", InputBox::new().default_text(&self.t_reg_pwd).mode(InputMode::Password));
                 return true;
             }
             if self.btn_to_reg.touch(touch, t) || self.btn_to_login.touch(touch, t) {

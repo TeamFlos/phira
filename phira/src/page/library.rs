@@ -15,6 +15,7 @@ use crate::{
     tags::TagsDialog,
 };
 use anyhow::{anyhow, Result};
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
@@ -492,7 +493,7 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
                 if !self.search_clr_btn.contains(touch.position) && self.search_btn.touch(touch, t) {
-                    request_input("search", &self.search_str);
+                    request_input("search", InputBox::new().default_text(&self.search_str));
                     return Ok(true);
                 }
             }
@@ -505,7 +506,7 @@ impl Page for LibraryPage {
                     return Ok(true);
                 }
                 if !self.search_clr_btn.contains(touch.position) && self.search_btn.touch(touch, t) {
-                    request_input("search", &self.search_str);
+                    request_input("search", InputBox::new().default_text(&self.search_str));
                     return Ok(true);
                 }
                 if self.filter_btn.touch(touch, t) {
@@ -693,7 +694,7 @@ impl Page for LibraryPage {
                     todo!()
                 }
                 1 => {
-                    request_input("new_fav", "");
+                    request_input("new_fav", InputBox::new());
                 }
                 2 => {
                     confirm_dialog(ttl!("del-confirm"), tl!("multi-delete-confirm", "count" => selected.len()), self.delete_multi.clone());
