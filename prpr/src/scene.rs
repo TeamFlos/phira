@@ -246,7 +246,8 @@ pub fn return_input(id: String, text: String) {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn request_file(id: impl Into<String>) {
-    *CHOSEN_FILE.lock().unwrap() = (Some(id.into()), None);
+    let id: String = id.into();
+    *CHOSEN_FILE.lock().unwrap() = (Some(id.clone()), None);
     cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
@@ -324,7 +325,8 @@ pub fn request_file(id: impl Into<String>) {
                 ];
             }
         } else if #[cfg(target_env = "ohos")] {
-            miniquad::native::call_request_callback(r#"{"action": "chooseFile"}"#.to_string());
+            let is_photo = id == "avatar";
+            miniquad::native::call_request_callback(format!(r#"{{"action": "chooseFile", "isPhoto": {}}}"#, is_photo));
         } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }
