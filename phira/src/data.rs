@@ -2,7 +2,7 @@ use crate::{
     client::{Character, LocalCollection, Ptr, User},
     dir,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use prpr::{
     config::{Config, Mods},
@@ -109,9 +109,9 @@ impl Data {
     pub async fn init(&mut self) -> Result<()> {
         fn persist_retry_state(data: &Data) {
             let res = (|| -> Result<()> {
-                let root = dir::root().map_err(|e| anyhow::anyhow!("failed to get root directory: {}", e))?;
+                let root = dir::root().with_context(|| "failed to get root directory")?;
                 let path = format!("{}/data.json", root);
-                std::fs::write(&path, serde_json::to_string(data)?).map_err(|e| anyhow::anyhow!("failed to write to {}: {}", path, e))?;
+                std::fs::write(&path, serde_json::to_string(data)?).with_context(|| format!("failed to write to {}", path))?;
                 Ok(())
             })();
             if let Err(err) = res {
