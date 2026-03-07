@@ -17,6 +17,8 @@ use std::{
 };
 use tracing::{debug, warn};
 
+const MAX_IMPORT_RETRIES: u8 = 2;
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BriefChartInfo {
@@ -132,9 +134,8 @@ impl Data {
         }
 
         fn bump_retry(map: &mut HashMap<String, u8>, key: &str) {
-            const MAX_RETRIES: u8 = 2;
             let entry = map.entry(key.to_owned()).or_default();
-            *entry = (*entry + 1).min(MAX_RETRIES);
+            *entry = (*entry + 1).min(MAX_IMPORT_RETRIES);
         }
 
         let charts = dir::charts()?;
@@ -150,7 +151,7 @@ impl Data {
                 self.import_scan_retry.remove(&filename);
                 continue;
             }
-            if self.import_scan_retry.get(&filename).copied().unwrap_or_default() >= 2 {
+            if self.import_scan_retry.get(&filename).copied().unwrap_or_default() >= MAX_IMPORT_RETRIES {
                 remove_failed_entry(&path, &filename, &mut self.import_scan_retry);
                 persist_retry_state(self);
                 warn!("skip startup import scan after retry limit reached: {filename}");
@@ -190,7 +191,7 @@ impl Data {
                 self.import_scan_retry.remove(&filename);
                 continue;
             }
-            if self.import_scan_retry.get(&filename).copied().unwrap_or_default() >= 2 {
+            if self.import_scan_retry.get(&filename).copied().unwrap_or_default() >= MAX_IMPORT_RETRIES {
                 remove_failed_entry(&path, &filename, &mut self.import_scan_retry);
                 persist_retry_state(self);
                 warn!("skip startup import scan after retry limit reached: {filename}");
