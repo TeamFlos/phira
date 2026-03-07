@@ -12,19 +12,26 @@ where
     S: Subscriber,
 {
     fn on_event(&self, event: &tracing::Event<'_>, _ctx: tracing_subscriber::layer::Context<'_, S>) {
-        struct Visitor(Option<String>, Vec<(&'static str, String)>);
+        #[derive(Default)]
+        struct Visitor {
+            message: Option<String>,
+            target: Option<String>,
+            fields: Vec<(&'static str, String)>,
+        }
         impl Visit for Visitor {
             fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
                 let val = format!("{value:?}");
                 if field.name() == "message" {
-                    self.0 = Some(val);
+                    self.message = Some(val);
                 } else if !field.name().starts_with("log.") {
-                    self.1.push((field.name(), val));
+                    self.fields.push((field.name(), val));
+                } else if field.name() == "log.target" {
+                    self.target = Some(val);
                 }
             }
         }
 
-        let mut v = Visitor(None, Vec::new());
+        let mut v = Visitor::default();
         event.record(&mut v);
 
         let meta = event.metadata();
@@ -44,22 +51,25 @@ where
         #[cfg(target_os = "android")]
         let mut msg = String::new();
 
-        msg += &meta.target().bright_black().to_string();
-        if !v.1.is_empty() {
+        let target = v.target.as_deref().unwrap_or_else(|| meta.target());
+        if target.starts_with("jni::") && meta.level() >= &Level::INFO {
+            return;
+        }
+        msg += &target.bright_black().to_string();
+        if !v.fields.is_empty() {
             msg += &"{".bold().to_string();
-            let len = v.1.len();
-            for (idx, (name, val)) in v.1.into_iter().enumerate() {
+            for (name, val) in &v.fields {
                 use std::fmt::Write;
-                let _ = write!(msg, "{}={val}", name.italic());
-                if idx + 1 != len {
-                    msg.push(' ');
-                }
+                let _ = write!(msg, "{}={val} ", name.italic());
+            }
+            if !v.fields.is_empty() {
+                msg.pop();
             }
             msg += &"}".bold().to_string();
         }
-        if let Some(content) = v.0 {
+        if let Some(message) = v.message {
             msg += ": ";
-            msg += &content;
+            msg += &message;
         }
 
         match *meta.level() {

@@ -26,6 +26,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use core::f32;
 use futures_util::StreamExt;
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
@@ -1854,7 +1855,7 @@ impl Scene for SongScene {
                     }));
                 }
                 "review-deny" => {
-                    request_input("deny-reason", "");
+                    request_input("deny-reason", InputBox::new());
                 }
                 "review-del" => {
                     confirm_delete(self.chart_should_delete.clone());
@@ -1892,10 +1893,10 @@ impl Scene for SongScene {
                     }));
                 }
                 "stabilize-comment" => {
-                    request_input("stabilize-comment", "");
+                    request_input("stabilize-comment", InputBox::new());
                 }
                 "stabilize-deny" => {
-                    request_input("stabilize-deny-reason", "");
+                    request_input("stabilize-deny-reason", InputBox::new());
                 }
                 _ => {}
             }
