@@ -20,11 +20,13 @@ use crate::{
 };
 use anyhow::{Error, Result};
 use cfg_if::cfg_if;
+use inputbox::{InputBox, backend::{Backend, default_backend}};
 use macroquad::prelude::*;
 use std::{
     any::Any,
     borrow::Cow,
     cell::RefCell,
+    io,
     sync::{Arc, Mutex},
 };
 use tracing::warn;
@@ -148,28 +150,27 @@ pub static INPUT_TEXT: Mutex<(Option<String>, Option<String>)> = Mutex::new((Non
 #[cfg(not(target_arch = "wasm32"))]
 pub static CHOSEN_FILE: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
 
-#[inline]
-pub fn request_input(id: impl Into<String>, text: &str) {
-    request_input_full(id, text, false);
+fn show_inputbox(config: InputBox, backend: &dyn Backend) {
+    let result = config.show_with_async(backend, |result| match result {
+        Ok(Some(text)) => {
+            INPUT_TEXT.lock().unwrap().1 = Some(text);
+        }
+        Ok(None) => {}
+        Err(err) => {
+            warn!(?err, "failed to get input");
+        }
+    });
+    if let Err(err) = result {
+        warn!(?err, "failed to show input box");
+    }
 }
+
 #[inline]
-pub fn request_password(id: impl Into<String>, text: &str) {
-    request_input_full(id, text, true);
-}
-pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text: &str, #[allow(unused_variables)] is_password: bool) {
+pub fn request_input(id: impl Into<String>, config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     cfg_if! {
-        if #[cfg(target_os = "android")] {
-            unsafe {
-                let env = miniquad::native::attach_jni_env();
-                let ctx = ndk_context::android_context().context();
-                let class = (**env).GetObjectClass.unwrap()(env, ctx);
-                let method = (**env).GetMethodID.unwrap()(env, class, c"inputText".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
-                let text = std::ffi::CString::new(text.to_owned()).unwrap();
-                (**env).CallVoidMethod.unwrap()(env, ctx, method, (**env).NewStringUTF.unwrap()(env, text.as_ptr()));
-            }
-        } else if #[cfg(target_os = "ios")] {
-            unsafe {
+        if #[cfg(target_os = "ios")] {
+            /* unsafe {
                 use crate::objc::*;
                 let view_ctrl = *miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap();
 
@@ -218,13 +219,12 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                     animated: runtime::YES
                     completion: 0 as ObjcId
                 ];
-            }
+            } */
+            show_inputbox(config, todo!());
         }else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
-            if let Some(text) = tfd::InputBox::new(ttl!("input"), ttl!("input-msg")).with_default(text).run_modal() {
-                INPUT_TEXT.lock().unwrap().1 = Some(text);
-            }
+            show_inputbox(config, &*default_backend());
         }
     }
 }

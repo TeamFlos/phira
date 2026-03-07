@@ -11,6 +11,7 @@ use crate::{
 };
 use anyhow::Result;
 use bytesize::ByteSize;
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
@@ -391,7 +392,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.mp_addr_btn.touch(touch, t) {
-            request_input("mp_addr", &config.mp_address);
+            request_input("mp_addr", InputBox::new().default_text(&config.mp_address));
             return Ok(Some(true));
         }
         #[cfg(not(target_env = "ohos"))]
@@ -408,7 +409,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.anys_gateway_btn.touch(touch, t) {
-            request_input("anys_gateway", &data.anys_gateway);
+            request_input("anys_gateway", InputBox::new().default_text(&data.anys_gateway));
             return Ok(Some(true));
         }
         Ok(None)

@@ -10,6 +10,7 @@ mod dialog;
 pub use dialog::Dialog;
 
 mod scroll;
+use inputbox::{InputBox, InputMode};
 pub use scroll::*;
 
 mod shading;
@@ -27,7 +28,7 @@ use crate::{
     core::{Matrix, Point, Vector},
     ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
-    scene::{request_input_full, return_input, show_error, take_input},
+    scene::{request_input, return_input, show_error, take_input},
 };
 use core::f32;
 use lyon::{
@@ -984,7 +985,12 @@ impl<'a> Ui<'a> {
         } else {
             self.button(&id, r, value.lines().next().unwrap_or_default())
         } {
-            request_input_full(&id, value, params.password);
+            request_input(
+                &id,
+                InputBox::new()
+                    .default_text(value.as_str())
+                    .mode(if params.password { InputMode::Password } else { InputMode::Text }),
+            );
         }
         if let Some((its_id, text)) = take_input() {
             if its_id == id {
