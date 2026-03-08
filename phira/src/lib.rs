@@ -198,6 +198,7 @@ async fn the_main() -> Result<()> {
     data.init().await?;
     set_data(data);
     sync_data();
+    save_data()?;
 
     let rx = {
         let (tx, rx) = mpsc::channel();

@@ -2,7 +2,7 @@ use crate::{
     client::{Character, LocalCollection, Ptr, User},
     dir,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use prpr::{
     config::{Config, Mods},
@@ -15,7 +15,9 @@ use std::{
     ops::DerefMut,
     path::Path,
 };
-use tracing::debug;
+use tracing::{debug, warn};
+
+const MAX_IMPORT_RETRIES: u8 = 2;
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -99,10 +101,46 @@ pub struct Data {
 
     #[serde(default)]
     pub collections: Vec<LocalCollection>,
+
+    /// Need to know what path caused the problem when restarting the program next time
+    /// see: https://github.com/TeamFlos/phira/pull/689/#discussion_r2899026506
+    #[serde(default)]
+    pub import_scan_retry: HashMap<String, u8>,
 }
 
 impl Data {
     pub async fn init(&mut self) -> Result<()> {
+        fn persist_retry_state(data: &Data) {
+            let res = (|| -> Result<()> {
+                let root = dir::root().with_context(|| "failed to get root directory")?;
+                let path = format!("{}/data.json", root);
+                std::fs::write(&path, serde_json::to_string(data)?).with_context(|| format!("failed to write to {}", path))?;
+                Ok(())
+            })();
+            if let Err(err) = res {
+                warn!(?err, "failed to persist import scan retry state");
+            }
+        }
+
+        fn remove_failed_entry(path: &Path, key: &str, retry_map: &mut HashMap<String, u8>) {
+            let remove_res = if path.is_dir() {
+                std::fs::remove_dir_all(path)
+            } else if path.exists() {
+                std::fs::remove_file(path)
+            } else {
+                Ok(())
+            };
+            if let Err(err) = remove_res {
+                warn!(?err, "failed to remove exhausted import entry: {}", key);
+            }
+            retry_map.remove(key);
+        }
+
+        fn bump_retry(map: &mut HashMap<String, u8>, key: &str) {
+            let entry = map.entry(key.to_owned()).or_default();
+            *entry = (*entry + 1).min(MAX_IMPORT_RETRIES);
+        }
+
         let charts = dir::charts()?;
         self.charts.retain(|it| Path::new(&format!("{}/{}", charts, it.local_path)).exists());
         let occurred: HashSet<_> = self.charts.iter().map(|it| it.local_path.clone()).collect();
@@ -111,22 +149,38 @@ impl Data {
             let filename = entry.file_name();
             let filename = filename.to_str().unwrap();
             let filename = format!("custom/{filename}");
+            let path = entry.path();
             if occurred.contains(&filename) {
+                self.import_scan_retry.remove(&filename);
                 continue;
             }
-            let path = entry.path();
+            if self.import_scan_retry.get(&filename).copied().unwrap_or_default() >= MAX_IMPORT_RETRIES {
+                remove_failed_entry(&path, &filename, &mut self.import_scan_retry);
+                persist_retry_state(self);
+                warn!("skip startup import scan after retry limit reached: {filename}");
+                continue;
+            }
+            // Persist retry count before parsing so crashes during parsing still consume one retry.
+            bump_retry(&mut self.import_scan_retry, &filename);
+            persist_retry_state(self);
             let Ok(mut fs) = prpr::fs::fs_from_file(&path) else {
                 continue;
             };
             let result = prpr::fs::load_info(fs.deref_mut()).await;
-            if let Ok(info) = result {
-                self.charts.push(LocalChart {
-                    info: BriefChartInfo { id: None, ..info.into() },
-                    local_path: filename,
-                    record: None,
-                    mods: Mods::default(),
-                    played_unlock: false,
-                });
+            match result {
+                Ok(info) => {
+                    self.import_scan_retry.remove(&filename);
+                    self.charts.push(LocalChart {
+                        info: BriefChartInfo { id: None, ..info.into() },
+                        local_path: filename,
+                        record: None,
+                        mods: Mods::default(),
+                        played_unlock: false,
+                    });
+                }
+                Err(err) => {
+                    warn!(?err, "failed to parse startup custom import candidate: {}", filename);
+                }
             }
         }
         for entry in std::fs::read_dir(dir::downloaded_charts()?)? {
@@ -135,22 +189,39 @@ impl Data {
             let filename = filename.to_str().unwrap();
             let Ok(id): Result<i32, _> = filename.parse() else { continue };
             let filename = format!("download/{filename}");
+            let path = entry.path();
             if occurred.contains(&filename) {
+                self.import_scan_retry.remove(&filename);
                 continue;
             }
-            let path = entry.path();
+            if self.import_scan_retry.get(&filename).copied().unwrap_or_default() >= MAX_IMPORT_RETRIES {
+                remove_failed_entry(&path, &filename, &mut self.import_scan_retry);
+                persist_retry_state(self);
+                warn!("skip startup import scan after retry limit reached: {filename}");
+                continue;
+            }
+            // Persist retry count before parsing so crashes during parsing still consume one retry.
+            bump_retry(&mut self.import_scan_retry, &filename);
+            persist_retry_state(self);
             let Ok(mut fs) = prpr::fs::fs_from_file(&path) else {
+                warn!("failed to open file system for downloaded chart: {}", filename);
                 continue;
             };
             let result = prpr::fs::load_info(fs.deref_mut()).await;
-            if let Ok(info) = result {
-                self.charts.push(LocalChart {
-                    info: BriefChartInfo { id: Some(id), ..info.into() },
-                    local_path: filename,
-                    record: None,
-                    mods: Mods::default(),
-                    played_unlock: false,
-                });
+            match result {
+                Ok(info) => {
+                    self.import_scan_retry.remove(&filename);
+                    self.charts.push(LocalChart {
+                        info: BriefChartInfo { id: Some(id), ..info.into() },
+                        local_path: filename,
+                        record: None,
+                        mods: Mods::default(),
+                        played_unlock: false,
+                    });
+                }
+                Err(err) => {
+                    warn!(?err, "failed to parse startup downloaded import candidate: {}", filename);
+                }
             }
         }
         let respacks: HashSet<_> = self.respacks.iter().cloned().collect();
