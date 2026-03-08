@@ -297,12 +297,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "block"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
-
-[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2461,17 +2455,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "objc-foundation"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1add1b659e36c9607c7aab864a76c7a4c2760cd0cd2e120f3fb8b952c7e22bf9"
-dependencies = [
- "block",
- "objc",
- "objc_id",
-]
-
-[[package]]
 name = "objc2"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2570,15 +2553,6 @@ dependencies = [
  "libc",
  "objc2",
  "objc2-core-foundation",
-]
-
-[[package]]
-name = "objc_id"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c92d4ddb4bd7b50d730c215ff871754d0da6b2178849f8a2a2ab69712d0c073b"
-dependencies = [
- "objc",
 ]
 
 [[package]]
@@ -2918,8 +2892,8 @@ dependencies = [
  "napi-derive-ohos",
  "napi-ohos",
  "ndk-context",
- "objc",
- "objc-foundation",
+ "objc2",
+ "objc2-foundation",
  "once_cell",
  "phira-mp-client",
  "phira-mp-common",
@@ -3155,7 +3129,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bitflags 2.11.0",
- "block",
+ "block2",
  "byteorder",
  "cfg-if",
  "chardetng",
@@ -3183,9 +3157,8 @@ dependencies = [
  "nalgebra",
  "ndk-context",
  "obfstr",
- "objc",
- "objc-foundation",
- "objc_id",
+ "objc2",
+ "objc2-foundation",
  "once_cell",
  "open",
  "ordered-float",
