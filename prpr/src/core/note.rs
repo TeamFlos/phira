@@ -170,7 +170,11 @@ impl Note {
     pub fn now_transform(&self, res: &Resource, ctrl_obj: &CtrlObject, base: f32, incline_sin: f32) -> Matrix {
         let incline_val = 1. - incline_sin * (base * res.aspect_ratio + self.object.translation.1.now()) * RPE_HEIGHT / 2. / 360.;
         let mut tr = self.object.now_translation(res);
-        tr.x *= incline_val * ctrl_obj.pos.now_opt().unwrap_or(1.);
+        tr.x *= if matches!(self.kind, NoteKind::Hold { .. }) {
+            1.
+        } else {
+            incline_val * ctrl_obj.pos.now_opt().unwrap_or(1.)
+        };
         tr.y += base;
         let mut scale = self.object.scale.now_with_def(1.0, 1.0);
         scale.x *= ctrl_obj.size.now_opt().unwrap_or(1.0);
