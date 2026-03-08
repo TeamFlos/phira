@@ -101,6 +101,9 @@ pub struct Data {
 
     #[serde(default)]
     pub collections: Vec<LocalCollection>,
+
+    /// Need to know what path caused the problem when restarting the program next time
+    /// see: https://github.com/TeamFlos/phira/pull/689/#discussion_r2899026506
     #[serde(default)]
     pub import_scan_retry: HashMap<String, u8>,
 }
