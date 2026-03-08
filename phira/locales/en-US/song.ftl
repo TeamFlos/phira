@@ -46,6 +46,8 @@ edit-overwrite-failed = Failed to overwrite.
 edit-upload = Upload
 edit-update = Update
 
+warn = Warning
+cancel-not-saved = Chart hasn't been saved yet, would you like to exit now?
 upload-not-saved = Chart hasn't been saved yet, would you like to save it now?
 upload-login-first = Please login first.
 upload-builtin = Built-in charts cannot be uploaded.

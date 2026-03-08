@@ -332,6 +332,8 @@ pub struct SongScene {
     chart_type: ChartType,
 
     toggle_fav_task: Option<Task<Result<(Collection, bool)>>>,
+
+    confirm_cancel_edit: Arc<AtomicBool>,
 }
 
 impl SongScene {
@@ -511,6 +513,8 @@ impl SongScene {
             chart_type: chart.chart_type,
 
             toggle_fav_task: None,
+
+            confirm_cancel_edit: Arc::default(),
         }
     }
 
@@ -996,6 +1000,10 @@ impl SongScene {
             || (self.info.created.is_some() && self.info.uploader.as_ref().map(|it| it.id) == get_data().me.as_ref().map(|it| it.id))
     }
 
+    fn hide_side(&mut self, rt: f32) {
+        self.side_enter_time = -rt;
+    }
+
     fn side_chart_info(&mut self, ui: &mut Ui, rt: f32) -> Result<()> {
         let h = 0.11;
         let pad = 0.03;
@@ -1008,7 +1016,11 @@ impl SongScene {
         let dx = width / if is_owner { 3. } else { 2. };
         let mut r = Rect::new(hpad, ui.top * 2. - h + vpad, dx - hpad * 2., h - vpad * 2.);
         if ui.button("cancel", r, tl!("edit-cancel")) {
-            self.side_enter_time = -rt;
+            if self.info_edit.as_ref().is_some_and(|it| it.updated) {
+                confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
+            } else {
+                self.hide_side(rt);
+            }
         }
         if is_owner {
             r.x += dx;
@@ -1527,7 +1539,11 @@ impl Scene for SongScene {
                             }
                         }
                     }
-                    self.side_enter_time = -tm.real_time() as _;
+                    if matches!(self.side_content, SideContent::Edit) && self.info_edit.as_ref().map_or(false, |it| it.updated) {
+                        confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
+                    } else {
+                        self.hide_side(rt);
+                    }
                     return Ok(true);
                 }
                 match self.side_content {
@@ -2328,6 +2344,9 @@ impl Scene for SongScene {
                 }
                 self.toggle_fav_task = None;
             }
+        }
+        if self.confirm_cancel_edit.swap(false, Ordering::Relaxed) {
+            self.hide_side(rt);
         }
         if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() {
             self.tr_start = rt;
