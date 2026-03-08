@@ -20,13 +20,15 @@ use crate::{
 };
 use anyhow::{Error, Result};
 use cfg_if::cfg_if;
-use inputbox::{InputBox, backend::{Backend, default_backend}};
+use inputbox::{
+    backend::{default_backend, Backend},
+    InputBox,
+};
 use macroquad::prelude::*;
 use std::{
     any::Any,
     borrow::Cow,
     cell::RefCell,
-    io,
     sync::{Arc, Mutex},
 };
 use tracing::warn;
@@ -170,58 +172,11 @@ pub fn request_input(id: impl Into<String>, config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     cfg_if! {
         if #[cfg(target_os = "ios")] {
-            /* unsafe {
-                use crate::objc::*;
-                let view_ctrl = *miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap();
-
-                let alert: ObjcId = msg_send![
-                    class!(UIAlertController),
-                    alertControllerWithTitle: str_to_ns(ttl!("input"))
-                    message: str_to_ns(ttl!("input-msg"))
-                    preferredStyle: 1
-                ];
-
-                let action: ObjcId = msg_send![
-                    class!(UIAlertAction),
-                    actionWithTitle: str_to_ns("Cancel")
-                    style: 1
-                    handler: 0
-                ];
-                let _: () = msg_send![alert, addAction: action];
-                let action: ObjcId = msg_send![
-                    class!(UIAlertAction),
-                    actionWithTitle: str_to_ns("OK")
-                    style: 0
-                    handler: ConcreteBlock::new({
-                        let alert = alert; // TODO strong ptr?
-                        move |_: ObjcId| {
-                            let fields: ObjcId = msg_send![alert, textFields];
-                            let field: ObjcId = msg_send![fields, firstObject];
-                            let text: *const NSString = msg_send![field, text];
-                            INPUT_TEXT.lock().unwrap().1 = Some((*text).as_str().to_owned());
-                        }
-                    }).copy()
-                ];
-                let _: () = msg_send![alert, addAction: action];
-
-                let text = text.to_owned();
-                let _: () = msg_send![alert, addTextFieldWithConfigurationHandler: ConcreteBlock::new(move |field: ObjcId| {
-                    let _: () = msg_send![field, setPlaceholder: str_to_ns(ttl!("input-hint"))];
-                    let _: () = msg_send![field, setText: str_to_ns(&text)];
-                    if is_password {
-                        let _: () = msg_send![field, setSecureTextEntry: runtime::YES];
-                    }
-                }).copy()];
-
-                let _: () = msg_send![
-                    view_ctrl as ObjcId,
-                    presentViewController: alert
-                    animated: runtime::YES
-                    completion: 0 as ObjcId
-                ];
-            } */
-            show_inputbox(config, todo!());
-        }else if #[cfg(target_env = "ohos")] {
+            let view_ctrl = unsafe {
+                objc2::rc::Retained::retain(*miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap() as *mut _).unwrap()
+            };
+            show_inputbox(config, &inputbox::backend::IOS::new(&view_ctrl));
+        } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
             show_inputbox(config, &*default_backend());
