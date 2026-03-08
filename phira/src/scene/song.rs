@@ -1539,7 +1539,7 @@ impl Scene for SongScene {
                             }
                         }
                     }
-                    if matches!(self.side_content, SideContent::Edit) && self.info_edit.as_ref().map_or(false, |it| it.updated) {
+                    if matches!(self.side_content, SideContent::Edit) && self.info_edit.as_ref().is_some_and(|it| it.updated) {
                         confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
                     } else {
                         self.hide_side(rt);
