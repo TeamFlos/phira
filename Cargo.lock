@@ -1694,7 +1694,7 @@ dependencies = [
 [[package]]
 name = "inputbox"
 version = "0.0.1"
-source = "git+https://github.com/Mivik/inputbox.git?rev=90db79e#90db79e475defd92c05c0438b851bae71ede8994"
+source = "git+https://github.com/Mivik/inputbox.git?rev=66c1322#66c1322a78284a117f3c52b9a78f80f99080e63c"
 dependencies = [
  "block2",
  "cfg-if",
@@ -3331,6 +3331,7 @@ dependencies = [
  "obfstr",
  "objc",
  "objc-foundation",
+ "objc2",
  "objc_id",
  "once_cell",
  "open",

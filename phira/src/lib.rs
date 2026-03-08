@@ -350,7 +350,7 @@ fn string_from_java(env: &mut JNIEnv, s: JString) -> String {
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_initializeContext2(mut env: JNIEnv, _: JClass, context: JObject) {
-    inputbox::backend::Android::set_android_context(&mut env, &context).unwrap();
+    inputbox::backend::Android::set_android_activity(&mut env, &context).unwrap();
 }
 
 #[cfg(target_os = "android")]
