@@ -75,22 +75,6 @@ impl PartialEq for ChartRef {
 }
 impl Eq for ChartRef {}
 
-impl PartialOrd for ChartRef {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for ChartRef {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match (self, other) {
-            (ChartRef::Online(id1, _), ChartRef::Online(id2, _)) => id1.cmp(id2),
-            (ChartRef::Local(path1), ChartRef::Local(path2)) => path1.cmp(path2),
-            (ChartRef::Online(..), ChartRef::Local(_)) => std::cmp::Ordering::Less,
-            (ChartRef::Local(_), ChartRef::Online(..)) => std::cmp::Ordering::Greater,
-        }
-    }
-}
-
 impl Hash for ChartRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
