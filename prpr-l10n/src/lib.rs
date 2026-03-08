@@ -23,6 +23,7 @@ langs! {
     "id-ID": "Bahasa Indonesia",
     "ja-JP": "日本語",
     "ko-KR": "한국어",
+    "mn-MN": "Монгол",
     "pl-PL": "Polski",
     "pt-BR": "Português",
     "ru-RU": "Русский",
