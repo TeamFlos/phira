@@ -562,24 +562,24 @@ thread_local! {
 }
 
 pub struct InputParams<'a> {
-    changed: Option<&'a mut bool>,
-    password: bool,
-    length: f32,
+    pub changed: Option<&'a mut bool>,
+    pub mode: InputMode,
+    pub length: f32,
 }
 
 impl From<()> for InputParams<'_> {
     fn from(_: ()) -> Self {
         Self {
             changed: None,
-            password: false,
+            mode: InputMode::Text,
             length: 0.3,
         }
     }
 }
 
-impl From<bool> for InputParams<'_> {
-    fn from(password: bool) -> Self {
-        Self { password, ..().into() }
+impl From<InputMode> for InputParams<'_> {
+    fn from(mode: InputMode) -> Self {
+        Self { mode, ..().into() }
     }
 }
 
@@ -593,7 +593,7 @@ impl<'a> From<(f32, &'a mut bool)> for InputParams<'a> {
     fn from((length, changed): (f32, &'a mut bool)) -> Self {
         Self {
             changed: Some(changed),
-            password: false,
+            mode: InputMode::Text,
             length,
         }
     }
@@ -980,7 +980,7 @@ impl<'a> Ui<'a> {
         let r = self.text(label).anchor(1., 0.).size(0.47).draw();
         let lf = r.x;
         let r = Rect::new(0.02, r.y - 0.01, params.length, r.h + 0.02);
-        if if params.password {
+        if if params.mode == InputMode::Password {
             self.button(&id, r, "*".repeat(value.chars().count()))
         } else {
             self.button(&id, r, value.lines().next().unwrap_or_default())
@@ -989,7 +989,7 @@ impl<'a> Ui<'a> {
                 &id,
                 InputBox::new()
                     .default_text(value.as_str())
-                    .mode(if params.password { InputMode::Password } else { InputMode::Text }),
+                    .mode(params.mode),
             );
         }
         if let Some((its_id, text)) = take_input() {

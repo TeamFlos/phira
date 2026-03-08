@@ -14,7 +14,7 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use inputbox::InputBox;
+use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
@@ -664,7 +664,12 @@ impl Page for FavoritesPage {
                         request_input("fav_rename", InputBox::new().default_text(&data.collections[index].name));
                     }
                     "set-description" => {
-                        request_input("fav_description", InputBox::new().default_text(&data.collections[index].description));
+                        request_input(
+                            "fav_description",
+                            InputBox::new()
+                                .default_text(&data.collections[index].description)
+                                .mode(InputMode::Multiline),
+                        );
                     }
                     "set-cover" => {
                         if data.collections[index].id.is_none() {
