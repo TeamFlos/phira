@@ -173,50 +173,57 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                 use crate::objc::*;
                 let view_ctrl = *miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap();
 
+                let title = str_to_ns(ttl!("input"));
+                let message = str_to_ns(ttl!("input-msg"));
                 let alert: ObjcId = msg_send![
                     class!(UIAlertController),
-                    alertControllerWithTitle: str_to_ns(ttl!("input"))
-                    message: str_to_ns(ttl!("input-msg"))
-                    preferredStyle: 1
+                    alertControllerWithTitle: &*title,
+                    message: &*message,
+                    preferredStyle: 1isize,
                 ];
 
+                let cancel_title = str_to_ns("Cancel");
+                let no_handler: Option<&Block<dyn Fn(ObjcId)>> = None;
                 let action: ObjcId = msg_send![
                     class!(UIAlertAction),
-                    actionWithTitle: str_to_ns("Cancel")
-                    style: 1
-                    handler: 0
+                    actionWithTitle: &*cancel_title,
+                    style: 1isize,
+                    handler: no_handler,
                 ];
                 let _: () = msg_send![alert, addAction: action];
+                let ok_title = str_to_ns("OK");
+                let ok_handler = RcBlock::new(move |_: ObjcId| {
+                    let fields: ObjcId = msg_send![alert, textFields];
+                    let field: ObjcId = msg_send![fields, firstObject];
+                    let text: *mut NSString = msg_send![field, text];
+                    INPUT_TEXT.lock().unwrap().1 = Some((&*text).to_string());
+                });
                 let action: ObjcId = msg_send![
                     class!(UIAlertAction),
-                    actionWithTitle: str_to_ns("OK")
-                    style: 0
-                    handler: ConcreteBlock::new({
-                        let alert = alert; // TODO strong ptr?
-                        move |_: ObjcId| {
-                            let fields: ObjcId = msg_send![alert, textFields];
-                            let field: ObjcId = msg_send![fields, firstObject];
-                            let text: *const NSString = msg_send![field, text];
-                            INPUT_TEXT.lock().unwrap().1 = Some((*text).as_str().to_owned());
-                        }
-                    }).copy()
+                    actionWithTitle: &*ok_title,
+                    style: 0isize,
+                    handler: &*ok_handler,
                 ];
                 let _: () = msg_send![alert, addAction: action];
 
                 let text = text.to_owned();
-                let _: () = msg_send![alert, addTextFieldWithConfigurationHandler: ConcreteBlock::new(move |field: ObjcId| {
-                    let _: () = msg_send![field, setPlaceholder: str_to_ns(ttl!("input-hint"))];
-                    let _: () = msg_send![field, setText: str_to_ns(&text)];
+                let config_block = RcBlock::new(move |field: ObjcId| {
+                    let placeholder = str_to_ns(ttl!("input-hint"));
+                    let _: () = msg_send![field, setPlaceholder: &*placeholder];
+                    let value = str_to_ns(&text);
+                    let _: () = msg_send![field, setText: &*value];
                     if is_password {
-                        let _: () = msg_send![field, setSecureTextEntry: runtime::YES];
+                        let _: () = msg_send![field, setSecureTextEntry: runtime::Bool::YES];
                     }
-                }).copy()];
+                });
+                let _: () = msg_send![alert, addTextFieldWithConfigurationHandler: &*config_block];
 
+                let completion: Option<&Block<dyn Fn()>> = None;
                 let _: () = msg_send![
                     view_ctrl as ObjcId,
-                    presentViewController: alert
-                    animated: runtime::YES
-                    completion: 0 as ObjcId
+                    presentViewController: alert,
+                    animated: runtime::Bool::YES,
+                    completion: completion,
                 ];
             }
         }else if #[cfg(target_env = "ohos")] {
@@ -255,21 +262,27 @@ pub fn request_file(id: impl Into<String>) {
             unsafe {
                 use crate::objc::*;
                 static PICKER_DELEGATE: Lazy<u64> = Lazy::new(|| unsafe {
-                    let mut decl = ClassDecl::new("PickerDelegate", class!(NSObject)).unwrap();
-                    extern "C" fn document_picker(_: &Object, _: Sel, _: ObjcId, documents: ObjcId) {
+                    let name = c"PickerDelegate";
+                    let mut decl = ClassBuilder::new(name, class!(NSObject)).unwrap();
+                    extern "C" fn document_picker(_: std::ptr::NonNull<AnyObject>, _: Sel, _: ObjcId, documents: ObjcId) {
                         unsafe {
                             let url: ObjcId = msg_send![documents, firstObject];
                             let need_close: bool = msg_send![url, startAccessingSecurityScopedResource];
                             let mut error: ObjcId = std::ptr::null_mut();
-                            let data: ObjcId = msg_send![class!(NSData), dataWithContentsOfURL: url options: 2 error: &mut error as *mut ObjcId];
+                            let data: ObjcId = msg_send![
+                                class!(NSData),
+                                dataWithContentsOfURL: url,
+                                options: 2usize,
+                                error: &mut error as *mut ObjcId,
+                            ];
                             if need_close {
                                 let _: () = msg_send![url, stopAccessingSecurityScopedResource];
                             }
                             if data.is_null() {
                                 show_message(ttl!("read-file-failed")).error();
                                 if !error.is_null() {
-                                    let msg: *const NSString = msg_send![error, localizedDescription];
-                                    show_error(Error::msg((*msg).as_str()).context(ttl!("read-file-failed")));
+                                    let msg: *mut NSString = msg_send![error, localizedDescription];
+                                    show_error(Error::msg((&*msg).to_string()).context(ttl!("read-file-failed")));
                                 }
                             } else {
                                 extern "C" {
@@ -279,13 +292,19 @@ pub fn request_file(id: impl Into<String>) {
                                 let dir = NSTemporaryDirectory();
                                 let uuid: ObjcId = msg_send![class!(NSUUID), UUID];
                                 let uuid: *mut NSString = msg_send![uuid, UUIDString];
-                                let path = format!("{}{}", (*dir).as_str(), (*uuid).as_str());
-                                let _: () = msg_send![data, writeToFile: str_to_ns(&path) atomically: YES];
+                                let dir = &*dir;
+                                let uuid = &*uuid;
+                                let path = format!("{dir}{uuid}");
+                                let path_ns = str_to_ns(&path);
+                                let _: bool = msg_send![data, writeToFile: &*path_ns, atomically: runtime::Bool::YES];
                                 CHOSEN_FILE.lock().unwrap().1 = Some(path);
                             }
                         }
                     }
-                    decl.add_method(sel!(documentPicker: didPickDocumentsAtURLs:), document_picker as extern "C" fn(&Object, Sel, ObjcId, ObjcId));
+                    decl.add_method(
+                        sel!(documentPicker: didPickDocumentsAtURLs:),
+                        document_picker as extern "C" fn(std::ptr::NonNull<AnyObject>, Sel, ObjcId, ObjcId),
+                    );
                     decl.register() as *const _ as _
                 });
 
@@ -293,28 +312,38 @@ pub fn request_file(id: impl Into<String>) {
                 let picker: ObjcId = if available("14.0.0") {
                     let tp_cls = class!(UTType);
                     let ext = |e: &str| {
-                        let tp: ObjcId = msg_send![tp_cls, typeWithFilenameExtension: str_to_ns(e)];
-                        std::mem::transmute::<_, ShareId<NSObject>>(ShareId::from_ptr(tp))
+                        let ext_str = str_to_ns(e);
+                        let tp: ObjcId = msg_send![tp_cls, typeWithFilenameExtension: &*ext_str];
+                        let tp = tp.cast::<NSObject>();
+                        Retained::retain(tp).expect("UTType returned nil")
                     };
-                    let types = NSArray::from_slice(&[ext("zip"), ext("pez"), ext("jpg"), ext("png"), ext("jpeg"), ext("json"), ext("mp3"), ext("ogg")]);
-                    let types: ObjcId = std::mem::transmute(types);
-                    msg_send![picker, initForOpeningContentTypes: types]
+                    let types = NSArray::from_retained_slice(&[
+                        ext("zip"),
+                        ext("pez"),
+                        ext("jpg"),
+                        ext("png"),
+                        ext("jpeg"),
+                        ext("json"),
+                        ext("mp3"),
+                        ext("ogg"),
+                    ]);
+                    msg_send![picker, initForOpeningContentTypes: &*types]
                 } else {
                     let ext = |e: &str| str_to_ns(e);
-                    let types = NSArray::from_vec(vec![ext("public.image"), ext("public.archive")]);
-                    let types: ObjcId = std::mem::transmute(types);
-                    msg_send![picker, initWithDocumentTypes: types inMode: 0]
+                    let types = NSArray::from_retained_slice(&[ext("public.image"), ext("public.archive")]);
+                    msg_send![picker, initWithDocumentTypes: &*types, inMode: 0usize]
                 };
                 let dlg_obj: ObjcId = msg_send![*PICKER_DELEGATE as ObjcId, alloc];
                 let dlg_obj: ObjcId = msg_send![dlg_obj, init];
                 let _: () = msg_send![picker, setDelegate: dlg_obj];
 
                 let view_ctrl = *miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap();
+                let completion: Option<&Block<dyn Fn()>> = None;
                 let _: () = msg_send![
                     view_ctrl as ObjcId,
-                    presentViewController: picker
-                    animated: runtime::YES
-                    completion: 0 as ObjcId
+                    presentViewController: picker,
+                    animated: runtime::Bool::YES,
+                    completion: completion,
                 ];
             }
         } else if #[cfg(target_env = "ohos")] {
