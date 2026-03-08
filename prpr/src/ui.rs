@@ -1245,7 +1245,7 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
         }
     }
 }
-
+// this function is used for creating UI audio manager.
 #[allow(clippy::blocks_in_conditions)]
 fn build_audio() -> AudioManager {
     match {
