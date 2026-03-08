@@ -554,8 +554,9 @@ pub fn open_url(url: &str) -> Result<()> {
                 use crate::objc::*;
 
                 let application: ObjcId = msg_send![class!(UIApplication), sharedApplication];
-                let url: ObjcId = msg_send![class!(NSURL), URLWithString: str_to_ns(url)];
-                let _: () = msg_send![application, openURL: url];
+                let ns_url = str_to_ns(url);
+                let url: ObjcId = msg_send![class!(NSURL), URLWithString: &*ns_url];
+                let _: bool = msg_send![application, openURL: url];
             }
         } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(format!("{{\"action\":\"openurl\",\"payload\":\"{}\"}}", url));

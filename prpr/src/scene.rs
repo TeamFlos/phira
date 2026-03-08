@@ -171,9 +171,7 @@ fn show_inputbox(config: InputBox, backend: &dyn Backend) {
 pub fn request_input(id: impl Into<String>, config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     cfg_if! {
-        if #[cfg(target_os = "ios")] {
-            show_inputbox(config, &inputbox::backend::IOS::new());
-        } else if #[cfg(target_env = "ohos")] {
+        if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
             show_inputbox(config, &*default_backend());
@@ -207,21 +205,27 @@ pub fn request_file(id: impl Into<String>) {
             unsafe {
                 use crate::objc::*;
                 static PICKER_DELEGATE: Lazy<u64> = Lazy::new(|| unsafe {
-                    let mut decl = ClassDecl::new("PickerDelegate", class!(NSObject)).unwrap();
-                    extern "C" fn document_picker(_: &Object, _: Sel, _: ObjcId, documents: ObjcId) {
+                    let name = c"PickerDelegate";
+                    let mut decl = ClassBuilder::new(name, class!(NSObject)).unwrap();
+                    extern "C" fn document_picker(_: std::ptr::NonNull<AnyObject>, _: Sel, _: ObjcId, documents: ObjcId) {
                         unsafe {
                             let url: ObjcId = msg_send![documents, firstObject];
                             let need_close: bool = msg_send![url, startAccessingSecurityScopedResource];
                             let mut error: ObjcId = std::ptr::null_mut();
-                            let data: ObjcId = msg_send![class!(NSData), dataWithContentsOfURL: url options: 2 error: &mut error as *mut ObjcId];
+                            let data: ObjcId = msg_send![
+                                class!(NSData),
+                                dataWithContentsOfURL: url,
+                                options: 2usize,
+                                error: &mut error as *mut ObjcId,
+                            ];
                             if need_close {
                                 let _: () = msg_send![url, stopAccessingSecurityScopedResource];
                             }
                             if data.is_null() {
                                 show_message(ttl!("read-file-failed")).error();
                                 if !error.is_null() {
-                                    let msg: *const NSString = msg_send![error, localizedDescription];
-                                    show_error(Error::msg((*msg).as_str()).context(ttl!("read-file-failed")));
+                                    let msg: *mut NSString = msg_send![error, localizedDescription];
+                                    show_error(Error::msg((&*msg).to_string()).context(ttl!("read-file-failed")));
                                 }
                             } else {
                                 extern "C" {
@@ -231,13 +235,19 @@ pub fn request_file(id: impl Into<String>) {
                                 let dir = NSTemporaryDirectory();
                                 let uuid: ObjcId = msg_send![class!(NSUUID), UUID];
                                 let uuid: *mut NSString = msg_send![uuid, UUIDString];
-                                let path = format!("{}{}", (*dir).as_str(), (*uuid).as_str());
-                                let _: () = msg_send![data, writeToFile: str_to_ns(&path) atomically: YES];
+                                let dir = &*dir;
+                                let uuid = &*uuid;
+                                let path = format!("{dir}{uuid}");
+                                let path_ns = str_to_ns(&path);
+                                let _: bool = msg_send![data, writeToFile: &*path_ns, atomically: runtime::Bool::YES];
                                 CHOSEN_FILE.lock().unwrap().1 = Some(path);
                             }
                         }
                     }
-                    decl.add_method(sel!(documentPicker: didPickDocumentsAtURLs:), document_picker as extern "C" fn(&Object, Sel, ObjcId, ObjcId));
+                    decl.add_method(
+                        sel!(documentPicker: didPickDocumentsAtURLs:),
+                        document_picker as extern "C" fn(std::ptr::NonNull<AnyObject>, Sel, ObjcId, ObjcId),
+                    );
                     decl.register() as *const _ as _
                 });
 
@@ -245,28 +255,38 @@ pub fn request_file(id: impl Into<String>) {
                 let picker: ObjcId = if available("14.0.0") {
                     let tp_cls = class!(UTType);
                     let ext = |e: &str| {
-                        let tp: ObjcId = msg_send![tp_cls, typeWithFilenameExtension: str_to_ns(e)];
-                        std::mem::transmute::<_, ShareId<NSObject>>(ShareId::from_ptr(tp))
+                        let ext_str = str_to_ns(e);
+                        let tp: ObjcId = msg_send![tp_cls, typeWithFilenameExtension: &*ext_str];
+                        let tp = tp.cast::<NSObject>();
+                        Retained::retain(tp).expect("UTType returned nil")
                     };
-                    let types = NSArray::from_slice(&[ext("zip"), ext("pez"), ext("jpg"), ext("png"), ext("jpeg"), ext("json"), ext("mp3"), ext("ogg")]);
-                    let types: ObjcId = std::mem::transmute(types);
-                    msg_send![picker, initForOpeningContentTypes: types]
+                    let types = NSArray::from_retained_slice(&[
+                        ext("zip"),
+                        ext("pez"),
+                        ext("jpg"),
+                        ext("png"),
+                        ext("jpeg"),
+                        ext("json"),
+                        ext("mp3"),
+                        ext("ogg"),
+                    ]);
+                    msg_send![picker, initForOpeningContentTypes: &*types]
                 } else {
                     let ext = |e: &str| str_to_ns(e);
-                    let types = NSArray::from_vec(vec![ext("public.image"), ext("public.archive")]);
-                    let types: ObjcId = std::mem::transmute(types);
-                    msg_send![picker, initWithDocumentTypes: types inMode: 0]
+                    let types = NSArray::from_retained_slice(&[ext("public.image"), ext("public.archive")]);
+                    msg_send![picker, initWithDocumentTypes: &*types, inMode: 0usize]
                 };
                 let dlg_obj: ObjcId = msg_send![*PICKER_DELEGATE as ObjcId, alloc];
                 let dlg_obj: ObjcId = msg_send![dlg_obj, init];
                 let _: () = msg_send![picker, setDelegate: dlg_obj];
 
                 let view_ctrl = *miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap();
+                let completion: Option<&Block<dyn Fn()>> = None;
                 let _: () = msg_send![
                     view_ctrl as ObjcId,
-                    presentViewController: picker
-                    animated: runtime::YES
-                    completion: 0 as ObjcId
+                    presentViewController: picker,
+                    animated: runtime::Bool::YES,
+                    completion: completion,
                 ];
             }
         } else if #[cfg(target_env = "ohos")] {

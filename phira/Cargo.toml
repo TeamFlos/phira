@@ -97,8 +97,8 @@ napi-ohos = { version = "1.1.3", default-features = false, features = [
 sasa = { workspace = true, default-features = true }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-objc = "*"
-objc-foundation = "*"
+objc2 = "0.6"
+objc2-foundation = "0.3"
 
 [build-dependencies]
 dotenv-build = "0.1"

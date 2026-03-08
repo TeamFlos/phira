@@ -181,11 +181,11 @@ async fn the_main() -> Result<()> {
                 directory: std::os::raw::c_ulong,
                 domain_mask: std::os::raw::c_ulong,
                 expand_tilde: bool,
-            ) -> *mut NSArray<*mut NSString>;
+            ) -> *mut NSArray<NSString>;
         }
         let directories = NSSearchPathForDirectoriesInDomains(5, 1, true);
-        let first: &mut NSString = msg_send![directories, firstObject];
-        let path = first.as_str().to_owned();
+        let first: *mut NSString = msg_send![directories, firstObject];
+        let path = (&*first).to_string();
         *DATA_PATH.lock().unwrap() = Some(path);
         *CACHE_DIR.lock().unwrap() = Some("Caches".to_owned());
     }
