@@ -118,8 +118,3 @@ stabilize-approved = Approved
 stabilize-approved-passed = Approved, beatmap telah stabil
 stabilize-denied = Denied
 stabilize-denied-passed = Denied, beatmap ditolak
-
-# fav-added = Ditambahkan ke favorit
-# fav-add-to = Tambahkan ke...
-# fav-select-folder = Pilih folder
-# fav-default-folder = Default
