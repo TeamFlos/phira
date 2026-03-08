@@ -111,8 +111,8 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
             edit.updated = true;
             match || -> Result<(f32, f32), Cow<'static, str>> {
                 let (st, en) = string.split_once(['-', '—']).ok_or_else(|| tl!("illegal-input"))?;
-                let st = parse_time(st.trim()).ok_or_else(|| tl!("invalid time"))?;
-                let en = parse_time(en.trim()).ok_or_else(|| tl!("invalid time"))?;
+                let st = parse_time(st.trim()).ok_or_else(|| tl!("invalid-time"))?;
+                let en = parse_time(en.trim()).ok_or_else(|| tl!("invalid-time"))?;
                 if st + 1. > en {
                     return Err(tl!("preview-too-short"));
                 }
