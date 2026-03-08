@@ -1,11 +1,11 @@
 
-filter = Filtrer par étiquettes
-edit = Modifier les étiquettes
+filter = Filtrer par tags
+edit = Modifier les tags
 
-invalid-tag = Étiquette invalide
+invalid-tag = Tags invalides
 
-wanted = Voulu
-unwanted = Non voulu
+wanted = Tags souhaités
+unwanted = Tags indésirables
 
 cancel = Annuler
 confirm = Confirmer
@@ -17,6 +17,6 @@ troll = Troll
 plain = Fade
 visual = Visuel
 
-filter-me = Envoyées par moi
-filter-unreviewed = Non vérifiées
+filter-me = Publiée(s) par moi
+filter-unreviewed = Non vérifiée(s)
 filter-stabilize = En demande de stabilisation

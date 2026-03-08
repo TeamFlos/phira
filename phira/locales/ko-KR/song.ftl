@@ -1,7 +1,6 @@
 
 load-preview-failed = 미리듣기를 불러오는데 실패했습니다.
 load-charts-failed = 비트맵을 불러오는데 실패했습니다.
-no-chart-for-download = 이 비트맵은 다운로드할 수 없습니다.
 
 load-chart-failed = 비트맵을 불러오는데 실패했습니다.
 

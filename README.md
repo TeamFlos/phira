@@ -1,6 +1,6 @@
 # Phira
 
-![Phira](https://files-cf.phira.cn/github-showcase.png)
+![Phira Showcase](https://phira.5wyxi.com/files/github-showcase.png)
 
 [中文版本](./README-zh_CN.md)
 
@@ -25,4 +25,4 @@ Be free to create issues if there's any problem with the current translation.
 
 ## Star History
 
-[![Stargazers over time](https://starchart.cc/TeamFlos/phira.svg)](https://starchart.cc/TeamFlos/phira)
+[![Stargazers over time](https://starchart.cc/TeamFlos/phira.svg?variant=adaptive)](https://starchart.cc/TeamFlos/phira)

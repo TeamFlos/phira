@@ -1,8 +1,8 @@
-prpr::tl_file!("settings");
+prpr_l10n::tl_file!("settings");
 
 use super::{NextPage, OffsetPage, Page, SharedState};
 use crate::{
-    get_data, get_data_mut,
+    dir, get_data, get_data_mut,
     popup::ChooseButton,
     save_data,
     scene::BGM_VOLUME_UPDATED,
@@ -10,15 +10,18 @@ use crate::{
     tabs::{Tabs, TitleFn},
 };
 use anyhow::Result;
+use bytesize::ByteSize;
 use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
-    l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES},
-    scene::{request_input, return_input, show_error, take_input},
+    scene::{request_input, return_input, show_error, show_message, take_input},
+    task::Task,
     ui::{DRectButton, Scroll, Slider, Ui},
 };
-use std::{borrow::Cow, net::ToSocketAddrs, sync::atomic::Ordering};
+use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
+use reqwest::Url;
+use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
@@ -267,17 +270,28 @@ struct GeneralList {
     icon_lang: SafeTexture,
 
     lang_btn: ChooseButton,
+
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    fullscreen_btn: DRectButton,
+
+    cache_btn: DRectButton,
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
     mp_addr_btn: DRectButton,
+    #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
     insecure_btn: DRectButton,
+    enable_anys_btn: DRectButton,
+    anys_gateway_btn: DRectButton,
+
+    cache_size: Option<u64>,
+    cache_task: Option<Task<Result<u64>>>,
 }
 
 impl GeneralList {
     pub fn new(icon_lang: SafeTexture) -> Self {
-        Self {
+        let mut this = Self {
             icon_lang,
 
             lang_btn: ChooseButton::new()
@@ -290,13 +304,26 @@ impl GeneralList {
                         .and_then(|ident| LANG_IDENTS.iter().position(|it| *it == ident))
                         .unwrap_or_default(),
                 ),
+
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            fullscreen_btn: DRectButton::new(),
+
+            cache_btn: DRectButton::new(),
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
             mp_addr_btn: DRectButton::new(),
+            #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
-        }
+            enable_anys_btn: DRectButton::new(),
+            anys_gateway_btn: DRectButton::new(),
+
+            cache_size: None,
+            cache_task: None,
+        };
+        let _ = this.update_cache_size();
+        this
     }
 
     pub fn top_touch(&mut self, touch: &Touch, t: f32) -> bool {
@@ -306,10 +333,49 @@ impl GeneralList {
         false
     }
 
+    fn dir_size(path: impl Into<PathBuf>) -> io::Result<u64> {
+        fn inner(mut dir: fs::ReadDir) -> io::Result<u64> {
+            dir.try_fold(0, |acc, file| {
+                let file = file?;
+                let size = match file.metadata()? {
+                    data if data.is_dir() => inner(fs::read_dir(file.path())?)?,
+                    data => data.len(),
+                };
+                Ok(acc + size)
+            })
+        }
+
+        inner(fs::read_dir(path.into())?)
+    }
+
+    fn update_cache_size(&mut self) -> Result<()> {
+        self.cache_size = None;
+
+        let cache_dir = dir::cache()?;
+        self.cache_task = Some(Task::new(async { Ok(Self::dir_size(cache_dir)?) }));
+        Ok(())
+    }
+
     pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
         let data = get_data_mut();
         let config = &mut data.config;
         if self.lang_btn.touch(touch, t) {
+            return Ok(Some(false));
+        }
+
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        if self.fullscreen_btn.touch(touch, t) {
+            config.fullscreen_mode ^= true;
+
+            macroquad::window::set_fullscreen(config.fullscreen_mode);
+
+            return Ok(Some(true));
+        }
+
+        if self.cache_btn.touch(touch, t) {
+            fs::remove_dir_all(dir::cache()?)?;
+            self.update_cache_size()?;
+            show_message(tl!("item-cache-cleared")).ok();
             return Ok(Some(false));
         }
         if self.offline_btn.touch(touch, t) {
@@ -328,12 +394,21 @@ impl GeneralList {
             request_input("mp_addr", &config.mp_address);
             return Ok(Some(true));
         }
+        #[cfg(not(target_env = "ohos"))]
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
             return Ok(Some(true));
         }
         if self.insecure_btn.touch(touch, t) {
             data.accept_invalid_cert ^= true;
+            return Ok(Some(true));
+        }
+        if self.enable_anys_btn.touch(touch, t) {
+            data.enable_anys ^= true;
+            return Ok(Some(true));
+        }
+        if self.anys_gateway_btn.touch(touch, t) {
+            request_input("anys_gateway", &data.anys_gateway);
             return Ok(Some(true));
         }
         Ok(None)
@@ -356,8 +431,22 @@ impl GeneralList {
                     data.config.mp_address = text;
                     return Ok(true);
                 }
+            } else if id == "anys_gateway" {
+                if let Err(err) = Url::parse(&text) {
+                    show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
+                    return Ok(false);
+                } else {
+                    data.anys_gateway = text.trim_end_matches('/').to_string();
+                    return Ok(true);
+                }
             } else {
                 return_input(id, text);
+            }
+        }
+        if let Some(task) = &mut self.cache_task {
+            if let Some(size) = task.take() {
+                self.cache_size = size.ok();
+                self.cache_task = None;
             }
         }
         Ok(false)
@@ -384,6 +473,13 @@ impl GeneralList {
             ui.fill_rect(r, (*self.icon_lang, r));
             self.lang_btn.render(ui, rr, t);
         }
+
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        item! {
+            render_title(ui, tl!("item-fullscreen"), None);
+            render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
+        }
+
         item! {
             render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
@@ -400,13 +496,32 @@ impl GeneralList {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
             self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
         }
+        #[cfg(not(target_env = "ohos"))]
         item! {
             render_title(ui, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
             render_switch(ui, rr, t, &mut self.lowq_btn, config.sample_count == 1);
         }
         item! {
+            let cache_size = if let Some(size) = self.cache_size {
+                Cow::Owned(tl!("item-cache-size", "size" => ByteSize(size).to_string()))
+            } else {
+                tl!("item-cache-size-loading")
+            };
+            render_title(ui, tl!("item-clear-cache"), Some(cache_size));
+            self.cache_btn.render_text(ui, rr, t, tl!("item-clear-cache-btn"), 0.5, true);
+        }
+        h += 0.2;
+        item! {
             render_title(ui, tl!("item-insecure"), Some(tl!("item-insecure-sub")));
             render_switch(ui, rr, t, &mut self.insecure_btn, data.accept_invalid_cert);
+        }
+        item! {
+            render_title(ui, tl!("item-enable-anys"), Some(tl!("item-enable-anys-sub")));
+            render_switch(ui, rr, t, &mut self.enable_anys_btn, data.enable_anys);
+        }
+        item! {
+            render_title(ui, tl!("item-anys-gateway"), Some(tl!("item-anys-gateway-sub")));
+            self.anys_gateway_btn.render_text(ui, rr, t, &data.anys_gateway, 0.4, false);
         }
         self.lang_btn.render_top(ui, t, 1.);
         (w, h)
@@ -419,7 +534,8 @@ struct AudioList {
     sfx_slider: Slider,
     bgm_slider: Slider,
     cali_btn: DRectButton,
-
+    #[cfg(not(target_os = "android"))]
+    preferred_sample_rate_btn: DRectButton,
     cali_task: LocalTask<Result<OffsetPage>>,
     next_page: Option<NextPage>,
 }
@@ -432,6 +548,8 @@ impl AudioList {
             sfx_slider: Slider::new(0.0..2.0, 0.05),
             bgm_slider: Slider::new(0.0..2.0, 0.05),
             cali_btn: DRectButton::new(),
+            #[cfg(not(target_os = "android"))]
+            preferred_sample_rate_btn: DRectButton::new(),
 
             cali_task: None,
             next_page: None,
@@ -465,6 +583,14 @@ impl AudioList {
         if self.cali_btn.touch(touch, t) {
             self.cali_task = Some(Box::pin(OffsetPage::new()));
             return Ok(Some(false));
+        }
+        #[cfg(not(target_os = "android"))]
+        if self.preferred_sample_rate_btn.touch(touch, t) {
+            let options = [44100, 48000, 88200, 96000, 192000];
+            let current = config.preferred_sample_rate;
+            let selected = options.iter().position(|&r| r == current).unwrap_or(0);
+            config.preferred_sample_rate = options[(selected + 1) % options.len()];
+            return Ok(Some(true));
         }
         Ok(None)
     }
@@ -518,6 +644,11 @@ impl AudioList {
             render_title(ui, tl!("item-cali"), None);
             self.cali_btn.render_text(ui, rr, t, format!("{:.0}ms", config.offset * 1000.), 0.5, true);
         }
+        #[cfg(not(target_os = "android"))]
+        item! {
+            render_title(ui, tl!("item-preferred-sample-rate"), None);
+            self.preferred_sample_rate_btn.render_text(ui, rr, t, format!("{} Hz", config.preferred_sample_rate), 0.5, false);
+        }
         (w, h)
     }
 
@@ -528,6 +659,7 @@ impl AudioList {
 
 struct ChartList {
     show_acc_btn: DRectButton,
+    show_avg_fps_btn: DRectButton,
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
@@ -539,6 +671,7 @@ impl ChartList {
     pub fn new() -> Self {
         Self {
             show_acc_btn: DRectButton::new(),
+            show_avg_fps_btn: DRectButton::new(),
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
@@ -556,6 +689,10 @@ impl ChartList {
         let config = &mut data.config;
         if self.show_acc_btn.touch(touch, t) {
             config.show_acc ^= true;
+            return Ok(Some(true));
+        }
+        if self.show_avg_fps_btn.touch(touch, t) {
+            config.show_avg_fps ^= true;
             return Ok(Some(true));
         }
         if self.dc_pause_btn.touch(touch, t) {
@@ -600,6 +737,10 @@ impl ChartList {
         item! {
             render_title(ui, tl!("item-show-acc"), None);
             render_switch(ui, rr, t, &mut self.show_acc_btn, config.show_acc);
+        }
+        item! {
+            render_title(ui, tl!("item-show-avg-fps"), None);
+            render_switch(ui, rr, t, &mut self.show_avg_fps_btn, config.show_avg_fps);
         }
         item! {
             render_title(ui, tl!("item-dc-pause"), None);

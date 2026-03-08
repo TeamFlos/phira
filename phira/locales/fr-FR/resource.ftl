@@ -1,5 +1,6 @@
 
 chap-c1 = Reliques du Futur
-chap-c1-intro = Sur la terre de Phira, en l'an 137, un événement miraculeux connu sous le nom de "Reliques du futur" s'est produit.
-  D'innombrables structures et machines gigantesques sont par hazard descendues à travers des fissures dans le ciel, transportant des matériaux et de la magie qui semblaient venir du futur.
-  Une atmosphère mystérieuse et inquiétante s'est alors installée sur tout le continent...
+chap-c1-intro = 
+  En l'an 137 (après J.C.), un événement miraculeux s'est produit sur la terre de Phira.
+  Le ciel s'est fissuré tandis qu'un nombre incalculable de structures et de machines tombaient sur la terre, transportant ce que l'on ne peut décrire que comme des artefacts magiques venus du futur.
+  Cela a plongé le continent dans un état de panique et de chaos...

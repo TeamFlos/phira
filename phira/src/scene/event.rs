@@ -1,4 +1,4 @@
-prpr::tl_file!("event");
+prpr_l10n::tl_file!("event");
 
 use super::{render_ldb, LdbDisplayItem, ProfileScene};
 use crate::{

@@ -1,0 +1,14 @@
+[package]
+name = "prpr-l10n"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fluent = { workspace = true }
+fluent-syntax = { workspace = true }
+lru = { workspace = true }
+once_cell = { workspace = true }
+sys-locale = { workspace = true }
+tracing = { workspace = true }
+unic-langid = { version = "0.9.6", features = ["macros"] }
+walkdir = { workspace = true }

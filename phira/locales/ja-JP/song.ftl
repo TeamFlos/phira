@@ -1,7 +1,6 @@
 
 load-preview-failed = 曲のプレビューの読み込みに失敗しました。
 load-charts-failed = ビートマップの読み込みに失敗しました。
-no-chart-for-download = このビートマップはダウンロードできません。
 
 load-chart-failed = ビートマップの読み込みに失敗しました。
 

@@ -8,4 +8,4 @@ confirm = Confirmer
 lower-bound = Borne inférieure
 upper-bound = Borne supérieure
 
-filter-by-tags = Filtrer par étiquette
+filter-by-tags = Filtrer par Tags

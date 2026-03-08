@@ -2,13 +2,13 @@
 label = RESPACK
 
 default = Default
-load-failed = Failed to load respack
+load-failed = Failed to load respacks.
 
-info = Respack Info
+info = Info
 info-content =
   Name: { $name }
-  Author: { $author }
+  Creator: { $author }
   Description: { $desc }
 
-cant-delete-builtin = Can't delete builtin respack
-deleted = Deleted
+cant-delete-builtin = The built-in respack can't be deleted.
+deleted = Successfully deleted.

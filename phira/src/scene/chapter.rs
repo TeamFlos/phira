@@ -1,4 +1,4 @@
-prpr::tl_file!("chapter");
+prpr_l10n::tl_file!("chapter");
 
 use crate::{
     anim::Anim,
@@ -107,7 +107,7 @@ impl ChapterScene {
             "c1" => vec!["snow", "jumping23"],
             _ => vec![],
         };
-        let mut charts = Vec::with_capacity(songs.capacity());
+        let mut charts = Vec::with_capacity(songs.len());
         for song in songs {
             let info = serde_yaml::from_slice(&load_file(&format!("res/song/{song}/info.yml")).await?)?;
             let illu = load_res_tex(&format!("res/song/{song}/cover")).await;
@@ -254,6 +254,9 @@ impl Scene for ChapterScene {
                     intro: info.intro.clone(),
 
                     hold_partial_cover: true,
+                    note_uniform_scale: false,
+                    force_aspect_ratio: false,
+
                     created: None,
                     updated: None,
                     chart_updated: None,

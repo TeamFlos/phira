@@ -1,10 +1,18 @@
 use super::{clip_rounded_rect, Ui};
-use crate::core::{Matrix, Point, Vector};
-use macroquad::prelude::{Rect, Touch, TouchPhase, Vec2};
+use crate::{
+    core::{Matrix, Point, Vector},
+    judge::take_wheel,
+};
+use macroquad::{
+    input::mouse_position,
+    prelude::{Rect, Touch, TouchPhase, Vec2},
+    window::{screen_height, screen_width},
+};
 use nalgebra::Translation2;
 use std::collections::VecDeque;
 
 const THRESHOLD: f32 = 0.03;
+const WHEEL_STEP: f32 = 0.1;
 
 pub struct VelocityTracker {
     movements: VecDeque<(f32, Point)>,
@@ -179,16 +187,17 @@ impl Scroller {
         self.touch.map(|it| it.3).unwrap_or_default()
     }
 
-    pub fn update(&mut self, t: f32) {
-        // if !self.frame_touched {
-        // if let Some((id, ..)) = self.touch {
-        // self.touch(id, TouchPhase::Cancelled, 0., 0.);
-        // }
-        // }
+    pub fn update(&mut self, t: f32, extra_scroll: f32) {
+        self.offset += extra_scroll * WHEEL_STEP;
+        if extra_scroll.abs() > 1e-5 {
+            self.speed = 0.;
+            self.goto = None;
+        }
+
         let dt = t - self.last_time;
         self.offset += self.speed * dt;
         const K: f32 = 4.;
-        let unlock = self.touch.map_or(false, |it| it.3);
+        let unlock = self.touch.is_some_and(|it| it.3);
         if unlock {
             self.speed *= (0.5_f32).powf((t - self.last_time) / 0.4);
         } else {
@@ -203,10 +212,10 @@ impl Scroller {
                 let lower = (self.offset / self.step).floor() * self.step;
                 let upper = lower + self.step;
                 let range = -1e-3..(self.size + 1e-3);
-                if range.contains(&lower) && to.map_or(true, |it| (it - self.offset).abs() >= (lower - self.offset).abs()) {
+                if range.contains(&lower) && to.is_none_or(|it| (it - self.offset).abs() >= (lower - self.offset).abs()) {
                     to = Some(lower);
                 }
-                if range.contains(&upper) && to.map_or(true, |it| (it - self.offset).abs() >= (upper - self.offset).abs()) {
+                if range.contains(&upper) && to.is_none_or(|it| (it - self.offset).abs() >= (upper - self.offset).abs()) {
                     to = Some(upper);
                 }
             }
@@ -308,11 +317,27 @@ impl Scroll {
     }
 
     pub fn update(&mut self, t: f32) {
-        (if self.horizontal { &mut self.x_scroller } else { &mut self.y_scroller }).update(t)
+        let extra_scroll = if let Some(matrix) = self.matrix {
+            let pt = mouse_position();
+            let pt = matrix.transform_point(&Point::new(pt.0 / screen_width() * 2. - 1., pt.1 / screen_height() * 2. - 1.));
+            if pt.x < 0. || pt.y < 0. || pt.x > self.size.0 || pt.y > self.size.1 {
+                0.
+            } else {
+                let (x, y) = take_wheel();
+                if self.horizontal {
+                    -x
+                } else {
+                    -y
+                }
+            }
+        } else {
+            0.
+        };
+        (if self.horizontal { &mut self.x_scroller } else { &mut self.y_scroller }).update(t, extra_scroll)
     }
 
     pub fn contains(&self, touch: &Touch) -> bool {
-        self.matrix.map_or(false, |mat| {
+        self.matrix.is_some_and(|mat| {
             let Vec2 { x, y } = touch.position;
             let p = mat.transform_point(&Point::new(x, y));
             !(p.x < 0. || p.x >= self.size.0 || p.y < 0. || p.y >= self.size.1)

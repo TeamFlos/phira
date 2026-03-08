@@ -12,9 +12,9 @@ use lyon::{
     path::{builder::BorderRadii, Path, Winding},
 };
 use macroquad::prelude::*;
-use miniquad::{BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
+use miniquad::{gl::GLenum, BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
 use once_cell::sync::Lazy;
-use ordered_float::{Float, NotNan};
+use ordered_float::{FloatCore, NotNan};
 use sasa::AudioManager;
 use serde::Deserialize;
 use std::{
@@ -50,7 +50,7 @@ pub trait NotNanExt: Sized {
     fn not_nan(self) -> NotNan<Self>;
 }
 
-impl<T: Sized + Float> NotNanExt for T {
+impl<T: FloatCore> NotNanExt for T {
     fn not_nan(self) -> NotNan<Self> {
         NotNan::new(self).unwrap()
     }
@@ -106,6 +106,17 @@ impl SafeTexture {
             glBindTexture(GL_TEXTURE_2D, id);
             glGenerateMipmap(GL_TEXTURE_2D);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as _);
+        }
+        self
+    }
+
+    pub fn with_filter(self, filter: GLenum) -> Self {
+        let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
+        unsafe {
+            use miniquad::gl::*;
+            glBindTexture(GL_TEXTURE_2D, id);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter as _);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter as _);
         }
         self
     }
@@ -346,7 +357,7 @@ pub async fn spawn_task<R: Send + 'static>(f: impl FnOnce() -> Result<R> + Send 
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        Ok(tokio::task::spawn_blocking(f).await??)
+        tokio::task::spawn_blocking(f).await?
     }
 }
 
@@ -389,10 +400,20 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
             usage: Usage::Game,
         }))
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(target_env = "ohos")]
+    {
+        use sasa::backend::ohos::*;
+        AudioManager::new(OhosBackend::new(OhosSettings {
+            buffer_size: Some(256),
+            sample_rate: Some(config.preferred_sample_rate),
+            channels: 2,
+        }))
+    }
+    #[cfg(not(any(target_os = "android", target_env = "ohos")))]
     {
         use sasa::backend::cpal::*;
         AudioManager::new(CpalBackend::new(CpalSettings {
+            preferred_sample_rate: config.preferred_sample_rate,
             buffer_size: config.audio_buffer_size,
         }))
     }
@@ -519,7 +540,7 @@ pub fn open_url(url: &str) -> Result<()> {
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
                 let method =
-                    (**env).GetMethodID.unwrap()(env, class, b"openUrl\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                    (**env).GetMethodID.unwrap()(env, class, c"openUrl".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
                 let url = std::ffi::CString::new(url.to_owned()).unwrap();
                 (**env).CallVoidMethod.unwrap()(
                     env,
@@ -536,7 +557,10 @@ pub fn open_url(url: &str) -> Result<()> {
                 let url: ObjcId = msg_send![class!(NSURL), URLWithString: str_to_ns(url)];
                 let _: () = msg_send![application, openURL: url];
             }
-        } else {
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(format!("{{\"action\":\"openurl\",\"payload\":\"{}\"}}", url));
+        }
+        else {
             open::that(url)?;
         }
     }

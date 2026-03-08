@@ -6,7 +6,6 @@ pub mod ext;
 pub mod fs;
 pub mod info;
 pub mod judge;
-pub mod l10n;
 pub mod parse;
 pub mod particle;
 pub mod scene;
@@ -17,7 +16,8 @@ pub mod ui;
 #[cfg(feature = "log")]
 pub mod log;
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 pub mod inner;
 
 #[cfg(target_os = "ios")]

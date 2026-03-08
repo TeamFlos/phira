@@ -1,7 +1,7 @@
 
 label = Local
 
-import-failed = Failed to import
-import-success = Imported successfully
+import-failed = Failed to import chart.
+import-success = Imported successfully.
 
-not-loaded = Not yet finished loading
+not-loaded = Importing...

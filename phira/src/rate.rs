@@ -1,4 +1,4 @@
-prpr::tl_file!("rate");
+prpr_l10n::tl_file!("rate");
 
 use crate::page::Fader;
 use macroquad::prelude::*;

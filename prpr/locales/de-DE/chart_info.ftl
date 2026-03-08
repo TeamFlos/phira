@@ -1,0 +1,29 @@
+
+edit-chart = Level bearbeiten
+level-displayed = Level
+chart-name = Name
+author = Charter
+composer = Komponist
+illustrator = Illustrator
+diff = Schwierigkeit
+preview-time = Audio-Vorschau
+preview-hint = Nutze das Format "START - END".
+invalid-time = Ungültige Audio-Vorschau-Parameter.
+preview-too-short = Vorschau zu kurz.
+preview-too-long = Vorschau zu lang.
+offset = Offset
+aspect-ratio = Seitenverhältnis
+ps = Hinweis:
+aspect-hint = Das Seitenverhältnis sollte im Format "Breite:Höhe" oder als Zahl angegeben werden.
+dim = Hintergrundhelligkeit
+enable-unlock = Freischalt-Video aktivieren
+chart-file = Level
+music-file = Musik
+illu-file = Illustration
+unlock-file = Freischalt-Video
+tip = Tipp
+intro = Beschreibung
+tags = Tags
+tag-exists = Doppelter Tag erkannnt.
+
+illegal-input = Nicht erlaubte Eingabe.

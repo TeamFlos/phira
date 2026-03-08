@@ -1,6 +1,7 @@
 //! Scene management module.
+#![allow(unused_macros)]
 
-crate::tl_file!("scene" ttl);
+prpr_l10n::tl_file!("scene" ttl);
 
 mod ending;
 pub use ending::{EndingScene, RecordUpdateState};
@@ -9,7 +10,7 @@ mod game;
 pub use game::{GameMode, GameScene, SimpleRecord};
 
 mod loading;
-pub use loading::{BasicPlayer, LoadingScene, UpdateFn, UploadFn};
+pub use loading::{BasicPlayer, LoadingScene, SaveFn, UpdateFn, UploadFn};
 
 use crate::{
     ext::{draw_image, screen_aspect, LocalTask, SafeTexture, ScaleType},
@@ -20,7 +21,12 @@ use crate::{
 use anyhow::{Error, Result};
 use cfg_if::cfg_if;
 use macroquad::prelude::*;
-use std::{any::Any, cell::RefCell, sync::Mutex};
+use std::{
+    any::Any,
+    borrow::Cow,
+    cell::RefCell,
+    sync::{Arc, Mutex},
+};
 use tracing::warn;
 
 #[derive(Default)]
@@ -38,7 +44,28 @@ pub enum NextScene {
 
 thread_local! {
     pub static BILLBOARD: RefCell<(BillBoard, TimeManager)> = RefCell::new((BillBoard::new(), TimeManager::default()));
-    pub static DIALOG: RefCell<Option<Dialog>> = RefCell::new(None);
+    pub static DIALOG: RefCell<Option<Dialog>> = const { RefCell::new(None) };
+    pub static FULL_LOADING: RefCell<Option<FullLoadingView>> = const { RefCell::new(None) };
+}
+
+pub struct FullLoadingView {
+    keep_alive: Arc<()>,
+    text: Option<Cow<'static, str>>,
+}
+
+impl FullLoadingView {
+    pub fn begin() -> Arc<()> {
+        Self::begin_inner(None)
+    }
+    pub fn begin_text(text: Cow<'static, str>) -> Arc<()> {
+        Self::begin_inner(Some(text))
+    }
+    fn begin_inner(text: Option<Cow<'static, str>>) -> Arc<()> {
+        let arc = Arc::new(());
+        let ret = arc.clone();
+        FULL_LOADING.replace(Some(Self { keep_alive: arc, text }));
+        ret
+    }
 }
 
 #[inline]
@@ -137,7 +164,7 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                 let env = miniquad::native::attach_jni_env();
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
-                let method = (**env).GetMethodID.unwrap()(env, class, b"inputText\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                let method = (**env).GetMethodID.unwrap()(env, class, c"inputText".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
                 let text = std::ffi::CString::new(text.to_owned()).unwrap();
                 (**env).CallVoidMethod.unwrap()(env, ctx, method, (**env).NewStringUTF.unwrap()(env, text.as_ptr()));
             }
@@ -192,9 +219,12 @@ pub fn request_input_full(id: impl Into<String>, #[allow(unused_variables)] text
                     completion: 0 as ObjcId
                 ];
             }
+        }else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
-            INPUT_TEXT.lock().unwrap().1 = Some(unsafe { get_internal_gl() }.quad_context.clipboard_get().unwrap_or_default());
-            show_message(ttl!("pasted")).ok();
+            if let Some(text) = tfd::InputBox::new(ttl!("input"), ttl!("input-msg")).with_default(text).run_modal() {
+                INPUT_TEXT.lock().unwrap().1 = Some(text);
+            }
         }
     }
 }
@@ -217,7 +247,7 @@ pub fn request_file(id: impl Into<String>) {
                 let env = miniquad::native::attach_jni_env();
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
-                let method = (**env).GetMethodID.unwrap()(env, class, b"chooseFile\0".as_ptr() as _, b"()V\0".as_ptr() as _);
+                let method = (**env).GetMethodID.unwrap()(env, class, c"chooseFile".as_ptr() as _, c"()V".as_ptr() as _);
                 (**env).CallVoidMethod.unwrap()(env, ctx, method);
             }
         } else if #[cfg(target_os = "ios")] {
@@ -287,6 +317,8 @@ pub fn request_file(id: impl Into<String>) {
                     completion: 0 as ObjcId
                 ];
             }
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(r#"{"action": "chooseFile"}"#.to_string());
         } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }
@@ -432,7 +464,7 @@ impl Main {
         Judge::on_new_frame();
         let mut touches = Judge::get_touches();
         touches.iter_mut().for_each(f);
-        if !touches.is_empty() {
+        if !(touches.is_empty() || FULL_LOADING.with(|it| it.borrow().is_some())) {
             let now = self.tm.now();
             let delta = (now - self.last_update_time) / touches.len() as f64;
             let start_time = self.tm.start_time;
@@ -504,6 +536,24 @@ impl Main {
                     dialog.render(&mut ui, self.tm.now() as _);
                 }
             });
+            let remove = FULL_LOADING.with(|it| {
+                if let Some(loading) = it.borrow_mut().as_mut() {
+                    if Arc::strong_count(&loading.keep_alive) > 1 {
+                        if let Some(text) = loading.text.as_ref() {
+                            ui.full_loading(text.clone(), self.tm.now() as _);
+                        } else {
+                            ui.full_loading_simple(self.tm.now() as _);
+                        }
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }
+                false
+            });
+            if remove {
+                FULL_LOADING.take();
+            }
             pop_camera_state();
         }
         Ok(())

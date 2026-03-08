@@ -1,7 +1,6 @@
 
 load-preview-failed = Şarkı önizlemesi yüklenemedi
 load-charts-failed = Ritim haritaları yüklenemedi
-no-chart-for-download = Bu ritim haritası indirilemez
 
 load-chart-failed = Ritim haritası yüklenemedi
 

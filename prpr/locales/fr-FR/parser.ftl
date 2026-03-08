@@ -10,10 +10,13 @@ incline-events-parse-failed = Échec de l'analyse des événements d'inclinaison
 paint-events-parse-failed = Échec de l'analyse des événements de peinture
 text-events-parse-failed = Échec de l'analyse des événements de texte
 color-events-parse-failed = Échec de l'analyse des événements de couleur
+gif-events-parse-failed = Échec de l'analyse des événements GIF
 
 illustration-load-failed = Échec du chargement de l'illustration à { $path }
+gif-load-failed = Échec du chargement du gif à { $path }
 
 judge-line-location-name = À la ligne de jugement #{ $jlid } ({ $name })
+hitsound-missing = Le son de frappe `{ $name }` est manquant
 
 # pgr
 event-not-contiguous = Les événements doivent être contigus
@@ -38,5 +41,5 @@ line-location = À la ligne #{ $lid }
 # extra
 shader-load-failed = Impossible de charger le shader depuis { $path }
 shader-not-found = Impossible de trouver le shader { $shader } prédéfini 
-effect-location = En effet #{ $id }
+effect-location = Effet #{ $id }
 video-load-failed = Échec du chargement de la vidéo depuis { $path }

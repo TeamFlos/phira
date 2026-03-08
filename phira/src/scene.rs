@@ -1,7 +1,7 @@
-prpr::tl_file!("import" itl);
+prpr_l10n::tl_file!("import" itl);
 
 mod chart_order;
-pub use chart_order::{ChartOrder, ORDERS};
+pub use chart_order::ChartOrder;
 
 mod chapter;
 pub use chapter::ChapterScene;
@@ -14,8 +14,9 @@ pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 
 mod song;
 pub use song::{Downloading, SongScene, RECORD_ID};
-
+#[cfg(feature = "video")]
 mod unlock;
+#[cfg(feature = "video")]
 pub use unlock::UnlockScene;
 
 mod profile;
@@ -26,7 +27,7 @@ use crate::{
     data::LocalChart,
     dir, get_data, get_data_mut,
     page::Fader,
-    save_data, ttl,
+    save_data,
 };
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
@@ -37,7 +38,7 @@ use prpr::{
     ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     info::ChartInfo,
-    scene::{show_error, show_message},
+    scene::{show_error, show_message, FullLoadingView},
     task::Task,
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
 };
@@ -52,19 +53,23 @@ use std::{
         Arc, Mutex,
     },
 };
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 thread_local! {
-    pub static TEX_BACKGROUND: RefCell<Option<SafeTexture>> = RefCell::new(None);
-    pub static TEX_ICON_BACK: RefCell<Option<SafeTexture>> = RefCell::new(None);
+    pub static TEX_BACKGROUND: RefCell<Option<SafeTexture>> = const { RefCell::new(None) };
+    pub static TEX_ICON_BACK: RefCell<Option<SafeTexture>> = const { RefCell::new(None) };
 }
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
 pub static TERMS: OnceCell<Option<(String, String)>> = OnceCell::new();
-pub static LOAD_TOS_TASK: Lazy<Mutex<Option<Task<Result<Option<(String, String)>>>>>> = Lazy::new(Mutex::default);
+type LoadTosTask = Task<Result<Option<(String, String)>>>;
+pub static LOAD_TOS_TASK: Lazy<Mutex<Option<LoadTosTask>>> = Lazy::new(Mutex::default);
 pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
+pub static JUST_LOADED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
+
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct AssetsChartFileSystem(pub String, pub String);
 
 #[async_trait]
@@ -73,7 +78,7 @@ impl FileSystem for AssetsChartFileSystem {
         if path == ":info" {
             return Ok(serde_yaml::to_string(&ASSET_CHART_INFO.lock().unwrap().clone())?.into_bytes());
         }
-        #[cfg(feature = "closed")]
+        #[cfg(closed)]
         {
             use crate::load_res;
             if path == ":music" {
@@ -128,32 +133,13 @@ pub fn confirm_dialog(title: impl Into<String>, content: impl Into<String>, res:
 }
 
 pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bool {
-    let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
-    if let Some(task) = &mut *tos_task {
-        if let Some(result) = task.take() {
-            match result {
-                Ok(res) => {
-                    if res.is_some() {
-                        info!("terms and policy updated");
-                        get_data_mut().terms_modified = None;
-                        let _ = save_data();
-                    }
-                    let _ = TERMS.set(res);
-                }
-                Err(e) => {
-                    show_error(e.context(ttl!("fetch-tos-policy-failed")));
-                    *tos_task = None;
-                    return false;
-                }
-            }
-            *tos_task = None;
-        }
+    if let Some(value) = dispatch_tos_task() {
+        return value;
     }
-    drop(tos_task);
     if get_data().terms_modified.is_some() && !strict {
         return true;
     }
-    match TERMS.get().clone() {
+    match TERMS.get() {
         Some(Some((terms, modified))) => {
             let content = ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str();
             let lines = content.split('\n').collect::<Vec<_>>();
@@ -213,24 +199,64 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
                 .show();
         }
         Some(None) => {
-            // not modified
+            error!("unreachable")
         }
         None => {
-            warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
-            load_tos_and_policy();
+            if !strict {
+                warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
+            }
+            load_tos_and_policy(strict, true);
         }
     }
     false
 }
 
-pub fn load_tos_and_policy() {
+pub fn dispatch_tos_task() -> Option<bool> {
+    let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
+    if let Some(task) = &mut *tos_task {
+        if let Some(result) = task.take() {
+            match result {
+                Ok(res) => {
+                    if res.is_some() {
+                        info!("terms and policy loaded");
+                        get_data_mut().terms_modified = None;
+                        let _ = save_data();
+                        let _ = TERMS.set(res);
+                    }
+                    // don't load None into it,
+                    // or it can't be updated when `strict` is true.
+                }
+                Err(e) => {
+                    show_error(e.context(ttl!("fetch-tos-policy-failed")));
+                    *tos_task = None;
+                    return Some(false);
+                }
+            }
+            *tos_task = None;
+        }
+    }
+    drop(tos_task);
+    None
+}
+/// use the return value to add a loading screen
+pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
     if TERMS.get().is_some() {
         return;
     }
     let mut guard = LOAD_TOS_TASK.lock().unwrap();
     if guard.is_none() {
         let modified = get_data().terms_modified.clone();
-        *guard = Some(Task::new(async move { Client::fetch_terms(modified.as_deref()).await.context("failed to fetch terms") }));
+        let loading = show_loading.then(|| FullLoadingView::begin_text(ttl!("loading_tos_policy")));
+        *guard = Some(Task::new(async move {
+            let mut modified = modified.as_deref();
+            if strict {
+                modified = None
+            }
+            let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
+            drop(loading);
+            JUST_LOADED_TOS.store(true, Ordering::Relaxed);
+            ret
+        }));
     }
 }
 
@@ -243,7 +269,7 @@ pub fn gen_custom_dir() -> Result<(PathBuf, Uuid)> {
     let dir = dir::custom_charts()?;
     let dir = Path::new(&dir);
     let mut id = Uuid::new_v4();
-    while dir.join(&id.to_string()).exists() {
+    while dir.join(id.to_string()).exists() {
         id = Uuid::new_v4();
     }
     let dir = dir.join(id.to_string());
@@ -292,6 +318,7 @@ pub struct LdbDisplayItem<'a> {
     pub btn: &'a mut RectButton,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_ldb<'a>(
     ui: &mut Ui,
     title: &str,
@@ -393,18 +420,13 @@ pub fn render_release_to_refresh(ui: &mut Ui, cx: f32, off: f32) {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::DerefMut;
-
-    use fs::load_info;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn test_parse_chart() -> Result<()> {
-        // Put the chart in phira(workspace, not crate)/test which is ignored by git
-        let mut fs = fs_from_path("../../../test")?;
-        let info = load_info(fs.as_mut()).await?;
-        let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
-        Ok(())
-    }
+    // #[tokio::test]
+    // #[ignore = "Chart parsing test"]
+    // async fn test_parse_chart() -> Result<()> {
+    //     // Put the chart in phira(workspace, not crate)/test which is ignored by git
+    //     let mut fs = fs_from_path("../../../test")?;
+    //     let info = load_info(fs.as_mut()).await?;
+    //     let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
+    //     Ok(())
+    // }
 }

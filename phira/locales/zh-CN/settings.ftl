@@ -8,6 +8,7 @@ debug = 调试
 about = 关于
 
 item-lang = 语言
+item-fullscreen = 全屏模式
 item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
 item-server-status = 服务器状态
@@ -20,8 +21,18 @@ item-mp-addr-sub = 服务器地址，'主机:端口'
 item-mp-addr-invalid = 无效的服务器地址
 item-lowq = 低画质模式
 item-lowq-sub = 建议在画面卡顿时启用
+item-clear-cache = 清除缓存
+item-cache-size-loading = 加载中…
+item-cache-size = 缓存大小：{ $size }
+item-clear-cache-btn = 清除
+item-cache-cleared = 缓存已清除
 item-insecure = 不安全模式
 item-insecure-sub = 当无法使用在线功能时可尝试该功能。这会使得你的连接不安全！
+item-enable-anys = 启用 Anys
+item-enable-anys-sub = 使用 Anys 网关以提升连接质量
+item-anys-gateway = Anys 网关
+item-anys-gateway-sub = Anys 网关地址
+item-anys-gateway-invalid = 无效的网关地址
 
 item-adjust = 自动对齐时间
 item-adjust-sub = 自动调整延迟以同步音乐和谱面
@@ -29,8 +40,10 @@ item-music = 音乐音量
 item-sfx = 音效音量
 item-bgm = BGM 音量
 item-cali = 调整延迟
+item-preferred-sample-rate = 首选采样率
 
 item-show-acc = 显示实时准度
+item-show-avg-fps = 显示平均帧率
 item-dc-pause = 双击暂停
 item-dhint = 双押提示
 item-dhint-sub = 同时触线的音符将会被高亮

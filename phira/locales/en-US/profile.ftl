@@ -1,18 +1,18 @@
 
 logout = Logout
-logged-out = Logged out
+logged-out = Logged out.
 
-delete = Delete account
-delete-failed = Failed to delete account
-delete-req-sent = Account deletion request has been submitted
+delete = Delete Account
+delete-failed = Failed to delete account.
+delete-req-sent = Account deletion request has been submitted.
 
-load-user-failed = Failed to fetch user info
-edit-avatar-success = Avatar updated
-edit-avatar-failed = Failed to update avatar
+load-user-failed = Failed to fetch user info.
+edit-avatar-success = Avatar updated.
+edit-avatar-failed = Failed to update avatar.
 
-uploading-avatar = Uploading avatar
+uploading-avatar = Uploading avatar...
 
-load-record-failed = Failed to load records
+load-record-failed = Failed to load records.
 
 last-login = Last login: { $time }
 badge-admin = Admin

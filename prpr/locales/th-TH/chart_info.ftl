@@ -15,6 +15,7 @@ offset = Offset(s)
 aspect-ratio = Aspect ratio
 ps = ป.ล.
 aspect-hint = Aspect ratio สามารถใช้ตัวเลขหรือตัวอักษรก็ได้ ตัวอย่างเช่น "w:h"
+force-aspect-ratio = Force aspect ratio
 dim = ความสว่างของ Background
 chart-file = ไฟล์ Chart
 music-file = ไฟล์เพลง

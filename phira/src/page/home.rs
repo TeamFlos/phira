@@ -1,4 +1,4 @@
-prpr::tl_file!("home");
+prpr_l10n::tl_file!("home");
 
 use super::{
     load_font_with_cksum, set_bold_font, EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState,
@@ -11,7 +11,7 @@ use crate::{
     icons::Icons,
     login::Login,
     save_data,
-    scene::{load_tos_and_policy, ProfileScene},
+    scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
     sync_data,
     threed::ThreeD,
 };
@@ -24,19 +24,24 @@ use prpr::{
     core::BOLD_FONT,
     ext::{open_url, screen_aspect, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
-    l10n::LANG_IDENTS,
     scene::{show_error, NextScene},
     task::Task,
     ui::{button_hit_large, clip_rounded_rect, ClipType, DRectButton, Dialog, FontArc, RectButton, Scroll, Ui},
 };
+use prpr_l10n::LANG_IDENTS;
 use reqwest::StatusCode;
 use serde::Deserialize;
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    borrow::Cow,
+    sync::{atomic::Ordering, Arc},
+};
 use tap::Tap;
 use tracing::{info, warn};
 
 const BOARD_SWITCH_TIME: f32 = 4.;
 const BOARD_TRANSIT_TIME: f32 = 1.2;
+
+type BoldFontUpdateTask = Task<Result<Option<(FontArc, String)>>>;
 
 #[derive(Deserialize)]
 struct Version {
@@ -75,7 +80,7 @@ pub struct HomePage {
     has_new: bool,
 
     check_update_task: Option<Task<Result<Option<Version>>>>,
-    check_bold_font_update_task: Option<Task<Result<Option<(FontArc, String)>>>>,
+    check_bold_font_update_task: Option<BoldFontUpdateTask>,
 
     btn_play_3d: ThreeD,
     btn_other_3d: ThreeD,
@@ -94,6 +99,9 @@ pub struct HomePage {
     char_cached_size: f32,
     char_scroll: Scroll,
     char_edit_btn: RectButton,
+
+    #[cfg(feature = "aa")]
+    beian_btn: RectButton,
 }
 
 impl HomePage {
@@ -197,6 +205,9 @@ impl HomePage {
             char_cached_size: 0.,
             char_scroll: Scroll::new().use_clip(ClipType::Clip),
             char_edit_btn: RectButton::new(),
+
+            #[cfg(feature = "aa")]
+            beian_btn: RectButton::new(),
         };
         res.load_char_illu();
 
@@ -218,7 +229,7 @@ impl HomePage {
 
         self.char_appear_p.set(0.);
 
-        #[cfg(feature = "closed")]
+        #[cfg(closed)]
         if self.character.illust == "@" {
             let id = self.character.id.clone();
             self.char_illu_task =
@@ -235,6 +246,11 @@ impl HomePage {
     }
 
     fn fetch_has_new(&mut self) {
+        if get_data().config.offline_mode || get_data().me.is_none() || get_data().tokens.is_none() {
+            self.has_new_task = None;
+            self.has_new = false;
+            return;
+        }
         let time = get_data().message_check_time.unwrap_or_default();
         self.has_new_task = Some(Task::new(async move {
             #[derive(Deserialize)]
@@ -355,7 +371,6 @@ impl Page for HomePage {
             self.sf.enter(s.t);
             self.need_back = false;
         }
-        load_tos_and_policy();
         self.fetch_has_new();
         Ok(())
     }
@@ -415,6 +430,11 @@ impl Page for HomePage {
             }
             return Ok(true);
         }
+        #[cfg(feature = "aa")]
+        if self.beian_btn.touch(touch) {
+            let _ = open_url("https://beian.miit.gov.cn/#/home");
+            return Ok(true);
+        }
         if self.char_btn.touch(touch) {
             if !self.char_screen_p.transiting(rt) {
                 let to = if self.char_screen_p.now(rt) < 0.5 {
@@ -438,8 +458,12 @@ impl Page for HomePage {
         if self.char_last_user_id != current_user {
             let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
             self.char_last_user_id = current_user;
-            self.char_fetch_task =
-                Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
+            if get_data().config.offline_mode || get_data().me.is_none() || get_data().tokens.is_none() {
+                self.char_fetch_task = None;
+            } else {
+                self.char_fetch_task =
+                    Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
+            }
         }
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {
@@ -473,7 +497,7 @@ impl Page for HomePage {
                 self.board_task = Some(Task::new(async move { Ok(None) }));
             } else {
                 let mut index = thread_rng().gen_range(0..(charts.len() - last_index.is_some() as usize));
-                if last_index.map_or(false, |it| it <= index) {
+                if last_index.is_some_and(|it| it <= index) {
                     index += 1;
                 }
                 let path = charts[index].local_path.clone();
@@ -495,7 +519,7 @@ impl Page for HomePage {
                     Ok(image) => {
                         if let Some(image) = image {
                             let tex: SafeTexture = image.into();
-                            self.board_tex_last = std::mem::replace(&mut self.board_tex, Some(tex));
+                            self.board_tex_last = self.board_tex.replace(tex);
                             self.board_dir = random();
                         }
                     }
@@ -524,7 +548,7 @@ impl Page for HomePage {
                         warn!("fail to check update {:?}", err);
                     }
                     Ok(Some(ver)) => {
-                        if get_data().ignored_version.as_ref().map_or(true, |it| it < &ver.version) {
+                        if get_data().ignored_version.as_ref().is_none_or(|it| it < &ver.version) {
                             Dialog::plain(
                                 tl!("update", "version" => ver.version.to_string()),
                                 tl!("update-desc", "date" => ver.date.to_string(), "desc" => ver.description),
@@ -602,6 +626,9 @@ impl Page for HomePage {
                 }
                 self.char_fetch_task = None;
             }
+        }
+        if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
+            check_read_tos_and_policy(true, true);
         }
 
         Ok(())
@@ -746,10 +773,23 @@ impl Page for HomePage {
                     .size(0.6)
                     .draw();
             }
+
+            #[cfg(feature = "aa")]
+            {
+                let r = ui.screen_rect();
+                let r = ui
+                    .text("备案号：闽ICP备18008307号-64A")
+                    .pos(r.x + 0.02, r.bottom() - 0.03)
+                    .size(0.5)
+                    .anchor(0., 1.)
+                    .draw();
+                self.beian_btn.set(ui, r);
+            }
         });
 
         self.login.render(ui, t);
         self.sf.render(ui, t);
+
         Ok(())
     }
 

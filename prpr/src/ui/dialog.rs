@@ -1,4 +1,4 @@
-crate::tl_file!("dialog");
+prpr_l10n::tl_file!("dialog");
 
 use super::{DRectButton, RectButton, Scroll, Ui};
 use crate::{core::BOLD_FONT, ext::RectExt, scene::show_message};
@@ -8,6 +8,8 @@ use macroquad::prelude::*;
 const WIDTH_RADIO: f32 = 0.5;
 const HEIGHT_RATIO: f32 = 0.7;
 
+type DialogListener = dyn FnMut(&mut Dialog, i32) -> bool;
+
 #[must_use]
 pub struct Dialog {
     title: String,
@@ -15,7 +17,7 @@ pub struct Dialog {
     buttons: Vec<String>,
     /// listener function returns `false` to close the dialog, `true` to keep it open
     /// the parameter is the *index* of the button clicked, `-1` for outside click, `-2` for text
-    listener: Option<Box<dyn FnMut(&mut Dialog, i32) -> bool>>,
+    listener: Option<Box<DialogListener>>,
 
     text_btn: RectButton,
 
@@ -124,6 +126,9 @@ impl Dialog {
                     }
                     self.listener = Some(listener);
                     break;
+                } else {
+                    exit = true;
+                    break;
                 }
             }
         }
@@ -141,7 +146,7 @@ impl Dialog {
 
         if self
             .window_rect
-            .map_or(true, |rect| rect.contains(touch.position) || touch.phase != TouchPhase::Started)
+            .is_none_or(|rect| rect.contains(touch.position) || touch.phase != TouchPhase::Started)
         {
             true
         } else {

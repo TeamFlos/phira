@@ -1,15 +1,17 @@
-crate::tl_file!("parser" ptl);
-
 use super::RPE_TWEEN_MAP;
-use crate::{
-    core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, Video, EPS},
-    ext::ScaleType,
-    fs::FileSystem,
-};
 use anyhow::{Context, Result};
 use macroquad::prelude::{Color, Vec2};
 use serde::Deserialize;
 use std::{collections::HashMap, rc::Rc};
+
+use super::L10N_LOCAL;
+#[cfg(feature = "video")]
+use crate::core::Video;
+use crate::{
+    core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, EPS},
+    ext::ScaleType,
+    fs::FileSystem,
+};
 
 // serde is weird...
 fn f32_zero() -> f32 {
@@ -121,6 +123,7 @@ struct ExtEffect {
     global: bool,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct ExtVideo {
     path: String,
@@ -183,6 +186,7 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
                 .with_context(|| ptl!("effect-location", "id" => id))?,
         );
     }
+    #[cfg(feature = "video")]
     let mut videos = Vec::new();
     #[cfg(feature = "video")]
     for video in ext.videos {
@@ -206,6 +210,7 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
     Ok(ChartExtra {
         effects,
         global_effects,
+        #[cfg(feature = "video")]
         videos,
     })
 }

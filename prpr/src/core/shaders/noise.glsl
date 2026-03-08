@@ -1,6 +1,6 @@
 #version 100
 // Adapted from https://godotshaders.com/shader/screen-noise-effect-shader/
-precision mediump float;
+precision highp float;
 
 varying lowp vec2 uv;
 uniform sampler2D screenTexture;

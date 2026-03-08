@@ -1,4 +1,4 @@
-crate::tl_file!("ending");
+prpr_l10n::tl_file!("ending");
 
 use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{
@@ -50,15 +50,18 @@ pub struct EndingScene {
     upload_fn: Option<UploadFn>,
     upload_task: Option<(Task<Result<RecordUpdateState>>, MessageHandle)>,
     record_data: Option<Vec<u8>>,
-    record: Option<SimpleRecord>,
+    best_record: Option<SimpleRecord>,
 
     btn_retry: DRectButton,
     btn_proceed: DRectButton,
 
     tr_start: f32,
+
+    avg_fps: Option<f32>,
 }
 
 impl EndingScene {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         background: SafeTexture,
         illustration: SafeTexture,
@@ -74,7 +77,8 @@ impl EndingScene {
         player_rks: Option<f32>,
         historic_best: u32,
         record_data: Option<Vec<u8>>,
-        record: Option<SimpleRecord>,
+        best_record: Option<SimpleRecord>,
+        avg_fps: Option<f32>,
     ) -> Result<Self> {
         let mut audio = create_audio_manger(config)?;
         let bgm = audio.create_music(
@@ -126,12 +130,14 @@ impl EndingScene {
             upload_fn,
             upload_task,
             record_data,
-            record,
+            best_record,
 
             btn_retry: DRectButton::new(),
             btn_proceed: DRectButton::new(),
 
             tr_start: f32::NAN,
+
+            avg_fps,
         })
     }
 }
@@ -349,11 +355,22 @@ impl Scene for EndingScene {
             let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
 
             let r = ui.text(tl!("error")).pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
-            ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
+            let r = ui
+                .text(format!("±{}ms", (res.std * 1000.).round() as i32))
                 .pos(r.right() + 0.02, r.y)
                 .size(s)
                 .color(ct)
                 .draw_using(&BOLD_FONT);
+
+            if let Some(avg_fps) = self.avg_fps {
+                let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
+                let r = ui.text("AVG FPS").pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
+                ui.text(format!("{:.1}", avg_fps))
+                    .pos(r.right() + 0.02, r.y)
+                    .size(s)
+                    .color(ct)
+                    .draw_using(&BOLD_FONT);
+            }
 
             let mut y = -top + 0.4 + ui.top * 0.3;
             let tp = y;
@@ -535,15 +552,9 @@ impl Scene for EndingScene {
             let w = s * 2. + pad + ui.text(&self.player_name).size(0.6).measure().w.min(mw) + 0.02;
             let r = Rect::new(-0.96, -top + 0.04, w, s * 2.);
             ui.fill_path(&r.feather(0.01).rounded(s + 0.01), semi_black(0.6));
-            ui.fill_rect(Rect::new(r.x, r.y + s + 0.003, r.w + 0.01, 0.).nonuniform_feather(-0.01, 0.002), WHITE);
             ui.avatar(r.x + s, r.y + s, s, t, Ok(Some(self.player.clone())));
             let lf = r.x + s * 2. + pad;
-            ui.text(&self.player_name)
-                .pos(lf, r.y + s - 0.007)
-                .anchor(0., 1.)
-                .max_width(mw)
-                .size(0.6)
-                .draw();
+            ui.text(&self.player_name).pos(lf, r.y + s).anchor(0., 1.).max_width(mw).size(0.6).draw();
             ui.text(if let Some(new_rks) = self.update_state.as_ref().and_then(|it| it.new_rks) {
                 format!("{new_rks:.2}")
             } else if let Some(rks) = &self.player_rks {
@@ -553,7 +564,7 @@ impl Scene for EndingScene {
             })
             .pos(lf, r.y + s + 0.008)
             .size(0.4)
-            .color(semi_white(0.6))
+            .color(semi_white(0.7))
             .draw();
         });
 
@@ -589,7 +600,7 @@ impl Scene for EndingScene {
             0 => NextScene::None,
             1 => NextScene::Pop,
             2 => {
-                if let Some(rec) = &self.record {
+                if let Some(rec) = &self.best_record {
                     NextScene::PopNWithResult(2, Box::new(rec.clone()))
                 } else {
                     NextScene::PopN(2)

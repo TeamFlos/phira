@@ -30,7 +30,6 @@ pub struct Config {
     pub disable_effect: bool,
     pub double_click_to_pause: bool,
     pub double_hint: bool,
-    pub fix_aspect_ratio: bool,
     pub fxaa: bool,
     pub interactive: bool,
     pub note_scale: f32,
@@ -38,13 +37,16 @@ pub struct Config {
     pub mp_enabled: bool,
     pub mp_address: String,
     pub offline_mode: bool,
+    pub fullscreen_mode: bool,
     pub offset: f32,
     pub particle: bool,
     pub player_name: String,
     pub player_rks: f32,
+    pub preferred_sample_rate: u32,
     pub res_pack_path: Option<String>,
     pub sample_count: u32,
     pub show_acc: bool,
+    pub show_avg_fps: bool,
     pub speed: f32,
     pub touch_debug: bool,
     pub volume_music: f32,
@@ -66,7 +68,6 @@ impl Default for Config {
             disable_effect: false,
             double_click_to_pause: true,
             double_hint: true,
-            fix_aspect_ratio: false,
             fxaa: false,
             interactive: true,
             mods: Mods::default(),
@@ -74,13 +75,16 @@ impl Default for Config {
             mp_enabled: false,
             note_scale: 1.0,
             offline_mode: false,
+            fullscreen_mode: false,
             offset: 0.,
             particle: true,
             player_name: "Mivik".to_string(),
             player_rks: 15.,
+            preferred_sample_rate: 44100,
             res_pack_path: None,
             sample_count: 1,
             show_acc: false,
+            show_avg_fps: false,
             speed: 1.,
             touch_debug: false,
             volume_music: 1.,
@@ -96,6 +100,11 @@ impl Config {
     pub fn init(&mut self) {
         if let Some(flag) = self.autoplay {
             self.mods.set(Mods::AUTOPLAY, flag);
+        }
+        #[cfg(target_env = "ohos")]
+        {
+            // Due to the fucking poor performance of the Maloon GPU, the sample count must be set to 1.
+            self.sample_count = 1;
         }
     }
 

@@ -5,7 +5,7 @@ del-confirm-content = 該操作無法撤銷。
 cancel = 取消
 confirm = 確定
 
-release-to-refresh = 放開以刷新
+release-to-refresh = 放開以重新整理
 
 switch-on = 開
 switch-off = 關
@@ -22,7 +22,8 @@ tos-deny = 拒絕
 tos-accept = 同意
 tos-prev-page = 上一頁
 tos-next-page = 下一頁
-fetch-tos-policy-failed = 獲取服務條款和隱私條款內容失敗
+loading_tos_policy = 正在獲取服務條款和隱私政策內容
+fetch-tos-policy-failed = 獲取服務條款和隱私政策內容失敗
 warn-deny-tos-policy = 須接受條款才可使用線上服務
 
 open-in-web = 在網站中打開
@@ -32,3 +33,7 @@ main-character-intro =
   自斷壁殘垣中傳來的歌聲，被繁複樂章所縈繞的，韻律的形狀。彷彿奇蹟本身，無法用一切已知定律刻劃的謎之少女。
   來自未來，卻讓人覺得似乎是某種與世間本質關聯、恆久的存在。無妨，一切無形和有形的附著已隨少女的記憶模糊淡去，不見所蹤。
   翩翩然如禽羽的她，在聲樂交織的夢中，看見的又是什麼呢？
+
+favorites = 我的最愛
+default-fav-folder = 我的最愛
+favorites-online-only = 雲端資料夾只能收藏線上譜面。本地譜面：{ $charts }

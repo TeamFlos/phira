@@ -2,7 +2,7 @@
 filter = 按標籤篩選
 edit = 編輯標籤
 
-invalid-tag = 無效的標籤
+invalid-tag = 標籤名無效
 
 wanted = 想包含的標籤
 unwanted = 不想包含的標籤

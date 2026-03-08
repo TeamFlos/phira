@@ -1,0 +1,115 @@
+name: Check
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare
+        run: |
+          sudo apt-get update
+          sudo apt-get install librust-alsa-sys-dev libglib2.0-dev libasound2t64 libatk-adaptor libgail-common libgtk-3-dev
+
+      - name: Setup Rust toolchain
+        run: rustup toolchain install
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-all-crates: "true"
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features --workspace -- -D warnings
+
+  clippy-android:
+    name: Clippy (Android)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install
+          rustup target add aarch64-linux-android
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-all-crates: "true"
+
+      - name: Clippy
+        run: |
+          export CC_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
+          export CXX_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++"
+          export AR_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+          export RANLIB_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+          cargo clippy --all-targets --all-features --workspace \
+            --target aarch64-linux-android -- \
+            -D warnings -A clippy::missing_const_for_thread_local
+
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare
+        run: |
+          sudo apt-get update
+          sudo apt-get install librust-alsa-sys-dev libglib2.0-dev libasound2t64 libatk-adaptor libgail-common libgtk-3-dev
+
+      - name: Setup Rust toolchain
+        run: rustup toolchain install
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-all-crates: "true"
+
+      - name: Format
+        run: cargo fmt --all --check
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare
+        run: |
+          sudo apt-get update
+          sudo apt-get install librust-alsa-sys-dev libglib2.0-dev libasound2t64 libatk-adaptor libgail-common libgtk-3-dev
+
+      - name: Setup Rust toolchain
+        run: rustup toolchain install
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+          cache-all-crates: "true"
+
+      - name: Run tests
+        run: cargo test --all
