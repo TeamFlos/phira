@@ -17,6 +17,7 @@ use crate::{
 use anyhow::{anyhow, Error, Result};
 use inputbox::InputBox;
 use macroquad::prelude::*;
+#[cfg(target_env = "ohos")]
 use napi_derive_ohos::napi;
 use prpr::{
     ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
