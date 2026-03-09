@@ -373,13 +373,13 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: JNIEn
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(mut env: JNIEnv, _: *const JClass, path: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(mut env: JNIEnv, _: JClass, path: JString) {
     *DATA_PATH.lock().unwrap() = Some(string_from_java(&mut env, path));
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(mut env: JNIEnv, _: *const JClass, path: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(mut env: JNIEnv, _: JClass, path: JString) {
     let path = string_from_java(&mut env, path);
     std::env::set_var("TMPDIR", path.clone());
     *CACHE_DIR.lock().unwrap() = Some(path);

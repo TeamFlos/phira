@@ -2046,28 +2046,7 @@ impl Scene for SongScene {
             self.upload_task = Some(Task::new(async move {
                 let root = format!("{}/{path}", dir::charts()?);
                 let root = Path::new(&root);
-                let chart_bytes = {
-                    let mut bytes = Vec::new();
-                    let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
-                    let options = SimpleFileOptions::default()
-                        .compression_method(CompressionMethod::Deflated)
-                        .unix_permissions(0o755);
-                    #[allow(deprecated)]
-                    for entry in WalkDir::new(root) {
-                        let entry = entry?;
-                        let path = entry.path();
-                        let name = path.strip_prefix(root)?;
-                        if path.is_file() {
-                            zip.start_file_from_path(name, options)?;
-                            let mut f = File::open(path)?;
-                            std::io::copy(&mut f, &mut zip)?;
-                        } else if !name.as_os_str().is_empty() {
-                            zip.add_directory_from_path(name, options)?;
-                        }
-                    }
-                    zip.finish()?;
-                    bytes
-                };
+                let chart_bytes = compress_folder(root)?;
                 let file = Client::upload_file("chart.zip", chart_bytes)
                     .await
                     .with_context(|| tl!("upload-chart-failed"))?;
@@ -2589,4 +2568,26 @@ impl Scene for SongScene {
             NextScene::None
         }
     }
+}
+
+pub fn compress_folder(src: &Path) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
+    let options = SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+    for entry in WalkDir::new(src) {
+        let entry = entry?;
+        let path = entry.path();
+        let name = path.strip_prefix(src)?;
+        if path.is_file() {
+            zip.start_file_from_path(name, options)?;
+            let mut f = File::open(path)?;
+            std::io::copy(&mut f, &mut zip)?;
+        } else if !name.as_os_str().is_empty() {
+            zip.add_directory_from_path(name, options)?;
+        }
+    }
+    zip.finish()?;
+    Ok(bytes)
 }

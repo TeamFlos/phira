@@ -99,7 +99,7 @@ pub struct ChartsView {
 
     pub clicked_special: bool,
 
-    allow_edit: bool,
+    pub allow_edit: bool,
     editing_chart: Option<usize>,
     chart_menu: Popup,
     need_show_chart_menu: bool,
@@ -132,13 +132,7 @@ impl ChartsView {
 
             allow_edit: false,
             editing_chart: None,
-            chart_menu: Popup::new().with_options(vec![
-                tl!("select").into_owned(),
-                tl!("move-to-first").into_owned(),
-                tl!("move-to-last").into_owned(),
-                tl!("move-before").into_owned(),
-                tl!("move-after").into_owned(),
-            ]),
+            chart_menu: Popup::new(),
             need_show_chart_menu: false,
             edit_move_state: None,
             movement: None,
@@ -150,7 +144,6 @@ impl ChartsView {
     pub fn allow_edit(&mut self, allow: bool) {
         self.allow_edit = allow;
         if !allow {
-            self.editing_chart = None;
             self.edit_move_state = None;
             self.movement = None;
         }
@@ -302,8 +295,18 @@ impl ChartsView {
                         });
                         return Ok(true);
                     }
-                    if self.allow_edit && item.btn.long_touch(touch, t, &mut item.long_touch) {
+                    if item.btn.long_touch(touch, t, &mut item.long_touch) {
                         self.editing_chart = Some(id);
+                        let mut options = vec![tl!("select").into_owned()];
+                        if self.allow_edit {
+                            options.extend([
+                                tl!("move-to-first").into_owned(),
+                                tl!("move-to-last").into_owned(),
+                                tl!("move-before").into_owned(),
+                                tl!("move-after").into_owned(),
+                            ]);
+                        }
+                        self.chart_menu.set_options(options);
                         self.chart_menu.set_selected(usize::MAX);
                         self.need_show_chart_menu = true;
                         return Ok(true);

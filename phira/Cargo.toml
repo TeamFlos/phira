@@ -28,6 +28,7 @@ bytesize = "2.3.1"
 cacache = { version = "13.1.0", default-features = false, features = [
     "tokio-runtime",
 ] }
+cfg-if = "1.0.4"
 chrono = { workspace = true, features = ["serde"] }
 futures-util = { workspace = true }
 hex = { workspace = true }
@@ -61,6 +62,7 @@ reqwest = { workspace = true, default-features = false, features = [
     "rustls",
     "query",
 ] }
+rfd = { workspace = true }
 semver = { version = "1.0.27", features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

@@ -3,36 +3,39 @@ prpr_l10n::tl_file!("library");
 use super::{CollectionPage, FavoritesPage, NextPage, Page, SharedState};
 use crate::{
     charts_view::{ChartDisplayItem, ChartsView, NEED_UPDATE},
-    client::{Chart, ChartRef, Client, Collection, LocalCollection},
+    client::{recv_raw, Chart, ChartRef, Client, Collection, LocalCollection},
     dir, get_data, get_data_mut,
     icons::Icons,
     page::{favorites::FAV_PAGE_RESULT, ChartItem},
     popup::Popup,
     rate::RateDialog,
     save_data,
-    scene::{check_read_tos_and_policy, confirm_dialog, ChartOrder, JUST_LOADED_TOS},
+    scene::{check_read_tos_and_policy, compress_folder, confirm_dialog, ChartOrder, JUST_LOADED_TOS},
     tabs::{Tabs, TitleFn},
     tags::TagsDialog,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Error, Result};
 use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
     task::Task,
-    ui::{button_hit, DRectButton, RectButton, Ui},
+    ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
 use std::{
     any::Any,
     borrow::Cow,
     cell::RefCell,
-    collections::HashSet,
-    io, mem,
+    collections::{HashMap, HashSet},
+    fs::File,
+    io::{self, BufWriter, Write},
+    mem,
     ops::Deref,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        mpsc, Arc, Mutex,
     },
 };
 use tap::Tap;
@@ -115,6 +118,7 @@ pub struct LibraryPage {
 
     multi_operation_btn: DRectButton,
     multi_operation_menu: Popup,
+    multi_operation_options: Vec<&'static str>,
     need_show_multi_operation_menu: bool,
 
     multi_select_btn: DRectButton,
@@ -123,9 +127,13 @@ pub struct LibraryPage {
 
     multi_select_cancel_btn: DRectButton,
     delete_multi: Arc<AtomicBool>,
+    multi_create_fav_task: Option<Task<Result<(String, Vec<ChartRef>)>>>,
 
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
+
+    export_paths: Option<Vec<String>>,
+    export_task: Option<mpsc::Receiver<Result<()>>>,
 }
 
 impl LibraryPage {
@@ -184,11 +192,8 @@ impl LibraryPage {
             force_sync_to_cloud: Arc::default(),
 
             multi_operation_btn: DRectButton::new(),
-            multi_operation_menu: Popup::new().with_size(0.5).with_options(vec![
-                tl!("multi-export").into_owned(),
-                tl!("multi-create-fav").into_owned(),
-                tl!("multi-delete").into_owned(),
-            ]),
+            multi_operation_menu: Popup::new().with_size(0.5),
+            multi_operation_options: Vec::new(),
             need_show_multi_operation_menu: false,
 
             multi_select_btn: DRectButton::new(),
@@ -199,9 +204,13 @@ impl LibraryPage {
 
             multi_select_cancel_btn: DRectButton::new(),
             delete_multi: Arc::default(),
+            multi_create_fav_task: None,
 
             next_page: None,
             next_page_task: None,
+
+            export_paths: None,
+            export_task: None,
         })
     }
 }
@@ -373,6 +382,66 @@ impl LibraryPage {
     }
 }
 
+struct ExportConfig {
+    file: File,
+    deleter: Box<dyn FnOnce() -> io::Result<()> + Send>,
+}
+
+static EXPORT_CONFIG: Mutex<Option<io::Result<ExportConfig>>> = Mutex::new(None);
+
+fn request_export() {
+    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d%H%M%S"));
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "android")] {
+            unsafe {
+                let env = miniquad::native::attach_jni_env();
+                let ctx = ndk_context::android_context().context();
+                let class = (**env).GetObjectClass.unwrap()(env, ctx);
+                let method =
+                    (**env).GetMethodID.unwrap()(env, class, c"showExportDialog".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
+                let url = std::ffi::CString::new(suggested_name).unwrap();
+                (**env).CallVoidMethod.unwrap()(
+                    env,
+                    ctx,
+                    method,
+                    (**env).NewStringUTF.unwrap()(env, url.as_ptr()),
+                );
+            }
+        } else if #[cfg(target_os = "ios")] {
+            todo!()
+        } else {
+            if let Some(output_path) = rfd::FileDialog::new().set_title(tl!("multi-export-title")).set_file_name(&suggested_name).save_file() {
+                let config = File::create(&output_path).map(|file| ExportConfig {
+                    file,
+                    deleter: Box::new(move || std::fs::remove_file(output_path)),
+                });
+                EXPORT_CONFIG.lock().unwrap().replace(config);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "android")]
+fn delete_uri(java_vm: jni::JavaVM, uri: jni::objects::GlobalRef) {
+    let mut env = java_vm.attach_current_thread().unwrap();
+    let ctx = ndk_context::android_context().context();
+    let ctx = unsafe { jni::objects::JObject::from_raw(ctx as _) };
+    env.call_method(ctx, "deleteUri", "(Landroid/net/Uri;)V", &[(&uri).into()]).unwrap();
+}
+
+#[cfg(target_os = "android")]
+#[export_name = "Java_quad_1native_QuadNative_processExportFd"]
+extern "system" fn process_export_fd(mut env: jni::JNIEnv, _: jni::objects::JClass, uri: jni::objects::JObject, fd: jni::sys::jint) {
+    use std::os::fd::FromRawFd;
+    let java_vm = env.get_java_vm().unwrap();
+    let uri = env.new_global_ref(uri).unwrap();
+    let file = unsafe { File::from_raw_fd(fd as _) };
+    EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
+        file,
+        deleter: Box::new(|| Ok(())),
+    }));
+}
+
 impl Page for LibraryPage {
     fn label(&self) -> Cow<'static, str> {
         tl!("label")
@@ -398,7 +467,7 @@ impl Page for LibraryPage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
-        if self.sync_fav_task.is_some() {
+        if self.sync_fav_task.is_some() || self.export_task.is_some() || self.multi_create_fav_task.is_some() {
             return Ok(true);
         }
         let choose_cover = CHOOSE_COVER.load(Ordering::Relaxed);
@@ -460,6 +529,13 @@ impl Page for LibraryPage {
             ChartListType::Local => {
                 if self.tabs.selected_mut().view.multi_select.is_some() {
                     if self.multi_operation_btn.touch(touch, t) {
+                        let mut options = vec!["multi-export", "multi-create-fav"];
+                        if self.tabs.selected_mut().view.allow_edit {
+                            options.push("multi-delete");
+                        }
+                        self.multi_operation_menu
+                            .set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
+                        self.multi_operation_options = options;
                         self.need_show_multi_operation_menu = true;
                         return Ok(true);
                     }
@@ -630,9 +706,46 @@ impl Page for LibraryPage {
                     show_message(ftl!("name-empty")).error();
                 } else {
                     let charts_view = &mut self.tabs.selected_mut().view;
-                    if let Some(selected) = charts_view.multi_select.take() {
+                    if let Some(mut selected) = charts_view.multi_select.clone() {
+                        self.multi_create_fav_task = Some(Task::new(async move {
+                            let mut ids_str = String::new();
+                            for chart in &selected {
+                                if let ChartRef::Online(id, None) = chart {
+                                    ids_str.push_str(&id.to_string());
+                                    ids_str.push(',');
+                                }
+                            }
+                            if !ids_str.is_empty() {
+                                ids_str.pop();
+                                let resp: Vec<Chart> = recv_raw(Client::get(format!("/chart/multi-get?ids={ids_str}"))).await?.json().await?;
+                                let mut id_to_chart = HashMap::new();
+                                for chart in resp {
+                                    id_to_chart.insert(chart.id, Box::new(chart));
+                                }
+                                for chart in &mut selected {
+                                    if let ChartRef::Online(id, chart_info) = chart {
+                                        if chart_info.is_none() {
+                                            *chart_info = Some(id_to_chart.get(id).cloned().unwrap());
+                                        }
+                                    }
+                                }
+                            }
+                            Ok((text, selected))
+                        }));
+                    }
+                }
+            } else {
+                return_input(id, text);
+            }
+        }
+        if let Some(task) = &mut self.multi_create_fav_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err),
+                    Ok((name, selected)) => {
+                        self.tabs.selected_mut().view.multi_select = None;
                         let data = get_data_mut();
-                        let mut col = LocalCollection::new(text);
+                        let mut col = LocalCollection::new(name);
                         col.charts = selected;
                         data.collections.push(col);
                         let _ = save_data();
@@ -641,8 +754,7 @@ impl Page for LibraryPage {
                         self.sync_local(s);
                     }
                 }
-            } else {
-                return_input(id, text);
+                self.multi_create_fav_task = None;
             }
         }
         if self.delete_multi.swap(false, Ordering::Relaxed) {
@@ -689,14 +801,31 @@ impl Page for LibraryPage {
         if self.multi_operation_menu.changed() {
             let charts_view = &mut self.tabs.selected_mut().view;
             let selected = charts_view.multi_select.as_mut().unwrap();
-            match self.multi_operation_menu.selected() {
-                0 => {
-                    todo!()
+            match self.multi_operation_options[self.multi_operation_menu.selected()] {
+                "multi-export" => {
+                    let charts = dir::charts()?;
+                    let mut paths = Vec::with_capacity(selected.len());
+                    let mut non_existent = Vec::new();
+                    for chart in selected {
+                        let path: PathBuf = format!("{charts}/{}", chart.local_path()).into();
+                        if !path.exists() {
+                            let mut charts = charts_view.charts.as_ref().unwrap().iter().filter_map(|it| it.chart.as_ref());
+                            non_existent.push(charts.find(|it| &it.to_ref() == chart).unwrap().info.name.clone());
+                        } else {
+                            paths.push(chart.local_path().into_owned());
+                        }
+                    }
+                    if !non_existent.is_empty() {
+                        Dialog::simple(tl!("multi-export-no-file", "charts" => non_existent.join(", "))).show();
+                    } else {
+                        self.export_paths = Some(paths);
+                        request_export();
+                    }
                 }
-                1 => {
+                "multi-create-fav" => {
                     request_input("new_fav", InputBox::new());
                 }
-                2 => {
+                "multi-delete" => {
                     confirm_dialog(ttl!("del-confirm"), tl!("multi-delete-confirm", "count" => selected.len()), self.delete_multi.clone());
                 }
                 _ => {}
@@ -788,6 +917,59 @@ impl Page for LibraryPage {
             if let Some(index) = self.current_fav_index {
                 if let Some(task) = FavoritesPage::sync_to_cloud_task(index, true) {
                     self.sync_fav_task = Some(task);
+                }
+            }
+        }
+        if let Some(config) = EXPORT_CONFIG.lock().unwrap().take() {
+            fn export_inner(paths: Vec<String>, output: File) -> Result<()> {
+                let charts = dir::charts()?;
+                let mut zip = zip::ZipWriter::new(BufWriter::new(output));
+                let options = zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Deflated)
+                    .unix_permissions(0o755);
+                for name in paths {
+                    zip.start_file(format!("{name}.zip"), options)?;
+                    let chart_bytes = compress_folder(Path::new(&format!("{charts}/{name}")))?;
+                    zip.write_all(&chart_bytes)?;
+                }
+                zip.finish()?;
+                Ok(())
+            }
+
+            match config {
+                Err(err) => show_error(err.into()),
+                Ok(config) => {
+                    if let Some(paths) = self.export_paths.take() {
+                        let (tx, rx) = mpsc::sync_channel(1);
+                        std::thread::spawn(move || {
+                            let result = export_inner(paths, config.file);
+                            if result.is_err() {
+                                if let Err(err) = (config.deleter)() {
+                                    warn!("failed to delete export file: {:?}", err);
+                                }
+                            }
+                            let _ = tx.send(result);
+                        });
+                        self.export_task = Some(rx);
+                    }
+                }
+            }
+        }
+        if let Some(rx) = &mut self.export_task {
+            match rx.try_recv() {
+                Ok(Err(err)) => {
+                    show_error(err.into());
+                    self.export_task = None;
+                }
+                Ok(Ok(())) => {
+                    show_message(tl!("multi-exported")).ok();
+                    self.tabs.selected_mut().view.multi_select = None;
+                    self.export_task = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    show_error(Error::msg("Export thread panicked"));
+                    self.export_task = None;
                 }
             }
         }
@@ -993,7 +1175,13 @@ impl Page for LibraryPage {
         self.tags.render(ui, t);
         self.rating.render(ui, t);
         if self.sync_fav_task.is_some() {
-            ui.full_loading("", t);
+            ui.full_loading_simple(t);
+        }
+        if self.export_task.is_some() {
+            ui.full_loading(tl!("multi-exporting"), t);
+        }
+        if self.multi_create_fav_task.is_some() {
+            ui.full_loading_simple(t);
         }
         Ok(())
     }

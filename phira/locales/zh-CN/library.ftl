@@ -32,6 +32,11 @@ multi-delete = 删除
 multi-delete-confirm = 确定要删除 { $count } 个谱面吗？此操作无法撤销。
 multi-deleted = 已删除
 
+multi-export-title = 选择导出位置
+multi-export-no-file = 请在导出前下载全部谱面。未下载：{ $charts }
+multi-exporting = 导出中
+multi-exported = 已导出
+
 multi-select-all = 全选
 multi-select-invert = 反选
 

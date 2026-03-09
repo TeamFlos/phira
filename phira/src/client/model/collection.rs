@@ -36,7 +36,7 @@ impl Object for Collection {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ChartRef {
     Online(i32, Option<Box<Chart>>),

@@ -32,6 +32,11 @@ multi-delete = Delete
 multi-delete-confirm = Are you sure you want to delete { $count } charts? This action cannot be undone.
 multi-deleted = Deleted
 
+multi-export-title = Select export location
+multi-export-no-file = Please download all charts before exporting. Missing: { $charts }
+multi-exporting = Exporting
+multi-exported = Exported
+
 multi-select-all = Select All
 multi-select-invert = Invert Selection
 
