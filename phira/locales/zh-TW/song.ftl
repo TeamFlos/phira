@@ -47,7 +47,7 @@ edit-upload = 上傳
 edit-update = 更新
 
 warn = 警告
-cancel-not-saved = 譜面資訊尚未儲存，確定要取消變更嗎？
+cancel-not-saved = 譜面資訊尚未儲存，確定要還原變更嗎？
 upload-not-saved = 你尚未儲存譜面，確定要繼續上傳嗎？
 upload-login-first = 請先登入
 upload-builtin = 不能上傳內建譜面
