@@ -70,6 +70,11 @@ impl ChartList {
     }
 }
 
+struct CreateFavorite {
+    name: String,
+    charts: Vec<ChartRef>,
+}
+
 type OnlineTaskResult = (Vec<ChartDisplayItem>, Vec<Chart>, u64);
 type OnlineTask = Task<Result<OnlineTaskResult>>;
 
@@ -127,7 +132,7 @@ pub struct LibraryPage {
 
     multi_select_cancel_btn: DRectButton,
     delete_multi: Arc<AtomicBool>,
-    multi_create_fav_task: Option<Task<Result<(String, Vec<ChartRef>)>>>,
+    multi_create_fav_task: Option<Task<Result<CreateFavorite>>>,
 
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
@@ -735,7 +740,7 @@ impl Page for LibraryPage {
                                     }
                                 }
                             }
-                            Ok((text, selected))
+                            Ok(CreateFavorite { name: text, charts: selected })
                         }));
                     }
                 }
@@ -747,11 +752,11 @@ impl Page for LibraryPage {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => show_error(err),
-                    Ok((name, selected)) => {
+                    Ok(result) => {
                         self.tabs.selected_mut().view.multi_select = None;
                         let data = get_data_mut();
-                        let mut col = LocalCollection::new(name);
-                        col.charts = selected;
+                        let mut col = LocalCollection::new(result.name);
+                        col.charts = result.charts;
                         data.push_collection(col)?;
                         let _ = save_data();
                         show_message(tl!("fav-created")).ok();
