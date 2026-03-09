@@ -172,10 +172,7 @@ pub fn request_input(id: impl Into<String>, config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     cfg_if! {
         if #[cfg(target_os = "ios")] {
-            let view_ctrl = unsafe {
-                objc2::rc::Retained::retain(*miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap() as *mut _).unwrap()
-            };
-            show_inputbox(config, &inputbox::backend::IOS::new(&view_ctrl));
+            show_inputbox(config, &inputbox::backend::IOS::new());
         } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
