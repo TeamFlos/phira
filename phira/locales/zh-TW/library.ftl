@@ -35,7 +35,7 @@ multi-deleted = 已刪除
 
 multi-export-title = 選擇匯出位置
 multi-export-no-file = 請在匯出前下載所有選中的譜面。未下載：{ $charts }
-multi-exporting = 匯出中…
+multi-exporting = 匯出中 ({ $current } / { $total })
 multi-exported = 已匯出
 
 multi-select-all = 選取全部
