@@ -42,7 +42,7 @@ use tracing::{error, info};
 
 #[cfg(target_os = "android")]
 use jni::{
-    objects::{JClass, JObject, JString},
+    objects::{JClass, JString},
     sys::jint,
     JNIEnv,
 };
@@ -349,8 +349,10 @@ fn string_from_java(env: &mut JNIEnv, s: JString) -> String {
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_initializeContext2(mut env: JNIEnv, _: JClass, context: JObject) {
-    inputbox::backend::Android::set_android_activity(&mut env, &context).unwrap();
+pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: JNIEnv, _: JClass) {
+    unsafe {
+        inputbox::backend::Android::initialize_raw(env.get_raw() as _).unwrap();
+    }
 }
 
 #[cfg(target_os = "android")]
