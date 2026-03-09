@@ -19,14 +19,22 @@ where
             fields: Vec<(&'static str, String)>,
         }
         impl Visit for Visitor {
+            fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+                if field.name() == "message" {
+                    self.message = Some(value.to_string());
+                } else if !field.name().starts_with("log.") {
+                    self.fields.push((field.name(), value.to_string()));
+                } else if field.name() == "log.target" {
+                    self.target = Some(value.to_string());
+                }
+            }
+
             fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
                 let val = format!("{value:?}");
                 if field.name() == "message" {
                     self.message = Some(val);
                 } else if !field.name().starts_with("log.") {
                     self.fields.push((field.name(), val));
-                } else if field.name() == "log.target" {
-                    self.target = Some(val);
                 }
             }
         }
@@ -35,6 +43,10 @@ where
         event.record(&mut v);
 
         let meta = event.metadata();
+        let target = v.target.as_deref().unwrap_or_else(|| meta.target());
+        if target.starts_with("jni::") && meta.level() >= &Level::INFO {
+            return;
+        }
 
         #[cfg(not(target_os = "android"))]
         let mut msg = format!("{:.6?} ", chrono::Utc::now()).bright_black().to_string()
@@ -51,10 +63,6 @@ where
         #[cfg(target_os = "android")]
         let mut msg = String::new();
 
-        let target = v.target.as_deref().unwrap_or_else(|| meta.target());
-        if target.starts_with("jni::") && meta.level() >= &Level::INFO {
-            return;
-        }
         msg += &target.bright_black().to_string();
         if !v.fields.is_empty() {
             msg += &"{".bold().to_string();
