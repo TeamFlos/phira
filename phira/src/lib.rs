@@ -173,19 +173,11 @@ async fn the_main() -> Result<()> {
     let _guard = rt.enter();
 
     #[cfg(target_os = "ios")]
-    unsafe {
-        use prpr::objc::*;
-        #[allow(improper_ctypes)]
-        extern "C" {
-            pub fn NSSearchPathForDirectoriesInDomains(
-                directory: std::os::raw::c_ulong,
-                domain_mask: std::os::raw::c_ulong,
-                expand_tilde: bool,
-            ) -> *mut NSArray<*mut NSString>;
-        }
-        let directories = NSSearchPathForDirectoriesInDomains(5, 1, true);
-        let first: &mut NSString = msg_send![directories, firstObject];
-        let path = first.as_str().to_owned();
+    {
+        use objc2_foundation::{NSSearchPathDirectory, NSSearchPathDomainMask, NSSearchPathForDirectoriesInDomains};
+
+        let directories = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory::LibraryDirectory, NSSearchPathDomainMask::UserDomainMask, true);
+        let path = directories.firstObject().unwrap().to_string();
         *DATA_PATH.lock().unwrap() = Some(path);
         *CACHE_DIR.lock().unwrap() = Some("Caches".to_owned());
     }

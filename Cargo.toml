@@ -30,7 +30,7 @@ futures-util = "0.3.31"
 hex = "0.4.3"
 image = { version = "0.25.9", default-features = false }
 # inputbox = "0.0.1"
-inputbox = { git = "https://github.com/Mivik/inputbox.git", rev = "72d47a5" }
+inputbox = { git = "https://github.com/Mivik/inputbox.git", rev = "910c465" }
 lru = "0.16.3"
 lyon = "1.0.16"
 nalgebra = "0.34.1"
@@ -50,6 +50,12 @@ tracing = "0.1.44"
 uuid = "1.20.0"
 walkdir = "2.5.0"
 zip = { version = "7.2.0", default-features = false }
+
+objc2 = "0.6.4"
+objc2-core-foundation = "0.3.2"
+objc2-foundation = "0.3.2"
+objc2-ui-kit = "0.3.2"
+objc2-uniform-type-identifiers = "0.3.2"
 
 macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "039f957", default-features = false }
 miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "dc26ae9" }

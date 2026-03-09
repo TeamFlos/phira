@@ -171,9 +171,7 @@ fn show_inputbox(config: InputBox, backend: &dyn Backend) {
 pub fn request_input(id: impl Into<String>, config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     cfg_if! {
-        if #[cfg(target_os = "ios")] {
-            show_inputbox(config, &inputbox::backend::IOS::new());
-        } else if #[cfg(target_env = "ohos")] {
+        if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
         } else {
             show_inputbox(config, &*default_backend());
@@ -203,72 +201,92 @@ pub fn request_file(id: impl Into<String>) {
                 (**env).CallVoidMethod.unwrap()(env, ctx, method);
             }
         } else if #[cfg(target_os = "ios")] {
-            use once_cell::sync::Lazy;
-            unsafe {
-                use crate::objc::*;
-                static PICKER_DELEGATE: Lazy<u64> = Lazy::new(|| unsafe {
-                    let mut decl = ClassDecl::new("PickerDelegate", class!(NSObject)).unwrap();
-                    extern "C" fn document_picker(_: &Object, _: Sel, _: ObjcId, documents: ObjcId) {
-                        unsafe {
-                            let url: ObjcId = msg_send![documents, firstObject];
-                            let need_close: bool = msg_send![url, startAccessingSecurityScopedResource];
-                            let mut error: ObjcId = std::ptr::null_mut();
-                            let data: ObjcId = msg_send![class!(NSData), dataWithContentsOfURL: url options: 2 error: &mut error as *mut ObjcId];
-                            if need_close {
-                                let _: () = msg_send![url, stopAccessingSecurityScopedResource];
+            use objc2::{available, define_class, rc::Retained, runtime::ProtocolObject, MainThreadMarker, MainThreadOnly};
+            use objc2_foundation::{NSArray, NSObject, NSObjectProtocol, NSString, NSURL};
+            use objc2_ui_kit::{UIDocumentPickerDelegate, UIDocumentPickerViewController};
+
+            define_class! {
+                // SAFETY:
+                // - The superclass NSObject does not have any subclassing requirements.
+                // - `Delegate` does not implement `Drop`.
+                #[unsafe(super = NSObject)]
+                #[thread_kind = MainThreadOnly]
+                struct PickerDelegate;
+
+                // SAFETY: `NSObjectProtocol` has no safety requirements.
+                unsafe impl NSObjectProtocol for PickerDelegate {}
+
+                // SAFETY: `UIDocumentPickerDelegate` has no safety requirements.
+                unsafe impl UIDocumentPickerDelegate for PickerDelegate {
+                    // SAFETY: The signature is correct.
+                    #[unsafe(method(documentPicker:didPickDocumentsAtURLs:))]
+                    fn did_pick_documents_at_urls(&self, controller: &UIDocumentPickerViewController, urls: &NSArray<NSURL>) {
+                        use objc2_foundation::{NSData, NSDataReadingOptions, NSTemporaryDirectory};
+
+                        let url = urls.firstObject().unwrap();
+                        let need_close = unsafe { url.startAccessingSecurityScopedResource() };
+
+                        let data = match NSData::dataWithContentsOfURL_options_error(&url, NSDataReadingOptions::Uncached) {
+                            Ok(data) => data,
+                            Err(err) => {
+                                let message = err.localizedDescription().to_string();
+                                show_error(Error::msg(message).context(ttl!("read-file-failed")));
+                                return;
                             }
-                            if data.is_null() {
-                                show_message(ttl!("read-file-failed")).error();
-                                if !error.is_null() {
-                                    let msg: *const NSString = msg_send![error, localizedDescription];
-                                    show_error(Error::msg((*msg).as_str()).context(ttl!("read-file-failed")));
-                                }
-                            } else {
-                                extern "C" {
-                                    #[allow(improper_ctypes)]
-                                    pub fn NSTemporaryDirectory() -> *mut NSString;
-                                }
-                                let dir = NSTemporaryDirectory();
-                                let uuid: ObjcId = msg_send![class!(NSUUID), UUID];
-                                let uuid: *mut NSString = msg_send![uuid, UUIDString];
-                                let path = format!("{}{}", (*dir).as_str(), (*uuid).as_str());
-                                let _: () = msg_send![data, writeToFile: str_to_ns(&path) atomically: YES];
-                                CHOSEN_FILE.lock().unwrap().1 = Some(path);
-                            }
+                        };
+                        if need_close {
+                            unsafe { url.stopAccessingSecurityScopedResource() };
                         }
+
+                        let dir = NSTemporaryDirectory();
+                        let path = format!("{}{}", dir.to_string(), uuid::Uuid::new_v4().to_string());
+                        data.writeToFile_atomically(&NSString::from_str(&path), true);
+                        CHOSEN_FILE.lock().unwrap().1 = Some(path);
                     }
-                    decl.add_method(sel!(documentPicker: didPickDocumentsAtURLs:), document_picker as extern "C" fn(&Object, Sel, ObjcId, ObjcId));
-                    decl.register() as *const _ as _
-                });
-
-                let picker: ObjcId = msg_send![class!(UIDocumentPickerViewController), alloc];
-                let picker: ObjcId = if available("14.0.0") {
-                    let tp_cls = class!(UTType);
-                    let ext = |e: &str| {
-                        let tp: ObjcId = msg_send![tp_cls, typeWithFilenameExtension: str_to_ns(e)];
-                        std::mem::transmute::<_, ShareId<NSObject>>(ShareId::from_ptr(tp))
-                    };
-                    let types = NSArray::from_slice(&[ext("zip"), ext("pez"), ext("jpg"), ext("png"), ext("jpeg"), ext("json"), ext("mp3"), ext("ogg")]);
-                    let types: ObjcId = std::mem::transmute(types);
-                    msg_send![picker, initForOpeningContentTypes: types]
-                } else {
-                    let ext = |e: &str| str_to_ns(e);
-                    let types = NSArray::from_vec(vec![ext("public.image"), ext("public.archive")]);
-                    let types: ObjcId = std::mem::transmute(types);
-                    msg_send![picker, initWithDocumentTypes: types inMode: 0]
-                };
-                let dlg_obj: ObjcId = msg_send![*PICKER_DELEGATE as ObjcId, alloc];
-                let dlg_obj: ObjcId = msg_send![dlg_obj, init];
-                let _: () = msg_send![picker, setDelegate: dlg_obj];
-
-                let view_ctrl = *miniquad::native::ios::VIEW_CTRL_OBJ.lock().unwrap();
-                let _: () = msg_send![
-                    view_ctrl as ObjcId,
-                    presentViewController: picker
-                    animated: runtime::YES
-                    completion: 0 as ObjcId
-                ];
+                }
             }
+
+            impl PickerDelegate {
+                fn new(mtm: MainThreadMarker) -> Retained<Self> {
+                    let this = Self::alloc(mtm).set_ivars(());
+                    unsafe { objc2::msg_send![super(this), init] }
+                }
+            }
+
+            let mtm = MainThreadMarker::new().unwrap();
+
+            let picker = UIDocumentPickerViewController::alloc(mtm);
+            let picker = if available!(ios = 14.0.0) {
+                use objc2_uniform_type_identifiers::UTType;
+
+                let ext = |e: &str| UTType::typeWithFilenameExtension(&NSString::from_str(e)).unwrap();
+                let types = NSArray::from_retained_slice(&[
+                    ext("zip"),
+                    ext("pez"),
+                    ext("jpg"),
+                    ext("png"),
+                    ext("jpeg"),
+                    ext("json"),
+                    ext("mp3"),
+                    ext("ogg"),
+                ]);
+                UIDocumentPickerViewController::initForOpeningContentTypes(picker, &types)
+            } else {
+                #[allow(deprecated)]
+                {
+                    use objc2_ui_kit::UIDocumentPickerMode;
+
+                    let ext = NSString::from_str;
+                    let types = NSArray::from_retained_slice(&[ext("public.image"), ext("public.archive")]);
+                    UIDocumentPickerViewController::initWithDocumentTypes_inMode(picker, &types, UIDocumentPickerMode::Import)
+                }
+            };
+            let dlg_obj = PickerDelegate::new(mtm);
+            picker.setDelegate(Some(ProtocolObject::from_ref(&*dlg_obj)));
+
+            inputbox::backend::IOS::get_top_view_controller(mtm)
+                .unwrap()
+                .presentViewController_animated_completion(&picker, true, None);
         } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(r#"{"action": "chooseFile"}"#.to_string());
         } else { // desktop

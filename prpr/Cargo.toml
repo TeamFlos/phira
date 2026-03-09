@@ -72,6 +72,7 @@ tempfile = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.22", optional = true }
 unic-langid = { version = "0.9.6", features = ["macros"] }
+uuid = { workspace = true, features = ["v4"] }
 zip = { workspace = true, default-features = false, features = ["deflate"] }
 
 macroquad = { workspace = true, default-features = false }
@@ -84,11 +85,10 @@ open = "5.3.3"
 rfd = "0.17.2"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-block = "0.1.6"
-objc = "*"
-objc2 = "0.6.4"
-objc_id = "*"
-objc-foundation = "0.1.1"
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-ui-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"] }
+objc2-uniform-type-identifiers = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21.1"

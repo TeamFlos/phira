@@ -78,11 +78,7 @@ fn get_uptime() -> f64 {
 
 #[cfg(target_os = "ios")]
 fn get_uptime() -> f64 {
-    use crate::objc::*;
-    unsafe {
-        let process_info: ObjcId = msg_send![class!(NSProcessInfo), processInfo];
-        msg_send![process_info, systemUptime]
-    }
+    objc2_foundation::NSProcessInfo::processInfo().systemUptime()
 }
 
 #[cfg(target_os = "windows")]
