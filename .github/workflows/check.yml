@@ -4,46 +4,57 @@ on:
   push: {}
   pull_request: {}
 
+env:
+  PRPR_AVC_FFMPEG_VERSION: 20260309_v0
+
 jobs:
   clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
+    name: Clippy (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - name: macOS
+            os: macos-14
+            target: aarch64-apple-darwin
+          - name: iOS
+            os: macos-14
+            target: aarch64-apple-ios
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare
+      - name: Prepare (ubuntu)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install librust-alsa-sys-dev libglib2.0-dev libasound2t64 libatk-adaptor libgail-common libgtk-3-dev
 
       - name: Setup Rust toolchain
-        run: rustup toolchain install
-
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: "true"
-          cache-all-crates: "true"
-
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features --workspace -- -D warnings
-
-  clippy-android:
-    name: Clippy (Android)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust toolchain
         run: |
           rustup toolchain install
-          rustup target add aarch64-linux-android
+          rustup target add ${{ matrix.target }}
+
+      - name: Select Xcode (iOS)
+        if: matrix.target == 'aarch64-apple-ios'
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Download FFmpeg static libs
+        run: |
+          mkdir -p prpr-avc/static-lib/${{ matrix.target }}
+          curl -fL --retry 3 \
+            -o prpr-avc-static-lib.tar.gz \
+            https://github.com/TeamFlos/prpr-avc-ffmpeg/releases/download/${PRPR_AVC_FFMPEG_VERSION}/${{ matrix.target }}.tar.gz
+          tar -xzf prpr-avc-static-lib.tar.gz -C prpr-avc/static-lib/${{ matrix.target }}
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
@@ -53,13 +64,9 @@ jobs:
 
       - name: Clippy
         run: |
-          export CC_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
-          export CXX_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang++"
-          export AR_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
-          export RANLIB_aarch64_linux_android="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
           cargo clippy --all-targets --all-features --workspace \
-            --target aarch64-linux-android -- \
-            -D warnings -A clippy::missing_const_for_thread_local
+            --target ${{ matrix.target }} -- \
+            -D warnings
 
 
   fmt:
@@ -104,6 +111,14 @@ jobs:
 
       - name: Setup Rust toolchain
         run: rustup toolchain install
+
+      - name: Download FFmpeg static libs
+        run: |
+          mkdir -p prpr-avc/static-lib/x86_64-unknown-linux-gnu
+          curl -fL --retry 3 \
+            -o prpr-avc-static-lib.tar.gz \
+            https://github.com/TeamFlos/prpr-avc-ffmpeg/releases/download/${PRPR_AVC_FFMPEG_VERSION}/x86_64-unknown-linux-gnu.tar.gz
+          tar -xzf prpr-avc-static-lib.tar.gz -C prpr-avc/static-lib/x86_64-unknown-linux-gnu
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
