@@ -34,7 +34,7 @@ multi-deleted = Deleted
 
 multi-export-title = Select export location
 multi-export-no-file = Please download all charts before exporting. Missing: { $charts }
-multi-exporting = Exporting
+multi-exporting = Exporting ({ $current } / { $total })
 multi-exported = Exported
 
 multi-select-all = Select All

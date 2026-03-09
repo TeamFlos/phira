@@ -34,7 +34,7 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         mpsc, Arc, Mutex,
     },
 };
@@ -134,6 +134,8 @@ pub struct LibraryPage {
 
     export_paths: Option<Vec<String>>,
     export_task: Option<mpsc::Receiver<Result<()>>>,
+    export_progress: Arc<AtomicU32>,
+    export_total: usize,
 }
 
 impl LibraryPage {
@@ -211,6 +213,8 @@ impl LibraryPage {
 
             export_paths: None,
             export_task: None,
+            export_progress: Arc::default(),
+            export_total: 0,
         })
     }
 }
@@ -927,16 +931,17 @@ impl Page for LibraryPage {
             }
         }
         if let Some(config) = EXPORT_CONFIG.lock().unwrap().take() {
-            fn export_inner(paths: Vec<String>, output: File) -> Result<()> {
+            fn export_inner(paths: Vec<String>, output: File, progress: Arc<AtomicU32>) -> Result<()> {
                 let charts = dir::charts()?;
                 let mut zip = zip::ZipWriter::new(BufWriter::new(output));
                 let options = zip::write::SimpleFileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored)
                     .unix_permissions(0o755);
-                for name in paths {
+                for (i, name) in paths.iter().enumerate() {
                     zip.start_file(format!("{name}.zip"), options)?;
                     let chart_bytes = compress_folder(Path::new(&format!("{charts}/{name}")))?;
                     zip.write_all(&chart_bytes)?;
+                    progress.store(i as u32 + 1, Ordering::Relaxed);
                 }
                 zip.finish()?;
                 Ok(())
@@ -946,9 +951,12 @@ impl Page for LibraryPage {
                 Err(err) => show_error(err.into()),
                 Ok(config) => {
                     if let Some(paths) = self.export_paths.take() {
+                        self.export_total = paths.len();
                         let (tx, rx) = mpsc::sync_channel(1);
+                        let progress = self.export_progress.clone();
+                        progress.store(0, Ordering::SeqCst);
                         std::thread::spawn(move || {
-                            let result = export_inner(paths, config.file);
+                            let result = export_inner(paths, config.file, progress);
                             if result.is_err() {
                                 if let Err(err) = (config.deleter)() {
                                     warn!("failed to delete export file: {:?}", err);
@@ -1190,7 +1198,9 @@ impl Page for LibraryPage {
             ui.full_loading_simple(t);
         }
         if self.export_task.is_some() {
-            ui.full_loading(tl!("multi-exporting"), t);
+            let current = self.export_progress.load(Ordering::Relaxed);
+            let total = self.export_total;
+            ui.full_loading(tl!("multi-exporting", "current" => current, "total" => total), t);
         }
         if self.multi_create_fav_task.is_some() {
             ui.full_loading_simple(t);
