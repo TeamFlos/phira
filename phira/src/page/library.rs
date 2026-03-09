@@ -455,6 +455,7 @@ extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, 
     }));
 }
 
+#[cfg(target_env = "ohos")]
 #[napi]
 fn process_export_fd_ohos(fd: u32) {
     use std::os::fd::FromRawFd;
