@@ -205,6 +205,10 @@ pub fn request_file(id: impl Into<String>) {
             use objc2_foundation::{NSArray, NSObject, NSObjectProtocol, NSString, NSURL};
             use objc2_ui_kit::{UIDocumentPickerDelegate, UIDocumentPickerViewController};
 
+            thread_local! {
+                static DELEGATE: RefCell<Option<Retained<PickerDelegate>>> = const { RefCell::new(None) };
+            }
+
             define_class! {
                 // SAFETY:
                 // - The superclass NSObject does not have any subclassing requirements.
@@ -283,6 +287,7 @@ pub fn request_file(id: impl Into<String>) {
             };
             let dlg_obj = PickerDelegate::new(mtm);
             picker.setDelegate(Some(ProtocolObject::from_ref(&*dlg_obj)));
+            DELEGATE.with(|it| *it.borrow_mut() = Some(dlg_obj));
 
             inputbox::backend::IOS::get_top_view_controller(mtm)
                 .unwrap()
