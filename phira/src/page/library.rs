@@ -17,6 +17,7 @@ use crate::{
 use anyhow::{anyhow, Error, Result};
 use inputbox::InputBox;
 use macroquad::prelude::*;
+use napi_derive_ohos::napi;
 use prpr::{
     ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
@@ -418,6 +419,8 @@ fn request_export() {
             }
         } else if #[cfg(target_os = "ios")] {
             todo!()
+        } else if #[cfg(target_env = "ohos")]{
+            miniquad::native::call_request_callback(format!("{{\"action\":\"request_export\",\"filename\":\"{}\"}}", suggested_name));
         } else {
             if let Some(output_path) = rfd::FileDialog::new().set_title(tl!("multi-export-title")).set_file_name(&suggested_name).save_file() {
                 let config = File::create(&output_path).map(|file| ExportConfig {
@@ -448,6 +451,16 @@ extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, 
     EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
         file,
         deleter: Box::new(|| Ok(delete_uri(java_vm, uri))),
+    }));
+}
+
+#[napi]
+fn process_export_fd_ohos(fd: u32) {
+    use std::os::fd::FromRawFd;
+    let file = unsafe { File::from_raw_fd(fd as _) };
+    EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
+        file,
+        deleter: Box::new(|| Ok(())),
     }));
 }
 

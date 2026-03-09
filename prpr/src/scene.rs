@@ -170,19 +170,7 @@ fn show_inputbox(config: InputBox, backend: &dyn Backend) {
 #[inline]
 pub fn request_input(id: impl Into<String>, mut config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
-    if config.title.is_none() {
-        config = config.title(ttl!("input"));
-    }
-    if config.prompt.is_none() {
-        config = config.prompt(ttl!("input-msg"));
-    }
-    cfg_if! {
-        if #[cfg(target_env = "ohos")] {
-            miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
-        } else {
-            show_inputbox(config, &*default_backend());
-        }
-    }
+    show_inputbox(config, &*default_backend());
 }
 
 pub fn take_input() -> Option<(String, String)> {

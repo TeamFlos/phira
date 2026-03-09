@@ -1696,12 +1696,14 @@ dependencies = [
 [[package]]
 name = "inputbox"
 version = "0.0.1"
-source = "git+https://github.com/Mivik/inputbox.git?rev=910c465#910c4652ec23fd4eb69f545b6823fce17b7dde3c"
+source = "git+https://github.com/Mivik/inputbox.git?rev=f41dc19#f41dc19684ee13002e4f69a7d39e863a2bb149cd"
 dependencies = [
  "block2",
  "cfg-if",
  "jni 0.22.3",
  "log",
+ "napi-derive-ohos",
+ "napi-ohos",
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
