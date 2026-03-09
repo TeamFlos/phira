@@ -551,13 +551,15 @@ pub fn open_url(url: &str) -> Result<()> {
             }
         } else if #[cfg(target_os = "ios")] {
             use objc2::MainThreadMarker;
-            use objc2_foundation::{NSString, NSURL};
+            use objc2_foundation::{NSString, NSURL, NSDictionary};
             use objc2_ui_kit::UIApplication;
 
             let mtm = MainThreadMarker::new().unwrap();
             let url = NSURL::URLWithString(&NSString::from_str(url)).unwrap();
-            #[allow(deprecated)]
-            UIApplication::sharedApplication(mtm).openURL(&url);
+            // SAFETY: options are empty
+            unsafe {
+                UIApplication::sharedApplication(mtm).openURL_options_completionHandler(&url, &NSDictionary::new(), None);
+            }
         } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(format!("{{\"action\":\"openurl\",\"payload\":\"{}\"}}", url));
         }
