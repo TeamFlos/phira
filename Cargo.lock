@@ -1694,7 +1694,7 @@ dependencies = [
 [[package]]
 name = "inputbox"
 version = "0.0.1"
-source = "git+https://github.com/Mivik/inputbox.git?rev=e1e0f76#e1e0f760d9645914f1d93f6b0c1fb4e345b77daa"
+source = "git+https://github.com/Mivik/inputbox.git?rev=72d47a5#72d47a52f5b21fd102ebc593fd9587f8b32caf43"
 dependencies = [
  "block2",
  "cfg-if",
