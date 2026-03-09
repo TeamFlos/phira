@@ -1180,6 +1180,12 @@ impl Page for LibraryPage {
         self.multi_operation_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
         self.rating.render(ui, t);
+        Ok(())
+    }
+
+    fn render_top(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
+        let t = s.t;
+        self.tabs.selected_mut().view.render_top(ui, t);
         if self.sync_fav_task.is_some() {
             ui.full_loading_simple(t);
         }
@@ -1189,11 +1195,6 @@ impl Page for LibraryPage {
         if self.multi_create_fav_task.is_some() {
             ui.full_loading_simple(t);
         }
-        Ok(())
-    }
-
-    fn render_top(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
-        self.tabs.selected_mut().view.render_top(ui, s.t);
         Ok(())
     }
 
