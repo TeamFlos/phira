@@ -20,7 +20,7 @@ use crate::{
     tags::TagsDialog,
 };
 use ::rand::{thread_rng, Rng};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use core::f32;
@@ -521,7 +521,7 @@ impl SongScene {
     fn start_download(&mut self) -> Result<()> {
         let chart = self.info.clone();
         let Some(entity) = self.entity.clone() else {
-            show_message(anyhow!(tl!("still-loading")));
+            show_message(tl!("still-loading")).error();
             return Ok(());
         };
         self.loading_last = 0.;
