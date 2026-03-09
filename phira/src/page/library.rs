@@ -431,7 +431,7 @@ fn delete_uri(java_vm: jni::JavaVM, uri: jni::objects::GlobalRef) {
 
 #[cfg(target_os = "android")]
 #[export_name = "Java_quad_1native_QuadNative_processExportFd"]
-extern "system" fn process_export_fd(mut env: jni::JNIEnv, _: jni::objects::JClass, uri: jni::objects::JObject, fd: jni::sys::jint) {
+extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, uri: jni::objects::JObject, fd: jni::sys::jint) {
     use std::os::fd::FromRawFd;
     let java_vm = env.get_java_vm().unwrap();
     let uri = env.new_global_ref(uri).unwrap();
@@ -930,7 +930,7 @@ impl Page for LibraryPage {
                 let charts = dir::charts()?;
                 let mut zip = zip::ZipWriter::new(BufWriter::new(output));
                 let options = zip::write::SimpleFileOptions::default()
-                    .compression_method(zip::CompressionMethod::Deflated)
+                    .compression_method(zip::CompressionMethod::Stored)
                     .unix_permissions(0o755);
                 for name in paths {
                     zip.start_file(format!("{name}.zip"), options)?;
