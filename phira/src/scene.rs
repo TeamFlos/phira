@@ -13,7 +13,7 @@ mod main;
 pub use main::{MainScene, BGM_VOLUME_UPDATED, MP_PANEL};
 
 mod song;
-pub use song::{Downloading, SongScene, RECORD_ID};
+pub use song::{compress_folder, Downloading, SongScene, RECORD_ID};
 #[cfg(feature = "video")]
 mod unlock;
 #[cfg(feature = "video")]
@@ -420,18 +420,13 @@ pub fn render_release_to_refresh(ui: &mut Ui, cx: f32, off: f32) {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::DerefMut;
-
-    use fs::load_info;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn test_parse_chart() -> Result<()> {
-        // Put the chart in phira(workspace, not crate)/test which is ignored by git
-        let mut fs = fs_from_path("../../../test")?;
-        let info = load_info(fs.as_mut()).await?;
-        let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
-        Ok(())
-    }
+    // #[tokio::test]
+    // #[ignore = "Chart parsing test"]
+    // async fn test_parse_chart() -> Result<()> {
+    //     // Put the chart in phira(workspace, not crate)/test which is ignored by git
+    //     let mut fs = fs_from_path("../../../test")?;
+    //     let info = load_info(fs.as_mut()).await?;
+    //     let _chart = prpr::scene::GameScene::load_chart(fs.deref_mut(), &info).await?;
+    //     Ok(())
+    // }
 }

@@ -1,8 +1,9 @@
 prpr_l10n::tl_file!("chart_info");
 
 use super::Ui;
-use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message};
+use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message, ui::InputParams};
 use anyhow::Result;
+use inputbox::InputMode;
 use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Clone)]
@@ -111,8 +112,8 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
             edit.updated = true;
             match || -> Result<(f32, f32), Cow<'static, str>> {
                 let (st, en) = string.split_once(['-', '—']).ok_or_else(|| tl!("illegal-input"))?;
-                let st = parse_time(st.trim()).ok_or_else(|| tl!("invalid time"))?;
-                let en = parse_time(en.trim()).ok_or_else(|| tl!("invalid time"))?;
+                let st = parse_time(st.trim()).ok_or_else(|| tl!("invalid-time"))?;
+                let en = parse_time(en.trim()).ok_or_else(|| tl!("invalid-time"))?;
                 if st + 1. > en {
                     return Err(tl!("preview-too-short"));
                 }
@@ -260,7 +261,15 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         dy!(r.h + s);
         info.tip = if string.is_empty() { None } else { Some(string) };
 
-        ui.input(tl!("intro"), &mut info.intro, (len, &mut edit.updated));
+        ui.input(
+            tl!("intro"),
+            &mut info.intro,
+            InputParams {
+                changed: Some(&mut edit.updated),
+                mode: InputMode::Multiline,
+                length: len,
+            },
+        );
         ui.dx(-0.02);
     });
     (width, sy)

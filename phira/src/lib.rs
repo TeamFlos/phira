@@ -141,6 +141,10 @@ mod dir {
         ensure("data/charts")
     }
 
+    pub fn collections() -> Result<String> {
+        ensure("data/collections")
+    }
+
     pub fn custom_charts() -> Result<String> {
         ensure("data/charts/custom")
     }
@@ -173,19 +177,11 @@ async fn the_main() -> Result<()> {
     let _guard = rt.enter();
 
     #[cfg(target_os = "ios")]
-    unsafe {
-        use prpr::objc::*;
-        #[allow(improper_ctypes)]
-        extern "C" {
-            pub fn NSSearchPathForDirectoriesInDomains(
-                directory: std::os::raw::c_ulong,
-                domain_mask: std::os::raw::c_ulong,
-                expand_tilde: bool,
-            ) -> *mut NSArray<*mut NSString>;
-        }
-        let directories = NSSearchPathForDirectoriesInDomains(5, 1, true);
-        let first: &mut NSString = msg_send![directories, firstObject];
-        let path = first.as_str().to_owned();
+    {
+        use objc2_foundation::{NSSearchPathDirectory, NSSearchPathDomainMask, NSSearchPathForDirectoriesInDomains};
+
+        let directories = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory::LibraryDirectory, NSSearchPathDomainMask::UserDomainMask, true);
+        let path = directories.firstObject().unwrap().to_string();
         *DATA_PATH.lock().unwrap() = Some(path);
         *CACHE_DIR.lock().unwrap() = Some("Caches".to_owned());
     }
@@ -198,6 +194,7 @@ async fn the_main() -> Result<()> {
     data.init().await?;
     set_data(data);
     sync_data();
+    save_data()?;
 
     let rx = {
         let (tx, rx) = mpsc::channel();
@@ -348,6 +345,14 @@ fn string_from_java(env: &mut JNIEnv, s: JString) -> String {
 
 #[cfg(target_os = "android")]
 #[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: JNIEnv, _: JClass) {
+    unsafe {
+        inputbox::backend::Android::initialize_raw(env.get_raw() as _).unwrap();
+    }
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: JNIEnv, _: JClass) {
     anti_addiction_action("leaveGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
@@ -372,13 +377,13 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: JNIEn
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(mut env: JNIEnv, _: *const JClass, path: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(mut env: JNIEnv, _: JClass, path: JString) {
     *DATA_PATH.lock().unwrap() = Some(string_from_java(&mut env, path));
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(mut env: JNIEnv, _: *const JClass, path: JString) {
+pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(mut env: JNIEnv, _: JClass, path: JString) {
     let path = string_from_java(&mut env, path);
     std::env::set_var("TMPDIR", path.clone());
     *CACHE_DIR.lock().unwrap() = Some(path);

@@ -127,8 +127,3 @@ stabilize-approved = Genehmigt
 stabilize-approved-passed = Das Level wurde stabilisiert.
 stabilize-denied = Abgelehnt
 stabilize-denied-passed = Abgelehnt, das Level wurde zurückgewiesen.
-
-# fav-added = Zu Favoriten hinzugefügt
-# fav-add-to = Hinzufügen zu...
-# fav-select-folder = Ordner auswählen
-# fav-default-folder = Standard

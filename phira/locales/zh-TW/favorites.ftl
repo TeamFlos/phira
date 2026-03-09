@@ -6,7 +6,7 @@ create = 新建資料夾
 created = 建立成功
 name-empty = 資料夾名稱不能為空
 
-import = 匯入
+import = 匯入線上合集
 imported = 已匯入
 already-imported = 已經匯入過了
 invalid-import = 解析輸入的目標失敗
@@ -23,7 +23,7 @@ delete-confirm = 確定要刪除這個資料夾嗎？（不會刪除其中的譜
 
 show-all = 顯示全部譜面
 
-batch-import = 匯入多個谱面
+batch-import = 匯入多個譜面
 updated = 已更新
 
 info-name = 名稱
@@ -33,7 +33,7 @@ info-count = 譜面數量
 sync-to-cloud = 同步到雲端
 sync-from-cloud = 從雲端同步
 sync-confirm = 同步可能會覆蓋現有資料，是否繼續？
-sync-outdated = 雲端資料容自上次同步起已被其他裝置更新是否仍要同步（覆蓋雲端資料）
+sync-outdated = 雲端資料自上次同步起已被其他裝置更新，是否仍要同步（覆蓋雲端資料）
 synced = 同步完成
 upload-to-cloud = 上傳到雲端
 uploaded = 已上傳

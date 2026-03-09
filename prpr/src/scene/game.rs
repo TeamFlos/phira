@@ -23,6 +23,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
+use inputbox::InputBox;
 use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
 use sasa::{Music, MusicParams};
@@ -1076,11 +1077,11 @@ impl Scene for GameScene {
                 ..touch.clone()
             };
             if self.exercise_btns.0.touch(&touch) {
-                request_input("exercise_start", &fmt_time(self.exercise_range.start));
+                request_input("exercise_start", InputBox::new().default_text(fmt_time(self.exercise_range.start)));
                 return Ok(true);
             }
             if self.exercise_btns.1.touch(&touch) {
-                request_input("exercise_end", &fmt_time(self.exercise_range.end));
+                request_input("exercise_end", InputBox::new().default_text(fmt_time(self.exercise_range.end)));
                 return Ok(true);
             }
         }

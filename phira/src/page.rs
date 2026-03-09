@@ -26,7 +26,13 @@ mod settings;
 pub use settings::SettingsPage;
 use tokio::sync::Notify;
 
-use crate::{client::File, data::BriefChartInfo, dir, get_data, images::Images, scene::fs_from_path};
+use crate::{
+    client::{ChartRef, File},
+    data::BriefChartInfo,
+    dir, get_data,
+    images::Images,
+    scene::fs_from_path,
+};
 use anyhow::Result;
 use image::DynamicImage;
 use macroquad::prelude::*;
@@ -201,6 +207,17 @@ pub struct ChartItem {
     pub local_path: Option<String>,
     pub illu: Illustration,
     pub chart_type: ChartType,
+}
+impl ChartItem {
+    pub fn to_ref(&self) -> ChartRef {
+        if let Some(local) = &self.local_path {
+            ChartRef::Local(local.clone())
+        } else if let Some(id) = self.info.id {
+            ChartRef::Online(id, None)
+        } else {
+            panic!("chart item has neither id nor local path");
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

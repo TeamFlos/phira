@@ -66,6 +66,10 @@ impl<T> Tabs<T> {
         &mut self.items[self.selected].value
     }
 
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.items.iter_mut().map(|item| &mut item.value)
+    }
+
     pub fn changed(&mut self) -> bool {
         let changed = self.changed;
         self.changed = false;
