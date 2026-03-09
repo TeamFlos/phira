@@ -143,18 +143,22 @@ impl LocalCollection {
                 .is_some_and(|it| get_data().me.as_ref().is_some_and(|me| me.id == it.id))
     }
 
-    pub fn assign_from(&mut self, col: &Collection) {
+    pub fn merge(&self, col: &Collection) -> Self {
         assert_eq!(self.id, Some(col.id));
-        self.owner = Some(col.owner.clone());
-        self.name = col.name.clone();
-        self.description = col.description.clone();
-        self.cover = match &col.cover {
-            None => CollectionCover::Unset,
-            Some(file) => CollectionCover::Online(file.clone()),
-        };
-        self.remote_updated = Some(col.updated);
-        self.charts = col.charts.iter().cloned().map(Into::into).collect();
-        self.public = col.public;
+        Self {
+            id: Some(col.id),
+            owner: Some(col.owner.clone()),
+            cover: match &col.cover {
+                None => CollectionCover::Unset,
+                Some(file) => CollectionCover::Online(file.clone()),
+            },
+            name: col.name.clone(),
+            description: self.description.clone(),
+            remote_updated: Some(col.updated),
+            charts: col.charts.iter().cloned().map(Into::into).collect(),
+            public: col.public,
+            is_default: self.is_default,
+        }
     }
 }
 

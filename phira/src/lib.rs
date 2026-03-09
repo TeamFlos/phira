@@ -141,6 +141,10 @@ mod dir {
         ensure("data/charts")
     }
 
+    pub fn collections() -> Result<String> {
+        ensure("data/collections")
+    }
+
     pub fn custom_charts() -> Result<String> {
         ensure("data/charts/custom")
     }

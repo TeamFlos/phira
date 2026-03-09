@@ -30,6 +30,7 @@ cacache = { version = "13.1.0", default-features = false, features = [
 ] }
 cfg-if = "1.0.4"
 chrono = { workspace = true, features = ["serde"] }
+dashmap = "6.1.0"
 futures-util = { workspace = true }
 hex = { workspace = true }
 image = { workspace = true, default-features = false, features = [
@@ -72,7 +73,7 @@ tap = "1.0.1"
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
 tracing = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
 walkdir = { workspace = true }
 zip = { workspace = true }
 zstd = "0.13"

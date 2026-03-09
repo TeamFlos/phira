@@ -330,7 +330,7 @@ impl LibraryPage {
         if list.ty == ChartListType::Local {
             let mut charts = Vec::new();
             if let Some(fav_index) = self.current_fav_index {
-                charts.extend(get_data().collections[fav_index].charts.iter().filter_map(|it| {
+                charts.extend(get_data().collection_by_index(fav_index).charts.iter().filter_map(|it| {
                     match it {
                         ChartRef::Online(_, chart) => {
                             let chart = chart.as_ref().unwrap();
@@ -438,7 +438,7 @@ extern "system" fn process_export_fd(mut env: jni::JNIEnv, _: jni::objects::JCla
     let file = unsafe { File::from_raw_fd(fd as _) };
     EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
         file,
-        deleter: Box::new(|| Ok(())),
+        deleter: Box::new(|| Ok(delete_uri(java_vm, uri))),
     }));
 }
 
@@ -747,10 +747,10 @@ impl Page for LibraryPage {
                         let data = get_data_mut();
                         let mut col = LocalCollection::new(name);
                         col.charts = selected;
-                        data.collections.push(col);
+                        data.push_collection(col)?;
                         let _ = save_data();
                         show_message(tl!("fav-created")).ok();
-                        self.current_fav_index = Some(data.collections.len() - 1);
+                        self.current_fav_index = Some(data.collection_uuids().len() - 1);
                         self.sync_local(s);
                     }
                 }
@@ -867,11 +867,14 @@ impl Page for LibraryPage {
             }
             let data = get_data_mut();
             if let Some(index) = self.current_fav_index {
-                let col = &mut data.collections[index];
+                let uuid = data.collection_uuids()[index];
+                let mut col = data.collection_info(&uuid).as_ref().clone();
+                let online = col.id.is_some();
                 let chart = col.charts.remove(from);
                 col.charts.insert(to, chart);
+                data.set_collection_info(&uuid, col)?;
                 let _ = save_data();
-                if col.id.is_some() && !data.config.offline_mode {
+                if online && !data.config.offline_mode {
                     if let Some(task) = FavoritesPage::sync_to_cloud_task(index, false) {
                         self.sync_fav_task = Some(task);
                     }
@@ -892,7 +895,7 @@ impl Page for LibraryPage {
         view.allow_edit(
             list.ty == ChartListType::Local
                 && self.search_str.is_empty()
-                && self.current_fav_index.is_none_or(|it| get_data().collections[it].is_owned()),
+                && self.current_fav_index.is_none_or(|it| get_data().collection_by_index(it).is_owned()),
         );
 
         if let Some(task) = &mut self.sync_fav_task {
@@ -900,8 +903,10 @@ impl Page for LibraryPage {
                 match res {
                     Err(err) => show_error(err.context(tl!("fav-sync-failed"))),
                     Ok(Some(col)) => {
-                        let data = get_data_mut();
-                        data.collections[self.current_fav_index.unwrap()].assign_from(&col);
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.current_fav_index.unwrap()];
+                        let local = data.collection_info(&uuid);
+                        data.set_collection_info(&uuid, local.merge(&col))?;
                         let _ = save_data();
                         show_message(tl!("fav-synced")).ok();
                     }
@@ -958,7 +963,7 @@ impl Page for LibraryPage {
         if let Some(rx) = &mut self.export_task {
             match rx.try_recv() {
                 Ok(Err(err)) => {
-                    show_error(err.into());
+                    show_error(err);
                     self.export_task = None;
                 }
                 Ok(Ok(())) => {

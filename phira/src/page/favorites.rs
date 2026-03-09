@@ -185,7 +185,7 @@ impl FavoritesPage {
             btn: RectButton::new(),
         });
 
-        for (index, col) in data.collections.iter().enumerate() {
+        for (index, col) in data.collections().enumerate() {
             folders.push(FolderItem {
                 index: Some(index),
                 name: col.name.clone(),
@@ -199,7 +199,7 @@ impl FavoritesPage {
 
     fn render_info(&mut self, ui: &mut Ui, rt: f32) {
         let data = get_data();
-        let col = &data.collections[self.active_folder.unwrap()];
+        let col = data.collection_by_index(self.active_folder.unwrap());
         let pad = 0.03;
         ui.dx(pad);
         ui.dy(0.03);
@@ -311,7 +311,7 @@ impl FavoritesPage {
             }
         }
         if let Some(id) = id {
-            if get_data().collections.iter().any(|col| col.id == Some(id)) {
+            if get_data().collections().any(|col| col.id == Some(id)) {
                 show_message(tl!("already-imported")).error();
             } else {
                 self.import_task = Some(Task::new(async move {
@@ -327,8 +327,8 @@ impl FavoritesPage {
 
     pub fn sync_to_cloud_task(index: usize, force: bool) -> Option<Task<Result<Option<Collection>>>> {
         let data = get_data();
-        let col = &data.collections[index];
-        let chart_ids = Self::collect_chart_ids(col, false)?;
+        let col = data.collection_by_index(index);
+        let chart_ids = Self::collect_chart_ids(&col, false)?;
 
         let body = PutCollection {
             content: CollectionContent {
@@ -389,14 +389,14 @@ impl Page for FavoritesPage {
                 }
                 if self.open_web_btn.touch(touch, rt) {
                     if let Some(index) = self.active_folder {
-                        let col = &get_data().collections[index];
+                        let col = get_data().collection_by_index(index);
                         open_url(&format!("https://phira.moe/collection/{}", col.id.unwrap()))?;
                     }
                     return Ok(true);
                 }
                 if self.owner_btn.touch(touch) {
                     button_hit();
-                    let col = &get_data().collections[self.active_folder.unwrap()];
+                    let col = get_data().collection_by_index(self.active_folder.unwrap());
                     self.sf
                         .goto(t, ProfileScene::new(col.owner.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()));
                     return Ok(true);
@@ -435,7 +435,7 @@ impl Page for FavoritesPage {
             if self.edit_btn.touch(touch) {
                 button_hit();
                 let data = get_data();
-                let col = &data.collections[index];
+                let col = data.collection_by_index(index);
                 let mut options = Vec::new();
                 if col.is_owned() {
                     options.push("rename");
@@ -452,7 +452,7 @@ impl Page for FavoritesPage {
             if self.operations_menu_btn.touch(touch) {
                 button_hit();
                 let data = get_data();
-                let col = &data.collections[index];
+                let col = data.collection_by_index(index);
                 let is_default = col.is_default;
                 let mut options = Vec::new();
                 if !is_default && col.is_owned() {
@@ -475,7 +475,7 @@ impl Page for FavoritesPage {
             if self.cloud_btn.touch(touch) {
                 button_hit();
                 let data = get_data();
-                let col = &data.collections[index];
+                let col = data.collection_by_index(index);
                 let mut options = Vec::new();
                 if col.id.is_some() {
                     options.push("sync-to-cloud");
@@ -534,7 +534,7 @@ impl Page for FavoritesPage {
 
         if let Some(chosen_cover) = self.chosen_cover.take() {
             let data = get_data_mut();
-            let col = &mut data.collections[self.active_folder.unwrap()];
+            let col = data.collection_by_index(self.active_folder.unwrap());
             match chosen_cover {
                 Ok(chart_id) => {
                     let col_id = col.id;
@@ -564,8 +564,11 @@ impl Page for FavoritesPage {
                         };
                         Dialog::simple(ttl!("favorites-online-only", "charts" => chart)).show();
                     } else {
-                        col.cover = CollectionCover::LocalChart(local_path);
-                        let _ = save_data();
+                        let new_col = LocalCollection {
+                            cover: CollectionCover::LocalChart(local_path),
+                            ..col.as_ref().clone()
+                        };
+                        data.set_collection_info(&data.collection_uuids()[self.active_folder.unwrap()], new_col)?;
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
                     }
@@ -581,7 +584,7 @@ impl Page for FavoritesPage {
                     if name.is_empty() {
                         show_message(tl!("name-empty")).error();
                     } else {
-                        get_data_mut().collections.push(LocalCollection::new(name));
+                        get_data_mut().push_collection(LocalCollection::new(name))?;
                         let _ = save_data();
                         show_message(tl!("created")).ok();
                         self.rebuild_folders();
@@ -592,9 +595,14 @@ impl Page for FavoritesPage {
                     if new_name.is_empty() {
                         show_message(tl!("name-empty")).error();
                     } else if let Some(index) = self.active_folder {
-                        let data = get_data_mut();
-                        let col = &mut data.collections[index];
-                        col.name = new_name.clone();
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[index];
+                        let col = data.collection_info(&uuid);
+                        let new_col = LocalCollection {
+                            name: new_name,
+                            ..col.as_ref().clone()
+                        };
+                        data.set_collection_info(&uuid, new_col)?;
                         let _ = save_data();
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
@@ -606,9 +614,14 @@ impl Page for FavoritesPage {
                 "fav_description" => {
                     let new_description = text.trim().to_string();
                     if let Some(index) = self.active_folder {
-                        let data = get_data_mut();
-                        let col = &mut data.collections[index];
-                        col.description = new_description.clone();
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[index];
+                        let col = data.collection_info(&uuid);
+                        let new_col = LocalCollection {
+                            description: new_description,
+                            ..col.as_ref().clone()
+                        };
+                        data.set_collection_info(&uuid, new_col)?;
                         let _ = save_data();
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
@@ -623,9 +636,9 @@ impl Page for FavoritesPage {
                     }
                 }
                 "fav_batch_import" => {
-                    let data = get_data_mut();
-                    let col = &mut data.collections[self.active_folder.unwrap()];
-                    let local_chart_ids = Self::collect_chart_ids(col, true).unwrap().into_iter().collect::<HashSet<_>>();
+                    let data = get_data();
+                    let col = data.collection_by_index(self.active_folder.unwrap());
+                    let local_chart_ids = Self::collect_chart_ids(&col, true).unwrap().into_iter().collect::<HashSet<_>>();
                     let Ok(mut chart_ids) = text
                         .split([',', ' '])
                         .map(|s| s.trim())
@@ -658,21 +671,22 @@ impl Page for FavoritesPage {
 
         if let Some(index) = self.active_folder {
             let data = get_data_mut();
+            let col = data.collection_by_index(index);
             if self.edit_menu.changed() {
                 match self.edit_options[self.edit_menu.selected()] {
                     "rename" => {
-                        request_input("fav_rename", InputBox::new().default_text(&data.collections[index].name));
+                        request_input("fav_rename", InputBox::new().default_text(&col.name));
                     }
                     "set-description" => {
                         request_input(
                             "fav_description",
                             InputBox::new()
-                                .default_text(&data.collections[index].description)
+                                .default_text(&col.description)
                                 .mode(InputMode::Multiline),
                         );
                     }
                     "set-cover" => {
-                        if data.collections[index].id.is_none() {
+                        if col.id.is_none() {
                             show_message(tl!("no-charts")).error();
                         } else {
                             FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(Some(index)));
@@ -687,22 +701,27 @@ impl Page for FavoritesPage {
             if self.operations_menu.changed() {
                 match self.operations_options[self.operations_menu.selected()] {
                     "set-as-default" => {
-                        data.collections.iter_mut().for_each(|col| col.is_default = false);
-                        data.collections[index].is_default = true;
-                        let _ = save_data();
+                        let uuid = data.collection_uuids()[index];
+                        let uuids = data.collection_uuids().to_vec();
+                        for its_uuid in uuids {
+                            let col = LocalCollection {
+                                is_default: its_uuid == uuid,
+                                ..data.collection_info(&its_uuid).as_ref().clone()
+                            };
+                            data.set_collection_info(&its_uuid, col)?;
+                        }
                     }
                     "delete" => {
                         confirm_dialog(tl!("delete"), tl!("delete-confirm"), self.operations_delete.clone());
                     }
                     "duplicate" => {
-                        let col = &data.collections[index];
-                        data.collections.push(LocalCollection {
+                        data.push_collection(LocalCollection {
                             id: None,
                             public: false,
                             remote_updated: None,
                             is_default: false,
-                            ..col.clone()
-                        });
+                            ..data.collection_by_index(index).as_ref().clone()
+                        })?;
                         let _ = save_data();
                         self.rebuild_folders();
                     }
@@ -713,19 +732,19 @@ impl Page for FavoritesPage {
                 }
             }
             if self.operations_delete.swap(false, Ordering::SeqCst) {
-                data.collections.remove(index);
+                data.remove_collection(index)?;
                 let _ = save_data();
                 show_message(tl!("deleted")).ok();
-                self.active_folder = if data.collections.is_empty() {
+                self.active_folder = if data.collection_uuids().is_empty() {
                     None
                 } else {
-                    self.active_folder.map(|it| it.min(data.collections.len() - 1))
+                    self.active_folder.map(|it| it.min(data.collection_uuids().len() - 1))
                 };
                 FAV_PAGE_RESULT.with(|it| *it.borrow_mut() = Some(self.active_folder));
                 self.rebuild_folders();
             }
             if self.cloud_delete.swap(false, Ordering::SeqCst) {
-                let col_id = data.collections[index].id.unwrap();
+                let col_id = data.collection_by_index(index).id.unwrap();
                 self.delete_from_cloud_task = Some(Task::new(async move {
                     recv_raw(Client::delete(format!("/collection/{col_id}"))).await?;
                     Ok(())
@@ -736,8 +755,8 @@ impl Page for FavoritesPage {
                 match self.cloud_options[self.cloud_menu.selected()] {
                     "upload-to-cloud" => {
                         let data = get_data();
-                        let col = &data.collections[index];
-                        let Some(chart_ids) = Self::collect_chart_ids(col, false) else {
+                        let col = data.collection_by_index(index);
+                        let Some(chart_ids) = Self::collect_chart_ids(&col, false) else {
                             return Ok(());
                         };
 
@@ -757,7 +776,7 @@ impl Page for FavoritesPage {
                     }
                     "make-public" | "make-private" => {
                         let data = get_data();
-                        let col = &data.collections[index];
+                        let col = data.collection_by_index(index);
                         let col_id = col.id.unwrap();
                         let new_public = !col.public;
                         self.set_public_task = Some(Task::new(async move {
@@ -779,7 +798,7 @@ impl Page for FavoritesPage {
                 }
             }
             if self.sync_from_cloud.swap(false, Ordering::SeqCst) {
-                let col_id = data.collections[index].id.unwrap();
+                let col_id = data.collection_by_index(index).id.unwrap();
                 self.sync_task = Some(Task::new(async move {
                     let resp: Collection = recv_raw(Client::get(format!("/collection/{col_id}"))).await?.json().await?;
                     Ok(Some(resp))
@@ -798,11 +817,11 @@ impl Page for FavoritesPage {
             if let Some(result) = task.take() {
                 match result {
                     Ok(col) => {
-                        let data = get_data_mut();
-                        let local = &mut data.collections[self.active_folder.unwrap()];
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let mut local = data.collection_info(&uuid).as_ref().clone();
                         local.id = Some(col.id);
-                        local.assign_from(&col);
-                        let _ = save_data();
+                        data.set_collection_info(&uuid, local.merge(&col))?;
                         show_message(tl!("uploaded")).ok();
                         self.rebuild_folders();
                     }
@@ -817,9 +836,11 @@ impl Page for FavoritesPage {
             if let Some(result) = task.take() {
                 match result {
                     Ok(()) => {
-                        let data = get_data_mut();
-                        data.collections[self.active_folder.unwrap()].id = None;
-                        let _ = save_data();
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let mut local = data.collection_info(&uuid).as_ref().clone();
+                        local.id = None;
+                        data.set_collection_info(&uuid, local)?;
                         show_message(tl!("deleted")).ok();
                     }
                     Err(err) => {
@@ -833,9 +854,10 @@ impl Page for FavoritesPage {
             if let Some(result) = task.take() {
                 match result {
                     Ok(col) => {
-                        let data = get_data_mut();
-                        data.collections[self.active_folder.unwrap()].assign_from(&col);
-                        let _ = save_data();
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let local = data.collection_info(&uuid);
+                        data.set_collection_info(&uuid, local.merge(&col))?;
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
                     }
@@ -850,9 +872,10 @@ impl Page for FavoritesPage {
             if let Some(result) = task.take() {
                 match result {
                     Ok(Some(col)) => {
-                        let data = get_data_mut();
-                        data.collections[self.active_folder.unwrap()].assign_from(&col);
-                        let _ = save_data();
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let local = data.collection_info(&uuid);
+                        data.set_collection_info(&uuid, local.merge(&col))?;
                         show_message(tl!("synced")).ok();
                         self.rebuild_folders();
                     }
@@ -873,8 +896,7 @@ impl Page for FavoritesPage {
                         let data = get_data_mut();
                         let mut local = LocalCollection::new(String::new());
                         local.id = Some(col.id);
-                        local.assign_from(&col);
-                        data.collections.push(local);
+                        data.push_collection(local.merge(&col))?;
                         let _ = save_data();
                         show_message(tl!("imported")).ok();
                         self.rebuild_folders();
@@ -890,12 +912,14 @@ impl Page for FavoritesPage {
             if let Some(result) = task.take() {
                 match result {
                     Ok(charts) => {
-                        let data = get_data_mut();
-                        let col = &mut data.collections[self.active_folder.unwrap()];
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let mut col = data.collection_info(&uuid).as_ref().clone();
+                        let online = col.id.is_some();
                         col.charts.extend(charts.into_iter().map(Into::into));
-                        let _ = save_data();
+                        data.set_collection_info(&uuid, col)?;
                         show_message(tl!("imported")).ok();
-                        if col.id.is_some() && !data.config.offline_mode {
+                        if online && !data.config.offline_mode {
                             self.sync_to_cloud(false);
                         }
                     }
@@ -910,19 +934,20 @@ impl Page for FavoritesPage {
             if let Some(result) = task.take() {
                 match result {
                     Ok(Ok(col)) => {
-                        let data = get_data_mut();
-                        let local = &mut data.collections[self.active_folder.unwrap()];
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let mut local = data.collection_info(&uuid).as_ref().clone();
                         local.id = Some(col.id);
-                        local.assign_from(&col);
-                        let _ = save_data();
+                        data.set_collection_info(&uuid, local.merge(&col))?;
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
                     }
                     Ok(Err(cover)) => {
-                        let data = get_data_mut();
-                        let col = &mut data.collections[self.active_folder.unwrap()];
+                        let data = get_data();
+                        let uuid = data.collection_uuids()[self.active_folder.unwrap()];
+                        let mut col = data.collection_info(&uuid).as_ref().clone();
                         col.cover = CollectionCover::Online(cover);
-                        let _ = save_data();
+                        data.set_collection_info(&uuid, col)?;
                         show_message(tl!("updated")).ok();
                         self.rebuild_folders();
                     }
@@ -977,7 +1002,7 @@ impl Page for FavoritesPage {
                     ui.fill_rect(
                         r,
                         (
-                            if get_data().collections[index].id.is_some() {
+                            if get_data().collection_by_index(index).id.is_some() {
                                 *self.icons.cloud_check
                             } else {
                                 *self.icons.cloud_none
@@ -1032,7 +1057,7 @@ impl Page for FavoritesPage {
                         }
                         ui.fill_rect(illu_r, semi_black(0.3));
                         let mut name_max_w = r.w;
-                        if folder.index.is_some_and(|it| get_data().collections[it].is_default) {
+                        if folder.index.is_some_and(|it| get_data().collection_by_index(it).is_default) {
                             let mut text = ui.text(tl!("default")).size(0.5).color(WHITE);
                             let mut text_r = text.measure();
                             let pad_x = 0.02;
@@ -1055,7 +1080,7 @@ impl Page for FavoritesPage {
 
                         // 谱面数量 || Chart count
                         if let Some(index) = folder.index {
-                            let count = get_data().collections[index].charts.len();
+                            let count = get_data().collection_by_index(index).charts.len();
                             ui.text(count.to_string())
                                 .pos(r.right() - 0.02, r.y + 0.02)
                                 .anchor(1., 0.)

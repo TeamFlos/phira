@@ -8,8 +8,7 @@ use super::{
 use crate::{
     charts_view::NEED_UPDATE,
     client::{
-        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionPatch, LocalCollection, Permissions, Ptr, Record, UserManager,
-        CLIENT_TOKEN,
+        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionPatch, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -292,7 +291,7 @@ pub struct SongScene {
     fav_btn: RectButton,
     fav_long_touch: LongTouchState,
     fav_menu: Popup,
-    fav_menu_options: Vec<usize>,
+    fav_menu_options: Vec<Uuid>,
     need_show_fav_menu: bool,
 
     review_task: Option<Task<Result<String>>>,
@@ -522,7 +521,7 @@ impl SongScene {
     fn start_download(&mut self) -> Result<()> {
         let chart = self.info.clone();
         let Some(entity) = self.entity.clone() else {
-            show_error(anyhow!(tl!("still-loading")));
+            show_message(anyhow!(tl!("still-loading")));
             return Ok(());
         };
         self.loading_last = 0.;
@@ -1352,7 +1351,9 @@ impl SongScene {
         })
     }
 
-    fn toggle_in(&mut self, col: &mut LocalCollection) {
+    fn toggle_in(&mut self, uuid: Uuid) {
+        let data = get_data();
+        let mut col = data.collection_info(&uuid).as_ref().clone();
         if col.id.is_some() && self.info.id.is_none() {
             Dialog::simple(ttl!("favorites-online-only", "charts" => &self.info.name)).show();
             return;
@@ -1370,13 +1371,14 @@ impl SongScene {
         } else {
             return;
         }
-        let _ = save_data();
+        let col_id = col.id;
+        data.set_collection_info(&uuid, col).unwrap();
         FAV_UPDATED.store(true, Ordering::SeqCst);
         if !should_upload {
             return;
         }
 
-        if let Some(col_id) = col.id {
+        if let Some(col_id) = col_id {
             let id = self.info.id.unwrap();
             self.toggle_fav_task = Some(Task::new(async move {
                 let resp: Collection = recv_raw(Client::request(Method::PATCH, format!("/collection/{col_id}")).json(&CollectionPatch::Toggle(id)))
@@ -1392,13 +1394,15 @@ impl SongScene {
     /// 构建收藏夹菜单的选项列表。
     /// 已或包含该谱面的条目会以“\u2713 前缀标记。
     fn get_fav_menu_options(&mut self) -> Vec<String> {
+        let data = get_data();
         let mut options = Vec::new();
         self.fav_menu_options.clear();
-        for (index, col) in get_data().collections.iter().enumerate() {
+        for uuid in data.collection_uuids() {
+            let col = data.collection_info(uuid);
             if !col.is_owned() {
                 continue;
             }
-            self.fav_menu_options.push(index);
+            self.fav_menu_options.push(*uuid);
             let contains = col.charts.iter().any(|it| self.matches_ref(it));
             options.push(format!("{} {}", if contains { '\u{2713}' } else { ' ' }, col.name));
         }
@@ -1628,9 +1632,9 @@ impl Scene for SongScene {
         if self.fav_btn.touch(touch) {
             self.fav_long_touch.reset();
             button_hit();
-            let data = get_data_mut();
-            if let Some(col) = data.collections.iter_mut().find(|it| it.is_default) {
-                self.toggle_in(col);
+            let data = get_data();
+            if let Some(uuid) = data.collection_uuids().iter().find(|uuid| data.collection_info(uuid).is_default) {
+                self.toggle_in(*uuid);
             }
             return Ok(true);
         }
@@ -1923,7 +1927,7 @@ impl Scene for SongScene {
         if self.fav_menu.changed() {
             let selected = self.fav_menu.selected();
             self.fav_menu.set_selected(usize::MAX);
-            self.toggle_in(&mut get_data_mut().collections[self.fav_menu_options[selected]]);
+            self.toggle_in(self.fav_menu_options[selected]);
             let _ = save_data();
             let options = self.get_fav_menu_options();
             self.fav_menu.set_options(options);
@@ -2311,10 +2315,11 @@ impl Scene for SongScene {
                         show_error(err);
                     }
                     Ok((col, added)) => {
-                        let data = get_data_mut();
-                        if let Some(local) = data.collections.iter_mut().find(|it| it.id == Some(col.id)) {
-                            local.assign_from(&col);
-                            let _ = save_data();
+                        let data = get_data();
+                        if let Some(uuid) = data.collection_uuids().iter().find(|it| data.collection_info(it).id == Some(col.id)) {
+                            let uuid = *uuid;
+                            let local = data.collection_info(&uuid);
+                            data.set_collection_info(&uuid, local.merge(&col))?;
                         }
                         if added {
                             show_message(tl!("fav-added")).ok();
@@ -2451,7 +2456,7 @@ impl Scene for SongScene {
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
                 // 收藏按钮 || Favorites button
-                let is_fav = get_data().collections.iter().any(|col| col.charts.iter().any(|it| self.matches_ref(it)));
+                let is_fav = get_data().collections().any(|col| col.charts.iter().any(|it| self.matches_ref(it)));
                 let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
                 ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
                 self.fav_btn.set(ui, r);
