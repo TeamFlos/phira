@@ -168,7 +168,7 @@ fn show_inputbox(config: InputBox, backend: &dyn Backend) {
 }
 
 #[inline]
-pub fn request_input(id: impl Into<String>, mut config: InputBox) {
+pub fn request_input(id: impl Into<String>, config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
     show_inputbox(config, &*default_backend());
 }
