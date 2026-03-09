@@ -527,27 +527,7 @@ impl Page for LibraryPage {
 
         match self.tabs.selected().ty {
             ChartListType::Local => {
-                if self.tabs.selected_mut().view.multi_select.is_some() {
-                    if self.multi_operation_btn.touch(touch, t) {
-                        let mut options = vec!["multi-export", "multi-create-fav"];
-                        if self.tabs.selected_mut().view.allow_edit {
-                            options.push("multi-delete");
-                        }
-                        self.multi_operation_menu
-                            .set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
-                        self.multi_operation_options = options;
-                        self.need_show_multi_operation_menu = true;
-                        return Ok(true);
-                    }
-                    if self.multi_select_btn.touch(touch, t) {
-                        self.need_show_multi_select_menu = true;
-                        return Ok(true);
-                    }
-                    if self.multi_select_cancel_btn.touch(touch, t) {
-                        self.tabs.selected_mut().view.multi_select = None;
-                        return Ok(true);
-                    }
-                } else {
+                if self.tabs.selected().view.multi_select.is_none() {
                     if self.import_btn.touch(touch, t) {
                         request_file("_import");
                         return Ok(true);
@@ -595,6 +575,27 @@ impl Page for LibraryPage {
                 }
             }
             ChartListType::Popular => {}
+        }
+        if self.tabs.selected_mut().view.multi_select.is_some() {
+            if self.multi_operation_btn.touch(touch, t) {
+                let mut options = vec!["multi-export", "multi-create-fav"];
+                if self.tabs.selected_mut().view.allow_edit {
+                    options.push("multi-delete");
+                }
+                self.multi_operation_menu
+                    .set_options(options.iter().map(|it| tl!(*it).into_owned()).collect());
+                self.multi_operation_options = options;
+                self.need_show_multi_operation_menu = true;
+                return Ok(true);
+            }
+            if self.multi_select_btn.touch(touch, t) {
+                self.need_show_multi_select_menu = true;
+                return Ok(true);
+            }
+            if self.multi_select_cancel_btn.touch(touch, t) {
+                self.tabs.selected_mut().view.multi_select = None;
+                return Ok(true);
+            }
         }
         if self.order_btn.touch(touch, t) {
             self.need_show_order_meta_menu = true;
