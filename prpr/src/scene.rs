@@ -239,7 +239,7 @@ pub fn request_file(id: impl Into<String>) {
                         }
 
                         let dir = NSTemporaryDirectory();
-                        let path = format!("{}{}", dir.to_string(), uuid::Uuid::new_v4().to_string());
+                        let path = format!("{}{}", dir, uuid::Uuid::new_v4());
                         data.writeToFile_atomically(&NSString::from_str(&path), true);
                         CHOSEN_FILE.lock().unwrap().1 = Some(path);
                     }
