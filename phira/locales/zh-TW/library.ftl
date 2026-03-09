@@ -27,7 +27,7 @@ fav-synced = 我的最愛已同步
 fav-sync-failed = 我的最愛同步失敗
 
 multi-select-status = 已選中 { $count } 項
-multi-export = 大量匯出
+multi-export = 打包多個譜面
 multi-create-fav = 加入到新資料夾
 multi-delete = 刪除
 multi-delete-confirm = 確定要刪除這 { $count } 個譜面嗎？該操作無法撤銷。
