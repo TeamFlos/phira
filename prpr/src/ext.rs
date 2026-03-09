@@ -550,14 +550,13 @@ pub fn open_url(url: &str) -> Result<()> {
                 );
             }
         } else if #[cfg(target_os = "ios")] {
-            unsafe {
-                use crate::objc::*;
+            use objc2::MainThreadMarker;
+            use objc2_foundation::{NSString, NSURL, NSDictionary};
+            use objc2_ui_kit::UIApplication;
 
-                let application: ObjcId = msg_send![class!(UIApplication), sharedApplication];
-                let ns_url = str_to_ns(url);
-                let url: ObjcId = msg_send![class!(NSURL), URLWithString: &*ns_url];
-                let _: bool = msg_send![application, openURL: url];
-            }
+            let mtm = MainThreadMarker::new().unwrap();
+            let url = NSURL::URLWithString(&NSString::from_str(url)).unwrap();
+            UIApplication::sharedApplication(mtm).openURL(&url);
         } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(format!("{{\"action\":\"openurl\",\"payload\":\"{}\"}}", url));
         }

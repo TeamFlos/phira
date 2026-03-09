@@ -2729,7 +2729,19 @@ dependencies = [
  "objc2-core-text",
  "objc2-foundation",
  "objc2-quartz-core",
+ "objc2-uniform-type-identifiers",
  "objc2-user-notifications",
+]
+
+[[package]]
+name = "objc2-uniform-type-identifiers"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7902ac02859fc1f7045f8b598c63f1ae0cc7efeaa06a9bc9f3d9a3c955974fa4"
+dependencies = [
+ "block2",
+ "objc2",
+ "objc2-foundation",
 ]
 
 [[package]]
@@ -3330,7 +3342,6 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bitflags 2.11.0",
- "block2",
  "byteorder",
  "cfg-if",
  "chardetng",
@@ -3361,6 +3372,8 @@ dependencies = [
  "obfstr",
  "objc2",
  "objc2-foundation",
+ "objc2-ui-kit",
+ "objc2-uniform-type-identifiers",
  "once_cell",
  "open",
  "ordered-float",
@@ -3383,6 +3396,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unic-langid",
+ "uuid",
  "walkdir",
  "wasm-bindgen",
  "wasm-bindgen-futures",
