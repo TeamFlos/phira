@@ -261,11 +261,15 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         dy!(r.h + s);
         info.tip = if string.is_empty() { None } else { Some(string) };
 
-        ui.input(tl!("intro"), &mut info.intro, InputParams {
-            changed: Some(&mut edit.updated),
-            mode: InputMode::Multiline,
-            length: len,
-        });
+        ui.input(
+            tl!("intro"),
+            &mut info.intro,
+            InputParams {
+                changed: Some(&mut edit.updated),
+                mode: InputMode::Multiline,
+                length: len,
+            },
+        );
         ui.dx(-0.02);
     });
     (width, sy)

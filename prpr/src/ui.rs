@@ -985,12 +985,7 @@ impl<'a> Ui<'a> {
         } else {
             self.button(&id, r, value.lines().next().unwrap_or_default())
         } {
-            request_input(
-                &id,
-                InputBox::new()
-                    .default_text(value.as_str())
-                    .mode(params.mode),
-            );
+            request_input(&id, InputBox::new().default_text(value.as_str()).mode(params.mode));
         }
         if let Some((its_id, text)) = take_input() {
             if its_id == id {
