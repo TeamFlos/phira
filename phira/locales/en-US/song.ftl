@@ -46,6 +46,8 @@ edit-overwrite-failed = Failed to overwrite.
 edit-upload = Upload
 edit-update = Update
 
+warn = Warning
+cancel-not-saved = Chart hasn't been saved yet, would you like to exit now?
 upload-not-saved = Chart hasn't been saved yet, would you like to save it now?
 upload-login-first = Please login first.
 upload-builtin = Built-in charts cannot be uploaded.
@@ -129,8 +131,5 @@ stabilize-denied = Denied
 stabilize-denied-passed = Denied, the beatmap is rejected
 
 fav-added = Added to favorites
-fav-add-to = Add to...
-fav-select-folder = Select folder
-fav-default-folder = Default
 
 still-loading = Still loading...

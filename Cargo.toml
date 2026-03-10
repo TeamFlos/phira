@@ -29,6 +29,7 @@ fluent-syntax = "0.12.0"
 futures-util = "0.3.31"
 hex = "0.4.3"
 image = { version = "0.25.9", default-features = false }
+inputbox = "0.1.0"
 lru = "0.16.3"
 lyon = "1.0.16"
 nalgebra = "0.34.1"
@@ -37,6 +38,7 @@ pollster = "0.4.0"
 rand = "0.8.5"
 regex = "1.12.2"
 reqwest = { version = "0.13.1", default-features = false }
+rfd = "0.17.2"
 serde = "1.0.228"
 serde_json = "1.0.49"
 serde_yaml = "0.9.34"
@@ -49,15 +51,21 @@ uuid = "1.20.0"
 walkdir = "2.5.0"
 zip = { version = "7.2.0", default-features = false }
 
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "c2d2e71", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "3a3a121" }
+objc2 = "0.6.4"
+objc2-core-foundation = "0.3.2"
+objc2-foundation = "0.3.2"
+objc2-ui-kit = "0.3.2"
+objc2-uniform-type-identifiers = "0.3.2"
+
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "039f957", default-features = false }
+miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "dc26ae9" }
 phira = { path = "phira", default-features = false }
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }
 prpr = { path = "prpr", default-features = false }
 prpr-avc = { path = "prpr-avc" }
 prpr-l10n = { path = "prpr-l10n" }
-sasa = { git = "https://github.com/Mivik/sasa", rev = "63d019c", default-features = false }
+sasa = { git = "https://github.com/Mivik/sasa", rev = "53367ba", default-features = false }
 
 [profile.release]
 opt-level = 2

@@ -8,8 +8,7 @@ use super::{
 use crate::{
     charts_view::NEED_UPDATE,
     client::{
-        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionPatch, LocalCollection, Permissions, Ptr, Record, UserManager,
-        CLIENT_TOKEN,
+        basic_client_builder, recv_raw, Chart, ChartRef, Client, Collection, CollectionPatch, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -21,11 +20,12 @@ use crate::{
     tags::TagsDialog,
 };
 use ::rand::{thread_rng, Rng};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use core::f32;
 use futures_util::StreamExt;
+use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
@@ -40,11 +40,11 @@ use prpr::{
     judge::{icon_index, Judge},
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn,
+        LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
     },
     task::Task,
     time::TimeManager,
-    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui, UI_AUDIO},
+    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, Ui, UI_AUDIO},
 };
 use reqwest::Method;
 use sasa::{AudioClip, Frame, Music, MusicParams};
@@ -141,6 +141,7 @@ pub struct Downloading {
     cancel_download_btn: DRectButton,
     status: Arc<Mutex<Cow<'static, str>>>,
     prog: Arc<Mutex<Option<f32>>>,
+    atomicity: Arc<Mutex<()>>,
     task: Task<Result<(LocalChart, LocalTuple)>>,
 }
 
@@ -288,9 +289,9 @@ pub struct SongScene {
     info_scroll: Scroll,
 
     fav_btn: RectButton,
-    fav_touch_start: f32,
+    fav_long_touch: LongTouchState,
     fav_menu: Popup,
-    fav_menu_options: Vec<usize>,
+    fav_menu_options: Vec<Uuid>,
     need_show_fav_menu: bool,
 
     review_task: Option<Task<Result<String>>>,
@@ -331,6 +332,8 @@ pub struct SongScene {
     chart_type: ChartType,
 
     toggle_fav_task: Option<Task<Result<(Collection, bool)>>>,
+
+    confirm_cancel_edit: Arc<AtomicBool>,
 }
 
 impl SongScene {
@@ -455,7 +458,7 @@ impl SongScene {
             info_scroll: Scroll::new(),
 
             fav_btn: RectButton::new(),
-            fav_touch_start: f32::INFINITY,
+            fav_long_touch: LongTouchState::default(),
             fav_menu: Popup::new().tap_mut(|it| it.set_auto_dismiss(false)),
             fav_menu_options: Vec::new(),
             need_show_fav_menu: false,
@@ -510,13 +513,15 @@ impl SongScene {
             chart_type: chart.chart_type,
 
             toggle_fav_task: None,
+
+            confirm_cancel_edit: Arc::default(),
         }
     }
 
     fn start_download(&mut self) -> Result<()> {
         let chart = self.info.clone();
         let Some(entity) = self.entity.clone() else {
-            show_error(anyhow!(tl!("still-loading")));
+            show_message(tl!("still-loading")).error();
             return Ok(());
         };
         self.loading_last = 0.;
@@ -529,6 +534,7 @@ impl SongScene {
         let prog_wk = Arc::downgrade(&progress);
         let status = Arc::new(Mutex::new(tl!("dl-status-fetch")));
         let status_shared = Arc::clone(&status);
+        let atomicity = Arc::new(Mutex::new(()));
         Ok(Downloading {
             info: chart.clone(),
             local_path,
@@ -536,6 +542,7 @@ impl SongScene {
             cancel_download_btn: DRectButton::new(),
             prog: progress,
             status: status_shared,
+            atomicity: atomicity.clone(),
             task: Task::new({
                 let path = format!("{}/{}", dir::downloaded_charts()?, Uuid::new_v4());
                 async move {
@@ -600,14 +607,17 @@ impl SongScene {
                     let local_path = format!("download/{}", chart.id.unwrap());
                     let to_path = format!("{}/{local_path}", dir::charts()?);
                     let to_path = Path::new(&to_path);
-                    if to_path.exists() {
-                        if to_path.is_file() {
-                            tokio::fs::remove_file(to_path).await?;
-                        } else {
-                            tokio::fs::remove_dir_all(to_path).await?;
+                    {
+                        let _guard = atomicity.lock().unwrap();
+                        if to_path.exists() {
+                            if to_path.is_file() {
+                                std::fs::remove_file(to_path)?;
+                            } else {
+                                std::fs::remove_dir_all(to_path)?;
+                            }
                         }
+                        std::fs::rename(path, to_path)?;
                     }
-                    tokio::fs::rename(path, to_path).await?;
 
                     let tuple = load_local_tuple(&local_path, BLACK_TEXTURE.clone(), info).await?;
 
@@ -868,6 +878,28 @@ impl SongScene {
             update_fn
         });
 
+        let save_fn: Option<SaveFn> = Some(Box::new({
+            let local_path = local_path.to_string();
+            move |new_rec| -> Result<()> {
+                let rec = get_data_mut()
+                    .charts
+                    .iter_mut()
+                    .find(|it| it.local_path == local_path)
+                    .map(|it| &mut it.record)
+                    .or_else(|| Some(get_data_mut().local_records.entry(local_path.clone()).or_insert(None)))
+                    .unwrap();
+                if let Some(rec) = rec {
+                    if rec.update(&new_rec) {
+                        save_data()?;
+                    }
+                } else {
+                    *rec = Some(new_rec);
+                    save_data()?;
+                }
+                Ok(())
+            }
+        }));
+
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -939,7 +971,7 @@ impl SongScene {
                 #[cfg(not(feature = "video"))]
                 {
                     warn!("this build does not support unlock video.");
-                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
@@ -951,12 +983,12 @@ impl SongScene {
                         save_data()?;
                     }
 
-                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
             } else {
-                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
             }
@@ -966,6 +998,10 @@ impl SongScene {
     fn is_owner(&self) -> bool {
         self.info.id.is_none()
             || (self.info.created.is_some() && self.info.uploader.as_ref().map(|it| it.id) == get_data().me.as_ref().map(|it| it.id))
+    }
+
+    fn hide_side(&mut self, rt: f32) {
+        self.side_enter_time = -rt;
     }
 
     fn side_chart_info(&mut self, ui: &mut Ui, rt: f32) -> Result<()> {
@@ -980,7 +1016,11 @@ impl SongScene {
         let dx = width / if is_owner { 3. } else { 2. };
         let mut r = Rect::new(hpad, ui.top * 2. - h + vpad, dx - hpad * 2., h - vpad * 2.);
         if ui.button("cancel", r, tl!("edit-cancel")) {
-            self.side_enter_time = -rt;
+            if self.info_edit.as_ref().is_some_and(|it| it.updated) {
+                confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
+            } else {
+                self.hide_side(rt);
+            }
         }
         if is_owner {
             r.x += dx;
@@ -1294,24 +1334,26 @@ impl SongScene {
     }
 
     fn matches_ref(&self, r: &ChartRef) -> bool {
-        r.matches(self.info.id, self.local_path.as_deref())
+        r.matches(self.local_path.as_deref().ok_or_else(|| self.info.id.unwrap()))
     }
 
     fn to_chart_ref(&self) -> Option<ChartRef> {
-        Some(if self.info.id.is_some() {
+        Some(if let Some(local) = &self.local_path {
+            ChartRef::Local(local.clone())
+        } else {
             match self.entity.clone() {
-                Some(entity) => ChartRef::Online(Box::new(entity)),
+                Some(entity) => entity.into(),
                 None => {
                     show_message(tl!("still-loading")).error();
                     return None;
                 }
             }
-        } else {
-            ChartRef::Local(self.local_path.clone().unwrap())
         })
     }
 
-    fn toggle_in(&mut self, col: &mut LocalCollection) {
+    fn toggle_in(&mut self, uuid: Uuid) {
+        let data = get_data();
+        let mut col = data.collection_info(&uuid).as_ref().clone();
         if col.id.is_some() && self.info.id.is_none() {
             Dialog::simple(ttl!("favorites-online-only", "charts" => &self.info.name)).show();
             return;
@@ -1329,13 +1371,14 @@ impl SongScene {
         } else {
             return;
         }
-        let _ = save_data();
+        let col_id = col.id;
+        data.set_collection_info(&uuid, col).unwrap();
         FAV_UPDATED.store(true, Ordering::SeqCst);
         if !should_upload {
             return;
         }
 
-        if let Some(col_id) = col.id {
+        if let Some(col_id) = col_id {
             let id = self.info.id.unwrap();
             self.toggle_fav_task = Some(Task::new(async move {
                 let resp: Collection = recv_raw(Client::request(Method::PATCH, format!("/collection/{col_id}")).json(&CollectionPatch::Toggle(id)))
@@ -1351,13 +1394,15 @@ impl SongScene {
     /// 构建收藏夹菜单的选项列表。
     /// 已或包含该谱面的条目会以“\u2713 前缀标记。
     fn get_fav_menu_options(&mut self) -> Vec<String> {
+        let data = get_data();
         let mut options = Vec::new();
         self.fav_menu_options.clear();
-        for (index, col) in get_data().collections.iter().enumerate() {
+        for uuid in data.collection_uuids() {
+            let col = data.collection_info(uuid);
             if !col.is_owned() {
                 continue;
             }
-            self.fav_menu_options.push(index);
+            self.fav_menu_options.push(*uuid);
             let contains = col.charts.iter().any(|it| self.matches_ref(it));
             options.push(format!("{} {}", if contains { '\u{2713}' } else { ' ' }, col.name));
         }
@@ -1374,7 +1419,7 @@ impl Scene for SongScene {
                 if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
                     self.rate_dialog.enter(tm.real_time() as _);
                 }
-                self.update_record(*rec)?;
+                self.record.as_mut().map(|it| it.update(rec.as_ref()));
                 self.load_ldb();
                 return Ok(());
             }
@@ -1463,12 +1508,12 @@ impl Scene for SongScene {
         {
             return Ok(true);
         }
-        if self.downloading.is_some() {
-            if let Some(dl) = &mut self.downloading {
-                if dl.touch(touch, t) {
-                    self.downloading = None;
-                    return Ok(true);
-                }
+        if let Some(dl) = &mut self.downloading {
+            if dl.touch(touch, t) {
+                let atomicity = dl.atomicity.clone();
+                let _guard = atomicity.lock().unwrap();
+                self.downloading = None;
+                return Ok(true);
             }
             return Ok(false);
         }
@@ -1499,7 +1544,11 @@ impl Scene for SongScene {
                             }
                         }
                     }
-                    self.side_enter_time = -tm.real_time() as _;
+                    if matches!(self.side_content, SideContent::Edit) && self.info_edit.as_ref().is_some_and(|it| it.updated) {
+                        confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
+                    } else {
+                        self.hide_side(rt);
+                    }
                     return Ok(true);
                 }
                 match self.side_content {
@@ -1567,7 +1616,7 @@ impl Scene for SongScene {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(false)));
             return Ok(true);
         }
-        if self.play_btn.touch(touch, t) {
+        if self.scene_task.is_none() && self.next_scene.is_none() && self.play_btn.touch(touch, t) {
             if self.local_path.is_some() {
                 self.launch(GameMode::Normal, false)?;
             } else {
@@ -1581,15 +1630,15 @@ impl Scene for SongScene {
             return Ok(true);
         }
         if self.fav_btn.touch(touch) {
-            self.fav_touch_start = f32::INFINITY;
+            self.fav_long_touch.reset();
             button_hit();
-            let data = get_data_mut();
-            if let Some(col) = data.collections.iter_mut().find(|it| it.is_default) {
-                self.toggle_in(col);
+            let data = get_data();
+            if let Some(uuid) = data.collection_uuids().iter().find(|uuid| data.collection_info(uuid).is_default) {
+                self.toggle_in(*uuid);
             }
             return Ok(true);
         }
-        if self.fav_btn.long_touch(t, &mut self.fav_touch_start) {
+        if self.fav_btn.long_touch(touch, t, &mut self.fav_long_touch) {
             button_hit();
             let options = self.get_fav_menu_options();
             self.fav_menu.set_options(options);
@@ -1826,7 +1875,7 @@ impl Scene for SongScene {
                     }));
                 }
                 "review-deny" => {
-                    request_input("deny-reason", "");
+                    request_input("deny-reason", InputBox::new().mode(InputMode::Multiline));
                 }
                 "review-del" => {
                     confirm_delete(self.chart_should_delete.clone());
@@ -1864,10 +1913,10 @@ impl Scene for SongScene {
                     }));
                 }
                 "stabilize-comment" => {
-                    request_input("stabilize-comment", "");
+                    request_input("stabilize-comment", InputBox::new().mode(InputMode::Multiline));
                 }
                 "stabilize-deny" => {
-                    request_input("stabilize-deny-reason", "");
+                    request_input("stabilize-deny-reason", InputBox::new().mode(InputMode::Multiline));
                 }
                 _ => {}
             }
@@ -1878,7 +1927,7 @@ impl Scene for SongScene {
         if self.fav_menu.changed() {
             let selected = self.fav_menu.selected();
             self.fav_menu.set_selected(usize::MAX);
-            self.toggle_in(&mut get_data_mut().collections[self.fav_menu_options[selected]]);
+            self.toggle_in(self.fav_menu_options[selected]);
             let _ = save_data();
             let options = self.get_fav_menu_options();
             self.fav_menu.set_options(options);
@@ -2001,28 +2050,7 @@ impl Scene for SongScene {
             self.upload_task = Some(Task::new(async move {
                 let root = format!("{}/{path}", dir::charts()?);
                 let root = Path::new(&root);
-                let chart_bytes = {
-                    let mut bytes = Vec::new();
-                    let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
-                    let options = SimpleFileOptions::default()
-                        .compression_method(CompressionMethod::Deflated)
-                        .unix_permissions(0o755);
-                    #[allow(deprecated)]
-                    for entry in WalkDir::new(root) {
-                        let entry = entry?;
-                        let path = entry.path();
-                        let name = path.strip_prefix(root)?;
-                        if path.is_file() {
-                            zip.start_file_from_path(name, options)?;
-                            let mut f = File::open(path)?;
-                            std::io::copy(&mut f, &mut zip)?;
-                        } else if !name.as_os_str().is_empty() {
-                            zip.add_directory_from_path(name, options)?;
-                        }
-                    }
-                    zip.finish()?;
-                    bytes
-                };
+                let chart_bytes = compress_folder(root)?;
                 let file = Client::upload_file("chart.zip", chart_bytes)
                     .await
                     .with_context(|| tl!("upload-chart-failed"))?;
@@ -2287,10 +2315,11 @@ impl Scene for SongScene {
                         show_error(err);
                     }
                     Ok((col, added)) => {
-                        let data = get_data_mut();
-                        if let Some(local) = data.collections.iter_mut().find(|it| it.id == Some(col.id)) {
-                            local.assign_from(&col);
-                            let _ = save_data();
+                        let data = get_data();
+                        if let Some(uuid) = data.collection_uuids().iter().find(|it| data.collection_info(it).id == Some(col.id)) {
+                            let uuid = *uuid;
+                            let local = data.collection_info(&uuid);
+                            data.set_collection_info(&uuid, local.merge(&col))?;
                         }
                         if added {
                             show_message(tl!("fav-added")).ok();
@@ -2300,6 +2329,9 @@ impl Scene for SongScene {
                 }
                 self.toggle_fav_task = None;
             }
+        }
+        if self.confirm_cancel_edit.swap(false, Ordering::Relaxed) {
+            self.hide_side(rt);
         }
         if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() {
             self.tr_start = rt;
@@ -2424,10 +2456,7 @@ impl Scene for SongScene {
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
                 // 收藏按钮 || Favorites button
-                let is_fav = get_data()
-                    .collections
-                    .iter()
-                    .any(|col| col.is_default && col.charts.iter().any(|it| self.matches_ref(it)));
+                let is_fav = get_data().collections().any(|col| col.charts.iter().any(|it| self.matches_ref(it)));
                 let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
                 ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
                 self.fav_btn.set(ui, r);
@@ -2544,4 +2573,26 @@ impl Scene for SongScene {
             NextScene::None
         }
     }
+}
+
+pub fn compress_folder(src: &Path) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
+    let options = SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+    for entry in WalkDir::new(src) {
+        let entry = entry?;
+        let path = entry.path();
+        let name = path.strip_prefix(src)?;
+        if path.is_file() {
+            zip.start_file_from_path(name, options)?;
+            let mut f = File::open(path)?;
+            std::io::copy(&mut f, &mut zip)?;
+        } else if !name.as_os_str().is_empty() {
+            zip.add_directory_from_path(name, options)?;
+        }
+    }
+    zip.finish()?;
+    Ok(bytes)
 }

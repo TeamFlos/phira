@@ -78,11 +78,7 @@ fn get_uptime() -> f64 {
 
 #[cfg(target_os = "ios")]
 fn get_uptime() -> f64 {
-    use crate::objc::*;
-    unsafe {
-        let process_info: ObjcId = msg_send![class!(NSProcessInfo), processInfo];
-        msg_send![process_info, systemUptime]
-    }
+    objc2_foundation::NSProcessInfo::processInfo().systemUptime()
 }
 
 #[cfg(target_os = "windows")]
@@ -159,7 +155,7 @@ pub enum Judgement {
     Miss,
 }
 
-#[cfg(not(closed))]
+#[cfg(any(not(closed), target_os = "windows", target_os = "linux"))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
     diffs: Vec<f32>,
@@ -170,7 +166,7 @@ pub(crate) struct JudgeInner {
     num_of_notes: u32,
 }
 
-#[cfg(not(closed))]
+#[cfg(any(not(closed), target_os = "windows", target_os = "linux"))]
 impl JudgeInner {
     pub fn new(num_of_notes: u32) -> Self {
         Self {
@@ -255,9 +251,9 @@ impl JudgeInner {
 }
 
 #[rustfmt::skip]
-#[cfg(closed)]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 pub mod inner;
-#[cfg(closed)]
+#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
 use inner::*;
 
 type Judgements = Vec<(f32, u32, u32, Result<Judgement, bool>)>;

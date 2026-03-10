@@ -46,20 +46,22 @@ edit-overwrite-failed = 覆蓋失敗
 edit-upload = 上傳
 edit-update = 更新
 
+warn = 警告
+cancel-not-saved = 譜面資訊尚未儲存，確定要取消變更嗎？
 upload-not-saved = 你尚未儲存譜面，確定要繼續上傳嗎？
 upload-login-first = 請先登入
-upload-builtin = 不能上傳內置譜面
+upload-builtin = 不能上傳內建譜面
 upload-rules = 上傳須知
 upload-rules-content =
   在上傳前，你需要確認：
   1. ！譜面必須為本人創作，合作需具有所有創作者的上傳許可，否則可能面臨永久禁止上傳的懲罰
-  2. 建議使用辨識度高的頭像和 ID；如果你在 Phira 使用的頭像 ID 與自制譜影音分享平臺（具體而言，bilibili）有較大出入，需要額外標註。同時請註明方便使用的語言（若非漢語）
+  2. 建議使用辨識度高的頭像和 ID；如果你在 Phira 使用的頭像 ID 與自製譜影音分享平臺（具體而言，bilibili）有較大出入，需要額外標註。同時請註明方便使用的語言（若非漢語）
   3. 譜面內容（包括音樂、插圖、文字等）須符合中華人民共和國其他法律與法規，不得違法或包含不良內容
   4. 上傳者上傳即同意譜面可用於 Phira 的公開宣傳，其他方式利用仍需譜師許可
   5. 本須知最終解釋權歸 TeamFlos 所有
 uploading = 上傳中…
 upload-chart-failed = 上傳譜面失敗
-upload-success = 上傳成功，請等待審核！
+upload-success = 上傳成功，請等待審核
 upload-failed = 上傳失敗
 upload-confirm-clear-ldb = 由於現有譜面檔案和遠端譜面檔案不同，上傳譜面後將清空該譜面的排行榜，確定要繼續嗎？
 
@@ -127,6 +129,5 @@ stabilize-denied = 已拒絕
 stabilize-denied-passed = 已拒絕，譜面已退件
 
 fav-added = 已收藏
-fav-add-to = 收藏到…
-fav-select-folder = 選擇收藏夾
-fav-default-folder = 預設收藏夾
+
+still-loading = 正在載入…

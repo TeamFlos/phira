@@ -1,7 +1,7 @@
 prpr_l10n::tl_file!("charts_view");
 
 use crate::{
-    client::Chart,
+    client::{Chart, ChartRef},
     dir, get_data, get_data_mut,
     icons::Icons,
     page::{ChartItem, ChartType, Fader, Illustration, CHOOSE_COVER, CHOSEN_COVER},
@@ -16,7 +16,7 @@ use prpr::{
     core::{Tweenable, BOLD_FONT},
     ext::{semi_black, RectExt, SafeTexture},
     scene::{show_message, NextScene},
-    ui::{button_hit_large, DRectButton, Scroll, Ui},
+    ui::{button_hit, button_hit_large, DRectButton, LongTouchState, Scroll, Ui},
 };
 use std::{
     ops::Range,
@@ -26,7 +26,6 @@ use std::{
         Arc,
     },
 };
-use tap::Tap;
 
 pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 
@@ -35,10 +34,10 @@ const TRANSIT_TIME: f32 = 0.4;
 const BACK_FADE_IN_TIME: f32 = 0.2;
 
 pub struct ChartDisplayItem {
-    chart: Option<ChartItem>,
+    pub chart: Option<ChartItem>,
     symbol: Option<char>,
     btn: DRectButton,
-    touch_start: f32,
+    long_touch: LongTouchState,
 }
 
 impl ChartDisplayItem {
@@ -47,7 +46,7 @@ impl ChartDisplayItem {
             chart,
             symbol,
             btn: DRectButton::new(),
-            touch_start: f32::INFINITY,
+            long_touch: LongTouchState::default(),
         }
     }
 
@@ -91,7 +90,7 @@ pub struct ChartsView {
     back_fade_in: Option<(u32, f32)>,
 
     transit: Option<TransitState>,
-    charts: Option<Vec<ChartDisplayItem>>,
+    pub charts: Option<Vec<ChartDisplayItem>>,
 
     pub row_num: u32,
     pub row_height: f32,
@@ -100,12 +99,14 @@ pub struct ChartsView {
 
     pub clicked_special: bool,
 
-    allow_edit: bool,
+    pub allow_edit: bool,
     editing_chart: Option<usize>,
     chart_menu: Popup,
     need_show_chart_menu: bool,
     edit_move_state: Option<bool>,
     movement: Option<(usize, usize)>,
+
+    pub multi_select: Option<Vec<ChartRef>>,
 }
 
 impl ChartsView {
@@ -131,24 +132,18 @@ impl ChartsView {
 
             allow_edit: false,
             editing_chart: None,
-            chart_menu: Popup::new().tap_mut(|menu| {
-                menu.set_options(vec![
-                    tl!("move-to-first").into_owned(),
-                    tl!("move-to-last").into_owned(),
-                    tl!("move-before").into_owned(),
-                    tl!("move-after").into_owned(),
-                ])
-            }),
+            chart_menu: Popup::new(),
             need_show_chart_menu: false,
             edit_move_state: None,
             movement: None,
+
+            multi_select: None,
         }
     }
 
     pub fn allow_edit(&mut self, allow: bool) {
         self.allow_edit = allow;
         if !allow {
-            self.editing_chart = None;
             self.edit_move_state = None;
             self.movement = None;
         }
@@ -211,8 +206,7 @@ impl ChartsView {
             for (id, item) in charts.iter_mut().enumerate() {
                 if let Some(chart) = &item.chart {
                     if item.btn.touch(touch, t) {
-                        item.touch_start = f32::INFINITY;
-                        button_hit_large();
+                        item.long_touch.reset();
                         let handled_by_mp = MP_PANEL.with(|it| {
                             if let Some(panel) = it.borrow_mut().as_mut() {
                                 if panel.in_room() {
@@ -229,13 +223,33 @@ impl ChartsView {
                             false
                         });
                         if handled_by_mp {
+                            button_hit_large();
                             continue;
                         }
                         if let Some(after) = self.edit_move_state.take() {
+                            button_hit();
                             movement = Some((id, after));
                             continue;
                         }
+                        if let Some(sel) = &mut self.multi_select {
+                            button_hit();
+                            let r = chart.to_ref();
+                            let mut removed = false;
+                            sel.retain(|it| {
+                                if it == &r {
+                                    removed = true;
+                                    false
+                                } else {
+                                    true
+                                }
+                            });
+                            if !removed {
+                                sel.push(r);
+                            }
+                            continue;
+                        }
                         if CHOOSE_COVER.load(Ordering::Relaxed) {
+                            button_hit();
                             CHOSEN_COVER.with(|it| {
                                 *it.borrow_mut() = Some(if let Some(id) = chart.info.id {
                                     Ok(id)
@@ -245,6 +259,8 @@ impl ChartsView {
                             });
                             continue;
                         }
+
+                        button_hit_large();
                         let download_path = chart.info.id.map(|it| format!("download/{it}"));
                         let scene = SongScene::new(
                             chart.clone(),
@@ -279,8 +295,18 @@ impl ChartsView {
                         });
                         return Ok(true);
                     }
-                    if self.allow_edit && item.btn.long_touch(t, &mut item.touch_start) {
+                    if item.btn.long_touch(touch, t, &mut item.long_touch) {
                         self.editing_chart = Some(id);
+                        let mut options = vec![tl!("select").into_owned()];
+                        if self.allow_edit {
+                            options.extend([
+                                tl!("move-to-first").into_owned(),
+                                tl!("move-to-last").into_owned(),
+                                tl!("move-before").into_owned(),
+                                tl!("move-after").into_owned(),
+                            ]);
+                        }
+                        self.chart_menu.set_options(options);
                         self.chart_menu.set_selected(usize::MAX);
                         self.need_show_chart_menu = true;
                         return Ok(true);
@@ -324,21 +350,25 @@ impl ChartsView {
             let editing = self.editing_chart.unwrap();
             match self.chart_menu.selected() {
                 0 => {
+                    let chart = self.charts.as_ref().unwrap()[editing].chart.as_ref().unwrap();
+                    self.multi_select = Some([chart.to_ref()].into());
+                }
+                1 => {
                     self.movement = Some((editing - has_header as usize, 0));
                     if let Some(charts) = &mut self.charts {
                         let chart = charts.remove(editing);
                         charts.insert(has_header as usize, chart);
                     }
                 }
-                1 => {
+                2 => {
                     self.movement = Some((editing - has_header as usize, self.charts.as_ref().unwrap().len() - 1 - has_header as usize));
                     if let Some(charts) = &mut self.charts {
                         let chart = charts.remove(editing);
                         charts.push(chart);
                     }
                 }
-                2 | 3 => {
-                    self.edit_move_state = Some(self.chart_menu.selected() == 3);
+                3 | 4 => {
+                    self.edit_move_state = Some(self.chart_menu.selected() == 4);
                     show_message(tl!("choose-target"));
                 }
                 _ => {}
@@ -413,7 +443,7 @@ impl ChartsView {
                 let r = Rect::new(p, p, cw - p * 2., ch - p * 2.);
                 self.fader.reset();
                 self.fader.for_sub(|f| {
-                    ui.hgrids(content_size.0, ch, self.row_num, charts.len() as u32, |ui, id, (ox, oy)| {
+                    ui.hgrids(content_size.0, ch, self.row_num, charts.len() as u32, |ui, id| {
                         if let Some(transit) = &mut self.transit {
                             if transit.id == id {
                                 transit.rect = Some(ui.rect_to_global(r));
@@ -421,10 +451,8 @@ impl ChartsView {
                         }
                         if self.editing_chart == Some(id as usize) && self.need_show_chart_menu {
                             self.need_show_chart_menu = false;
-                            let mut menu_r = Rect::new(cw * 2. / 3., ch * 2. / 3., 0.35, 0.4);
-                            menu_r.x = menu_r.x.min(content_size.0 - ox - menu_r.w - 0.02);
-                            menu_r.y = menu_r.y.min(content_size.1 - oy - menu_r.h - 0.02);
-                            self.chart_menu.show(ui, t, menu_r);
+                            self.chart_menu.set_auto_adjust(Some(ui.screen_rect().nonuniform_feather(-0.03, -0.05)));
+                            self.chart_menu.show(ui, t, Rect::new(cw * 2. / 3., ch * 2. / 3., 0.35, 0.4));
                         }
                         if !range.contains(&id) {
                             if let Some(item) = charts.get_mut(id as usize) {
@@ -438,7 +466,14 @@ impl ChartsView {
                             let item = &mut charts[id as usize];
 
                             item.btn.render_shadow(ui, r, t, |ui, path| {
+                                let selected_color = Color::from_rgba(30, 136, 229, 255);
+
                                 if let Some(chart) = &mut item.chart {
+                                    let selected = self.multi_select.as_ref().is_some_and(|set| set.contains(&chart.to_ref()));
+                                    if selected {
+                                        ui.fill_path(&r.feather(0.008).rounded(0.003), selected_color);
+                                    }
+
                                     chart.illu.notify();
                                     ui.fill_path(&path, semi_black(c.a));
                                     ui.fill_path(&path, chart.illu.shading(r.feather(0.01), t));
@@ -491,6 +526,10 @@ impl ChartsView {
                                             .size(0.8 * r.w / cw)
                                             .color(c)
                                             .draw();
+                                    }
+
+                                    if selected {
+                                        ui.fill_path(&path, Color { a: 0.4, ..selected_color });
                                     }
                                 } else {
                                     ui.fill_path(&path, (*self.icons.r#abstract, r));

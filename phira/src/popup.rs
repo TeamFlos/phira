@@ -18,6 +18,7 @@ pub struct Popup {
     changed: bool,
     auto_dismiss: bool,
     pending_dismiss: bool,
+    auto_adjust: Option<Rect>,
 }
 
 impl Popup {
@@ -35,12 +36,19 @@ impl Popup {
             changed: false,
             auto_dismiss: true,
             pending_dismiss: false,
+            auto_adjust: None,
         }
     }
 
     #[inline]
     pub fn with_options(mut self, options: Vec<String>) -> Self {
         self.set_options(options);
+        self
+    }
+
+    #[inline]
+    pub fn with_size(mut self, size: f32) -> Self {
+        self.size = size;
         self
     }
 
@@ -64,12 +72,25 @@ impl Popup {
         self.auto_dismiss = auto_dismiss;
     }
 
+    #[inline]
+    pub fn set_auto_adjust(&mut self, auto_adjust: Option<Rect>) {
+        self.auto_adjust = auto_adjust;
+    }
+
     pub fn set_bottom(&mut self, bottom: bool) {
         self.fader.distance = self.fader.distance.abs() * if bottom { 1. } else { -1. };
     }
 
+    pub fn rect(&self) -> Rect {
+        self.rect
+    }
+
     pub fn show(&mut self, ui: &mut Ui, t: f32, r: Rect) {
         self.rect = ui.rect_to_global(r);
+        if let Some(area) = self.auto_adjust {
+            self.rect.x = self.rect.x.clamp(area.x, area.right() - self.rect.w);
+            self.rect.y = self.rect.y.clamp(area.y, area.bottom() - self.rect.h);
+        }
         self.showing = true;
         self.fader.sub(t);
     }

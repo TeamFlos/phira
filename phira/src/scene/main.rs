@@ -245,6 +245,9 @@ impl Scene for MainScene {
 
         let s = &mut self.state;
         s.update(tm);
+        if self.pages.last_mut().unwrap().touch(touch, s)? {
+            return Ok(true);
+        }
         if self.btn_back.touch(touch) && self.pages.len() > 1 {
             button_hit();
             if !self.pages.last_mut().unwrap().on_back_pressed(&mut self.state) {
@@ -255,9 +258,6 @@ impl Scene for MainScene {
                 }
                 self.pop();
             }
-            return Ok(true);
-        }
-        if self.pages.last_mut().unwrap().touch(touch, s)? {
             return Ok(true);
         }
         Ok(false)
@@ -407,8 +407,6 @@ impl Scene for MainScene {
         }
         s.fader.for_sub(|f| f.render_title(ui, s.t, &self.pages.last().unwrap().label()));
 
-        self.pages.last_mut().unwrap().render_top(ui, s)?;
-
         // 3. back
         if self.pages.len() >= 2 {
             let mut r = ui.back_rect();
@@ -422,6 +420,8 @@ impl Scene for MainScene {
                 ui.fill_rect(r, (*self.icon_back, r));
             });
         }
+
+        self.pages.last_mut().unwrap().render_top(ui, s)?;
 
         if get_data().config.mp_enabled {
             let r = 0.06;

@@ -1,3 +1,8 @@
+use std::{
+    borrow::Cow,
+    hash::{Hash, Hasher},
+};
+
 use crate::{
     client::File,
     get_data,
@@ -31,17 +36,50 @@ impl Object for Collection {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ChartRef {
-    Online(Box<Chart>),
+    Online(i32, Option<Box<Chart>>),
     Local(String),
 }
 impl ChartRef {
-    pub fn matches(&self, id: Option<i32>, local_path: Option<&str>) -> bool {
+    pub fn local_path(&self) -> Cow<'_, str> {
         match self {
-            ChartRef::Online(chart) => id.is_some_and(|id| chart.id == id),
-            ChartRef::Local(path) => local_path.is_some_and(|local_path| path == local_path),
+            Self::Online(id, _) => Cow::Owned(format!("download/{id}")),
+            Self::Local(path) => Cow::Borrowed(path),
+        }
+    }
+
+    pub fn matches(&self, path_or_id: Result<&str, i32>) -> bool {
+        match self {
+            ChartRef::Online(id, _) => path_or_id == Err(*id),
+            ChartRef::Local(path) => path_or_id == Ok(path),
+        }
+    }
+}
+
+impl From<Chart> for ChartRef {
+    fn from(chart: Chart) -> Self {
+        ChartRef::Online(chart.id, Some(Box::new(chart)))
+    }
+}
+
+impl PartialEq for ChartRef {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ChartRef::Online(id1, _), ChartRef::Online(id2, _)) => id1 == id2,
+            (ChartRef::Local(path1), ChartRef::Local(path2)) => path1 == path2,
+            _ => false,
+        }
+    }
+}
+impl Eq for ChartRef {}
+
+impl Hash for ChartRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            ChartRef::Online(id, _) => id.hash(state),
+            ChartRef::Local(path) => path.hash(state),
         }
     }
 }
@@ -86,7 +124,7 @@ impl LocalCollection {
         if matches!(cover, CollectionCover::Unset) {
             cover = match self.charts.first() {
                 None => CollectionCover::Unset,
-                Some(ChartRef::Online(chart)) => CollectionCover::Online(chart.illustration.clone()),
+                Some(ChartRef::Online(_, chart)) => CollectionCover::Online(chart.as_ref().unwrap().illustration.clone()),
                 Some(ChartRef::Local(path)) => CollectionCover::LocalChart(path.clone()),
             };
         }
@@ -105,18 +143,22 @@ impl LocalCollection {
                 .is_some_and(|it| get_data().me.as_ref().is_some_and(|me| me.id == it.id))
     }
 
-    pub fn assign_from(&mut self, col: &Collection) {
+    pub fn merge(&self, col: &Collection) -> Self {
         assert_eq!(self.id, Some(col.id));
-        self.owner = Some(col.owner.clone());
-        self.name = col.name.clone();
-        self.description = col.description.clone();
-        self.cover = match &col.cover {
-            None => CollectionCover::Unset,
-            Some(file) => CollectionCover::Online(file.clone()),
-        };
-        self.remote_updated = Some(col.updated);
-        self.charts = col.charts.iter().map(|chart| ChartRef::Online(Box::new(chart.clone()))).collect();
-        self.public = col.public;
+        Self {
+            id: Some(col.id),
+            owner: Some(col.owner.clone()),
+            cover: match &col.cover {
+                None => CollectionCover::Unset,
+                Some(file) => CollectionCover::Online(file.clone()),
+            },
+            name: col.name.clone(),
+            description: self.description.clone(),
+            remote_updated: Some(col.updated),
+            charts: col.charts.iter().cloned().map(Into::into).collect(),
+            public: col.public,
+            is_default: self.is_default,
+        }
     }
 }
 

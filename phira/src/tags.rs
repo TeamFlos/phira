@@ -1,6 +1,7 @@
 prpr_l10n::tl_file!("tags");
 
 use crate::{client::Permissions, page::Fader};
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
@@ -70,7 +71,7 @@ impl Tags {
             }
         }
         if self.add.touch(touch, t) {
-            request_input(self.input_id, "");
+            request_input(self.input_id, InputBox::new());
             return true;
         }
         false

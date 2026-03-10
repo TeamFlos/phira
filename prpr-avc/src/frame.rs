@@ -1,3 +1,5 @@
+use std::mem;
+
 use crate::{ffi, handle, Error, OwnedPtr, Result, VideoStreamFormat};
 
 #[repr(transparent)]
@@ -40,8 +42,11 @@ impl AVFrame {
         unsafe { handle(ffi::av_frame_get_buffer(self.0 .0, 0)) }
     }
 
-    pub fn raw_data(&self) -> [*mut u8; 8] {
-        unsafe { self.0.as_ref().data }
+    pub fn raw_data(&self) -> &[*const u8; 8] {
+        unsafe { mem::transmute::<&[*mut u8; 8], &[*const u8; 8]>(&self.0.as_ref().data) }
+    }
+    pub fn raw_data_mut(&mut self) -> &mut [*mut u8; 8] {
+        unsafe { &mut self.0.as_mut().data }
     }
 
     // TODO: is this correct?

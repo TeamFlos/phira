@@ -14,6 +14,7 @@ invalid-import = Invalid import code
 rename = Rename
 set-description = Set description
 set-cover = Set cover
+no-charts = No charts in this folder, cannot set cover
 select-cover = Please select a chart as cover
 
 delete = Delete Folder

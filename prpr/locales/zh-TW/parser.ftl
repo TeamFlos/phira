@@ -40,6 +40,6 @@ line-location = #{ $lid } 行中
 
 # extra
 shader-load-failed = 無法從 { $path } 中載入 shader
-shader-not-found = 未找到預置 shader { $shader }
+shader-not-found = 未在內建 shader 中找到 { $shader }
 effect-location = #{ $id } 號 effect 中
 video-load-failed = 從 { $path } 中載入影片失敗
