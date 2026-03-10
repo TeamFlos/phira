@@ -1695,13 +1695,17 @@ dependencies = [
 
 [[package]]
 name = "inputbox"
-version = "0.0.1"
-source = "git+https://github.com/Mivik/inputbox.git?rev=910c465#910c4652ec23fd4eb69f545b6823fce17b7dde3c"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e493178f3fe2a02429797f38b43aa3830e3508f2500157ad1e8ffb9106e9d2b9"
 dependencies = [
  "block2",
  "cfg-if",
+ "inputbox-android",
  "jni 0.22.3",
  "log",
+ "napi-derive-ohos",
+ "napi-ohos",
  "objc2",
  "objc2-core-foundation",
  "objc2-foundation",
@@ -1710,6 +1714,12 @@ dependencies = [
  "serde_json",
  "which",
 ]
+
+[[package]]
+name = "inputbox-android"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8c3414fbf0f1460c97fd92b67dc7517a028c59583ac638c31a1bcb46beb7f4a"
 
 [[package]]
 name = "interpolate_name"
