@@ -414,19 +414,6 @@ async fn parse_notes(
     Ok(notes)
 }
 
-fn reverse_tween(id: u8) -> u8 {
-    if id < 3 {
-        id
-    } else {
-        let rem = (id - 3) % 3;
-        match rem {
-            0 => id + 1,
-            1 => id - 1,
-            _ => id,
-        }
-    }
-}
-
 fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
     let vals: Vec<_> = rpe.iter().map(|it| it.value[key]).collect();
     if rpe.is_empty() || (rpe.len() == 2 && rpe[0].easing == 1 && (vals[0] - 1.).abs() < 1e-4) {
@@ -435,9 +422,7 @@ fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
     AnimFloat::new(
         rpe.iter()
             .zip(vals)
-            .map(|(it, val)| {
-                Keyframe::new(it.x, val, reverse_tween(RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0])))
-            })
+            .map(|(it, val)| Keyframe::new(it.x, val, RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0])))
             .collect(),
     )
 }
