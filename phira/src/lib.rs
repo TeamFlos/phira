@@ -23,6 +23,7 @@ mod threed;
 mod uml;
 
 use anyhow::Result;
+use core::f64;
 use data::Data;
 use macroquad::prelude::*;
 use prpr::{
@@ -37,7 +38,10 @@ use prpr::{
 };
 use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
 use scene::MainScene;
-use std::sync::{mpsc, Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{mpsc, Mutex},
+};
 use tracing::{error, info};
 
 #[cfg(target_os = "android")]
@@ -228,10 +232,24 @@ async fn the_main() -> Result<()> {
     let tm = TimeManager::default();
     let mut fps_time = -1;
 
+    const FPS_BUF_SIZE: usize = 60;
+    let mut fps_times = VecDeque::<f32>::with_capacity(FPS_BUF_SIZE);
+    let mut last_frame_start = f32::NAN;
+    let mut fps_time_sum = 0.;
+
     let mut exit_time = f64::INFINITY;
 
     'app: loop {
         let frame_start = tm.real_time();
+        if !last_frame_start.is_nan() {
+            if fps_times.len() == FPS_BUF_SIZE {
+                fps_time_sum -= fps_times.pop_front().unwrap();
+            }
+            let frame_time = frame_start as f32 - last_frame_start;
+            fps_times.push_back(frame_time);
+            fps_time_sum += frame_time;
+        }
+        last_frame_start = frame_start as f32;
         let res = || -> Result<()> {
             main.update()?;
             main.render(&mut painter)?;
@@ -297,7 +315,11 @@ async fn the_main() -> Result<()> {
         let fps_now = t as i32;
         if fps_now != fps_time {
             fps_time = fps_now;
-            info!("FPS {}", (1. / (t - frame_start)) as u32);
+            if fps_times.len() == FPS_BUF_SIZE {
+                let actual_fps = 1. / (fps_time_sum / FPS_BUF_SIZE as f32);
+                let current_fps = 1. / (t - frame_start);
+                info!("FPS {} (capped at {})", actual_fps as u32, current_fps as u32);
+            }
         }
 
         next_frame().await;
