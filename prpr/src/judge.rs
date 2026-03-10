@@ -83,11 +83,7 @@ fn get_uptime() -> f64 {
 
 #[cfg(target_os = "windows")]
 fn get_uptime() -> f64 {
-    use std::time::SystemTime;
-    let start = SystemTime::UNIX_EPOCH;
-    let now = SystemTime::now();
-    let duration = now.duration_since(start).expect("Time went backwards");
-    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+    miniquad::native::windows::get_uptime()
 }
 
 pub struct FlickTracker {

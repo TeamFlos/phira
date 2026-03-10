@@ -15,6 +15,7 @@ use crate::{
     tags::TagsDialog,
 };
 use anyhow::{anyhow, Error, Result};
+use chrono::{DateTime, Utc};
 use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
@@ -23,6 +24,7 @@ use prpr::{
     task::Task,
     ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
+use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     borrow::Cow,
@@ -396,10 +398,16 @@ struct ExportConfig {
     deleter: Box<dyn FnOnce() -> io::Result<()> + Send>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ExportInfo {
+    pub exported_at: DateTime<Utc>,
+    pub version: String,
+}
+
 static EXPORT_CONFIG: Mutex<Option<io::Result<ExportConfig>>> = Mutex::new(None);
 
 fn request_export() {
-    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d%H%M%S"));
+    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
     cfg_if::cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
@@ -447,7 +455,10 @@ extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, 
     let file = unsafe { File::from_raw_fd(fd as _) };
     EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
         file,
-        deleter: Box::new(|| Ok(delete_uri(java_vm, uri))),
+        deleter: Box::new(|| {
+            delete_uri(java_vm, uri);
+            Ok(())
+        }),
     }));
 }
 
@@ -740,7 +751,10 @@ impl Page for LibraryPage {
                                     }
                                 }
                             }
-                            Ok(CreateFavorite { name: text, charts: selected })
+                            Ok(CreateFavorite {
+                                name: text,
+                                charts: selected,
+                            })
                         }));
                     }
                 }
@@ -948,6 +962,14 @@ impl Page for LibraryPage {
                     zip.write_all(&chart_bytes)?;
                     progress.store(i as u32 + 1, Ordering::Relaxed);
                 }
+
+                zip.start_file("export.json", options.compression_method(zip::CompressionMethod::Deflated))?;
+                let info = ExportInfo {
+                    exported_at: Utc::now(),
+                    version: env!("CARGO_PKG_VERSION").to_owned(),
+                };
+                serde_json::to_writer(&mut zip, &info)?;
+
                 zip.finish()?;
                 Ok(())
             }

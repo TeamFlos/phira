@@ -295,7 +295,7 @@ impl ChartsView {
                         });
                         return Ok(true);
                     }
-                    if item.btn.long_touch(touch, t, &mut item.long_touch) {
+                    if self.multi_select.is_none() && item.btn.long_touch(touch, t, &mut item.long_touch) {
                         self.editing_chart = Some(id);
                         let mut options = vec![tl!("select").into_owned()];
                         if self.allow_edit {
@@ -469,8 +469,11 @@ impl ChartsView {
                                 let selected_color = Color::from_rgba(30, 136, 229, 255);
 
                                 if let Some(chart) = &mut item.chart {
-                                    let selected = self.multi_select.as_ref().is_some_and(|set| set.contains(&chart.to_ref()));
-                                    if selected {
+                                    let selected = self.multi_select.as_ref().and_then(|set| {
+                                        let chart_ref = chart.to_ref();
+                                        set.iter().position(|it| it == &chart_ref)
+                                    });
+                                    if selected.is_some() {
                                         ui.fill_path(&r.feather(0.008).rounded(0.003), selected_color);
                                     }
 
@@ -528,8 +531,16 @@ impl ChartsView {
                                             .draw();
                                     }
 
-                                    if selected {
+                                    if let Some(pos) = selected {
                                         ui.fill_path(&path, Color { a: 0.4, ..selected_color });
+                                        let ct = r.center();
+                                        ui.text((pos + 1).to_string())
+                                            .pos(ct.x, ct.y)
+                                            .anchor(0.5, 0.5)
+                                            .no_baseline()
+                                            .size(1.2 * r.w / cw)
+                                            .color(WHITE)
+                                            .draw_using(&BOLD_FONT);
                                     }
                                 } else {
                                     ui.fill_path(&path, (*self.icons.r#abstract, r));

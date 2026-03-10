@@ -4,9 +4,9 @@ use crate::{
     data::LocalChart,
     dir, get_data, get_data_mut,
     mp::MPPanel,
-    page::{HomePage, NextPage, Page, ResPackItem, SharedState},
+    page::{ExportInfo, HomePage, NextPage, Page, ResPackItem, SharedState},
     save_data,
-    scene::{TEX_BACKGROUND, TEX_ICON_BACK},
+    scene::{confirm_dialog, import_chart_to, TEX_BACKGROUND, TEX_ICON_BACK},
 };
 use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
@@ -14,6 +14,7 @@ use once_cell::sync::Lazy;
 use prpr::{
     core::ResPackInfo,
     ext::{unzip_into, RectExt, SafeTexture},
+    info::ChartInfo,
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -24,11 +25,16 @@ use std::{
     any::Any,
     cell::RefCell,
     fs::File,
-    io::BufReader,
-    sync::atomic::{AtomicBool, Ordering},
+    io::{BufReader, Seek, SeekFrom},
+    path::{Component, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    },
     thread_local,
     time::{Duration, Instant},
 };
+use tempfile::tempfile;
 use uuid::Uuid;
 
 const LOW_PASS: f32 = 0.95;
@@ -64,6 +70,19 @@ pub struct MainScene {
     mp_move: Option<(u64, Vec2, Vec2)>,
     mp_moved: bool,
     mp_save_pos_at: Option<Instant>,
+
+    // batch import
+    batch_import_confirm: Arc<AtomicBool>,
+    batch_import: Option<(String, ExportInfo)>,
+    batch_import_task: Option<Task<Result<()>>>,
+    batch_import_rx: Option<mpsc::Receiver<ImportChart>>,
+    batch_imported_charts: Vec<ImportChart>,
+    batch_import_total: usize,
+}
+
+enum ImportChart {
+    Imported(Box<LocalChart>),
+    Skipped(String),
 }
 
 impl MainScene {
@@ -144,6 +163,13 @@ impl MainScene {
             mp_move: None,
             mp_moved: false,
             mp_save_pos_at: None,
+
+            batch_import_confirm: Arc::default(),
+            batch_import: None,
+            batch_import_task: None,
+            batch_import_rx: None,
+            batch_imported_charts: Vec::new(),
+            batch_import_total: 0,
         })
     }
 
@@ -332,7 +358,43 @@ impl Scene for MainScene {
         if let Some((id, file)) = take_file() {
             match id.as_str() {
                 "_import" => {
-                    self.import_task = Some(Task::new(import_chart(file)));
+                    let export_info = (|| -> Result<Option<(ExportInfo, usize)>> {
+                        let file = File::open(&file)?;
+                        let mut archive = zip::ZipArchive::new(file)?;
+                        let export_info = match archive.by_name("export.json") {
+                            Err(zip::result::ZipError::FileNotFound) => {
+                                return Ok(None);
+                            }
+                            Err(err) => {
+                                return Err(err.into());
+                            }
+                            Ok(file) => serde_json::from_reader(file)?,
+                        };
+                        let mut count = 0;
+                        for i in 0..archive.len() {
+                            let file = archive.by_index(i)?;
+                            if file.enclosed_name().is_some_and(|it| it.extension().is_some_and(|ext| ext == "zip")) {
+                                count += 1;
+                            }
+                        }
+                        Ok(Some((export_info, count)))
+                    })();
+                    match export_info {
+                        Err(err) => {
+                            show_error(err.context(itl!("import-failed")));
+                        }
+                        Ok(None) => {
+                            self.import_task = Some(Task::new(async move {
+                                let file = File::open(&file).context("cannot open file")?;
+                                import_chart(file).await
+                            }));
+                        }
+                        Ok(Some((info, count))) => {
+                            self.batch_import = Some((file, info));
+                            self.batch_import_total = count;
+                            confirm_dialog(itl!("batch-import"), itl!("batch-import-confirm", "count" => count), self.batch_import_confirm.clone());
+                        }
+                    };
                 }
                 "_import_respack" => {
                     let root = dir::respacks()?;
@@ -364,6 +426,128 @@ impl Scene for MainScene {
                     }
                 }
                 _ => return_file(id, file),
+            }
+        }
+        if self.batch_import_confirm.swap(false, Ordering::Relaxed) {
+            if let Some((file, _info)) = self.batch_import.take() {
+                let (tx, rx) = mpsc::channel();
+                self.batch_import_rx = Some(rx);
+                self.batch_imported_charts.clear();
+                self.batch_import_task = Some(Task::new(async move {
+                    let mut archive = zip::ZipArchive::new(BufReader::new(File::open(&file)?))?;
+                    let charts_dir = dir::charts()?;
+                    for i in 0..archive.len() {
+                        let mut file = archive.by_index(i)?;
+                        let Some(name) = file.enclosed_name() else {
+                            continue;
+                        };
+                        if name.extension().is_none_or(|it| it != "zip") {
+                            continue;
+                        }
+                        let [Component::Normal(dir), Component::Normal(name)] = name.components().collect::<Vec<_>>()[..] else {
+                            continue;
+                        };
+                        let mut to_tempfile = || -> std::io::Result<_> {
+                            let mut tf = tempfile()?;
+                            std::io::copy(&mut file, &mut tf)?;
+                            tf.seek(SeekFrom::Start(0))?;
+                            Ok(tf)
+                        };
+                        match dir.to_str() {
+                            Some("custom") => {
+                                let tf = to_tempfile()?;
+                                let chart = import_chart(tf)
+                                    .await
+                                    .with_context(|| itl!("batch-import-failed-chart", "chart" => name.display().to_string()))?;
+                                let _ = tx.send(ImportChart::Imported(Box::new(chart))).ok();
+                            }
+                            Some("download") => {
+                                let Some(id) = name.to_str().and_then(|it| it.strip_suffix(".zip")).and_then(|it| it.parse::<i32>().ok()) else {
+                                    warn!("invalid batch import download id: {:?}", name);
+                                    continue;
+                                };
+                                let local_path = format!("download/{id}");
+                                let path = PathBuf::from(format!("{charts_dir}/{local_path}"));
+                                if std::fs::exists(&path)? {
+                                    let info: ChartInfo = serde_yaml::from_reader(File::open(path.join("info.yml"))?)?;
+                                    let _ = tx.send(ImportChart::Skipped(info.name));
+                                    continue;
+                                }
+                                std::fs::create_dir(&path)?;
+                                let tf = to_tempfile()?;
+                                let chart = import_chart_to(&path, local_path, tf)
+                                    .await
+                                    .with_context(|| itl!("batch-import-failed-chart", "chart" => name.display().to_string()))?;
+                                let _ = tx.send(ImportChart::Imported(Box::new(chart))).ok();
+                            }
+                            _ => {
+                                warn!("invalid batch import dir: {:?}", dir);
+                            }
+                        }
+                    }
+                    Ok(())
+                }));
+            }
+        }
+
+        if let Some(rx) = &mut self.batch_import_rx {
+            match rx.try_recv() {
+                Ok(chart) => {
+                    self.batch_imported_charts.push(chart);
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    warn!("import thread panicked");
+                    self.batch_import_rx = None;
+                }
+            }
+        }
+
+        if let Some(task) = &mut self.batch_import_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        let charts = dir::charts()?;
+                        for chart in self.batch_imported_charts.drain(..) {
+                            if let ImportChart::Imported(chart) = chart {
+                                let path = format!("{charts}{}", chart.local_path);
+                                let _ = std::fs::remove_dir_all(path);
+                            }
+                        }
+                        show_error(err.context(itl!("batch-import-failed")));
+                    }
+                    Ok(()) => {
+                        let data = get_data_mut();
+                        let mut count = 0;
+                        let mut skipped = String::new();
+                        for chart in self.batch_imported_charts.drain(..) {
+                            match chart {
+                                ImportChart::Imported(chart) => {
+                                    data.charts.push(*chart);
+                                    count += 1;
+                                }
+                                ImportChart::Skipped(name) => {
+                                    if !skipped.is_empty() {
+                                        skipped.push_str(", ");
+                                    }
+                                    skipped.push_str(&name);
+                                }
+                            }
+                        }
+                        save_data()?;
+                        self.state.reload_local_charts();
+                        NEED_UPDATE.store(true, Ordering::Relaxed);
+
+                        let mut message = itl!("batch-import-success", "count" => count);
+                        if !skipped.is_empty() {
+                            message.push('\n');
+                            message += &itl!("batch-import-downloaded-skipped", "charts" => skipped);
+                        }
+                        show_message(message);
+                    }
+                }
+                self.batch_import_task = None;
+                self.batch_import_rx = None;
             }
         }
 
@@ -442,6 +626,11 @@ impl Scene for MainScene {
 
         if self.import_task.is_some() {
             ui.full_loading(itl!("importing"), s.t);
+        }
+        if self.batch_import_task.is_some() {
+            let current = self.batch_imported_charts.len();
+            let total = self.batch_import_total;
+            ui.full_loading(itl!("batch-importing", "current" => current, "total" => total), s.t);
         }
 
         Ok(())
