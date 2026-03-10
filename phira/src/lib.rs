@@ -318,7 +318,7 @@ async fn the_main() -> Result<()> {
             if fps_times.len() == FPS_BUF_SIZE {
                 let actual_fps = 1. / (fps_time_sum / FPS_BUF_SIZE as f32);
                 let current_fps = 1. / (t - frame_start);
-                info!("FPS {} (capped at {})", actual_fps as u32, current_fps as u32);
+                info!("FPS {} (capped at {})", current_fps as u32, actual_fps as u32);
             }
         }
 
