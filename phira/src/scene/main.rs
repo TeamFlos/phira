@@ -81,7 +81,7 @@ pub struct MainScene {
 }
 
 enum ImportChart {
-    Imported(LocalChart),
+    Imported(Box<LocalChart>),
     Skipped(String),
 }
 
@@ -459,7 +459,7 @@ impl Scene for MainScene {
                                 let chart = import_chart(tf)
                                     .await
                                     .with_context(|| itl!("batch-import-failed-chart", "chart" => name.display().to_string()))?;
-                                let _ = tx.send(ImportChart::Imported(chart)).ok();
+                                let _ = tx.send(ImportChart::Imported(Box::new(chart))).ok();
                             }
                             Some("download") => {
                                 let Some(id) = name.to_str().and_then(|it| it.strip_suffix(".zip")).and_then(|it| it.parse::<i32>().ok()) else {
@@ -478,7 +478,7 @@ impl Scene for MainScene {
                                 let chart = import_chart_to(&path, local_path, tf)
                                     .await
                                     .with_context(|| itl!("batch-import-failed-chart", "chart" => name.display().to_string()))?;
-                                let _ = tx.send(ImportChart::Imported(chart)).ok();
+                                let _ = tx.send(ImportChart::Imported(Box::new(chart))).ok();
                             }
                             _ => {
                                 warn!("invalid batch import dir: {:?}", dir);
@@ -523,7 +523,7 @@ impl Scene for MainScene {
                         for chart in self.batch_imported_charts.drain(..) {
                             match chart {
                                 ImportChart::Imported(chart) => {
-                                    data.charts.push(chart);
+                                    data.charts.push(*chart);
                                     count += 1;
                                 }
                                 ImportChart::Skipped(name) => {
