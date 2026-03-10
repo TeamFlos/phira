@@ -2126,7 +2126,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.3.25"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=039f957#039f95705ce0fcb8b6533de475862a769a3360aa"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=2db08f2#2db08f295ff91c5ee07b044cccf5a49827345baa"
 dependencies = [
  "bumpalo",
  "fontdue",
@@ -2140,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.7"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=039f957#039f95705ce0fcb8b6533de475862a769a3360aa"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=2db08f2#2db08f295ff91c5ee07b044cccf5a49827345baa"
 
 [[package]]
 name = "malloc_buf"
@@ -2209,7 +2209,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad?rev=dc26ae9#dc26ae99df38353ebd80eaf371008ce30590a22d"
+source = "git+https://github.com/Mivik/prpr-miniquad?rev=018b3a7#018b3a70df431e9705959f4d53bba778f889f8da"
 dependencies = [
  "jni 0.21.1",
  "keyboard-types",
