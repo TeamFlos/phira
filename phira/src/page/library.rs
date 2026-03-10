@@ -36,8 +36,7 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        mpsc, Arc, Mutex,
+        Arc, Mutex, atomic::{AtomicBool, AtomicU32, Ordering}, mpsc
     },
 };
 use tap::Tap;
@@ -399,7 +398,7 @@ struct ExportConfig {
 }
 
 #[derive(Serialize, Deserialize)]
-struct ExportInfo {
+pub struct ExportInfo {
     pub exported_at: DateTime<Utc>,
     pub version: String,
 }
@@ -407,7 +406,7 @@ struct ExportInfo {
 static EXPORT_CONFIG: Mutex<Option<io::Result<ExportConfig>>> = Mutex::new(None);
 
 fn request_export() {
-    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d%H%M%S"));
+    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
     cfg_if::cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
