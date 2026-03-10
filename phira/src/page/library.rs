@@ -963,7 +963,7 @@ impl Page for LibraryPage {
                     progress.store(i as u32 + 1, Ordering::Relaxed);
                 }
 
-                zip.start_file("info.json", options.compression_method(zip::CompressionMethod::Deflated))?;
+                zip.start_file("export.json", options.compression_method(zip::CompressionMethod::Deflated))?;
                 let info = ExportInfo {
                     exported_at: Utc::now(),
                     version: env!("CARGO_PKG_VERSION").to_owned(),
