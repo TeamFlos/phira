@@ -678,12 +678,7 @@ impl Page for FavoritesPage {
                         request_input("fav_rename", InputBox::new().default_text(&col.name));
                     }
                     "set-description" => {
-                        request_input(
-                            "fav_description",
-                            InputBox::new()
-                                .default_text(&col.description)
-                                .mode(InputMode::Multiline),
-                        );
+                        request_input("fav_description", InputBox::new().default_text(&col.description).mode(InputMode::Multiline));
                     }
                     "set-cover" => {
                         if col.id.is_none() {

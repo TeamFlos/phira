@@ -36,7 +36,8 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex, atomic::{AtomicBool, AtomicU32, Ordering}, mpsc
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        mpsc, Arc, Mutex,
     },
 };
 use tap::Tap;

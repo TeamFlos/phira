@@ -282,7 +282,8 @@ impl Data {
             self.collection_uuids.insert(0, uuid);
         }
         let charts = dir::charts()?;
-        self.local_records.retain(|local_path, _| Path::new(&format!("{charts}/{local_path}")).exists());
+        self.local_records
+            .retain(|local_path, _| Path::new(&format!("{charts}/{local_path}")).exists());
 
         self.config.init();
         Ok(())
