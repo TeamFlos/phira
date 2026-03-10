@@ -10,8 +10,8 @@ use super::{process_lines, L10N_LOCAL, RPE_TWEEN_MAP};
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GifFrames, HitSoundMap,
-        JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS,
-        HEIGHT_RATIO,
+        JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, ReversedTween, StaticTween, Triple, TweenFunction, Tweenable,
+        UIElement, EPS, HEIGHT_RATIO,
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
@@ -422,7 +422,14 @@ fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
     AnimFloat::new(
         rpe.iter()
             .zip(vals)
-            .map(|(it, val)| Keyframe::new(it.x, val, RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0])))
+            .map(|(it, val)| {
+                let tween_id = RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
+                Keyframe {
+                    time: it.x,
+                    value: val,
+                    tween: Rc::new(ReversedTween(StaticTween::get_rc(tween_id))),
+                }
+            })
             .collect(),
     )
 }

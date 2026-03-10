@@ -142,6 +142,17 @@ impl StaticTween {
     }
 }
 
+pub struct ReversedTween(pub Rc<dyn TweenFunction>);
+impl TweenFunction for ReversedTween {
+    fn y(&self, x: f32) -> f32 {
+        1.0 - self.0.y(1.0 - x)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 // TODO assuming monotone, but actually they're not (e.g. Back tween)
 pub struct ClampedTween(pub TweenId, pub Range<f32>, pub Range<f32>);
 impl TweenFunction for ClampedTween {
