@@ -8,7 +8,7 @@ use crate::{
     save_data,
     scene::{confirm_dialog, import_chart_to, TEX_BACKGROUND, TEX_ICON_BACK},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
@@ -25,7 +25,8 @@ use std::{
     any::Any,
     cell::RefCell,
     fs::File,
-    io::{BufReader, Seek, SeekFrom},
+    io::{BufReader, Read, Seek, SeekFrom},
+    mem,
     path::{Component, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -401,6 +402,50 @@ impl Scene for MainScene {
                     let dir = prpr::dir::Dir::new(&root)?;
                     let mut dir_id = String::new();
                     let item: Result<ResPackItem> = (|| {
+                        let config = {
+                            let mut zip = zip::ZipArchive::new(BufReader::new(File::open(&file)?))?;
+                            let config: ResPackInfo =
+                                serde_yaml::from_reader(zip.by_name("info.yml").context("missing info.yml")?).context("invalid info.yml")?;
+                            if config.name.is_empty() {
+                                bail!("empty name");
+                            }
+                            if config.name.len() > 100 {
+                                bail!("name too long");
+                            }
+                            if config.description.len() > 1000 {
+                                bail!("description too long");
+                            }
+                            let mut buffer = Vec::new();
+                            for file in [
+                                "click.png",
+                                "click_mh.png",
+                                "drag.png",
+                                "drag_mh.png",
+                                "flick.png",
+                                "flick_mh.png",
+                                "hold.png",
+                                "hold_mh.png",
+                                "hit_fx.png",
+                            ] {
+                                let mut entry = zip.by_name(file).with_context(|| format!("missing file: {file}"))?;
+                                buffer.clear();
+                                entry.read_to_end(&mut buffer)?;
+                                image::load_from_memory(&buffer).with_context(|| format!("failed to load image: {file}"))?;
+                            }
+
+                            for audio in ["click.ogg", "drag.ogg", "flick.ogg", "ending.ogg"] {
+                                let mut entry = match zip.by_name(audio) {
+                                    Err(zip::result::ZipError::FileNotFound) => continue,
+                                    Err(err) => return Err(err.into()),
+                                    Ok(file) => file,
+                                };
+                                buffer.clear();
+                                entry.read_to_end(&mut buffer)?;
+                                AudioClip::new(mem::take(&mut buffer)).with_context(|| format!("failed to load audio: {audio}"))?;
+                            }
+                            config
+                        };
+
                         let mut uuid = Uuid::new_v4();
                         while dir.exists(uuid.to_string())? {
                             uuid = Uuid::new_v4();
@@ -409,7 +454,6 @@ impl Scene for MainScene {
                         dir.create_dir_all(&dir_id)?;
                         let dir = dir.open_dir(&dir_id)?;
                         unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
-                        let config: ResPackInfo = serde_yaml::from_reader(dir.open("info.yml").context("missing yml")?)?;
                         get_data_mut().respacks.push(dir_id.clone());
                         save_data()?;
                         Ok(ResPackItem::new(Some(format!("{root}/{dir_id}").into()), config.name))
