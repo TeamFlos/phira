@@ -104,6 +104,7 @@ rfd = { workspace = true }
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = { workspace = true }
 objc2-foundation = { workspace = true }
+objc2-ui-kit = { workspace = true }
 
 [build-dependencies]
 dotenv-build = "0.1"

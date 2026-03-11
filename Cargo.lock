@@ -3133,6 +3133,7 @@ dependencies = [
  "ndk-context",
  "objc2",
  "objc2-foundation",
+ "objc2-ui-kit",
  "once_cell",
  "phira-mp-client",
  "phira-mp-common",
