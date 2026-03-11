@@ -846,7 +846,10 @@ impl Page for LibraryPage {
                                     }
                                 }
                             }
-                            Ok(CreateFavorite { name: text, charts: selected })
+                            Ok(CreateFavorite {
+                                name: text,
+                                charts: selected,
+                            })
                         }));
                     }
                 }
