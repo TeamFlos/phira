@@ -191,6 +191,7 @@ pub fn return_input(id: String, text: String) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn request_file(id: impl Into<String>) {
     let id: String = id.into();
+    #[cfg(target_env = "ohos")]
     let is_photo = id == "avatar";
     *CHOSEN_FILE.lock().unwrap() = (Some(id), None);
     cfg_if! {
