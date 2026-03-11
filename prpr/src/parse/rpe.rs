@@ -414,29 +414,29 @@ async fn parse_notes(
     Ok(notes)
 }
 
-fn reverse_tween(id: u8) -> u8 {
-    if id < 3 {
-        id
-    } else {
-        let rem = (id - 3) % 3;
-        match rem {
-            0 => id + 1,
-            1 => id - 1,
-            _ => id,
-        }
-    }
-}
-
 fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
     let vals: Vec<_> = rpe.iter().map(|it| it.value[key]).collect();
     if rpe.is_empty() || (rpe.len() == 2 && rpe[0].easing == 1 && (vals[0] - 1.).abs() < 1e-4) {
         return AnimFloat::default();
     }
+    // In RPE, each control event's easing governs the interval ending at that
+    // event's x, not starting from it. The Anim system uses kf[i].tween for
+    // the interval [kf[i], kf[i+1]], so we shift the tween assignment: each
+    // keyframe gets the tween from the next event.
+    let tweens: Vec<Rc<dyn TweenFunction>> = rpe
+        .iter()
+        .skip(1)
+        .map(|it| StaticTween::get_rc(RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0])))
+        .chain(std::iter::once(StaticTween::get_rc(0)))
+        .collect();
     AnimFloat::new(
         rpe.iter()
             .zip(vals)
-            .map(|(it, val)| {
-                Keyframe::new(it.x, val, reverse_tween(RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0])))
+            .zip(tweens)
+            .map(|((it, val), tween)| Keyframe {
+                time: it.x,
+                value: val,
+                tween,
             })
             .collect(),
     )

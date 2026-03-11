@@ -1695,11 +1695,13 @@ dependencies = [
 
 [[package]]
 name = "inputbox"
-version = "0.0.1"
-source = "git+https://github.com/Mivik/inputbox.git?rev=f41dc19#f41dc19684ee13002e4f69a7d39e863a2bb149cd"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e493178f3fe2a02429797f38b43aa3830e3508f2500157ad1e8ffb9106e9d2b9"
 dependencies = [
  "block2",
  "cfg-if",
+ "inputbox-android",
  "jni 0.22.3",
  "log",
  "napi-derive-ohos",
@@ -1712,6 +1714,12 @@ dependencies = [
  "serde_json",
  "which",
 ]
+
+[[package]]
+name = "inputbox-android"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8c3414fbf0f1460c97fd92b67dc7517a028c59583ac638c31a1bcb46beb7f4a"
 
 [[package]]
 name = "interpolate_name"
@@ -2118,7 +2126,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.3.25"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=039f957#039f95705ce0fcb8b6533de475862a769a3360aa"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=df81b76#df81b76428bed385698619390187ed23c349fffb"
 dependencies = [
  "bumpalo",
  "fontdue",
@@ -2132,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.7"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=039f957#039f95705ce0fcb8b6533de475862a769a3360aa"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=df81b76#df81b76428bed385698619390187ed23c349fffb"
 
 [[package]]
 name = "malloc_buf"
@@ -2201,7 +2209,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad?rev=dc26ae9#dc26ae99df38353ebd80eaf371008ce30590a22d"
+source = "git+https://github.com/Mivik/prpr-miniquad?rev=0694542#069454242078de7e1e06855fc29a3eac86c846fb"
 dependencies = [
  "jni 0.21.1",
  "keyboard-types",
@@ -3125,6 +3133,7 @@ dependencies = [
  "ndk-context",
  "objc2",
  "objc2-foundation",
+ "objc2-ui-kit",
  "once_cell",
  "phira-mp-client",
  "phira-mp-common",

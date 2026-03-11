@@ -2201,7 +2201,8 @@ impl Scene for SongScene {
             self.overwrite_task = Some(Task::new(async move {
                 let (dir, id) = gen_custom_dir()?;
                 let to_path = format!("{}/{}/", dir::charts()?, local_path);
-                if let Err(err) = import_chart_to(&dir, id, path).await {
+                let file = File::open(path).context("cannot open file")?;
+                if let Err(err) = import_chart_to(&dir, format!("custom/{id}"), file).await {
                     std::fs::remove_dir_all(dir)?;
                     return Err(err);
                 }

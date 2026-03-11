@@ -15,6 +15,7 @@ use crate::{
     tags::TagsDialog,
 };
 use anyhow::{anyhow, Error, Result};
+use chrono::{DateTime, Utc};
 use inputbox::InputBox;
 use macroquad::prelude::*;
 #[cfg(target_env = "ohos")]
@@ -25,6 +26,7 @@ use prpr::{
     task::Task,
     ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
+use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     borrow::Cow,
@@ -398,10 +400,81 @@ struct ExportConfig {
     deleter: Box<dyn FnOnce() -> io::Result<()> + Send>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct ExportInfo {
+    pub exported_at: DateTime<Utc>,
+    pub version: String,
+}
+
 static EXPORT_CONFIG: Mutex<Option<io::Result<ExportConfig>>> = Mutex::new(None);
+#[cfg(target_os = "ios")]
+static EXPORT_PICKER_PATH: Mutex<Option<String>> = Mutex::new(None);
+
+#[cfg(target_os = "ios")]
+fn present_export_picker(path: String) {
+    use objc2::{available, define_class, rc::Retained, runtime::ProtocolObject, MainThreadMarker, MainThreadOnly};
+    use objc2_foundation::{NSArray, NSObject, NSObjectProtocol, NSString, NSURL};
+    use objc2_ui_kit::{UIDocumentPickerDelegate, UIDocumentPickerViewController};
+
+    thread_local! {
+        static DELEGATE: RefCell<Option<Retained<PickerDelegate>>> = const { RefCell::new(None) };
+    }
+
+    define_class! {
+        // SAFETY:
+        // - The superclass NSObject does not have any subclassing requirements.
+        // - `PickerDelegate` does not implement `Drop`.
+        #[unsafe(super = NSObject)]
+        #[thread_kind = MainThreadOnly]
+        struct PickerDelegate;
+
+        // SAFETY: `NSObjectProtocol` has no safety requirements.
+        unsafe impl NSObjectProtocol for PickerDelegate {}
+
+        // SAFETY: `UIDocumentPickerDelegate` has no safety requirements.
+        unsafe impl UIDocumentPickerDelegate for PickerDelegate {
+            // SAFETY: The signature is correct.
+            #[unsafe(method(documentPicker:didPickDocumentsAtURLs:))]
+            fn did_pick_documents_at_urls(&self, _controller: &UIDocumentPickerViewController, _urls: &NSArray<NSURL>) {
+                show_message(tl!("multi-exported")).ok();
+            }
+        }
+    }
+
+    impl PickerDelegate {
+        fn new(mtm: MainThreadMarker) -> Retained<Self> {
+            let this = Self::alloc(mtm).set_ivars(());
+            unsafe { objc2::msg_send![super(this), init] }
+        }
+    }
+
+    let mtm = MainThreadMarker::new().unwrap();
+
+    let url = NSURL::fileURLWithPath(&NSString::from_str(&path));
+    let urls = NSArray::from_retained_slice(&[url]);
+    let picker = UIDocumentPickerViewController::alloc(mtm);
+    let picker = if available!(ios = 14.0.0) {
+        UIDocumentPickerViewController::initForExportingURLs_asCopy(picker, &urls, true)
+    } else {
+        #[allow(deprecated)]
+        {
+            use objc2_ui_kit::UIDocumentPickerMode;
+            UIDocumentPickerViewController::initWithURLs_inMode(picker, &urls, UIDocumentPickerMode::ExportToService)
+        }
+    };
+    let dlg_obj = PickerDelegate::new(mtm);
+    picker.setDelegate(Some(ProtocolObject::from_ref(&*dlg_obj)));
+    DELEGATE.with(|it| *it.borrow_mut() = Some(dlg_obj));
+
+    if let Some(controller) = inputbox::backend::IOS::get_top_view_controller(mtm) {
+        controller.presentViewController_animated_completion(&picker, true, None);
+    } else {
+        show_error(Error::msg("Failed to present export dialog"));
+    }
+}
 
 fn request_export() {
-    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d%H%M%S"));
+    let suggested_name = format!("phira-export-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
     cfg_if::cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
@@ -419,7 +492,22 @@ fn request_export() {
                 );
             }
         } else if #[cfg(target_os = "ios")] {
-            todo!()
+            use objc2_foundation::NSTemporaryDirectory;
+
+            let dir = NSTemporaryDirectory();
+            let output_path = PathBuf::from(dir.to_string()).join(&suggested_name);
+            let output_path_str = output_path.to_string_lossy().to_string();
+            let config = File::create(&output_path).map(|file| {
+                let delete_path = output_path.clone();
+                ExportConfig {
+                    file,
+                    deleter: Box::new(move || std::fs::remove_file(delete_path)),
+                }
+            });
+            if config.is_ok() {
+                EXPORT_PICKER_PATH.lock().unwrap().replace(output_path_str);
+            }
+            EXPORT_CONFIG.lock().unwrap().replace(config);
         } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(format!("{{\"action\":\"request_export\",\"filename\":\"{}\"}}", suggested_name));
         } else {
@@ -451,7 +539,10 @@ extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, 
     let file = unsafe { File::from_raw_fd(fd as _) };
     EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
         file,
-        deleter: Box::new(|| Ok(delete_uri(java_vm, uri))),
+        deleter: Box::new(|| {
+            delete_uri(java_vm, uri);
+            Ok(())
+        }),
     }));
 }
 
@@ -755,10 +846,7 @@ impl Page for LibraryPage {
                                     }
                                 }
                             }
-                            Ok(CreateFavorite {
-                                name: text,
-                                charts: selected,
-                            })
+                            Ok(CreateFavorite { name: text, charts: selected })
                         }));
                     }
                 }
@@ -966,6 +1054,14 @@ impl Page for LibraryPage {
                     zip.write_all(&chart_bytes)?;
                     progress.store(i as u32 + 1, Ordering::Relaxed);
                 }
+
+                zip.start_file("export.json", options.compression_method(zip::CompressionMethod::Deflated))?;
+                let info = ExportInfo {
+                    exported_at: Utc::now(),
+                    version: env!("CARGO_PKG_VERSION").to_owned(),
+                };
+                serde_json::to_writer(&mut zip, &info)?;
+
                 zip.finish()?;
                 Ok(())
             }
@@ -999,6 +1095,15 @@ impl Page for LibraryPage {
                     self.export_task = None;
                 }
                 Ok(Ok(())) => {
+                    #[cfg(target_os = "ios")]
+                    {
+                        if let Some(path) = EXPORT_PICKER_PATH.lock().unwrap().clone() {
+                            present_export_picker(path);
+                        } else {
+                            show_message(tl!("multi-exported")).ok();
+                        }
+                    }
+                    #[cfg(not(target_os = "ios"))]
                     show_message(tl!("multi-exported")).ok();
                     self.tabs.selected_mut().view.multi_select = None;
                     self.export_task = None;
