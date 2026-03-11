@@ -545,16 +545,19 @@ extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, 
 }
 
 #[cfg(target_env = "ohos")]
-use napi_derive_ohos::napi;
-#[allow(dead_code)]
-#[napi]
-fn process_export_fd_ohos(fd: u32) {
-    use std::os::fd::FromRawFd;
-    let file = unsafe { File::from_raw_fd(fd as _) };
-    EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
-        file,
-        deleter: Box::new(|| Ok(())),
-    }));
+mod ohos_export {
+    use super::*;
+    use napi_derive_ohos::napi;
+    #[napi]
+    #[allow(dead_code)]
+    pub fn process_export_fd_ohos(fd: u32) {
+        use std::os::fd::FromRawFd;
+        let file = unsafe { File::from_raw_fd(fd as _) };
+        EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
+            file,
+            deleter: Box::new(|| Ok(())),
+        }));
+    }
 }
 
 impl Page for LibraryPage {
