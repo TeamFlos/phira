@@ -18,8 +18,6 @@ use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
 use inputbox::InputBox;
 use macroquad::prelude::*;
-#[cfg(target_env = "ohos")]
-use napi_derive_ohos::napi;
 use prpr::{
     ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
     scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
@@ -547,6 +545,7 @@ extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, 
 }
 
 #[cfg(target_env = "ohos")]
+use napi_derive_ohos::napi;
 #[allow(dead_code)]
 #[napi]
 fn process_export_fd_ohos(fd: u32) {
