@@ -191,7 +191,8 @@ pub fn return_input(id: String, text: String) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn request_file(id: impl Into<String>) {
     let id: String = id.into();
-    *CHOSEN_FILE.lock().unwrap() = (Some(id.clone()), None);
+    let is_photo = id == "avatar";
+    *CHOSEN_FILE.lock().unwrap() = (Some(id), None);
     cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
@@ -294,7 +295,6 @@ pub fn request_file(id: impl Into<String>) {
                 .unwrap()
                 .presentViewController_animated_completion(&picker, true, None);
         } else if #[cfg(target_env = "ohos")] {
-            let is_photo = id == "avatar";
             miniquad::native::call_request_callback(format!(r#"{{"action": "chooseFile", "isPhoto": {}}}"#, is_photo));
         } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
