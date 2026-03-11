@@ -296,6 +296,7 @@ impl ChartsView {
                         return Ok(true);
                     }
                     if self.multi_select.is_none() && item.btn.long_touch(touch, t, &mut item.long_touch) {
+                        self.scroll.y_scroller.halt();
                         self.editing_chart = Some(id);
                         let mut options = vec![tl!("select").into_owned()];
                         if self.allow_edit {
