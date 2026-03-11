@@ -420,7 +420,7 @@ fn request_export() {
             }
         } else if #[cfg(target_os = "ios")] {
             todo!()
-        } else if #[cfg(target_env = "ohos")]{
+        } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(format!("{{\"action\":\"request_export\",\"filename\":\"{}\"}}", suggested_name));
         } else {
             if let Some(output_path) = rfd::FileDialog::new().set_title(tl!("multi-export-title")).set_file_name(&suggested_name).save_file() {

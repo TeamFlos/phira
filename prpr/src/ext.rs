@@ -389,7 +389,7 @@ pub fn screen_aspect() -> f32 {
     let vp = get_viewport();
     vp.2 as f32 / vp.3 as f32
 }
-// this function is used for creating InGame audio manager
+// This function is used to create in-game audio manager
 pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
     #[cfg(target_os = "android")]
     {
