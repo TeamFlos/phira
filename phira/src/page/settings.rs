@@ -272,7 +272,7 @@ struct GeneralList {
 
     lang_btn: ChooseButton,
 
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
@@ -306,7 +306,7 @@ impl GeneralList {
                         .unwrap_or_default(),
                 ),
 
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
@@ -364,7 +364,7 @@ impl GeneralList {
             return Ok(Some(false));
         }
 
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
         if self.fullscreen_btn.touch(touch, t) {
             config.fullscreen_mode ^= true;
 
@@ -475,7 +475,7 @@ impl GeneralList {
             self.lang_btn.render(ui, rr, t);
         }
 
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
         item! {
             render_title(ui, tl!("item-fullscreen"), None);
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
