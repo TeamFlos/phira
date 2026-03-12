@@ -80,7 +80,7 @@ impl Default for Config {
             particle: true,
             player_name: "Mivik".to_string(),
             player_rks: 15.,
-            preferred_sample_rate: 44100,
+            preferred_sample_rate: if cfg!(target_env = "ohos") { 48000 } else { 44100 },
             res_pack_path: None,
             sample_count: 1,
             show_acc: false,
