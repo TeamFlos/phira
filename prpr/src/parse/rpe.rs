@@ -1,6 +1,12 @@
-prpr_l10n::tl_file!("parser" ptl);
+use anyhow::{Context, Result};
+use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
+use macroquad::prelude::{Color, WHITE};
+use sasa::AudioClip;
+use serde::Deserialize;
+use std::{cell::RefCell, collections::HashMap, future::IntoFuture, io::Cursor, rc::Rc, str::FromStr, time::Duration};
+use tracing::debug;
 
-use super::{process_lines, RPE_TWEEN_MAP};
+use super::{process_lines, L10N_LOCAL, RPE_TWEEN_MAP};
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GifFrames, HitSoundMap,
@@ -9,16 +15,8 @@ use crate::{
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
-    info::ChartInfo,
-    judge::{HitSound, JudgeStatus}
+    judge::{HitSound, JudgeStatus},
 };
-use anyhow::{Context, Result};
-use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
-use macroquad::prelude::{Color, WHITE};
-use sasa::AudioClip;
-use serde::Deserialize;
-use std::{cell::RefCell, collections::HashMap, future::IntoFuture, io::Cursor, rc::Rc, str::FromStr, time::Duration};
-use tracing::debug;
 
 pub const RPE_WIDTH: f32 = 1350.;
 pub const RPE_HEIGHT: f32 = 900.;
@@ -136,6 +134,7 @@ struct RPEJudgeLine {
     texture: String,
     #[serde(rename = "father")]
     parent: Option<isize>,
+    rotate_with_father: Option<bool>,
     event_layers: Vec<Option<RPEEventLayer>>,
     extended: Option<RPEExtendedEvents>,
     notes: Option<Vec<RPENote>>,
@@ -185,6 +184,9 @@ fn parse_events<T: Tweenable, V: Clone + Into<T>>(
     default: Option<T>,
     bezier_map: &BezierMap,
 ) -> Result<Anim<T>> {
+    if rpe.is_empty() {
+        return Ok(Anim::default());
+    }
     let mut kfs = Vec::new();
     if let Some(default) = default {
         if rpe[0].start_time.beats() != 0.0 {
@@ -219,15 +221,21 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
     };
     let anis: Vec<_> = rpe
         .into_iter()
-        .map(|it| {
+        .filter_map(|it| {
+            if it.is_empty() {
+                return None;
+            }
             let mut kfs = Vec::new();
             for e in it {
                 kfs.push(Keyframe::new(r.time(&e.start_time), e.start, 2));
                 kfs.push(Keyframe::new(r.time(&e.end_time), e.end, 0));
             }
-            AnimFloat::new(kfs)
+            Some(AnimFloat::new(kfs))
         })
         .collect();
+    if anis.is_empty() {
+        return Ok(AnimFloat::default());
+    }
     let mut pts: Vec<_> = anis.iter().flat_map(|it| it.keyframes.iter().map(|it| it.time.not_nan())).collect();
     pts.push(max_time.not_nan());
     pts.sort();
@@ -275,6 +283,9 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> 
         });
         height += (speed + end_speed) * (end_time - now_time) / 2.;
     }
+    if kfs.is_empty() {
+        return Ok(Anim::default());
+    }
     kfs.push(Keyframe::new(max_time, height, 0));
     Ok(AnimFloat::new(kfs))
 }
@@ -316,12 +327,14 @@ fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], 
         kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
         next_rep_time += gif.total_time();
     }
+    if kfs.is_empty() {
+        return Ok(Anim::default());
+    }
     Ok(Anim::new(kfs))
 }
 
 async fn parse_notes(
     r: &mut BpmList,
-    info: &ChartInfo,
     rpe: Vec<RPENote>,
     fs: &mut dyn FileSystem,
     height: &mut AnimFloat,
@@ -406,17 +419,31 @@ fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
     if rpe.is_empty() || (rpe.len() == 2 && rpe[0].easing == 1 && (vals[0] - 1.).abs() < 1e-4) {
         return AnimFloat::default();
     }
+    // In RPE, each control event's easing governs the interval ending at that
+    // event's x, not starting from it. The Anim system uses kf[i].tween for
+    // the interval [kf[i], kf[i+1]], so we shift the tween assignment: each
+    // keyframe gets the tween from the next event.
+    let tweens: Vec<Rc<dyn TweenFunction>> = rpe
+        .iter()
+        .skip(1)
+        .map(|it| StaticTween::get_rc(RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0])))
+        .chain(std::iter::once(StaticTween::get_rc(0)))
+        .collect();
     AnimFloat::new(
         rpe.iter()
-            .zip(vals.into_iter())
-            .map(|(it, val)| Keyframe::new(it.x, val, RPE_TWEEN_MAP.get(it.easing.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0])))
+            .zip(vals)
+            .zip(tweens)
+            .map(|((it, val), tween)| Keyframe {
+                time: it.x,
+                value: val,
+                tween,
+            })
             .collect(),
     )
 }
 
 async fn parse_judge_line(
     r: &mut BpmList,
-    info: &ChartInfo,
     rpe: RPEJudgeLine,
     max_time: f32,
     fs: &mut dyn FileSystem,
@@ -439,11 +466,14 @@ async fn parse_judge_line(
             .collect::<Result<_>>()
             .with_context(|| ptl!("type-events-parse-failed", "type" => desc))?;
         let mut res = AnimFloat::chain(anis);
+        if res.is_default() {
+            return Ok(AnimFloat::fixed(0.0));
+        }
         res.map_value(|v| v * factor);
         Ok(res)
     }
     let mut height = parse_speed_events(r, &event_layers, max_time)?;
-    let mut notes = parse_notes(r, info, rpe.notes.unwrap_or_default(), fs, &mut height, hitsounds).await?;
+    let mut notes = parse_notes(r, rpe.notes.unwrap_or_default(), fs, &mut height, hitsounds).await?;
     let cache = JudgeLineCache::new(&mut notes);
     Ok(JudgeLine {
         object: Object {
@@ -476,7 +506,8 @@ async fn parse_judge_line(
                                         && rpe
                                             .extended
                                             .as_ref()
-                                            .map_or(true, |it| it.text_events.as_ref().map_or(true, |it| it.is_empty()))
+                                            .and_then(|it| it.text_events.as_ref())
+                                            .is_none_or(|it| it.is_empty())
                                         && rpe.attach_ui.is_none()
                                     {
                                         0.5
@@ -545,27 +576,7 @@ async fn parse_judge_line(
                 debug!("gif decoded");
                 let events = parse_gif_events(r, events, bezier_map, &frames).with_context(|| ptl!("gif-events-parse-failed"))?;
                 JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
-            } else {
-                if let Some(texture) = line_texture_map.get(&rpe.texture) {
-                    debug!(
-                        "texture {} reused, id: {}",
-                        rpe.texture.clone(),
-                        texture.clone().into_inner().raw_miniquad_texture_handle().gl_internal_id()
-                    );
-                    JudgeLineKind::Texture(texture.clone(), rpe.texture.clone())
-                } else {
-                    let texture = SafeTexture::from(image::load_from_memory(
-                        &fs.load_file(&rpe.texture)
-                            .await
-                            .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
-                    )?)
-                    .with_mipmap();
-                    line_texture_map.insert(rpe.texture.clone(), texture.clone());
-                    JudgeLineKind::Texture(texture, rpe.texture.clone())
-                }
-            }
-        } else {
-            if let Some(texture) = line_texture_map.get(&rpe.texture) {
+            } else if let Some(texture) = line_texture_map.get(&rpe.texture) {
                 debug!("texture {} reused, id: {}", rpe.texture.clone(), texture.clone().into_inner().raw_miniquad_texture_handle().gl_internal_id());
                 JudgeLineKind::Texture(texture.clone(), rpe.texture.clone())
             } else {
@@ -578,6 +589,18 @@ async fn parse_judge_line(
                 line_texture_map.insert(rpe.texture.clone(), texture.clone());
                 JudgeLineKind::Texture(texture, rpe.texture.clone())
             }
+        } else if let Some(texture) = line_texture_map.get(&rpe.texture) {
+            debug!("texture {} reused, id: {}", rpe.texture.clone(), texture.clone().into_inner().raw_miniquad_texture_handle().gl_internal_id());
+            JudgeLineKind::Texture(texture.clone(), rpe.texture.clone())
+        } else {
+            let texture = SafeTexture::from(image::load_from_memory(
+                &fs.load_file(&rpe.texture)
+                    .await
+                    .with_context(|| ptl!("illustration-load-failed", "path" => rpe.texture.clone()))?,
+            )?)
+            .with_mipmap();
+            line_texture_map.insert(rpe.texture.clone(), texture.clone());
+            JudgeLineKind::Texture(texture, rpe.texture.clone())
         },
         color: if let Some(events) = rpe.extended.as_ref().and_then(|e| e.color_events.as_ref()) {
             parse_events(r, events, Some(WHITE), bezier_map).with_context(|| ptl!("color-events-parse-failed"))?
@@ -592,6 +615,7 @@ async fn parse_judge_line(
                 Some(parent as usize)
             }
         },
+        rot_with_parent: rpe.rotate_with_father.unwrap_or(false),
         z_index: rpe.z_order,
         show_below: rpe.is_cover != 1,
         attach_ui: rpe.attach_ui,
@@ -632,7 +656,7 @@ fn get_bezier_map(rpe: &RPEChart) -> BezierMap {
     map
 }
 
-pub async fn parse_rpe(source: &str, info: &ChartInfo, fs: &mut dyn FileSystem, extra: ChartExtra) -> Result<Chart> {
+pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra) -> Result<Chart> {
     let rpe: RPEChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
     let bezier_map = get_bezier_map(&rpe);
     let mut r = BpmList::new(rpe.bpm_list.into_iter().map(|it| (it.start_time.beats(), it.bpm)).collect());
@@ -677,7 +701,7 @@ pub async fn parse_rpe(source: &str, info: &ChartInfo, fs: &mut dyn FileSystem, 
     for (id, rpe) in rpe.judge_line_list.into_iter().enumerate() {
         let name = rpe.name.clone();
         lines.push(
-            parse_judge_line(&mut r, info, rpe, max_time, fs, &bezier_map, &mut hitsounds, &mut line_texture_map)
+            parse_judge_line(&mut r, rpe, max_time, fs, &bezier_map, &mut hitsounds, &mut line_texture_map)
                 .await
                 .with_context(move || ptl!("judge-line-location-name", "jlid" => id, "name" => name))?,
         );
@@ -692,10 +716,10 @@ pub async fn parse_rpe(source: &str, info: &ChartInfo, fs: &mut dyn FileSystem, 
         }
         None
     }
-    for (i, line) in (&lines).iter().enumerate() {
+    for (i, line) in lines.iter().enumerate() {
         let mut vec = Vec::new();
         vec.push(i);
-        if let Some(line) = has_cycle(&line, &lines, &mut vec) {
+        if let Some(line) = has_cycle(line, &lines, &mut vec) {
             ptl!(bail "found infinite recursive parent relations", "line" => line)
         }
     }

@@ -1,7 +1,6 @@
 
 load-preview-failed = ไม่สามารถโหลด Preview เพลงได้
 load-charts-failed = ไม่สามารถโหลด Charts ได้
-no-chart-for-download = Chart ไม่สามารถ Download ได้
 
 load-chart-failed = ไม่สามารถโหลด Chart ได้
 

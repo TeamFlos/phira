@@ -1,4 +1,3 @@
-use super::mtl;
 use crate::{
     client::{Chart, Ptr, UserManager},
     dir, get_data,
@@ -6,6 +5,7 @@ use crate::{
     scene::{Downloading, SongScene, RECORD_ID},
 };
 use anyhow::{anyhow, Context, Result};
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use phira_mp_client::Client;
 use phira_mp_common::{RoomId, RoomState};
@@ -253,7 +253,7 @@ impl MPPanel {
 impl MPPanel {
     #[inline]
     pub fn in_room(&self) -> bool {
-        self.client.as_ref().map_or(false, |it| it.blocking_room_id().is_some())
+        self.client.as_ref().is_some_and(|it| it.blocking_room_id().is_some())
     }
 
     #[inline]
@@ -303,7 +303,7 @@ impl MPPanel {
             }
             if let Some(state) = client.blocking_state() {
                 if self.chat_btn.touch(touch, t) {
-                    request_input("chat", &self.chat_text);
+                    request_input("chat", InputBox::new().default_text(&self.chat_text));
                     return true;
                 }
                 if self.chat_send_btn.touch(touch, t) {
@@ -363,11 +363,11 @@ impl MPPanel {
                 }
             } else {
                 if self.create_room_btn.touch(touch, t) {
-                    request_input("room_id", "");
+                    request_input("room_id", InputBox::new());
                     return true;
                 }
                 if self.join_room_btn.touch(touch, t) {
-                    request_input("join_room", "");
+                    request_input("join_room", InputBox::new());
                     return true;
                 }
                 if self.disconnect_btn.touch(touch, t) {
@@ -770,7 +770,7 @@ impl MPPanel {
                 ui.alpha(p, |ui| {
                     let users: Vec<_> = client.blocking_state().unwrap().users.values().cloned().collect();
                     let n = users.len();
-                    let rn = (n + 1) / 2;
+                    let rn = n.div_ceil(2);
                     ui.fill_rect(ui.screen_rect(), semi_black(p * 0.4));
 
                     let mut iter = users.into_iter();

@@ -30,3 +30,7 @@ open-in-web = View in Web
 
 main-character-name = Shee
 main-character-intro = To be added.
+
+favorites = Favorites
+default-fav-folder = Favorites
+favorites-online-only = Only online charts can be added to online favorites. Local charts: { $charts }

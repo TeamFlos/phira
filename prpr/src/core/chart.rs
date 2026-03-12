@@ -1,7 +1,5 @@
-prpr_l10n::tl_file!("parser");
-
 use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIElement, Vector};
-use crate::{core::Object, fs::FileSystem, judge::JudgeStatus, scene::show_error, ui::Ui};
+use crate::{core::Object, fs::FileSystem, judge::JudgeStatus, ui::Ui};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use nalgebra::Rotation2;
@@ -71,7 +69,15 @@ impl Chart {
     }
 
     #[inline]
-    pub fn with_element<R>(&self, ui: &mut Ui, res: &Resource, element: UIElement, scale_point: Option<(f32, f32)>, rotation_point: Option<(f32, f32)>, f: impl FnOnce(&mut Ui, Color) -> R) -> R {
+    pub fn with_element<R>(
+        &self,
+        ui: &mut Ui,
+        res: &Resource,
+        element: UIElement,
+        scale_point: Option<(f32, f32)>,
+        rotation_point: Option<(f32, f32)>,
+        f: impl FnOnce(&mut Ui, Color) -> R,
+    ) -> R {
         if let Some(id) = self.attach_ui[element as usize - 1] {
             let lines = &self.lines;
             let line = &lines[id];
@@ -79,8 +85,11 @@ impl Chart {
             let mut tr = line.fetch_pos(res, lines);
             tr.y = -tr.y;
             let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
-            let scale = obj.now_scale(scale_point.map_or_else(|| Vector::default(), |(x, y)| Vector::new(x, y)));
-            let ro = Object::new_rotation_wrt_point(Rotation2::new(-obj.rotation.now().to_radians()), rotation_point.map_or_else(|| Vector::default(), |(x, y)| Vector::new(x, y)));
+            let scale = obj.now_scale(scale_point.map_or_else(Vector::default, |(x, y)| Vector::new(x, y)));
+            let ro = Object::new_rotation_wrt_point(
+                Rotation2::new(-obj.rotation.now().to_radians()),
+                rotation_point.map_or_else(Vector::default, |(x, y)| Vector::new(x, y)),
+            );
             ui.with(Matrix::new_translation(&tr) * ro * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
         } else {
             f(ui, WHITE)
@@ -107,7 +116,8 @@ impl Chart {
         #[cfg(feature = "video")]
         for video in &mut self.extra.videos {
             if let Err(err) = video.reset() {
-                show_error(err.context(tl!("video-load-failed", "path" => video.video_file.path().to_string_lossy())));
+                use crate::parse::{ptl, L10N_LOCAL};
+                crate::scene::show_error(err.context(ptl!("video-load-failed", "path" => video.video_file.path().to_string_lossy())));
             }
         }
     }
@@ -118,8 +128,9 @@ impl Chart {
         }
         // TODO optimize
         let trs = self.lines.iter().map(|it| it.now_transform(res, &self.lines)).collect::<Vec<_>>();
-        for (line, tr) in self.lines.iter_mut().zip(trs) {
-            line.update(res, tr);
+        let rotations = self.lines.iter().map(|it| it.fetch_rot(&self.lines)).collect::<Vec<_>>();
+        for ((line, tr), rot) in self.lines.iter_mut().zip(trs).zip(rotations) {
+            line.update(res, tr, rot);
         }
         for effect in &mut self.extra.effects {
             effect.update(res);

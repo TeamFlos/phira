@@ -1,7 +1,6 @@
 
 load-preview-failed = Failed to load song preview
 load-charts-failed = Failed to load beatmaps
-no-chart-for-download = This beatmap is not downloadable
 
 load-chart-failed = Failed to load the beatmap
 
@@ -47,6 +46,8 @@ edit-overwrite-failed = Failed to overwrite.
 edit-upload = Upload
 edit-update = Update
 
+warn = Warning
+cancel-not-saved = Chart hasn't been saved yet, would you like to exit now?
 upload-not-saved = Chart hasn't been saved yet, would you like to save it now?
 upload-login-first = Please login first.
 upload-builtin = Built-in charts cannot be uploaded.
@@ -128,3 +129,7 @@ stabilize-approved = Approved
 stabilize-approved-passed = The chart has been stabilized.
 stabilize-denied = Denied
 stabilize-denied-passed = Denied, the beatmap is rejected
+
+fav-added = Added to favorites
+
+still-loading = Still loading...

@@ -13,7 +13,7 @@ use miniquad::{EventHandler, MouseButton};
 use once_cell::sync::Lazy;
 use sasa::{PlaySfxParams, Sfx};
 use serde::Serialize;
-use std::{cell::RefCell, collections::HashMap, num::FpCategory};
+use std::{cell::RefCell, collections::HashMap, mem, num::FpCategory};
 use tracing::debug;
 
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
@@ -78,20 +78,12 @@ fn get_uptime() -> f64 {
 
 #[cfg(target_os = "ios")]
 fn get_uptime() -> f64 {
-    use crate::objc::*;
-    unsafe {
-        let process_info: ObjcId = msg_send![class!(NSProcessInfo), processInfo];
-        msg_send![process_info, systemUptime]
-    }
+    objc2_foundation::NSProcessInfo::processInfo().systemUptime()
 }
 
 #[cfg(target_os = "windows")]
 fn get_uptime() -> f64 {
-    use std::time::SystemTime;
-    let start = SystemTime::UNIX_EPOCH;
-    let now = SystemTime::now();
-    let duration = now.duration_since(start).expect("Time went backwards");
-    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+    miniquad::native::windows::get_uptime()
 }
 
 pub struct FlickTracker {
@@ -159,7 +151,7 @@ pub enum Judgement {
     Miss,
 }
 
-#[cfg(not(feature = "closed"))]
+#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
     diffs: Vec<f32>,
@@ -170,7 +162,7 @@ pub(crate) struct JudgeInner {
     num_of_notes: u32,
 }
 
-#[cfg(not(feature = "closed"))]
+#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
 impl JudgeInner {
     pub fn new(num_of_notes: u32) -> Self {
         Self {
@@ -254,10 +246,13 @@ impl JudgeInner {
     }
 }
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 pub mod inner;
-#[cfg(feature = "closed")]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 use inner::*;
+
+type Judgements = Vec<(f32, u32, u32, Result<Judgement, bool>)>;
 
 #[repr(C)]
 pub struct Judge {
@@ -270,12 +265,24 @@ pub struct Judge {
     key_down_count: u32,
 
     pub(crate) inner: JudgeInner,
-    pub judgements: RefCell<Vec<(f32, u32, u32, Result<Judgement, bool>)>>,
+    pub judgements: RefCell<Judgements>,
+}
+
+#[derive(Default)]
+struct TouchStatus {
+    touches: Vec<Touch>,
+    key_delta: i32,
+    keys_down: u32,
 }
 
 static SUBSCRIBER_ID: Lazy<usize> = Lazy::new(register_input_subscriber);
 thread_local! {
-    static TOUCHES: RefCell<(Vec<Touch>, i32, u32)> = RefCell::default();
+    static TOUCHES: RefCell<TouchStatus> = RefCell::default();
+    static WHEEL: RefCell<(f32, f32)> = RefCell::default();
+}
+
+pub fn take_wheel() -> (f32, f32) {
+    WHEEL.with(|it| mem::take(&mut *it.borrow_mut()))
 }
 
 impl Judge {
@@ -329,11 +336,17 @@ impl Judge {
     }
 
     pub(crate) fn on_new_frame() {
-        let mut handler = Handler(Vec::new(), 0, 0);
+        let mut handler = Handler {
+            status: TouchStatus::default(),
+            wheel: (0., 0.),
+        };
         repeat_all_miniquad_input(&mut handler, *SUBSCRIBER_ID);
         handler.finalize();
         TOUCHES.with(|it| {
-            *it.borrow_mut() = (handler.0, handler.1, handler.2);
+            *it.borrow_mut() = handler.status;
+        });
+        WHEEL.with(|it| {
+            *it.borrow_mut() = handler.wheel;
         });
     }
 
@@ -356,7 +369,7 @@ impl Judge {
             let guard = it.borrow();
             let tr = Self::touch_transform(false);
             guard
-                .0
+                .touches
                 .iter()
                 .cloned()
                 .map(|mut it| {
@@ -419,9 +432,9 @@ impl Judge {
         };
         let (events, keys_down) = TOUCHES.with(|it| {
             let guard = it.borrow();
-            (guard.0.clone(), guard.2)
+            (guard.touches.clone(), guard.keys_down)
         });
-        self.key_down_count = self.key_down_count.saturating_add_signed(TOUCHES.with(|it| it.borrow().1));
+        self.key_down_count = self.key_down_count.saturating_add_signed(TOUCHES.with(|it| it.borrow().key_delta));
         {
             fn to_local(Vec2 { x, y }: Vec2) -> Point {
                 Point::new(x / screen_width() * 2. - 1., y / screen_height() * 2. - 1.)
@@ -475,7 +488,7 @@ impl Judge {
             .collect();
         // pos[line][touch]
         let mut pos = Vec::<Vec<Option<Point>>>::with_capacity(chart.lines.len());
-        for id in 0..pos.capacity() {
+        for id in 0..chart.lines.len() {
             chart.lines[id].object.set_time(t);
             let inv = chart.lines[id].now_transform(res, &chart.lines).try_inverse().unwrap();
             pos.push(
@@ -508,7 +521,7 @@ impl Judge {
         for (id, touch) in touches.iter().enumerate() {
             let click = touch.phase == TouchPhase::Started;
             let flick =
-                matches!(touch.phase, TouchPhase::Moved | TouchPhase::Stationary) && self.trackers.get_mut(&touch.id).map_or(false, |it| it.flicked);
+                matches!(touch.phase, TouchPhase::Moved | TouchPhase::Stationary) && self.trackers.get_mut(&touch.id).is_some_and(|it| it.flicked);
             if !(click || flick) {
                 continue;
             }
@@ -662,7 +675,7 @@ impl Judge {
                         let x = &mut note.object.translation.0;
                         x.set_time(t);
                         let x = x.now();
-                        if self.key_down_count == 0 && !pos.iter().any(|it| it.map_or(false, |it| (it.x - x).abs() <= X_DIFF_MAX)) {
+                        if self.key_down_count == 0 && !pos.iter().any(|it| it.is_some_and(|it| (it.x - x).abs() <= X_DIFF_MAX)) {
                             if t > *up_time + UP_TOLERANCE {
                                 note.judge = JudgeStatus::Judged;
                                 judgements.push((Judgement::Miss, line_id, *id, None));
@@ -697,7 +710,7 @@ impl Judge {
                 let x = x.now();
                 if self.key_down_count != 0
                     || pos.iter().any(|it| {
-                        it.map_or(false, |it| {
+                        it.is_some_and(|it| {
                             let dx = (it.x - x).abs();
                             dx <= X_DIFF_MAX && dt <= (LIMIT_BAD - LIMIT_PERFECT * (dx - 0.9).max(0.))
                         })
@@ -807,7 +820,7 @@ impl Judge {
         for (line, (idx, st)) in chart.lines.iter().zip(self.notes.iter_mut()) {
             while idx
                 .get(*st)
-                .map_or(false, |id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
+                .is_some_and(|id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
             {
                 *st += 1;
             }
@@ -848,7 +861,7 @@ impl Judge {
             }
             while idx
                 .get(*st)
-                .map_or(false, |id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
+                .is_some_and(|id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
             {
                 *st += 1;
             }
@@ -865,7 +878,7 @@ impl Judge {
             };
             let line = &chart.lines[line_id];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                res.emit_at_origin(line.notes[id as usize].rotation(&line), res.res_pack.info.fx_perfect())
+                res.emit_at_origin(line.notes[id as usize].rotation(line), res.res_pack.info.fx_perfect())
             });
             if !matches!(chart.lines[line_id].notes[id as usize].kind, NoteKind::Hold { .. }) {
                 note_hitsound.play(res);
@@ -889,11 +902,14 @@ impl Judge {
     }
 }
 
-struct Handler(Vec<Touch>, i32, u32);
+struct Handler {
+    status: TouchStatus,
+    wheel: (f32, f32),
+}
 impl Handler {
     fn finalize(&mut self) {
         if is_mouse_button_down(MouseButton::Left) {
-            self.0.push(Touch {
+            self.status.touches.push(Touch {
                 id: button_to_id(MouseButton::Left),
                 phase: TouchPhase::Moved,
                 position: mouse_position().into(),
@@ -917,7 +933,7 @@ impl EventHandler for Handler {
     fn update(&mut self, _: &mut miniquad::Context) {}
     fn draw(&mut self, _: &mut miniquad::Context) {}
     fn touch_event(&mut self, _: &mut miniquad::Context, phase: miniquad::TouchPhase, id: u64, x: f32, y: f32, time: f64) {
-        self.0.push(Touch {
+        self.status.touches.push(Touch {
             id,
             phase: phase.into(),
             position: vec2(x, y),
@@ -925,8 +941,13 @@ impl EventHandler for Handler {
         });
     }
 
+    fn mouse_wheel_event(&mut self, _ctx: &mut miniquad::Context, x: f32, y: f32) {
+        self.wheel.0 += x;
+        self.wheel.1 += y;
+    }
+
     fn mouse_button_down_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
-        self.0.push(Touch {
+        self.status.touches.push(Touch {
             id: button_to_id(button),
             phase: TouchPhase::Started,
             position: vec2(x, y),
@@ -935,7 +956,7 @@ impl EventHandler for Handler {
     }
 
     fn mouse_button_up_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
-        self.0.push(Touch {
+        self.status.touches.push(Touch {
             id: button_to_id(button),
             phase: TouchPhase::Ended,
             position: vec2(x, y),
@@ -945,13 +966,13 @@ impl EventHandler for Handler {
 
     fn key_down_event(&mut self, _ctx: &mut miniquad::Context, _keycode: KeyCode, _keymods: miniquad::KeyMods, repeat: bool) {
         if !repeat {
-            self.1 += 1;
-            self.2 += 1;
+            self.status.key_delta += 1;
+            self.status.keys_down += 1;
         }
     }
 
     fn key_up_event(&mut self, _ctx: &mut miniquad::Context, _keycode: KeyCode, _keymods: miniquad::KeyMods) {
-        self.1 -= 1;
+        self.status.key_delta -= 1;
     }
 }
 

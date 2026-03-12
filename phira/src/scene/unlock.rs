@@ -6,7 +6,7 @@ use prpr::{
     ext::{create_audio_manger, semi_black, semi_white, SafeTexture, ScaleType},
     fs::FileSystem,
     info::ChartInfo,
-    scene::{BasicPlayer, GameMode, LoadingScene, NextScene, Scene, UpdateFn, UploadFn},
+    scene::{BasicPlayer, GameMode, LoadingScene, NextScene, SaveFn, Scene, UpdateFn, UploadFn},
     time::TimeManager,
     ui::LoadingParams,
 };
@@ -41,6 +41,7 @@ pub struct UnlockScene {
 }
 
 impl UnlockScene {
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mode: GameMode,
         info: ChartInfo,
@@ -49,6 +50,7 @@ impl UnlockScene {
         player: Option<BasicPlayer>,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
+        save_fn: Option<SaveFn>,
         preloaded: Option<(prpr::ext::SafeTexture, prpr::ext::SafeTexture, Color)>,
     ) -> Result<UnlockScene> {
         let bytes = fs
@@ -74,7 +76,7 @@ impl UnlockScene {
         };
 
         let (_, background, _) = preloaded.clone().unwrap_or(LoadingScene::load(&mut *fs, &info.illustration).await?);
-        let loading_scene = Box::new(LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, preloaded).await?);
+        let loading_scene = Box::new(LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, preloaded).await?);
 
         Ok(UnlockScene {
             loading_scene,
@@ -156,7 +158,7 @@ impl Scene for UnlockScene {
             }
             State::Blanking => {
                 if t > 1. && self.game_scene.is_some() {
-                    self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
+                    self.next_scene = self.game_scene.take().map(NextScene::Replace);
                 } else {
                     self.state = State::Loading;
                     tm.reset();
@@ -172,7 +174,7 @@ impl Scene for UnlockScene {
                     if self.game_scene.is_none() {
                         bail!("UnlockScene exited at State::Blank3 without GameScene");
                     }
-                    self.next_scene = self.game_scene.take().map(|it| NextScene::Replace(it));
+                    self.next_scene = self.game_scene.take().map(NextScene::Replace);
                 }
             }
         }

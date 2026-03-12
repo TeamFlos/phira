@@ -16,11 +16,9 @@ pub mod ui;
 #[cfg(feature = "log")]
 pub mod log;
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 pub mod inner;
-
-#[cfg(target_os = "ios")]
-pub mod objc;
 
 pub use scene::Main;
 

@@ -1,7 +1,6 @@
 
 load-preview-failed = Gagal memuat preview lagu.
 load-charts-failed = Gagal memuat chart.
-no-chart-for-download = Chart ini tidak bisa didownload.
 
 load-chart-failed = Gagal memuat chart.
 

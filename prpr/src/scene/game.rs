@@ -5,7 +5,7 @@ prpr_l10n::tl_file!("game");
 use super::{
     draw_background,
     ending::RecordUpdateState,
-    loading::{BasicPlayer, UpdateFn, UploadFn},
+    loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn},
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
@@ -23,6 +23,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
+use inputbox::InputBox;
 use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
 use sasa::{Music, MusicParams};
@@ -43,9 +44,10 @@ use tracing::{debug, warn};
 
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
 
-#[cfg(feature = "closed")]
+#[rustfmt::skip]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 mod inner;
-#[cfg(feature = "closed")]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 use inner::*;
 
 const WAIT_TIME: f32 = 0.5;
@@ -143,8 +145,14 @@ pub struct GameScene {
 
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
+    save_fn: Option<SaveFn>,
+
+    best_record: Option<SimpleRecord>,
 
     pub touch_points: Vec<(f32, f32)>,
+    fps_frame_count: u32,
+    fps_total_time: f64,
+    fps_last_frame_time: f64,
 }
 
 macro_rules! reset {
@@ -159,6 +167,9 @@ macro_rules! reset {
         $tm.reset();
         $self.last_update_time = $tm.now();
         $self.state = State::Starting;
+        $self.fps_frame_count = 0;
+        $self.fps_total_time = 0.0;
+        $self.fps_last_frame_time = $tm.real_time();
     }};
 }
 
@@ -202,7 +213,7 @@ impl GameScene {
             }
         });
         let mut chart = match format {
-            ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), &info, fs, extra).await,
+            ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, extra).await,
             ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pbc => {
@@ -215,6 +226,7 @@ impl GameScene {
         Ok((chart, bytes, format))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mode: GameMode,
         info: ChartInfo,
@@ -225,6 +237,7 @@ impl GameScene {
         illustration: SafeTexture,
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
+        save_fn: Option<SaveFn>,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -301,8 +314,15 @@ impl GameScene {
 
             upload_fn,
             update_fn,
+            save_fn,
+
+            best_record: None,
 
             touch_points: Vec::new(),
+
+            fps_frame_count: 0,
+            fps_total_time: 0.0,
+            fps_last_frame_time: 0.0,
         })
     }
 
@@ -382,8 +402,13 @@ impl GameScene {
             let score_right = 1. - margin;
             let score = format!("{:07}", self.judge.score());
             let ct = ui.text(&score).size(0.8).measure_using(&PGR_FONT).center();
-            self.chart
-                .with_element(ui, res, UIElement::Score, Some((score_right - ct.x , score_top + ct.y)), Some((score_right, score_top)), |ui, c| {
+            self.chart.with_element(
+                ui,
+                res,
+                UIElement::Score,
+                Some((score_right - ct.x, score_top + ct.y)),
+                Some((score_right, score_top)),
+                |ui, c| {
                     ui.text(&score)
                         .pos(score_right, score_top)
                         .anchor(1., 0.)
@@ -398,52 +423,71 @@ impl GameScene {
                             .color(Color { a: c.a * 0.7, ..c })
                             .draw_using(&PGR_FONT);
                     }
-                });
+                },
+            );
 
-            self.chart
-                .with_element(ui, res, UIElement::Pause, Some((pause_center.x, pause_center.y)), Some((pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2.)), |ui, c| {
+            self.chart.with_element(
+                ui,
+                res,
+                UIElement::Pause,
+                Some((pause_center.x, pause_center.y)),
+                Some((pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2.)),
+                |ui, c| {
                     let mut r = Rect::new(pause_center.x - pause_w * 1.5, pause_center.y - pause_h / 2., pause_w, pause_h);
                     ui.fill_rect(r, c);
                     r.x += pause_w * 2.;
                     ui.fill_rect(r, c);
-                });
+                },
+            );
             if self.judge.combo() >= 3 {
                 let combo_top = top + eps * 2. - (1. - p) * 0.4;
-                let btm = self
-                    .chart
-                    .with_element(ui, res, UIElement::ComboNumber, Some((0., combo_top + unit_h / 2.)), Some((0., combo_top + unit_h / 2.)), |ui, c| {
+                let btm = self.chart.with_element(
+                    ui,
+                    res,
+                    UIElement::ComboNumber,
+                    Some((0., combo_top + unit_h / 2.)),
+                    Some((0., combo_top + unit_h / 2.)),
+                    |ui, c| {
                         ui.text(self.judge.combo().to_string())
                             .pos(0., combo_top)
                             .anchor(0.5, 0.)
                             .color(c)
                             .draw_using(&PGR_FONT)
                             .bottom()
-                    });
+                    },
+                );
                 let combo_top = btm + 0.01;
-                self.chart
-                    .with_element(ui, res, UIElement::Combo, Some((0., combo_top + unit_h * 0.2)), Some((0., combo_top + unit_h * 0.2)), |ui, c| {
+                self.chart.with_element(
+                    ui,
+                    res,
+                    UIElement::Combo,
+                    Some((0., combo_top + unit_h * 0.2)),
+                    Some((0., combo_top + unit_h * 0.2)),
+                    |ui, c| {
                         ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
                             .pos(0., combo_top)
                             .anchor(0.5, 0.)
                             .size(0.4)
                             .color(c)
                             .draw_using(&PGR_FONT);
-                    });
+                    },
+                );
             }
             // magic to make score visible, refer to phira/src/rate.rs#L219
             ui.text("").draw_using(&PGR_FONT);
             let lf = -1. + margin;
             let bt = -top - eps * 2.8 + (1. - p) * 0.4;
             let ct = ui.text(&res.info.name).size(0.5).measure().center();
-            self.chart.with_element(ui, res, UIElement::Name, Some((lf + ct.x, bt - ct.y)), Some((lf, bt)), |ui, c| {
-                ui.text(&res.info.name)
-                    .pos(lf, bt)
-                    .anchor(0., 1.)
-                    .size(0.5)
-                    .color(c)
-                    .max_width(0.8)
-                    .draw();
-            });
+            self.chart
+                .with_element(ui, res, UIElement::Name, Some((lf + ct.x, bt - ct.y)), Some((lf, bt)), |ui, c| {
+                    ui.text(&res.info.name)
+                        .pos(lf, bt)
+                        .anchor(0., 1.)
+                        .size(0.5)
+                        .color(c)
+                        .max_width(0.8)
+                        .draw();
+                });
 
             let ct = ui.text(&res.info.level).size(0.5).measure().center();
             self.chart
@@ -453,11 +497,12 @@ impl GameScene {
 
             let hw = 0.003;
             let height = eps * 1.0;
-            let dest = (2. * res.time / res.track_length).max(0.).min(2.);
-            self.chart.with_element(ui, res, UIElement::Bar, Some((-1., top + height / 2.)), Some((-1., top + height / 2.)), |ui, color| {
-                ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
-                ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
-            });
+            let dest = (2. * res.time / res.track_length).clamp(0., 2.);
+            self.chart
+                .with_element(ui, res, UIElement::Bar, Some((-1., top + height / 2.)), Some((-1., top + height / 2.)), |ui, color| {
+                    ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
+                    ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
+                });
         });
         Ok(())
     }
@@ -518,7 +563,7 @@ impl GameScene {
                 if self.mode == GameMode::Exercise {
                     pos = tm.now() as f32;
                 }
-                if clicked.map_or(false, |it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
+                if clicked.is_some_and(|it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
                     debug!("recreating music");
                     self.music = res.audio.create_music(
                         res.music.clone(),
@@ -537,7 +582,9 @@ impl GameScene {
                         reset!(self, res, tm);
                     }
                     Some(1) => {
-                        if self.mode == GameMode::Exercise && (tm.now() > self.exercise_range.end as f64 || tm.now() < self.exercise_range.start as f64) {
+                        if self.mode == GameMode::Exercise
+                            && (tm.now() > self.exercise_range.end as f64 || tm.now() < self.exercise_range.start as f64)
+                        {
                             tm.seek_to(self.exercise_range.start as f64);
                             self.music.seek_to(self.exercise_range.start)?;
                             pos = self.exercise_range.start;
@@ -756,6 +803,13 @@ impl GameScene {
             }
         });
     }
+    pub fn get_avg_fps(&self) -> Option<f32> {
+        if self.fps_frame_count > 0 && self.fps_total_time > 0.0 {
+            Some(self.fps_frame_count as f32 / self.fps_total_time as f32)
+        } else {
+            None
+        }
+    }
 }
 
 impl Scene for GameScene {
@@ -822,7 +876,8 @@ impl Scene for GameScene {
                     tm.now() as f32
                 } else {
                     #[cfg(target_os = "windows")]
-                    { // wtf bro. why must particles exist on Windows?
+                    {
+                        // wtf bro. why must particles exist on Windows?
                         let emitter_config = self.res.emitter.emitter.config.clone();
                         let emitter_square_config = self.res.emitter.emitter_square.config.clone();
                         self.res.emitter.emitter.config.size = 0.0;
@@ -861,7 +916,7 @@ impl Scene for GameScene {
                 if t >= AFTER_TIME + 0.3 {
                     let mut record_data = None;
                     // TODO strengthen the protection
-                    #[cfg(feature = "closed")]
+                    #[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
                     if let Some(upload_fn) = &self.upload_fn {
                         if !self.res.config.offline_mode && !self.res.config.autoplay() && self.res.config.speed >= 1.0 - 1e-3 {
                             if let Some(player) = &self.player {
@@ -882,23 +937,42 @@ impl Scene for GameScene {
                         })
                     };
                     self.next_scene = match self.mode {
-                        GameMode::Normal | GameMode::NoRetry | GameMode::View => Some(NextScene::Overlay(Box::new(EndingScene::new(
-                            self.res.background.clone(),
-                            self.res.illustration.clone(),
-                            self.res.player.clone(),
-                            self.res.icons.clone(),
-                            self.res.icon_retry.clone(),
-                            self.res.icon_proceed.clone(),
-                            self.res.info.clone(),
-                            self.judge.result(),
-                            &self.res.config,
-                            self.res.res_pack.ending.clone(),
-                            self.upload_fn.as_ref().map(Arc::clone),
-                            self.player.as_ref().map(|it| it.rks),
-                            self.player.as_ref().map_or(0, |it| it.historic_best),
-                            record_data,
-                            record,
-                        )?))),
+                        GameMode::Normal | GameMode::NoRetry | GameMode::View => {
+                            let historic_best = self.player.as_ref().map_or(0, |it| it.historic_best);
+                            if let Some(new_rec) = &record {
+                                if let Some(f) = &self.save_fn {
+                                    f(new_rec.clone())?;
+                                }
+                                if let Some(best) = &mut self.best_record {
+                                    best.update(new_rec);
+                                } else {
+                                    self.best_record = record.clone();
+                                }
+                                if let Some(best) = &self.best_record {
+                                    if let Some(player) = &mut self.player {
+                                        player.historic_best = player.historic_best.max(best.score as _);
+                                    }
+                                }
+                            }
+                            Some(NextScene::Overlay(Box::new(EndingScene::new(
+                                self.res.background.clone(),
+                                self.res.illustration.clone(),
+                                self.res.player.clone(),
+                                self.res.icons.clone(),
+                                self.res.icon_retry.clone(),
+                                self.res.icon_proceed.clone(),
+                                self.res.info.clone(),
+                                self.judge.result(),
+                                &self.res.config,
+                                self.res.res_pack.ending.clone(),
+                                self.upload_fn.as_ref().map(Arc::clone),
+                                self.player.as_ref().map(|it| it.rks),
+                                historic_best,
+                                record_data,
+                                self.best_record.clone(),
+                                if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
+                            )?)))
+                        }
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
                     };
@@ -1003,11 +1077,11 @@ impl Scene for GameScene {
                 ..touch.clone()
             };
             if self.exercise_btns.0.touch(&touch) {
-                request_input("exercise_start", &fmt_time(self.exercise_range.start));
+                request_input("exercise_start", InputBox::new().default_text(fmt_time(self.exercise_range.start)));
                 return Ok(true);
             }
             if self.exercise_btns.1.touch(&touch) {
-                request_input("exercise_end", &fmt_time(self.exercise_range.end));
+                request_input("exercise_end", InputBox::new().default_text(fmt_time(self.exercise_range.end)));
                 return Ok(true);
             }
         }
@@ -1015,6 +1089,16 @@ impl Scene for GameScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
+        if self.res.config.show_avg_fps {
+            let current_time = tm.real_time();
+            if matches!(self.state, State::Playing) && !tm.paused() {
+                let frame_delta = current_time - self.fps_last_frame_time;
+                self.fps_total_time += frame_delta;
+                self.fps_frame_count += 1;
+            }
+            self.fps_last_frame_time = current_time;
+        }
+
         let res = &mut self.res;
         let asp = ui.viewport.2 as f32 / ui.viewport.3 as f32;
         if res.update_size(ui.viewport) || self.mode == GameMode::View {
@@ -1128,7 +1212,16 @@ impl Scene for GameScene {
             tm.speed = 1.0;
             tm.adjust_time = false;
             match self.mode {
-                GameMode::Normal | GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
+                // return result to update score and refresh
+                GameMode::Normal => {
+                    if let Some(rec) = &self.best_record {
+                        NextScene::PopWithResult(Box::new(rec.clone()))
+                    } else {
+                        NextScene::Pop
+                    }
+                }
+                // not sure if they need result. just keep it
+                GameMode::Exercise | GameMode::NoRetry | GameMode::View => NextScene::Pop,
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),
             }
         } else if let Some(next_scene) = self.next_scene.take() {

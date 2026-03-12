@@ -53,6 +53,7 @@ pub struct RenderConfig<'a> {
     pub incline_sin: f32,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_tex(res: &Resource, texture: Texture2D, order: i8, x: f32, y: f32, color: Color, mut params: DrawTextureParams, clip: bool) {
     let Vec2 { x: w, y: h } = params.dest_size.unwrap();
     if h < 0. {
@@ -169,7 +170,11 @@ impl Note {
     pub fn now_transform(&self, res: &Resource, ctrl_obj: &CtrlObject, base: f32, incline_sin: f32) -> Matrix {
         let incline_val = 1. - incline_sin * (base * res.aspect_ratio + self.object.translation.1.now()) * RPE_HEIGHT / 2. / 360.;
         let mut tr = self.object.now_translation(res);
-        tr.x *= incline_val * ctrl_obj.pos.now_opt().unwrap_or(1.);
+        tr.x *= if matches!(self.kind, NoteKind::Hold { .. }) {
+            1.
+        } else {
+            incline_val * ctrl_obj.pos.now_opt().unwrap_or(1.)
+        };
         tr.y += base;
         let mut scale = self.object.scale.now_with_def(1.0, 1.0);
         scale.x *= ctrl_obj.size.now_opt().unwrap_or(1.0);
@@ -215,18 +220,17 @@ impl Note {
             height - line_height
         } else {
             match self.kind {
-                NoteKind::Hold { end_time: _,  end_height } => {
+                NoteKind::Hold { end_time: _, end_height } => {
                     let end_height = end_height / res.aspect_ratio * spd;
                     end_height - line_height
                 }
-                _ => {
-                    height - line_height
-                }
+                _ => height - line_height,
             }
         };
 
         if !config.draw_below
-            && ((res.time - FADEOUT_TIME >= self.time && !matches!(self.kind, NoteKind::Hold { .. })) || (self.time > res.time && cover_base <= -0.001))
+            && ((res.time - FADEOUT_TIME >= self.time && !matches!(self.kind, NoteKind::Hold { .. }))
+                || (self.time > res.time && cover_base <= -0.001))
         {
             return;
         }

@@ -3,7 +3,6 @@ use crate::{
     client::{Client, Event},
     icons::Icons,
     scene::EventScene,
-    ttl,
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -253,7 +252,11 @@ impl Page for EventPage {
                 .size(1.3 + p * 0.2)
                 .draw();
         }
+        Ok(())
+    }
 
+    fn render_top(&mut self, ui: &mut Ui, s: &mut SharedState) -> Result<()> {
+        let t = s.t;
         if self.loading() {
             ui.full_loading_simple(t);
         }

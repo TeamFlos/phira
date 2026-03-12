@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-fluent = "0.17.0"
-fluent-syntax = "0.12.0"
-lru = "0.14.0"
-once_cell = "1.21.3"
-sys-locale = "0.3.2"
-tracing = "0.1.41"
+fluent = { workspace = true }
+fluent-syntax = { workspace = true }
+lru = { workspace = true }
+once_cell = { workspace = true }
+sys-locale = { workspace = true }
+tracing = { workspace = true }
 unic-langid = { version = "0.9.6", features = ["macros"] }
-walkdir = "2.5.0"
+walkdir = { workspace = true }

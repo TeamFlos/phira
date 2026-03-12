@@ -29,7 +29,7 @@ impl AVFormatContext {
     pub fn read_frame(&mut self, frame: &mut AVPacket) -> Result<bool> {
         unsafe {
             match handle(ffi::av_read_frame(self.0 .0, frame.0 .0)) {
-                Err(Error::EndOfFile) => return Ok(false),
+                Err(Error::EndOfFile) => Ok(false),
                 x => {
                     x?;
                     Ok(true)

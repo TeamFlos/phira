@@ -25,6 +25,11 @@ pub struct Icons {
     pub filter: SafeTexture,
     pub r#mod: SafeTexture,
     pub star: SafeTexture,
+    pub star_outline: SafeTexture,
+    pub cloud_none: SafeTexture,
+    pub cloud_check: SafeTexture,
+    pub plus: SafeTexture,
+    pub select: SafeTexture,
 
     pub r#abstract: SafeTexture,
 }
@@ -48,11 +53,16 @@ impl Icons {
             edit: load_texture("edit.png").await?.into(),
             ldb: load_texture("leaderboard.png").await?.into(),
             close: load_texture("close.png").await?.into(),
-            search: SafeTexture::from(load_texture("search.png").await?).with_mipmap(),
-            order: SafeTexture::from(load_texture("order.png").await?).with_mipmap(),
-            filter: SafeTexture::from(load_texture("filter.png").await?).with_mipmap(),
-            r#mod: SafeTexture::from(load_texture("mod.png").await?).with_mipmap(),
-            star: SafeTexture::from(load_texture("star.png").await?).with_mipmap(),
+            search: load_texture("search.png").await?.into(),
+            order: load_texture("order.png").await?.into(),
+            filter: load_texture("filter.png").await?.into(),
+            r#mod: load_texture("mod.png").await?.into(),
+            star: load_texture("star.png").await?.into(),
+            star_outline: load_texture("star_outline.png").await?.into(),
+            cloud_none: load_texture("cloud_none.png").await?.into(),
+            cloud_check: load_texture("cloud_check.png").await?.into(),
+            plus: load_texture("plus.png").await?.into(),
+            select: load_texture("select.png").await?.into(),
 
             r#abstract: load_texture("abstract.jpg").await?.into(),
         })

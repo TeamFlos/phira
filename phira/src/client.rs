@@ -1,3 +1,5 @@
+//! Http client for Phira API.
+
 mod model;
 pub use model::*;
 use tracing::debug;
@@ -176,7 +178,7 @@ impl Client {
             queries: HashMap::new(),
             page: None,
             suffix: "",
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 

@@ -37,11 +37,11 @@ impl<T> OwnedPtr<T> {
     }
 
     pub unsafe fn as_ref(&self) -> &T {
-        std::mem::transmute(self.0)
+        &*self.0
     }
 
     pub unsafe fn as_mut(&mut self) -> &mut T {
-        std::mem::transmute(self.0)
+        &mut *self.0
     }
 
     pub fn as_self_mut(&mut self) -> *mut *mut T {
@@ -103,9 +103,9 @@ pub fn demux_audio(file: impl AsRef<str>) -> Result<Option<AudioClip>> {
                     )
                 };
 
-                frames.extend(std::iter::repeat_with(Frame::default).take(out_samples as usize));
+                frames.resize(end + out_samples as usize, Frame::default());
                 let out_samples = swr.convert(
-                    in_frame.raw_data()[0],
+                    in_frame.raw_data(),
                     in_frame.number_of_samples(),
                     unsafe { frames.as_mut_ptr().add(end) as *mut _ },
                     out_samples as _,
