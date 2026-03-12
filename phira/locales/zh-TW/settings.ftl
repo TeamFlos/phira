@@ -41,6 +41,7 @@ item-sfx = 音效音量
 item-bgm = BGM 音量
 item-cali = 調整延遲
 item-preferred-sample-rate = 偏好取樣率
+item-audio-buffer-size = 音訊緩衝區大小
 
 item-show-acc = 顯示即時準確率
 item-show-avg-fps = 顯示平均FPS
