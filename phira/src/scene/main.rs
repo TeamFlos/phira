@@ -358,6 +358,19 @@ impl Scene for MainScene {
         }
         if let Some((id, file)) = take_file() {
             match id.as_str() {
+                "_import_auto" => {
+                    let new_id = match File::open(&file).map(BufReader::new).map(zip::ZipArchive::new) {
+                        Ok(Ok(zip)) => {
+                            if zip.file_names().any(|name| name.ends_with("click.png")) {
+                                "_import_respack"
+                            } else {
+                                "_import"
+                            }
+                        }
+                        _ => "_import",
+                    };
+                    return_file(new_id.to_owned(), file);
+                }
                 "_import" => {
                     let export_info = (|| -> Result<Option<(ExportInfo, usize)>> {
                         let file = File::open(&file)?;

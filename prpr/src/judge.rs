@@ -151,7 +151,7 @@ pub enum Judgement {
     Miss,
 }
 
-#[cfg(any(not(closed), target_os = "windows", target_os = "linux"))]
+#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
     diffs: Vec<f32>,
@@ -162,7 +162,7 @@ pub(crate) struct JudgeInner {
     num_of_notes: u32,
 }
 
-#[cfg(any(not(closed), target_os = "windows", target_os = "linux"))]
+#[cfg(any(not(closed), all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos"))))]
 impl JudgeInner {
     pub fn new(num_of_notes: u32) -> Self {
         Self {
@@ -247,9 +247,9 @@ impl JudgeInner {
 }
 
 #[rustfmt::skip]
-#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 pub mod inner;
-#[cfg(all(closed, not(any(target_os = "windows", target_os = "linux"))))]
+#[cfg(all(closed, not(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))))]
 use inner::*;
 
 type Judgements = Vec<(f32, u32, u32, Result<Judgement, bool>)>;

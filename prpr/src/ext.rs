@@ -389,7 +389,7 @@ pub fn screen_aspect() -> f32 {
     let vp = get_viewport();
     vp.2 as f32 / vp.3 as f32
 }
-
+// This function is used to create in-game audio manager
 pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
     #[cfg(target_os = "android")]
     {
@@ -404,8 +404,8 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
     {
         use sasa::backend::ohos::*;
         AudioManager::new(OhosBackend::new(OhosSettings {
-            buffer_size: Some(256),
-            sample_rate: Some(config.preferred_sample_rate),
+            sample_rate: config.preferred_sample_rate.into(),
+            buffer_size: config.audio_buffer_size.or(Some(256)),
             channels: 2,
         }))
     }

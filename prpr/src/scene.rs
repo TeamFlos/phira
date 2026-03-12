@@ -176,13 +176,7 @@ pub fn request_input(id: impl Into<String>, mut config: InputBox) {
     if config.prompt.is_none() {
         config = config.prompt(ttl!("input-msg"));
     }
-    cfg_if! {
-        if #[cfg(target_env = "ohos")] {
-            miniquad::native::call_request_callback(r#"{"action": "show_input_window"}"#.to_string());
-        } else {
-            show_inputbox(config, &*default_backend());
-        }
-    }
+    show_inputbox(config, &*default_backend());
 }
 
 pub fn take_input() -> Option<(String, String)> {
@@ -196,7 +190,10 @@ pub fn return_input(id: String, text: String) {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn request_file(id: impl Into<String>) {
-    *CHOSEN_FILE.lock().unwrap() = (Some(id.into()), None);
+    let id: String = id.into();
+    #[cfg(target_env = "ohos")]
+    let is_photo = id == "avatar";
+    *CHOSEN_FILE.lock().unwrap() = (Some(id), None);
     cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
@@ -299,7 +296,7 @@ pub fn request_file(id: impl Into<String>) {
                 .unwrap()
                 .presentViewController_animated_completion(&picker, true, None);
         } else if #[cfg(target_env = "ohos")] {
-            miniquad::native::call_request_callback(r#"{"action": "chooseFile"}"#.to_string());
+            miniquad::native::call_request_callback(format!(r#"{{"action": "chooseFile", "isPhoto": {}}}"#, is_photo));
         } else { // desktop
             CHOSEN_FILE.lock().unwrap().1 = rfd::FileDialog::new().pick_file().map(|it| it.display().to_string());
         }

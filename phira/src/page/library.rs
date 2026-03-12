@@ -506,6 +506,8 @@ fn request_export() {
                 EXPORT_PICKER_PATH.lock().unwrap().replace(output_path_str);
             }
             EXPORT_CONFIG.lock().unwrap().replace(config);
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(format!("{{\"action\":\"request_export\",\"filename\":\"{}\"}}", suggested_name));
         } else {
             if let Some(output_path) = rfd::FileDialog::new().set_title(tl!("multi-export-title")).set_file_name(&suggested_name).save_file() {
                 let config = File::create(&output_path).map(|file| ExportConfig {
@@ -540,6 +542,22 @@ extern "system" fn process_export_fd(env: jni::JNIEnv, _: jni::objects::JClass, 
             Ok(())
         }),
     }));
+}
+
+#[cfg(target_env = "ohos")]
+mod ohos_export {
+    use super::*;
+    use napi_derive_ohos::napi;
+    #[napi]
+    #[allow(dead_code)]
+    pub fn process_export_fd_ohos(fd: u32) {
+        use std::os::fd::FromRawFd;
+        let file = unsafe { File::from_raw_fd(fd as _) };
+        EXPORT_CONFIG.lock().unwrap().replace(Ok(ExportConfig {
+            file,
+            deleter: Box::new(|| Ok(())),
+        }));
+    }
 }
 
 impl Page for LibraryPage {
