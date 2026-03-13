@@ -41,6 +41,7 @@ pub struct Note {
     pub multiple_hint: bool,
     pub fake: bool,
     pub judge: JudgeStatus,
+    pub protected: bool,
 }
 
 pub struct RenderConfig<'a> {
