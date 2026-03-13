@@ -3,6 +3,7 @@
 ![Phira Showcase](https://phira.5wyxi.com/files/github-showcase.png)
 
 [中文版本](./README-zh_CN.md)
+[日本語](./README-ja_JP.md)
 
 ## Download
 
