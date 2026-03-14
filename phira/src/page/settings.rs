@@ -591,7 +591,7 @@ impl AudioList {
         }
         #[cfg(not(target_os = "android"))]
         if self.preferred_sample_rate_btn.touch(touch, t) {
-            let options = [44100, 48000, 88200, 96000, 192000];
+            let options = [None, Some(44100), Some(48000), Some(88200), Some(96000), Some(192000)];
             let current = config.preferred_sample_rate;
             let selected = options.iter().position(|&r| r == current).unwrap_or(0);
             config.preferred_sample_rate = options[(selected + 1) % options.len()];
@@ -660,7 +660,12 @@ impl AudioList {
         #[cfg(not(target_os = "android"))]
         item! {
             render_title(ui, tl!("item-preferred-sample-rate"), None);
-            self.preferred_sample_rate_btn.render_text(ui, rr, t, format!("{} Hz", config.preferred_sample_rate), 0.5, false);
+            let text = if let Some(rate) = config.preferred_sample_rate {
+                format!("{} Hz", rate)
+            } else {
+                tl!("preferred-sample-rate-default").to_string()
+            };
+            self.preferred_sample_rate_btn.render_text(ui, rr, t, text, 0.5, false);
         }
         #[cfg(target_env = "ohos")]
         item! {
