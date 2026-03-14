@@ -153,6 +153,7 @@
 /* Begin XCBuildConfiguration section */
 		2172F94FAE773470E7614467 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EEE8528F2F650E6D001C0FF4 /* Shared.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -243,6 +244,7 @@
 		};
 		B1A7190987C1DA82FF9517BD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EEE8528F2F650E6D001C0FF4 /* Shared.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
