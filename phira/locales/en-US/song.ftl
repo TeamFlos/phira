@@ -86,6 +86,7 @@ reviewed = Reviewed
 unreviewed = Unreviewed
 
 review-approve = Approve
+review-approve-confirm = Approve this chart? This action cannot be undone.
 review-deny = Deny
 review-del = Delete Online
 review-approved = Approved
@@ -122,6 +123,7 @@ stabilize-requested = Stabilization request sent.
 stabilize-failed = Stabilization failed.
 stabilize-approve = Approve Special
 stabilize-approve-ranked = Approve Stable
+stabilize-approve-confirm = Approve stabilization for this chart? This action cannot be undone.
 stabilize-comment = Stable Comment
 stabilize-commented = Commented
 stabilize-deny = Deny Stable
