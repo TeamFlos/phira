@@ -1334,7 +1334,17 @@ impl SongScene {
     }
 
     fn matches_ref(&self, r: &ChartRef) -> bool {
-        r.matches(self.local_path.as_deref().ok_or_else(|| self.info.id.unwrap()))
+        if let Some(path) = self.local_path.as_deref() {
+            if r.matches(Ok(path)) {
+                return true;
+            }
+        }
+        if let Some(id) = self.info.id {
+            if r.matches(Err(id)) {
+                return true;
+            }
+        }
+        false
     }
 
     fn to_chart_ref(&self) -> Option<ChartRef> {
