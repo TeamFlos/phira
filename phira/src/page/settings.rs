@@ -191,7 +191,7 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
     ui.fill_path(&ir.rounded(0.02), (**icon, ir));
 
-    let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
+    let text = tl!("about-content", "version" => format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")));
     let (first, text) = text.split_once('\n').unwrap();
     let tr = ui
         .text(first)
