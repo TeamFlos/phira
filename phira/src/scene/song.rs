@@ -1334,7 +1334,7 @@ impl SongScene {
     }
 
     fn matches_ref(&self, r: &ChartRef) -> bool {
-        r.matches(self.local_path.as_deref().ok_or_else(|| self.info.id.unwrap()))
+        r.matches((self.local_path.as_deref(), self.info.id))
     }
 
     fn to_chart_ref(&self) -> Option<ChartRef> {

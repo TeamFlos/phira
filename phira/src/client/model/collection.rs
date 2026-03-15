@@ -50,10 +50,10 @@ impl ChartRef {
         }
     }
 
-    pub fn matches(&self, path_or_id: Result<&str, i32>) -> bool {
+    pub fn matches(&self, path_or_id: (Option<&str>, Option<i32>)) -> bool {
         match self {
-            ChartRef::Online(id, _) => path_or_id == Err(*id),
-            ChartRef::Local(path) => path_or_id == Ok(path),
+            ChartRef::Online(id, _) => path_or_id.1 == Some(*id),
+            ChartRef::Local(path) => path_or_id.0 == Some(path.as_str()),
         }
     }
 }
