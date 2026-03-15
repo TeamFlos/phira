@@ -296,6 +296,7 @@ pub struct SongScene {
 
     review_task: Option<Task<Result<String>>>,
     chart_should_delete: Arc<AtomicBool>,
+    should_review_approve: Arc<AtomicBool>,
 
     edit_tags_task: Option<Task<Result<()>>>,
     tags: TagsDialog,
@@ -310,6 +311,8 @@ pub struct SongScene {
 
     stabilize_task: Option<Task<Result<()>>>,
     should_stabilize: Arc<AtomicBool>,
+    should_stabilize_approve: Arc<AtomicBool>,
+    should_stabilize_approve_ranked: Arc<AtomicBool>,
 
     scene_task: LocalTask<Result<NextScene>>,
 
@@ -465,6 +468,7 @@ impl SongScene {
 
             review_task: None,
             chart_should_delete: Arc::default(),
+            should_review_approve: Arc::default(),
 
             edit_tags_task: None,
             tags: TagsDialog::new(false),
@@ -492,6 +496,8 @@ impl SongScene {
 
             stabilize_task: None,
             should_stabilize: Arc::default(),
+            should_stabilize_approve: Arc::default(),
+            should_stabilize_approve_ranked: Arc::default(),
 
             scene_task: None,
 
@@ -1856,23 +1862,7 @@ impl Scene for SongScene {
                     self.launch(GameMode::Normal, true)?;
                 }
                 "review-approve" => {
-                    let id = self.info.id.unwrap();
-                    self.review_task = Some(Task::new(async move {
-                        #[derive(Deserialize)]
-                        struct Resp {
-                            passed: bool,
-                        }
-                        let resp: Resp = recv_raw(Client::post(
-                            format!("/chart/{id}/review"),
-                            &json!({
-                                "approve": true
-                            }),
-                        ))
-                        .await?
-                        .json()
-                        .await?;
-                        Ok((if resp.passed { tl!("review-passed") } else { tl!("review-approved") }).into_owned())
-                    }));
+                    confirm_dialog(tl!("warn"), tl!("review-approve-confirm"), Arc::clone(&self.should_review_approve));
                 }
                 "review-deny" => {
                     request_input("deny-reason", InputBox::new().mode(InputMode::Multiline));
@@ -1891,26 +1881,11 @@ impl Scene for SongScene {
                 "stabilize" => {
                     confirm_dialog(tl!("stabilize"), tl!("stabilize-warn"), Arc::clone(&self.should_stabilize));
                 }
-                "stabilize-approve" | "stabilize-approve-ranked" => {
-                    let kind = if option == "stabilize-approve-ranked" { 1 } else { 0 };
-                    let id = self.info.id.unwrap();
-                    self.review_task = Some(Task::new(async move {
-                        let resp: StableR = recv_raw(Client::post(
-                            format!("/chart/{id}/stabilize"),
-                            &json!({
-                                "kind": kind,
-                            }),
-                        ))
-                        .await?
-                        .json()
-                        .await?;
-                        Ok((if resp.status == 0 {
-                            tl!("stabilize-approved")
-                        } else {
-                            tl!("stabilize-approved-passed")
-                        })
-                        .into())
-                    }));
+                "stabilize-approve" => {
+                    confirm_dialog(tl!("warn"), tl!("stabilize-approve-confirm"), Arc::clone(&self.should_stabilize_approve));
+                }
+                "stabilize-approve-ranked" => {
+                    confirm_dialog(tl!("warn"), tl!("stabilize-approve-confirm"), Arc::clone(&self.should_stabilize_approve_ranked));
                 }
                 "stabilize-comment" => {
                     request_input("stabilize-comment", InputBox::new().mode(InputMode::Multiline));
@@ -1937,6 +1912,65 @@ impl Scene for SongScene {
             self.review_task = Some(Task::new(async move {
                 recv_raw(Client::delete(format!("/chart/{id}"))).await?;
                 Ok(tl!("review-deleted").into_owned())
+            }));
+        }
+        if self.should_review_approve.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.review_task = Some(Task::new(async move {
+                #[derive(Deserialize)]
+                struct Resp {
+                    passed: bool,
+                }
+                let resp: Resp = recv_raw(Client::post(
+                    format!("/chart/{id}/review"),
+                    &json!({
+                        "approve": true
+                    }),
+                ))
+                .await?
+                .json()
+                .await?;
+                Ok((if resp.passed { tl!("review-passed") } else { tl!("review-approved") }).into_owned())
+            }));
+        }
+        if self.should_stabilize_approve.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.review_task = Some(Task::new(async move {
+                let resp: StableR = recv_raw(Client::post(
+                    format!("/chart/{id}/stabilize"),
+                    &json!({
+                        "kind": 0,
+                    }),
+                ))
+                .await?
+                .json()
+                .await?;
+                Ok((if resp.status == 0 {
+                    tl!("stabilize-approved")
+                } else {
+                    tl!("stabilize-approved-passed")
+                })
+                .into())
+            }));
+        }
+        if self.should_stabilize_approve_ranked.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.review_task = Some(Task::new(async move {
+                let resp: StableR = recv_raw(Client::post(
+                    format!("/chart/{id}/stabilize"),
+                    &json!({
+                        "kind": 1,
+                    }),
+                ))
+                .await?
+                .json()
+                .await?;
+                Ok((if resp.status == 0 {
+                    tl!("stabilize-approved")
+                } else {
+                    tl!("stabilize-approved-passed")
+                })
+                .into())
             }));
         }
         if self.should_stabilize.fetch_and(false, Ordering::Relaxed) {

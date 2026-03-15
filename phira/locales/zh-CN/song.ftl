@@ -84,6 +84,7 @@ reviewed = 已审核
 unreviewed = 未审核
 
 review-approve = 通过
+review-approve-confirm = 确定通过该谱面吗？该操作无法撤销。
 review-deny = 拒绝
 review-del = 删除在线
 review-approved = 已通过
@@ -120,6 +121,7 @@ stabilize-requested = 申请 stable 成功
 stabilize-failed = 申请 stable 失败
 stabilize-approve = 通过 special
 stabilize-approve-ranked = 通过 stable
+stabilize-approve-confirm = 确定通过该谱面的评议吗？该操作无法撤销。
 stabilize-comment = Stable 留言
 stabilize-commented = 留言成功
 stabilize-deny = 拒绝 stable
