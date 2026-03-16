@@ -1,7 +1,7 @@
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
 pub use crate::{
-    judge::{HitSound, JudgeStatus, LIMIT_BAD},
     config::Mods,
+    judge::{HitSound, JudgeStatus, LIMIT_BAD},
     parse::RPE_HEIGHT,
 };
 use macroquad::prelude::*;
@@ -245,7 +245,9 @@ impl Note {
             ((self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
         } else if res.config.has_mod(Mods::FADE_IN) {
             (1. - (self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
-        } else { 1. };
+        } else {
+            1.
+        };
         let draw = |res: &mut Resource, tex: Texture2D| {
             let mut color = color;
             if !config.draw_below {
