@@ -526,7 +526,7 @@ struct SpeedIntegralTween {
 }
 
 impl SpeedIntegralTween {
-    fn new(kind: SpeedIntegralKind) -> Option<(Rc<dyn TweenFunction>, f32)> {
+    fn try_create(kind: SpeedIntegralKind) -> Option<(Rc<dyn TweenFunction>, f32)> {
         let total = kind.partial_factor(1.);
         if !total.is_finite() || total.abs() < EPS {
             return None;
@@ -587,7 +587,7 @@ fn speed_segment_tween(
             }
             let k = (end_speed - start_speed) / denom;
             let b = start_speed - k * df0;
-            SpeedIntegralTween::new(SpeedIntegralKind::Legacy {
+            SpeedIntegralTween::try_create(SpeedIntegralKind::Legacy {
                 easing_type,
                 easing_left,
                 easing_right,
@@ -595,7 +595,7 @@ fn speed_segment_tween(
                 b,
             })
         }
-        SpeedEasingMode::Modern => SpeedIntegralTween::new(SpeedIntegralKind::Modern {
+        SpeedEasingMode::Modern => SpeedIntegralTween::try_create(SpeedIntegralKind::Modern {
             easing_type,
             easing_left,
             easing_right,
@@ -904,6 +904,7 @@ fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn parse_judge_line(
     r: &mut BpmList,
     rpe: RPEJudgeLine,
