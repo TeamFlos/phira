@@ -7,3 +7,11 @@ import-success = 导入成功
 import-failed = 导入失败
 import-respack-success = 导入资源包成功
 import-respack-failed = 导入资源包失败
+
+batch-import = 批量导入
+batch-importing = 批量导入中 ({ $current }/{ $total })
+batch-import-confirm = 检测到批量导入数据，是否导入全部 { $count } 张谱面？
+batch-import-success = 成功导入 { $count } 个谱面。
+batch-import-downloaded-skipped = 已经下载过而跳过的谱面：{ $charts }
+batch-import-failed = 批量导入失败
+batch-import-failed-chart = 批量导入失败: { $chart }

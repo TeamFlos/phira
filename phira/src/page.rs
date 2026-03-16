@@ -4,11 +4,14 @@ pub use coll::CollectionPage;
 mod event;
 pub use event::EventPage;
 
+pub mod favorites;
+pub use favorites::FavoritesPage;
+
 mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::LibraryPage;
+pub use library::{ExportInfo, LibraryPage, CHOOSE_COVER, CHOSEN_COVER, FAV_UPDATED};
 
 mod message;
 pub use message::MessagePage;
@@ -24,11 +27,11 @@ pub use settings::SettingsPage;
 use tokio::sync::Notify;
 
 use crate::{
-    client::File,
+    client::{ChartRef, File},
     data::BriefChartInfo,
     dir, get_data,
     images::Images,
-    scene::{fs_from_path, ChartOrder},
+    scene::fs_from_path,
 };
 use anyhow::Result;
 use image::DynamicImage;
@@ -91,9 +94,9 @@ pub fn local_illustration(path: String, def: SafeTexture, full: bool) -> Illustr
     }
 }
 
-pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
+pub fn load_local() -> Vec<ChartItem> {
     let tex = BLACK_TEXTURE.clone();
-    let mut res: Vec<_> = get_data()
+    get_data()
         .charts
         .iter()
         .map(|it| ChartItem {
@@ -102,19 +105,16 @@ pub fn load_local(order: &(ChartOrder, bool)) -> Vec<ChartItem> {
             illu: local_illustration(it.local_path.clone(), tex.clone(), false),
             chart_type: ChartType::Imported,
         })
-        .collect();
-    order.0.apply(&mut res);
-    if order.1 {
-        res.reverse();
-    }
-    res
+        .collect()
 }
+
+type IllustrationTask = Task<Result<(DynamicImage, Option<DynamicImage>)>>;
 
 #[derive(Clone)]
 pub struct Illustration {
     pub texture: (SafeTexture, SafeTexture),
     pub notify: Arc<Notify>,
-    pub task: Option<Task<Result<(DynamicImage, Option<DynamicImage>)>>>,
+    pub task: Option<IllustrationTask>,
     pub loaded: Arc<Mutex<Option<(SafeTexture, SafeTexture)>>>,
     pub load_time: f32,
 }
@@ -130,6 +130,20 @@ impl Illustration {
             task: Some(Task::new(async move {
                 notify.notified().await;
                 Ok((file.load_image().await?, None))
+            })),
+            loaded: Arc::default(),
+            load_time: f32::NAN,
+        }
+    }
+
+    pub fn from_file_thumbnail(file: File) -> Self {
+        let notify = Arc::default();
+        Self {
+            texture: (BLACK_TEXTURE.clone(), BLACK_TEXTURE.clone()),
+            notify: Arc::clone(&notify),
+            task: Some(Task::new(async move {
+                notify.notified().await;
+                Ok((file.load_thumbnail().await?, None))
             })),
             loaded: Arc::default(),
             load_time: f32::NAN,
@@ -193,6 +207,17 @@ pub struct ChartItem {
     pub local_path: Option<String>,
     pub illu: Illustration,
     pub chart_type: ChartType,
+}
+impl ChartItem {
+    pub fn to_ref(&self) -> ChartRef {
+        if let Some(local) = &self.local_path {
+            ChartRef::Local(local.clone())
+        } else if let Some(id) = self.info.id {
+            ChartRef::Online(id, None)
+        } else {
+            panic!("chart item has neither id nor local path");
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -460,7 +485,7 @@ impl SharedState {
     }
 
     pub fn reload_local_charts(&mut self) {
-        self.charts_local = load_local(&(ChartOrder::Default, false));
+        self.charts_local = load_local();
     }
 }
 

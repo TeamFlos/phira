@@ -11,7 +11,7 @@ reconnect = Đang kết nối lại...
 create-room = Tạo phòng
 create-room-success = Đã tạo phòng
 create-room-failed = Không thể tạo phòng
-create-invalid-id = ID phòng không vượt quá 20 ký tự, có thể chứa chữ, số, - (gạch ngang) và _ (gạch dưới)
+create-invalid-id = ID phòng phải dưới 20 ký tự, có thể chứa chữ, số, - và _
 
 join-room = Vào phòng
 join-room-invalid-id = Không tìm thấy ID phòng

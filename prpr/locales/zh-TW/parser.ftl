@@ -33,13 +33,13 @@ expected-tween = 應當為 tween
 
 no-notes-inserted = 未插入音符
 unknown-command = 未知指令: { $cmd }
-bp-error = Bpm 事件 (bp) 應當連續且位於文件開頭
+bp-error = Bpm 事件 (bp) 應當連續且位於檔案開頭
 expected-01 = 應當為 0 / 1 (真 note / 假 note)
 unexpected-extra = 未知的附加內容: { $next }
 line-location = #{ $lid } 行中
 
 # extra
 shader-load-failed = 無法從 { $path } 中載入 shader
-shader-not-found = 未找到預置 shader { $shader }
+shader-not-found = 未在內建 shader 中找到 { $shader }
 effect-location = #{ $id } 號 effect 中
 video-load-failed = 從 { $path } 中載入影片失敗

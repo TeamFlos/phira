@@ -14,7 +14,7 @@ use lyon::{
 use macroquad::prelude::*;
 use miniquad::{gl::GLenum, BlendFactor, BlendState, BlendValue, CompareFunc, Equation, PrimitiveType, StencilFaceState, StencilOp, StencilState};
 use once_cell::sync::Lazy;
-use ordered_float::{Float, NotNan};
+use ordered_float::{FloatCore, NotNan};
 use sasa::AudioManager;
 use serde::Deserialize;
 use std::{
@@ -50,7 +50,7 @@ pub trait NotNanExt: Sized {
     fn not_nan(self) -> NotNan<Self>;
 }
 
-impl<T: Sized + Float> NotNanExt for T {
+impl<T: FloatCore> NotNanExt for T {
     fn not_nan(self) -> NotNan<Self> {
         NotNan::new(self).unwrap()
     }
@@ -389,7 +389,7 @@ pub fn screen_aspect() -> f32 {
     let vp = get_viewport();
     vp.2 as f32 / vp.3 as f32
 }
-
+// This function is used to create in-game audio manager
 pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
     #[cfg(target_os = "android")]
     {
@@ -400,10 +400,20 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
             usage: Usage::Game,
         }))
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(target_env = "ohos")]
+    {
+        use sasa::backend::ohos::*;
+        AudioManager::new(OhosBackend::new(OhosSettings {
+            sample_rate: config.preferred_sample_rate.into(),
+            buffer_size: config.audio_buffer_size.or(Some(256)),
+            channels: 2,
+        }))
+    }
+    #[cfg(not(any(target_os = "android", target_env = "ohos")))]
     {
         use sasa::backend::cpal::*;
         AudioManager::new(CpalBackend::new(CpalSettings {
+            preferred_sample_rate: config.preferred_sample_rate,
             buffer_size: config.audio_buffer_size,
         }))
     }
@@ -530,7 +540,7 @@ pub fn open_url(url: &str) -> Result<()> {
                 let ctx = ndk_context::android_context().context();
                 let class = (**env).GetObjectClass.unwrap()(env, ctx);
                 let method =
-                    (**env).GetMethodID.unwrap()(env, class, b"openUrl\0".as_ptr() as _, b"(Ljava/lang/String;)V\0".as_ptr() as _);
+                    (**env).GetMethodID.unwrap()(env, class, c"openUrl".as_ptr() as _, c"(Ljava/lang/String;)V".as_ptr() as _);
                 let url = std::ffi::CString::new(url.to_owned()).unwrap();
                 (**env).CallVoidMethod.unwrap()(
                     env,
@@ -540,14 +550,20 @@ pub fn open_url(url: &str) -> Result<()> {
                 );
             }
         } else if #[cfg(target_os = "ios")] {
-            unsafe {
-                use crate::objc::*;
+            use objc2::MainThreadMarker;
+            use objc2_foundation::{NSString, NSURL, NSDictionary};
+            use objc2_ui_kit::UIApplication;
 
-                let application: ObjcId = msg_send![class!(UIApplication), sharedApplication];
-                let url: ObjcId = msg_send![class!(NSURL), URLWithString: str_to_ns(url)];
-                let _: () = msg_send![application, openURL: url];
+            let mtm = MainThreadMarker::new().unwrap();
+            let url = NSURL::URLWithString(&NSString::from_str(url)).unwrap();
+            // SAFETY: options are empty
+            unsafe {
+                UIApplication::sharedApplication(mtm).openURL_options_completionHandler(&url, &NSDictionary::new(), None);
             }
-        } else {
+        } else if #[cfg(target_env = "ohos")] {
+            miniquad::native::call_request_callback(format!("{{\"action\":\"openurl\",\"payload\":\"{}\"}}", url));
+        }
+        else {
             open::that(url)?;
         }
     }

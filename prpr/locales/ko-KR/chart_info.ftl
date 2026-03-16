@@ -15,6 +15,7 @@ offset = 오프셋
 aspect-ratio = 종횡비
 ps = 부가 정보
 aspect-hint = 종횡비는 실수 또는 "가로:세로"와 같은 텍스트일 수 있습니다.
+force-aspect-ratio = 강제 종횡비
 dim = 배경 투명도
 chart-file = 비트맵
 music-file = 음악 파일

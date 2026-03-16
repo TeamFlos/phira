@@ -15,6 +15,7 @@ offset = Opóźnienie(s)
 aspect-ratio = Format obrazu
 ps = P.S.
 aspect-hint = Formaty obrazu mogą być zarówno liczbami jak i tekstem np. "w:h"
+force-aspect-ratio = Wymuś format obrazu
 dim = Przyciemnienie ilustracji
 chart-file = Beatmapa
 music-file = Muzyka

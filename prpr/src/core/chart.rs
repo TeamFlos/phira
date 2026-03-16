@@ -1,7 +1,5 @@
-prpr_l10n::tl_file!("parser");
-
 use super::{BpmList, Effect, JudgeLine, JudgeLineKind, Matrix, Resource, UIElement, Vector};
-use crate::{core::Object, fs::FileSystem, judge::JudgeStatus, scene::show_error, ui::Ui};
+use crate::{core::Object, fs::FileSystem, judge::JudgeStatus, ui::Ui};
 use anyhow::{Context, Result};
 use macroquad::prelude::*;
 use nalgebra::Rotation2;
@@ -118,7 +116,8 @@ impl Chart {
         #[cfg(feature = "video")]
         for video in &mut self.extra.videos {
             if let Err(err) = video.reset() {
-                show_error(err.context(tl!("video-load-failed", "path" => video.video_file.path().to_string_lossy())));
+                use crate::parse::{ptl, L10N_LOCAL};
+                crate::scene::show_error(err.context(ptl!("video-load-failed", "path" => video.video_file.path().to_string_lossy())));
             }
         }
     }
@@ -129,8 +128,9 @@ impl Chart {
         }
         // TODO optimize
         let trs = self.lines.iter().map(|it| it.now_transform(res, &self.lines)).collect::<Vec<_>>();
-        for (line, tr) in self.lines.iter_mut().zip(trs) {
-            line.update(res, tr);
+        let rotations = self.lines.iter().map(|it| it.fetch_rot(&self.lines)).collect::<Vec<_>>();
+        for ((line, tr), rot) in self.lines.iter_mut().zip(trs).zip(rotations) {
+            line.update(res, tr, rot);
         }
         for effect in &mut self.extra.effects {
             effect.update(res);

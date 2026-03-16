@@ -1,8 +1,9 @@
 prpr_l10n::tl_file!("chart_info");
 
 use super::Ui;
-use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message};
+use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message, ui::InputParams};
 use anyhow::Result;
+use inputbox::InputMode;
 use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Clone)]
@@ -111,8 +112,8 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
             edit.updated = true;
             match || -> Result<(f32, f32), Cow<'static, str>> {
                 let (st, en) = string.split_once(['-', '—']).ok_or_else(|| tl!("illegal-input"))?;
-                let st = parse_time(st.trim()).ok_or_else(|| tl!("invalid time"))?;
-                let en = parse_time(en.trim()).ok_or_else(|| tl!("invalid time"))?;
+                let st = parse_time(st.trim()).ok_or_else(|| tl!("invalid-time"))?;
+                let en = parse_time(en.trim()).ok_or_else(|| tl!("invalid-time"))?;
                 if st + 1. > en {
                     return Err(tl!("preview-too-short"));
                 }
@@ -181,6 +182,11 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
             ui.text(tl!("aspect-hint")).pos(0.02, 0.).size(0.35).max_width(len).multiline().draw().h + 0.03
         }));
 
+        ui.dx(0.01);
+        let r = ui.checkbox(tl!("force-aspect-ratio"), &mut info.force_aspect_ratio);
+        dy!(r.h + s);
+        ui.dx(-0.01);
+
         ui.dx(-rt);
         let last = info.background_dim;
         let r = ui.slider(tl!("dim"), 0.0..1.0, 0.05, &mut info.background_dim, Some(width - 0.2));
@@ -197,7 +203,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
 
             let r = ui.text(tl!("enable-unlock")).size(0.47).anchor(1., 0.).draw();
             let r = Rect::new(0.02, r.y - 0.01, r.h + 0.02, r.h + 0.02);
-            let check_str = if edit.enable_unlock { "v" } else { "" };
+            let check_str = if edit.enable_unlock { "\u{2713}" } else { "" };
             if ui.button("unlockchk", r, check_str.to_string()) {
                 if edit.enable_unlock {
                     info.unlock_video = None;
@@ -255,7 +261,15 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         dy!(r.h + s);
         info.tip = if string.is_empty() { None } else { Some(string) };
 
-        ui.input(tl!("intro"), &mut info.intro, (len, &mut edit.updated));
+        ui.input(
+            tl!("intro"),
+            &mut info.intro,
+            InputParams {
+                changed: Some(&mut edit.updated),
+                mode: InputMode::Multiline,
+                length: len,
+            },
+        );
         ui.dx(-0.02);
     });
     (width, sy)

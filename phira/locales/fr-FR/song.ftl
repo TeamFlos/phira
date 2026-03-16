@@ -1,7 +1,6 @@
 
 load-preview-failed = Échec du chargement de l'aperçu
 load-charts-failed = Impossible de charger les partitions
-no-chart-for-download = Cette partition n'est pas téléchargeable
 
 load-chart-failed = Impossible de charger la partition
 

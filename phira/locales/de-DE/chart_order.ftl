@@ -1,6 +1,3 @@
-time = Zeit (↓)
-rev-time = Zeit (↑)
-name = Name (↑)
-rev-name = Name (↓)
-rating = Bewertung (↓)
-rev-rating = Bewertung (↑)
+time = Zeit
+name = Name
+rating = Bewertung

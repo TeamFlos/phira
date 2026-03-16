@@ -27,14 +27,14 @@ move-events-parse-failed = Не удалось разобрать события
 
 # pec
 unexpected-eol = Неожиданный обрыв линии
-expected-f32 = Ожидаемый F32
-expected-usize = Ожидаемый usize
-expected-tween = Ожидаемый tween
+expected-f32 = Должно быть F32
+expected-usize = Должно быть usize
+expected-tween = Должно быть tween
 
 no-notes-inserted = Не обнаружена ни одна нота
 unknown-command = Неизвестная команда: { $cmd }
 bp-error = События BPM (bp) должны быть смежным и находиться в начале файла
-expected-01 = Ожидаемые 0 / 1 (настоящая нота/ненастоящая нота)
+expected-01 = Должно быть 0 / 1 (настоящая нота/ненастоящая нота)
 unexpected-extra = Неожиданный дополнительный контент: { $next }
 line-location = В линии #{ $lid }
 

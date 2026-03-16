@@ -176,15 +176,10 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             let st = if index == 0 { 0. } else { end(&glyphs[index - 1]) };
             let byte_index = if index == 0 { 0 } else { glyphs[index - 1].byte_index };
             // Round to char boundary
-            let byte_index = text.as_bytes()[byte_index.saturating_sub(3)..byte_index]
-                .iter()
-                .rposition(|b| (*b as i8) >= -0x40)
-                .unwrap();
+            let byte_index = text[..byte_index].char_indices().next_back().map_or(0, |(i, _)| i);
             return (
                 section.with_text(vec![
-                    Text::new(&text[..byte_index])
-                        .with_scale(scale)
-                        .with_color(self.color),
+                    Text::new(&text[..byte_index]).with_scale(scale).with_color(self.color),
                     Text::new("…").with_scale(scale).with_color(self.color),
                 ]),
                 (0., 0., st + w, line_height),

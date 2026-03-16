@@ -33,9 +33,8 @@ inner.rs
 /build
 /*.ipa
 /phira.app
-/Assets.xcassets
-/LaunchScreen.storyboard
-/phira.xcodeproj
+/phira.xcodeproj/project.xcworkspace/xcuserdata/
+/xcode/LocalSigning.xcconfig
 /dist
 /project.yml
 /prpr.scent
@@ -46,3 +45,8 @@ inner.rs
 /test
 /log*
 /build_event_debug.sh
+
+
+# OHOS
+
+phira/dist/

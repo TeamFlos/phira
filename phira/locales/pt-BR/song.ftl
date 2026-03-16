@@ -1,7 +1,6 @@
 
 load-preview-failed = Falha ao carregar a visualização da música 
 load-charts-failed = Falha ao carregar beatmaps
-no-chart-for-download = Este beatmap não pode ser baixado 
 
 load-chart-failed = Falha ao carregar o beatmap 
 

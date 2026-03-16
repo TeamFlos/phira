@@ -376,6 +376,7 @@ pub union AVChannelLayout__bindgen_ty_1 {
     pub map: *mut c_void,
 }
 
+#[allow(dead_code)]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct AVProbeData {

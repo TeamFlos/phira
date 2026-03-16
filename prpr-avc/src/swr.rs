@@ -29,10 +29,10 @@ impl SwrContext {
         unsafe { ffi::swr_get_delay(self.0.as_ref(), base) }
     }
 
-    pub fn convert(&mut self, in_frame: *const u8, in_count: i32, mut out_frame: *mut u8, out_count: i32) -> Result<usize> {
+    pub fn convert(&mut self, in_frame: &[*const u8; 8], in_count: i32, mut out_frame: *mut u8, out_count: i32) -> Result<usize> {
         unsafe {
             let old_out_frame = out_frame;
-            let res = ffi::swr_convert(self.0.as_mut(), &mut out_frame as *mut *mut _, out_count, &in_frame as *const *const _, in_count);
+            let res = ffi::swr_convert(self.0.as_mut(), &mut out_frame as *mut *mut _, out_count, in_frame.as_ptr(), in_count);
             assert_eq!(old_out_frame, out_frame, "reallocation ocurred");
 
             if res < 0 {

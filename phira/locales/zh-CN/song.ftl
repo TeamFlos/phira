@@ -1,7 +1,6 @@
 
 load-preview-failed = 加载歌曲预览失败
 load-charts-failed = 加载难度失败
-no-chart-for-download = 该谱面不提供下载
 
 load-chart-failed = 加载谱面失败
 
@@ -47,6 +46,8 @@ edit-overwrite-failed = 覆盖失败
 edit-upload = 上传
 edit-update = 更新
 
+warn = 警告
+cancel-not-saved = 你还没有保存信息，确定要退出吗？
 upload-not-saved = 你还没有保存谱面，确定要继续上传吗？
 upload-login-first = 请先登录
 upload-builtin = 不能上传内置谱面
@@ -83,6 +84,7 @@ reviewed = 已审核
 unreviewed = 未审核
 
 review-approve = 通过
+review-approve-confirm = 确定通过该谱面吗？该操作无法撤销。
 review-deny = 拒绝
 review-del = 删除在线
 review-approved = 已通过
@@ -125,6 +127,7 @@ stabilize-requested = 申请 stable 成功
 stabilize-failed = 申请 stable 失败
 stabilize-approve = 通过 special
 stabilize-approve-ranked = 通过 stable
+stabilize-approve-confirm = 确定通过该谱面的评议吗？该操作无法撤销。
 stabilize-comment = Stable 留言
 stabilize-commented = 留言成功
 stabilize-deny = 拒绝 stable
@@ -132,3 +135,7 @@ stabilize-approved = 已通过
 stabilize-approved-passed = 已通过，谱面已 stable
 stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
+
+fav-added = 已收藏
+
+still-loading = 仍在加载中…

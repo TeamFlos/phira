@@ -1,9 +1,9 @@
 use super::{File, Object, Ptr, User};
 use crate::data::BriefChartInfo;
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Chart {
     pub id: i32,

@@ -8,6 +8,8 @@ use macroquad::prelude::*;
 const WIDTH_RADIO: f32 = 0.5;
 const HEIGHT_RATIO: f32 = 0.7;
 
+type DialogListener = dyn FnMut(&mut Dialog, i32) -> bool;
+
 #[must_use]
 pub struct Dialog {
     title: String,
@@ -15,7 +17,7 @@ pub struct Dialog {
     buttons: Vec<String>,
     /// listener function returns `false` to close the dialog, `true` to keep it open
     /// the parameter is the *index* of the button clicked, `-1` for outside click, `-2` for text
-    listener: Option<Box<dyn FnMut(&mut Dialog, i32) -> bool>>,
+    listener: Option<Box<DialogListener>>,
 
     text_btn: RectButton,
 
@@ -123,6 +125,9 @@ impl Dialog {
                         exit = true;
                     }
                     self.listener = Some(listener);
+                    break;
+                } else {
+                    exit = true;
                     break;
                 }
             }

@@ -1,6 +1,6 @@
 # Phira
 
-![Phira](https://files-cf.phira.cn/github-showcase.png)
+![Phira Showcase](https://phira.5wyxi.com/files/github-showcase.png)
 
 ## 下载
 

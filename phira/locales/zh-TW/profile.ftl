@@ -2,9 +2,9 @@
 logout = 登出
 logged-out = 您已登出
 
-delete = 刪除帳戶
-delete-failed = 刪除帳戶失敗
-delete-req-sent = 帳戶刪除請求已提交
+delete = 刪除帳號
+delete-failed = 刪除帳號失敗
+delete-req-sent = 帳號刪除請求已提交
 
 load-user-failed = 載入使用者資訊失敗
 edit-avatar-success = 頭像已更新

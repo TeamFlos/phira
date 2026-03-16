@@ -7,7 +7,7 @@ not-opened = Не доступно
 not-logged-in = Гость
 
 failed-to-update = Ошибка при обновлении информации о пользователе. 
-note-try-login-again = Примечание : Попробуйте перевойти в аккаунт. 
+note-try-login-again = Примечание : Попробуйте перезайти в аккаунт. 
 
 update = Новое обновление : v { $version } 
 update-desc =
@@ -16,4 +16,4 @@ update-desc =
 update-ignore = Не сейчас
 update-go = Обновить 
 
-change-char = Изменить Персонажа
+change-char = Изменить персонажа

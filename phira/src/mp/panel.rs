@@ -1,4 +1,3 @@
-use super::mtl;
 use crate::{
     client::{Chart, Ptr, UserManager},
     dir, get_data,
@@ -6,6 +5,7 @@ use crate::{
     scene::{Downloading, SongScene, RECORD_ID},
 };
 use anyhow::{anyhow, Context, Result};
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use phira_mp_client::Client;
 use phira_mp_common::{RoomId, RoomState};
@@ -303,7 +303,7 @@ impl MPPanel {
             }
             if let Some(state) = client.blocking_state() {
                 if self.chat_btn.touch(touch, t) {
-                    request_input("chat", &self.chat_text);
+                    request_input("chat", InputBox::new().default_text(&self.chat_text));
                     return true;
                 }
                 if self.chat_send_btn.touch(touch, t) {
@@ -363,11 +363,11 @@ impl MPPanel {
                 }
             } else {
                 if self.create_room_btn.touch(touch, t) {
-                    request_input("room_id", "");
+                    request_input("room_id", InputBox::new());
                     return true;
                 }
                 if self.join_room_btn.touch(touch, t) {
-                    request_input("join_room", "");
+                    request_input("join_room", InputBox::new());
                     return true;
                 }
                 if self.disconnect_btn.touch(touch, t) {

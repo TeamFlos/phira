@@ -1,7 +1,6 @@
 
 load-preview-failed = Nie załadowano podglądu piosenki
 load-charts-failed = Nie załadowan beatmap
-no-chart-for-download = Nie można pobrać tej beatmapy
 
 load-chart-failed = Nie załadowan beatmapy
 

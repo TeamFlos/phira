@@ -373,8 +373,7 @@ fn take_expr(lexer: &mut Lexer) -> Result<Expr, String> {
         let x = vals.pop().unwrap();
         vals.push(RawExpr::BinOp(x, y, op).into());
     }
-    loop {
-        let Some(op) = take_op(lexer)? else { break };
+    while let Some(op) = take_op(lexer)? {
         let pred = op.precedence();
         while let Some(last) = ops.last() {
             if last.precedence() <= pred {
