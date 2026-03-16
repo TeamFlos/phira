@@ -54,7 +54,7 @@ impl OffsetPage {
             .await
             .context("Failed to load resource pack")?;
         let click = respack.note_style.click.clone();
-        let emitter = ParticleEmitter::new(&respack, get_data().config.note_scale, respack.info.hide_particles)?;
+        let emitter = ParticleEmitter::new(&respack, get_data().config.note_scale)?;
         Ok(Self {
             _audio: audio,
             cali,
