@@ -74,6 +74,7 @@ tracing-subscriber = { version = "0.3.22", optional = true }
 unic-langid = { version = "0.9.6", features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
 zip = { workspace = true, default-features = false, features = ["deflate"] }
+resvg = { workspace = true }
 
 macroquad = { workspace = true, default-features = false }
 miniquad = { workspace = true }
