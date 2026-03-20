@@ -189,16 +189,9 @@ impl GameScene {
         bail!("Cannot find chart file")
     }
 
-    pub async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<(Chart, Vec<u8>, ChartFormat)> {
-        let extra = fs.load_file("extra.json").await.ok().map(String::from_utf8).transpose()?;
-        let extra = if let Some(extra) = extra {
-            parse_extra(&extra, fs).await.context("Failed to parse extra")?
-        } else {
-            ChartExtra::default()
-        };
-        let bytes = Self::load_chart_bytes(fs, info).await.context("Failed to load chart")?;
-        let format = info.format.clone().unwrap_or_else(|| {
-            if let Ok(text) = String::from_utf8(bytes.clone()) {
+    pub fn infer_chart_format(info: &ChartInfo, bytes: &[u8]) -> ChartFormat {
+        info.format.clone().unwrap_or_else(|| {
+            if let Ok(text) = String::from_utf8(bytes.to_vec()) {
                 if text.starts_with('{') {
                     if text.contains("\"META\"") {
                         ChartFormat::Rpe
@@ -211,9 +204,20 @@ impl GameScene {
             } else {
                 ChartFormat::Pbc
             }
-        });
+        })
+    }
+
+    pub async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<(Chart, Vec<u8>, ChartFormat)> {
+        let extra = fs.load_file("extra.json").await.ok().map(String::from_utf8).transpose()?;
+        let extra = if let Some(extra) = extra {
+            parse_extra(&extra, fs).await.context("Failed to parse extra")?
+        } else {
+            ChartExtra::default()
+        };
+        let bytes = Self::load_chart_bytes(fs, info).await.context("Failed to load chart")?;
+        let format = Self::infer_chart_format(info, &bytes);
         let mut chart = match format {
-            ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, extra).await,
+            ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, extra, info.use_rpe_170_speed.unwrap_or_default()).await,
             ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), extra),
             ChartFormat::Pbc => {

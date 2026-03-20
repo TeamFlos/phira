@@ -6,7 +6,7 @@ use crate::{
     mp::MPPanel,
     page::{ExportInfo, HomePage, NextPage, Page, ResPackItem, SharedState},
     save_data,
-    scene::{confirm_dialog, import_chart_to, TEX_BACKGROUND, TEX_ICON_BACK},
+    scene::{confirm_dialog, import_chart_to, ImportWarnings, TEX_BACKGROUND, TEX_ICON_BACK},
 };
 use anyhow::{anyhow, bail, Context, Result};
 use macroquad::prelude::*;
@@ -18,7 +18,7 @@ use prpr::{
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, FontArc, RectButton, Ui, UI_AUDIO},
+    ui::{button_hit, Dialog, FontArc, RectButton, Ui, UI_AUDIO},
 };
 use sasa::{AudioClip, Music};
 use std::{
@@ -63,7 +63,7 @@ pub struct MainScene {
 
     pages: Vec<Box<dyn Page>>,
 
-    import_task: Option<Task<Result<LocalChart>>>,
+    import_task: Option<Task<Result<(LocalChart, ImportWarnings)>>>,
 
     mp_btn: RectButton,
     mp_icon: SafeTexture,
@@ -82,7 +82,7 @@ pub struct MainScene {
 }
 
 enum ImportChart {
-    Imported(Box<LocalChart>),
+    Imported(Box<LocalChart>, ImportWarnings),
     Skipped(String),
 }
 
@@ -345,7 +345,10 @@ impl Scene for MainScene {
                     Err(err) => {
                         show_error(err.context(itl!("import-failed")));
                     }
-                    Ok(chart) => {
+                    Ok((chart, warnings)) => {
+                        if let Some(warn) = warnings.to_string() {
+                            Dialog::plain(itl!("warning"), warn).show();
+                        }
                         show_message(itl!("import-success")).ok();
                         get_data_mut().charts.push(chart);
                         save_data()?;
@@ -513,10 +516,10 @@ impl Scene for MainScene {
                         match dir.to_str() {
                             Some("custom") => {
                                 let tf = to_tempfile()?;
-                                let chart = import_chart(tf)
+                                let (chart, warnings) = import_chart(tf)
                                     .await
                                     .with_context(|| itl!("batch-import-failed-chart", "chart" => name.display().to_string()))?;
-                                let _ = tx.send(ImportChart::Imported(Box::new(chart))).ok();
+                                let _ = tx.send(ImportChart::Imported(Box::new(chart), warnings)).ok();
                             }
                             Some("download") => {
                                 let Some(id) = name.to_str().and_then(|it| it.strip_suffix(".zip")).and_then(|it| it.parse::<i32>().ok()) else {
@@ -532,10 +535,10 @@ impl Scene for MainScene {
                                 }
                                 std::fs::create_dir(&path)?;
                                 let tf = to_tempfile()?;
-                                let chart = import_chart_to(&path, local_path, tf)
+                                let (chart, warnings) = import_chart_to(&path, local_path, tf)
                                     .await
                                     .with_context(|| itl!("batch-import-failed-chart", "chart" => name.display().to_string()))?;
-                                let _ = tx.send(ImportChart::Imported(Box::new(chart))).ok();
+                                let _ = tx.send(ImportChart::Imported(Box::new(chart), warnings)).ok();
                             }
                             _ => {
                                 warn!("invalid batch import dir: {:?}", dir);
@@ -566,7 +569,7 @@ impl Scene for MainScene {
                     Err(err) => {
                         let charts = dir::charts()?;
                         for chart in self.batch_imported_charts.drain(..) {
-                            if let ImportChart::Imported(chart) = chart {
+                            if let ImportChart::Imported(chart, _) = chart {
                                 let path = format!("{charts}{}", chart.local_path);
                                 let _ = std::fs::remove_dir_all(path);
                             }
@@ -574,12 +577,16 @@ impl Scene for MainScene {
                         show_error(err.context(itl!("batch-import-failed")));
                     }
                     Ok(()) => {
+                        let mut warning_messages = vec![];
                         let data = get_data_mut();
                         let mut count = 0;
                         let mut skipped = String::new();
                         for chart in self.batch_imported_charts.drain(..) {
                             match chart {
-                                ImportChart::Imported(chart) => {
+                                ImportChart::Imported(chart, warnings) => {
+                                    if let Some(warn) = warnings.to_string() {
+                                        warning_messages.push(format!("{}\n{warn}", chart.info.name));
+                                    }
                                     data.charts.push(*chart);
                                     count += 1;
                                 }
@@ -601,6 +608,10 @@ impl Scene for MainScene {
                             message += &itl!("batch-import-downloaded-skipped", "charts" => skipped);
                         }
                         show_message(message);
+
+                        if !warning_messages.is_empty() {
+                            Dialog::plain(itl!("warning"), warning_messages.join("\n\n")).show();
+                        }
                     }
                 }
                 self.batch_import_task = None;

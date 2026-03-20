@@ -83,7 +83,7 @@ fn main() -> Result<()> {
     let mut fs = Box::new(DummyFileSystem);
     let extra = ChartExtra::default();
     let chart = match format {
-        ChartFormat::Rpe => pollster::block_on(parse_rpe(&String::from_utf8_lossy(&bytes), fs.as_mut(), extra)),
+        ChartFormat::Rpe => pollster::block_on(parse_rpe(&String::from_utf8_lossy(&bytes), fs.as_mut(), extra, false)),
         ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), extra),
         ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), extra),
         ChartFormat::Pbc => {

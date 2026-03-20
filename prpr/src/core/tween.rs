@@ -120,9 +120,173 @@ thread_local! {
     });
 }
 
+macro_rules! i1 {
+    ($fn:ident) => {
+        $fn
+    };
+}
+
+macro_rules! i2 {
+    ($fn:ident) => {
+        // I(x) = x + \int_1^{1-x} f(u)du = x + I(1-x) - I(1)
+        |x| x + $fn(1. - x) - $fn(1.)
+    };
+}
+
+macro_rules! i3 {
+    ($fn:ident) => {
+        |x| {
+            let x2 = x * 2.;
+            if x2 < 1. {
+                $fn(x2) / 4.
+            } else {
+                x - 0.5 + $fn(2. - x2) / 4.
+            }
+        }
+    };
+}
+
+#[inline]
+fn int_sine(x: f32) -> f32 {
+    // f(x) = 1 - cos(x * PI / 2)
+    // I(x) = x - sin(x * PI / 2) * (2 / PI)
+    x - (x * PI / 2.).sin() * (2. / PI)
+}
+
+#[inline]
+fn int_quad(x: f32) -> f32 {
+    x.powi(3) / 3.
+}
+
+#[inline]
+fn int_cubic(x: f32) -> f32 {
+    x.powi(4) / 4.
+}
+
+#[inline]
+fn int_quart(x: f32) -> f32 {
+    x.powi(5) / 5.
+}
+
+#[inline]
+fn int_quint(x: f32) -> f32 {
+    x.powi(6) / 6.
+}
+
+#[inline]
+fn int_expo(x: f32) -> f32 {
+    // f(x) = 2^(10x - 10)
+    // I(x) = (2^(10x - 10) - 2^(-10)) / (10 * ln(2))
+    let ln2 = std::f32::consts::LN_2;
+    ((2.0_f32).powf(10. * x - 10.) - (2.0_f32).powf(-10.)) / (10. * ln2)
+}
+
+#[inline]
+fn int_circ(x: f32) -> f32 {
+    // f(x) = 1 - sqrt(1 - x^2)
+    // I(x) = x - 0.5 * (x * sqrt(1 - x^2) + arcsin(x))
+    x - 0.5 * (x * (1. - x * x).sqrt() + x.asin())
+}
+
+#[inline]
+fn int_back(x: f32) -> f32 {
+    const C1: f32 = 1.70158;
+    const C3: f32 = C1 + 1.;
+    // f(x) = C3 * x^3 - C1 * x^2
+    // I(x) = (C3/4 * x - C1/3) * x^3
+    (C3 * x / 4. - C1 / 3.) * x * x * x
+}
+
+#[inline]
+fn int_elastic(x: f32) -> f32 {
+    #[inline]
+    fn elastic_f_antideriv(x: f32) -> f32 {
+        const C4: f32 = (2. * PI) / 3.;
+        let a = std::f32::consts::LN_2;
+        let b = C4;
+        let u = 10. * x - 10.;
+        let v = (x * 10. - 10.75) * b;
+
+        -((2.0_f32).powf(u) / (10. * (a * a + b * b))) * (a * v.sin() - b * v.cos())
+    }
+    elastic_f_antideriv(x) - elastic_f_antideriv(0.)
+}
+
+#[inline]
+fn int_bounce(x: f32) -> f32 {
+    #[inline]
+    fn bounce_h(u: f32) -> f32 {
+        const N1: f32 = 7.5625;
+        const D1: f32 = 2.75;
+
+        let h1 = |u: f32| N1 / 3. * u.powi(3);
+        let end1 = 1. / D1;
+        let val1 = h1(end1);
+
+        let h2 = |u: f32| N1 / 3. * (u - 1.5 / D1).powi(3) + 0.75 * u;
+        let end2 = 2. / D1;
+        let c2 = val1 - h2(end1);
+        let val2 = h2(end2) + c2;
+
+        let h3 = |u: f32| N1 / 3. * (u - 2.25 / D1).powi(3) + 0.9375 * u;
+        let end3 = 2.5 / D1;
+        let c3 = val2 - h3(end2);
+        let val3 = h3(end3) + c3;
+
+        let h4 = |u: f32| N1 / 3. * (u - 2.625 / D1).powi(3) + 0.984375 * u;
+        let c4 = val3 - h4(end3);
+
+        if u < end1 {
+            h1(u)
+        } else if u < end2 {
+            h2(u) + c2
+        } else if u < end3 {
+            h3(u) + c3
+        } else {
+            h4(u) + c4
+        }
+    }
+
+    x - bounce_h(1.) + bounce_h(1. - x)
+}
+
+#[rustfmt::skip]
+pub static INT_TWEEN_FUNCTIONS:[fn(f32) -> f32; 33] =[
+    |_| 0.,				|x| x,			|x| x * x / 2.,
+    /* In */			/* Out */			/* InOut */
+    i1!(int_sine),		i2!(int_sine),		i3!(int_sine),
+    i1!(int_quad),		i2!(int_quad),		i3!(int_quad),
+    i1!(int_cubic),		i2!(int_cubic),		i3!(int_cubic),
+    i1!(int_quart),		i2!(int_quart),		i3!(int_quart),
+    i1!(int_quint),		i2!(int_quint),		i3!(int_quint),
+    i1!(int_expo),		i2!(int_expo),		i3!(int_expo),
+    i1!(int_circ),		i2!(int_circ),		i3!(int_circ),
+    i1!(int_back),		i2!(int_back),		i3!(int_back),
+    i1!(int_elastic),	i2!(int_elastic),	i3!(int_elastic),
+    i1!(int_bounce),	i2!(int_bounce),	i3!(int_bounce),
+];
+
+thread_local! {
+    static INT_TWEEN_FUNCTION_RCS: Lazy<Vec<Rc<dyn TweenFunction>>> = Lazy::new(|| {
+        (0..33)
+            .map(|it| -> Rc<dyn TweenFunction> { Rc::new(IntStaticTween(it)) })
+            .collect()
+    });
+}
+
 pub trait TweenFunction {
     fn y(&self, x: f32) -> f32;
     fn as_any(&self) -> &dyn Any;
+
+    fn derivative(&self, x: f32) -> f32 {
+        let eps = 1e-6;
+        let l = (x - eps).max(1e-7);
+        let r = (x + eps).min(1. - 1e-7);
+        if r <= l {
+            return 0.;
+        }
+        (self.y(r) - self.y(l)) / (r - l)
+    }
 }
 
 pub struct StaticTween(pub TweenId);
@@ -139,6 +303,61 @@ impl TweenFunction for StaticTween {
 impl StaticTween {
     pub fn get_rc(tween: TweenId) -> Rc<dyn TweenFunction> {
         TWEEN_FUNCTION_RCS.with(|rcs| Rc::clone(&rcs[tween as usize]))
+    }
+}
+
+pub struct IntStaticTween(pub TweenId);
+impl TweenFunction for IntStaticTween {
+    fn y(&self, x: f32) -> f32 {
+        INT_TWEEN_FUNCTIONS[self.0 as usize](x)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl IntStaticTween {
+    pub fn get_rc(tween: TweenId) -> Rc<dyn TweenFunction> {
+        INT_TWEEN_FUNCTION_RCS.with(|rcs| Rc::clone(&rcs[tween as usize]))
+    }
+}
+
+pub struct IntClampedTween {
+    tween_id: TweenId,
+    x_range: Range<f32>,
+    y_range: Range<f32>,
+    base: f32,
+}
+impl TweenFunction for IntClampedTween {
+    fn y(&self, x: f32) -> f32 {
+        let denom = self.y_range.end - self.y_range.start;
+        if !denom.is_finite() || denom.abs() < 1e-8 {
+            return x * x / 2.;
+        }
+
+        let x = f32::tween(&self.x_range.start, &self.x_range.end, x);
+        let int = INT_TWEEN_FUNCTIONS[self.tween_id as usize](x) - self.base - self.y_range.start * (x - self.x_range.start);
+        let scale = (self.x_range.end - self.x_range.start) * denom;
+        int / scale
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl IntClampedTween {
+    pub fn new(tween_id: TweenId, x_range: Range<f32>) -> Self {
+        let tween = TWEEN_FUNCTIONS[tween_id as usize];
+        let y_range = tween(x_range.start)..tween(x_range.end);
+        let base = INT_TWEEN_FUNCTIONS[tween_id as usize](x_range.start);
+        Self {
+            tween_id,
+            x_range,
+            y_range,
+            base,
+        }
     }
 }
 
@@ -159,6 +378,39 @@ impl ClampedTween {
         let f = TWEEN_FUNCTIONS[tween as usize];
         let y_range = f(range.start)..f(range.end);
         Self(tween, range, y_range)
+    }
+}
+
+pub struct GeneralIntTween(Rc<dyn TweenFunction>);
+
+impl GeneralIntTween {
+    pub fn new(tween: Rc<dyn TweenFunction>) -> Self {
+        Self(tween)
+    }
+}
+
+impl TweenFunction for GeneralIntTween {
+    fn y(&self, x: f32) -> f32 {
+        let sqrt_06: f32 = 0.7745967;
+        let nodes: [f32; 3] = [-sqrt_06, 0.0, sqrt_06];
+        let weights: [f32; 3] = [5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0];
+
+        let radius = x / 2.0;
+
+        let sum: f32 = nodes
+            .iter()
+            .zip(weights.iter())
+            .map(|(&vi, &wi)| {
+                let sample_x = radius * (vi + 1.0);
+                wi * self.0.y(sample_x)
+            })
+            .sum();
+
+        radius * sum
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

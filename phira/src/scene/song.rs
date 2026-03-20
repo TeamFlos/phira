@@ -206,7 +206,7 @@ enum SideContent {
 impl SideContent {
     fn width(&self) -> f32 {
         match self {
-            Self::Edit => 0.84,
+            Self::Edit => 0.9,
             Self::Leaderboard => 0.94,
             Self::Info => 0.75,
             Self::Mods => 0.8,
@@ -2493,21 +2493,22 @@ impl Scene for SongScene {
                 ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
-                // 收藏按钮 || Favorites button
-                let is_fav = get_data().collections().any(|col| col.charts.iter().any(|it| self.matches_ref(it)));
-                let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
-                ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
-                self.fav_btn.set(ui, r);
-                if self.need_show_fav_menu {
-                    self.need_show_fav_menu = false;
-                    self.fav_menu.set_bottom(true);
-                    self.fav_menu.set_selected(usize::MAX);
-                    let d = 0.28;
-                    self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
-                }
-                ui.dx(-r.w - 0.03);
 
                 if self.local_path.as_ref().is_none_or(|it| !it.starts_with(':')) {
+                    // 收藏按钮 || Favorites button
+                    let is_fav = get_data().collections().any(|col| col.charts.iter().any(|it| self.matches_ref(it)));
+                    let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
+                    ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
+                    self.fav_btn.set(ui, r);
+                    if self.need_show_fav_menu {
+                        self.need_show_fav_menu = false;
+                        self.fav_menu.set_bottom(true);
+                        self.fav_menu.set_selected(usize::MAX);
+                        let d = 0.28;
+                        self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    }
+                    ui.dx(-r.w - 0.03);
+
                     ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                     self.edit_btn.set(ui, r);
                     ui.dx(-r.w - 0.03);

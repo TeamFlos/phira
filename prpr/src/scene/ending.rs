@@ -10,7 +10,7 @@ use crate::{
     scene::show_message,
     task::Task,
     time::TimeManager,
-    ui::{clip_sector, DRectButton, Dialog, MessageHandle, Ui},
+    ui::{button_hit, clip_sector, DRectButton, Dialog, MessageHandle, RectButton, Ui},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -56,6 +56,8 @@ pub struct EndingScene {
 
     btn_retry: DRectButton,
     btn_proceed: DRectButton,
+    btn_detail: RectButton,
+    detail_mode: bool,
 
     tr_start: f32,
 
@@ -136,9 +138,11 @@ impl EndingScene {
             upload_task,
             record_data,
             best_record,
+            detail_mode: false,
 
             btn_retry: DRectButton::new(),
             btn_proceed: DRectButton::new(),
+            btn_detail: RectButton::new(),
 
             tr_start: f32::NAN,
 
@@ -189,6 +193,11 @@ impl Scene for EndingScene {
                 self.tr_start = t;
                 self.next = 2;
             }
+            return Ok(true);
+        }
+        if self.btn_detail.touch(touch) {
+            button_hit();
+            self.detail_mode = !self.detail_mode;
             return Ok(true);
         }
         Ok(false)
@@ -265,6 +274,15 @@ impl Scene for EndingScene {
             let y = -top + 0.12;
             let br = Rect::new(-1., y, 2., 0.34);
             ui.fill_rect(br, (c, (-1., y), Color { a: 0.1, ..c }, (1., y + 0.3)));
+
+            let r = ui
+                .text(tl!("detail"))
+                .pos(1. - 0.02, br.bottom() + 0.02)
+                .anchor(1., 0.)
+                .size(0.5)
+                .color(if self.detail_mode { semi_white(0.4) } else { WHITE })
+                .draw_using(&BOLD_FONT);
+            self.btn_detail.set(ui, r.feather(0.02));
 
             let res = &self.result;
 
@@ -382,14 +400,28 @@ impl Scene for EndingScene {
             let mut x = -0.26 + (1.2 - y) / 1.9 * 0.4;
             let lf = x;
             let s = 0.64;
-            for (title, num) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().zip(res.counts) {
+            for (id, title) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().enumerate() {
                 ui.text(title)
                     .pos(x, y)
                     .anchor(1., 0.)
                     .color(semi_white(0.6))
                     .size(s)
                     .draw_using(&BOLD_FONT);
-                let r = ui.text(num.to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT);
+                let r = if self.detail_mode {
+                    let r = ui
+                        .text(format!("-{}", res.early_kind[id]))
+                        .pos(x + 0.03, y)
+                        .size(s)
+                        .color(Color::from_hex(0x81d4fa))
+                        .draw_using(&BOLD_FONT);
+                    ui.text(format!("+{}", res.late_kind[id]))
+                        .pos(r.right() + 0.01, y)
+                        .size(s)
+                        .color(Color::from_hex(0xffab91))
+                        .draw_using(&BOLD_FONT)
+                } else {
+                    ui.text(res.counts[id].to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT)
+                };
                 let dy = r.h + 0.03;
                 y += dy;
                 x -= dy / 1.9 * 0.4;

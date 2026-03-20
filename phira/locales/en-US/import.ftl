@@ -15,3 +15,6 @@ batch-import-success = Successfully imported { $count } charts
 batch-import-downloaded-skipped = Charts skipped due to already downloaded: { $charts }
 batch-import-failed = Batch import failed
 batch-import-failed-chart = Batch import failed: { $chart }
+
+warning = Warning
+warning-new-speed-event = This chart uses the speed event easing introduced in RPE 1.70. For compatibility reasons, Phira does not enable support for this event by default. If you want to enable it, please check "New Speed Tween" in the chart information.

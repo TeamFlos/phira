@@ -15,3 +15,6 @@ batch-import-success = 成功导入 { $count } 个谱面。
 batch-import-downloaded-skipped = 已经下载过而跳过的谱面：{ $charts }
 batch-import-failed = 批量导入失败
 batch-import-failed-chart = 批量导入失败: { $chart }
+
+warning = 警告
+warning-new-speed-event = 该谱面使用了 RPE 1.70 引入的速度事件缓动。为兼容性考虑，Phira 默认不启用对该事件的支持。如果需要启用，请在谱面信息中勾选“新速度缓动”。
