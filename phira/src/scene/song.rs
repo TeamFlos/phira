@@ -206,7 +206,7 @@ enum SideContent {
 impl SideContent {
     fn width(&self) -> f32 {
         match self {
-            Self::Edit => 0.84,
+            Self::Edit => 0.9,
             Self::Leaderboard => 0.94,
             Self::Info => 0.75,
             Self::Mods => 0.8,

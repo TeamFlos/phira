@@ -26,5 +26,6 @@ tip = Tip
 intro = 简介
 tags = 标签
 tag-exists = 标签已存在
+rpe-170-speed = 新速度缓动
 
 illegal-input = 非法输入

@@ -4,6 +4,7 @@ use super::Ui;
 use crate::{core::BOLD_FONT, ext::parse_time, info::ChartInfo, scene::show_message, ui::InputParams};
 use anyhow::Result;
 use inputbox::InputMode;
+use macroquad::math::Rect;
 use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Clone)]
@@ -79,7 +80,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         dy!(0.01);
         let r = ui.text(tl!("edit-chart")).size(0.9).draw_using(&BOLD_FONT);
         dy!(r.h + 0.04);
-        let rt = 0.22;
+        let rt = 0.28;
         ui.dx(rt);
         let len = width - rt - 0.04;
         let info = &mut edit.info;
@@ -196,10 +197,24 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         dy!(r.h + s + 0.01);
         ui.dx(rt);
 
+        let r = ui.text(tl!("rpe-170-speed")).size(0.47).anchor(1., 0.).draw();
+        let r = Rect::new(0.02, r.y - 0.01, r.h + 0.02, r.h + 0.02);
+        let check_str = match info.use_rpe_170_speed {
+            Some(true) => "\u{2713}",
+            Some(false) => "x",
+            None => "",
+        };
+        if ui.button("rpespeed", r, check_str.to_string()) {
+            const OPTIONS: [Option<bool>; 3] = [None, Some(true), Some(false)];
+            let next = OPTIONS.iter().cycle().skip_while(|&&x| x != info.use_rpe_170_speed).nth(1).unwrap();
+            info.use_rpe_170_speed = *next;
+            edit.updated = true;
+        }
+        dy!(r.h + s);
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             use crate::scene::{request_file, return_file, take_file};
-            use macroquad::prelude::Rect;
 
             let r = ui.text(tl!("enable-unlock")).size(0.47).anchor(1., 0.).draw();
             let r = Rect::new(0.02, r.y - 0.01, r.h + 0.02, r.h + 0.02);

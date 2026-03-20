@@ -401,6 +401,83 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
     Ok(AnimFloat::chain(anis))
 }
 
+fn parse_speed_events_legacy(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> Result<AnimFloat> {
+    let rpe: Vec<_> = rpe.iter().filter_map(|it| it.speed_events.as_ref()).collect();
+    if rpe.is_empty() {
+        // TODO or is it?
+        return Ok(AnimFloat::default());
+    };
+    let anis: Vec<_> = rpe
+        .into_iter()
+        .filter_map(|it| {
+            if it.is_empty() {
+                return None;
+            }
+            let mut kfs = Vec::new();
+            for e in it {
+                kfs.push(Keyframe::new(r.time(&e.start_time), e.start, 2));
+                kfs.push(Keyframe::new(r.time(&e.end_time), e.end, 0));
+            }
+            Some(AnimFloat::new(kfs))
+        })
+        .collect();
+    if anis.is_empty() {
+        return Ok(AnimFloat::default());
+    }
+    let mut pts: Vec<_> = anis.iter().flat_map(|it| it.keyframes.iter().map(|it| it.time.not_nan())).collect();
+    pts.push(max_time.not_nan());
+    pts.sort();
+    pts.dedup();
+    let mut sani = AnimFloat::chain(anis);
+    sani.map_value(|v| v * SPEED_RATIO);
+    for i in 0..(pts.len() - 1) {
+        let now_time = *pts[i];
+        let end_time = *pts[i + 1];
+        sani.set_time(now_time);
+        let speed = sani.now();
+        sani.set_time(end_time - 1e-4);
+        let end_speed = sani.now();
+        if speed.signum() * end_speed.signum() < 0. {
+            pts.push(f32::tween(&now_time, &end_time, speed / (speed - end_speed)).not_nan());
+        }
+    }
+    pts.sort();
+    pts.dedup();
+    let mut kfs = Vec::new();
+    let mut height = 0.0;
+    for i in 0..(pts.len() - 1) {
+        let now_time = *pts[i];
+        let end_time = *pts[i + 1];
+        sani.set_time(now_time);
+        let speed = sani.now();
+        // this can affect a lot! do not use end_time...
+        // using end_time causes Hold tween (x |-> 0) to be recognized as Linear tween (x |-> x)
+        sani.set_time(end_time - 1e-4);
+        let end_speed = sani.now();
+        kfs.push(if (speed - end_speed).abs() < EPS {
+            Keyframe::new(now_time, height, 2)
+        } else if speed.abs() > end_speed.abs() {
+            Keyframe {
+                time: now_time,
+                value: height,
+                tween: Rc::new(ClampedTween::new(7 /*quadOut*/, 0.0..(1. - end_speed / speed))),
+            }
+        } else {
+            Keyframe {
+                time: now_time,
+                value: height,
+                tween: Rc::new(ClampedTween::new(6 /*quadIn*/, (speed / end_speed)..1.)),
+            }
+        });
+        height += (speed + end_speed) * (end_time - now_time) / 2.;
+    }
+    if kfs.is_empty() {
+        return Ok(Anim::default());
+    }
+    kfs.push(Keyframe::new(max_time, height, 0));
+    Ok(AnimFloat::new(kfs))
+}
+
 fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], bezier_map: &BezierMap, gif: &GifFrames) -> Result<Anim<f32>> {
     let mut kfs = Vec::new();
     kfs.push(Keyframe::new(0.0, 0.0, 2));
@@ -551,6 +628,7 @@ async fn parse_judge_line(
     max_time: f32,
     speed_mode: SpeedEasingMode,
     fs: &mut dyn FileSystem,
+    use_rpe_170_speed: bool,
     bezier_map: &BezierMap,
     hitsounds: &mut HitSoundMap,
     line_texture_map: &mut HashMap<String, SafeTexture>,
@@ -576,7 +654,11 @@ async fn parse_judge_line(
         res.map_value(|v| v * factor);
         Ok(res)
     }
-    let mut height = parse_speed_events(r, &event_layers, bezier_map, max_time, speed_mode)?;
+    let mut height = if use_rpe_170_speed {
+        parse_speed_events(r, &event_layers, bezier_map, max_time, speed_mode)?
+    } else {
+        parse_speed_events_legacy(r, &event_layers, max_time)?
+    };
     let mut notes = parse_notes(r, rpe.notes.unwrap_or_default(), fs, &mut height, hitsounds).await?;
     let cache = JudgeLineCache::new(&mut notes);
     Ok(JudgeLine {
@@ -760,7 +842,7 @@ fn get_bezier_map(rpe: &RPEChart) -> BezierMap {
     map
 }
 
-pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra) -> Result<Chart> {
+pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra, use_rpe_170_speed: bool) -> Result<Chart> {
     let rpe: RPEChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
     let speed_mode = if rpe.meta.rpe_version >= 170 {
         SpeedEasingMode::Modern
@@ -810,7 +892,7 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra)
     for (id, rpe) in rpe.judge_line_list.into_iter().enumerate() {
         let name = rpe.name.clone();
         lines.push(
-            parse_judge_line(&mut r, rpe, max_time, speed_mode, fs, &bezier_map, &mut hitsounds, &mut line_texture_map)
+            parse_judge_line(&mut r, rpe, max_time, speed_mode, fs, use_rpe_170_speed, &bezier_map, &mut hitsounds, &mut line_texture_map)
                 .await
                 .with_context(move || ptl!("judge-line-location-name", "jlid" => id, "name" => name))?,
         );
