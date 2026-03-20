@@ -12,7 +12,6 @@ use miniquad::{
     gl::{GLuint, GL_LINEAR},
     Texture, TextureWrap,
 };
-use resvg::usvg_text_layout::{fontdb, TreeTextToPath};
 use sasa::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;
 use std::{
@@ -26,24 +25,6 @@ use std::{
 pub const MAX_SIZE: usize = 64; // needs tweaking
 pub static DPI_VALUE: AtomicU32 = AtomicU32::new(250);
 pub const BUFFER_SIZE: usize = 1024;
-
-//code from https://github.com/macnelly/quad-svg/blob/master/src/lib.rs
-fn svg_to_png(svg_str: &str) -> Vec<u8> {
-    let opt = resvg::usvg::Options::default();
-    let mut tree = resvg::usvg::Tree::from_str(svg_str, &opt).unwrap();
-    let mut fontdb = fontdb::Database::new();
-    fontdb.load_system_fonts();
-    tree.convert_text(&fontdb, opt.keep_named_groups);
-    let pixmap_size = tree.size.to_screen_size();
-    let mut pixmap = resvg::tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
-    resvg::render(&tree, resvg::usvg::FitTo::Original, resvg::tiny_skia::Transform::default(), pixmap.as_mut()).unwrap();
-    pixmap.encode_png().unwrap()
-}
-
-pub fn svg_to_texture(svg_str: &str) -> Texture2D {
-    let png_data = svg_to_png(svg_str);
-    Texture2D::from_file_with_format(&png_data, Some(ImageFormat::Png))
-}
 
 #[inline]
 fn default_scale() -> f32 {
@@ -435,17 +416,18 @@ pub struct Resource {
     pub model_stack: Vec<Matrix>,
 }
 
+macro_rules! loads {
+    ($($path:literal),*) => {
+        [$(loads!(@detail $path)),*]
+    };
+
+    (@detail $path:literal) => {
+        Texture2D::from_image(&load_image($path).await?).into()
+    };
+}
+
 impl Resource {
     pub async fn load_icons() -> Result<[SafeTexture; 8]> {
-        macro_rules! loads {
-            ($($path:literal),*) => {
-                [$(loads!(@detail $path)),*]
-            };
-
-            (@detail $path:literal) => {
-                Texture2D::from_image(&load_image($path).await?).into()
-            };
-        }
         Ok(loads![
             "rank/F.png",
             "rank/C.png",
@@ -458,24 +440,14 @@ impl Resource {
         ])
     }
     pub async fn load_mod_icons() -> Result<[SafeTexture; 6]> {
-        macro_rules! loads {
-            ($($path:literal),*) => {
-                [$(loads!(@detail $path)),*]
-            };
-
-            (@detail $path:literal) => {{
-                let svg_content = load_string($path).await?;
-                svg_to_texture(&svg_content).into()
-            }};
-        }
         // FLIP_X, FADE_OUT, FADE_IN, NIGHTCORE, RAINBOW, AUTOPLAY
         Ok(loads![
-            "mod/flip_x.svg",
-            "mod/fade_out.svg",
-            "mod/fade_in.svg",
-            "mod/nightcore.svg",
-            "mod/rainbow.svg",
-            "mod/autoplay.svg"
+            "mod/flip_x.png",
+            "mod/fade_out.png",
+            "mod/fade_in.png",
+            "mod/nightcore.png",
+            "mod/rainbow.png",
+            "mod/autoplay.png"
         ])
     }
 

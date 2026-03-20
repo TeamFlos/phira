@@ -597,7 +597,7 @@ impl Scene for EndingScene {
                     current_x = tr.right() + 0.04;
                 }
                 for &mod_idx in &active_mod_indices {
-                    let icon_size = para_h * 0.8;
+                    let icon_size = para_h * 0.9;
                     let para_w = para_h + 0.02;
                     let skew_offset = para_h * skew_height_ratio;
                     let para_left = current_x;
@@ -615,7 +615,7 @@ impl Scene for EndingScene {
                     let icon_x = current_x + (para_w - icon_size) / 2. + skew_offset / 2.;
                     let icon_y = ty - icon_size / 2.;
                     let icon_rect = Rect::new(icon_x, icon_y, icon_size, icon_size);
-                    ui.fill_rect(icon_rect, (*self.mod_icons[mod_idx], icon_rect, ScaleType::Fit));
+                    ui.fill_rect(icon_rect, (*self.mod_icons[mod_idx], icon_rect, ScaleType::Fit, semi_black(0.6)));
                     current_x = para_right + 0.02;
                 }
             }
