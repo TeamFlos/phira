@@ -358,7 +358,6 @@ impl JudgeLine {
                 ctrl_obj: &mut self.ctrl_obj.borrow_mut(),
                 line_height: self.height.now(),
                 appear_before: f32::INFINITY,
-                invisible_time: f32::INFINITY,
                 draw_below: self.show_below,
                 incline_sin: self.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default(),
             };
