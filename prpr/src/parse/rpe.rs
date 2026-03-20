@@ -9,9 +9,9 @@ use tracing::debug;
 use super::{process_lines, L10N_LOCAL, RPE_TWEEN_MAP};
 use crate::{
     core::{
-        Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GifFrames, HitSoundMap,
-        JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS,
-        HEIGHT_RATIO,
+        Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GeneralIntTween, GifFrames,
+        HitSoundMap, IntClampedTween, IntStaticTween, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween,
+        Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
@@ -66,11 +66,33 @@ struct RPEEvent<T = f32> {
     bezier: u8,
     #[serde(default)]
     bezier_points: [f32; 4],
+    #[serde(default)]
     easing_type: i32,
     start: T,
     end: T,
     start_time: Triple,
     end_time: Triple,
+}
+
+impl<T> RPEEvent<T> {
+    fn bezier_key(&self) -> (u16, i16, i16) {
+        let p = &self.bezier_points;
+        let int = |p: f32| (p * 100.).round() as i16;
+        ((int(p[0]) * 100 + int(p[1])) as u16, int(p[2]), int(p[3]))
+    }
+
+    pub fn tween(&self, bezier_map: &BezierMap) -> Rc<dyn TweenFunction> {
+        let tween = RPE_TWEEN_MAP.get(self.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
+        let left = self.easing_left.clamp(0., 1.);
+        let right = self.easing_right.clamp(0., 1.);
+        if self.bezier != 0 {
+            Rc::clone(&bezier_map[&self.bezier_key()])
+        } else if tween <= 2 || (left.abs() < EPS && (right - 1.0).abs() < EPS) || left >= right {
+            StaticTween::get_rc(tween)
+        } else {
+            Rc::new(ClampedTween::new(tween, left..right))
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -84,26 +106,12 @@ struct RPECtrlEvent {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct RPESpeedEvent {
-    start_time: Triple,
-    end_time: Triple,
-    start: f32,
-    end: f32,
-    easing_type: i32,
-    #[serde(default = "f32_zero")]
-    easing_left: f32,
-    #[serde(default = "f32_one")]
-    easing_right: f32,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct RPEEventLayer {
     alpha_events: Option<Vec<RPEEvent>>,
     move_x_events: Option<Vec<RPEEvent>>,
     move_y_events: Option<Vec<RPEEvent>>,
     rotate_events: Option<Vec<RPEEvent>>,
-    speed_events: Option<Vec<RPESpeedEvent>>,
+    speed_events: Option<Vec<RPEEvent>>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -190,348 +198,26 @@ enum SpeedEasingMode {
     Modern,
 }
 
-fn speed_easing_type(type_id: i32) -> i32 {
-    if (1..=28).contains(&type_id) {
-        type_id
-    } else {
-        1
-    }
-}
-
-fn sanitize_speed_easing_params(easing_type: i32, x: f32, easing_left: f32, easing_right: f32) -> (i32, f32, f32, f32) {
-    let t = speed_easing_type(easing_type);
-    let x = x.clamp(0., 1.);
-    let left = easing_left.clamp(0., 1.);
-    let right = easing_right.clamp(0., 1.);
-    if left >= right {
-        (t, x, 0., 1.)
-    } else {
-        (t, x, left, right)
-    }
-}
-
-fn speed_bounce_out_value(mut x: f32) -> f32 {
-    if x < 1. / 2.75 {
-        7.5625 * x * x
-    } else if x < 2. / 2.75 {
-        x -= 1.5 / 2.75;
-        7.5625 * x * x + 0.75
-    } else if x < 2.5 / 2.75 {
-        x -= 2.25 / 2.75;
-        7.5625 * x * x + 0.9375
-    } else {
-        x -= 2.625 / 2.75;
-        7.5625 * x * x + 0.984375
-    }
-}
-
-fn speed_raw_easing_value(easing_type: i32, x: f32) -> f32 {
-    let x = x.clamp(0., 1.);
-    match speed_easing_type(easing_type) {
-        1 => x,
-        2 => ((x * std::f32::consts::PI) / 2.).sin(),
-        3 => 1. - ((x * std::f32::consts::PI) / 2.).cos(),
-        4 => 1. - (1. - x) * (1. - x),
-        5 => x * x,
-        6 => -((std::f32::consts::PI * x).cos() - 1.) / 2.,
-        7 => {
-            if x < 0.5 {
-                2. * x * x
-            } else {
-                1. - (-2. * x + 2.).powi(2) / 2.
-            }
-        }
-        8 => 1. - (1. - x).powi(3),
-        9 => x.powi(3),
-        10 => 1. - (1. - x).powi(4),
-        11 => x.powi(4),
-        12 => {
-            if x < 0.5 {
-                4. * x.powi(3)
-            } else {
-                1. - (-2. * x + 2.).powi(3) / 2.
-            }
-        }
-        13 => {
-            if x < 0.5 {
-                8. * x.powi(4)
-            } else {
-                1. - (-2. * x + 2.).powi(4) / 2.
-            }
-        }
-        14 => 1. - (1. - x).powi(5),
-        15 => x.powi(5),
-        16 => {
-            if (x - 1.).abs() < EPS {
-                1.
-            } else {
-                1. - 2f32.powf(-10. * x)
-            }
-        }
-        17 => {
-            if x.abs() < EPS {
-                0.
-            } else {
-                2f32.powf(10. * x - 10.)
-            }
-        }
-        18 => (1. - (x - 1.).powi(2)).sqrt(),
-        19 => 1. - (1. - x * x).sqrt(),
-        20 => 1. + 2.70158 * (x - 1.).powi(3) + 1.70158 * (x - 1.).powi(2),
-        21 => 2.70158 * x.powi(3) - 1.70158 * x.powi(2),
-        22 => {
-            if x < 0.5 {
-                (1. - (1. - (2. * x).powi(2)).sqrt()) / 2.
-            } else {
-                ((1. - (-2. * x + 2.).powi(2)).sqrt() + 1.) / 2.
-            }
-        }
-        23 => {
-            if x < 0.5 {
-                ((2. * x).powi(2) * ((2.59491 + 1.) * 2. * x - 2.59491)) / 2.
-            } else {
-                ((2. * x - 2.).powi(2) * ((2.59491 + 1.) * (x * 2. - 2.) + 2.59491) + 2.) / 2.
-            }
-        }
-        24 => {
-            if x.abs() < EPS {
-                0.
-            } else if (x - 1.).abs() < EPS {
-                1.
-            } else {
-                2f32.powf(-10. * x) * ((x * 10. - 0.75) * ((2. * std::f32::consts::PI) / 3.)).sin() + 1.
-            }
-        }
-        25 => {
-            if x.abs() < EPS {
-                0.
-            } else if (x - 1.).abs() < EPS {
-                1.
-            } else {
-                -2f32.powf(10. * x - 10.) * ((x * 10. - 10.75) * ((2. * std::f32::consts::PI) / 3.)).sin()
-            }
-        }
-        26 => speed_bounce_out_value(x),
-        27 => 1. - speed_bounce_out_value(1. - x),
-        28 => {
-            if x < 0.5 {
-                (1. - speed_bounce_out_value(1. - 2. * x)) / 2.
-            } else {
-                (1. + speed_bounce_out_value(2. * x - 1.)) / 2.
-            }
-        }
-        _ => x,
-    }
-}
-
-fn speed_bounce_out_integral(x: f32) -> f32 {
-    let x = x.clamp(0., 1.);
-    let a: f32 = 7.5625;
-    let b1: f32 = 1. / 2.75;
-    let b2: f32 = 2. / 2.75;
-    let b3: f32 = 2.5 / 2.75;
-    let c1: f32 = 1.5 / 2.75;
-    let c2: f32 = 2.25 / 2.75;
-    let c3: f32 = 2.625 / 2.75;
-    let i_b1 = (a * b1.powi(3)) / 3.;
-    let i_b2 = i_b1 + (a / 3.) * ((b2 - c1).powi(3) - (b1 - c1).powi(3)) + 0.75 * (b2 - b1);
-    let i_b3 = i_b2 + (a / 3.) * ((b3 - c2).powi(3) - (b2 - c2).powi(3)) + 0.9375 * (b3 - b2);
-    if x < b1 {
-        (a * x.powi(3)) / 3.
-    } else if x < b2 {
-        i_b1 + (a / 3.) * ((x - c1).powi(3) - (b1 - c1).powi(3)) + 0.75 * (x - b1)
-    } else if x < b3 {
-        i_b2 + (a / 3.) * ((x - c2).powi(3) - (b2 - c2).powi(3)) + 0.9375 * (x - b2)
-    } else {
-        i_b3 + (a / 3.) * ((x - c3).powi(3) - (b3 - c3).powi(3)) + 0.984375 * (x - b3)
-    }
-}
-
-fn speed_raw_easing_integral(easing_type: i32, x: f32) -> f32 {
-    let x = x.clamp(0., 1.);
-    match speed_easing_type(easing_type) {
-        1 => x * x / 2.,
-        2 => (2. / std::f32::consts::PI) * (1. - ((x * std::f32::consts::PI) / 2.).cos()),
-        3 => x - (2. / std::f32::consts::PI) * ((x * std::f32::consts::PI) / 2.).sin(),
-        4 => x * x - x.powi(3) / 3.,
-        5 => x.powi(3) / 3.,
-        6 => x / 2. - (std::f32::consts::PI * x).sin() / (2. * std::f32::consts::PI),
-        7 => {
-            if x < 0.5 {
-                (2. / 3.) * x.powi(3)
-            } else {
-                2. * x * x - (2. / 3.) * x.powi(3) - x + 1. / 6.
-            }
-        }
-        8 => (3. / 2.) * x * x - x.powi(3) + x.powi(4) / 4.,
-        9 => x.powi(4) / 4.,
-        10 => 2. * x * x - 2. * x.powi(3) + x.powi(4) - x.powi(5) / 5.,
-        11 => x.powi(5) / 5.,
-        12 => {
-            if x < 0.5 {
-                x.powi(4)
-            } else {
-                -3. * x + 6. * x * x - 4. * x.powi(3) + x.powi(4) + 0.5
-            }
-        }
-        13 => {
-            if x < 0.5 {
-                (8. / 5.) * x.powi(5)
-            } else {
-                -7. * x + 16. * x * x - 16. * x.powi(3) + 8. * x.powi(4) - (8. / 5.) * x.powi(5) + 11. / 10.
-            }
-        }
-        14 => (5. / 2.) * x * x - (10. / 3.) * x.powi(3) + (5. / 2.) * x.powi(4) - x.powi(5) + x.powi(6) / 6.,
-        15 => x.powi(6) / 6.,
-        16 => x - (1. - 2f32.powf(-10. * x)) / (10. * std::f32::consts::LN_2),
-        17 => (2f32.powf(10. * x - 10.) - 2f32.powf(-10.)) / (10. * std::f32::consts::LN_2),
-        18 => 0.5 * ((x - 1.) * (0f32.max(1. - (x - 1.).powi(2))).sqrt() + (x - 1.).asin()) + std::f32::consts::PI / 4.,
-        19 => x - 0.5 * (x * (0f32.max(1. - x * x)).sqrt() + x.clamp(-1., 1.).asin()),
-        20 => {
-            let a = 2.70158;
-            let b = 1.70158;
-            (1. - a + b) * x + ((3. * a - 2. * b) / 2.) * x * x + ((-3. * a + b) / 3.) * x.powi(3) + (a / 4.) * x.powi(4)
-        }
-        21 => (2.70158 / 4.) * x.powi(4) - (1.70158 / 3.) * x.powi(3),
-        22 => {
-            if x < 0.5 {
-                0.5 * x - 0.25 * x * (0f32.max(1. - 4. * x * x)).sqrt() - 0.125 * (2. * x).clamp(-1., 1.).asin()
-            } else {
-                0.5 * x - 0.25 * (1. - x) * (0f32.max(1. - 4. * (1. - x) * (1. - x))).sqrt() - 0.125 * (2. * (1. - x)).clamp(-1., 1.).asin()
-            }
-        }
-        23 => {
-            let s = 2.59491;
-            if x <= 0.5 {
-                (s + 1.) * x.powi(4) - (2. * s * x.powi(3)) / 3.
-            } else {
-                let i_half = (s + 1.) * 0.5f32.powi(4) - (2. * s * 0.5f32.powi(3)) / 3.;
-                let f = |t: f32| (s + 1.) * t.powi(4) - ((10. * s + 12.) / 3.) * t.powi(3) + ((8. * s + 12.) / 2.) * t * t - (2. * s + 3.) * t;
-                i_half + (f(x) - f(0.5))
-            }
-        }
-        24 => {
-            let k = 10. * std::f32::consts::LN_2;
-            let a = ((2. * std::f32::consts::PI) / 3.) * 10.;
-            let b = -0.75 * ((2. * std::f32::consts::PI) / 3.);
-            let h = |t: f32| (f32::exp(-k * t) * (-k * (a * t + b).sin() - a * (a * t + b).cos())) / (a * a + k * k);
-            x + (h(x) - h(0.))
-        }
-        25 => {
-            let k = 10. * std::f32::consts::LN_2;
-            let a = ((2. * std::f32::consts::PI) / 3.) * 10.;
-            let b = -10.75 * ((2. * std::f32::consts::PI) / 3.);
-            let c = 2f32.powf(-10.);
-            let g = |t: f32| (-c * f32::exp(k * t) * (k * (a * t + b).sin() - a * (a * t + b).cos())) / (a * a + k * k);
-            g(x) - g(0.)
-        }
-        26 => speed_bounce_out_integral(x),
-        27 => {
-            let i1 = speed_bounce_out_integral(1.);
-            x - (i1 - speed_bounce_out_integral(1. - x))
-        }
-        28 => {
-            let i1 = speed_bounce_out_integral(1.);
-            if x <= 0.5 {
-                x / 2. + (i1 - speed_bounce_out_integral(1. - 2. * x)) / 4.
-            } else {
-                x / 2. + (i1 + speed_bounce_out_integral(2. * x - 1.)) / 4.
-            }
-        }
-        _ => x * x / 2.,
-    }
-}
-
-fn speed_easing_value(easing_type: i32, x: f32, easing_left: f32, easing_right: f32) -> f32 {
-    let (easing_type, x, easing_left, easing_right) = sanitize_speed_easing_params(easing_type, x, easing_left, easing_right);
-    let scaled = easing_left + (easing_right - easing_left) * x;
-    let start = speed_raw_easing_value(easing_type, easing_left);
-    let end = speed_raw_easing_value(easing_type, easing_right);
-    let denom = end - start;
-    if !denom.is_finite() || denom.abs() < 1e-8 {
-        return x;
-    }
-    (speed_raw_easing_value(easing_type, scaled) - start) / denom
-}
-
-fn speed_easing_derivative(easing_type: i32, x: f32, easing_left: f32, easing_right: f32) -> f32 {
-    let eps = 1e-6;
-    let l = (x - eps).max(1e-7);
-    let r = (x + eps).min(1. - 1e-7);
-    if r <= l {
-        return 0.;
-    }
-    let yl = speed_easing_value(easing_type, l, easing_left, easing_right);
-    let yr = speed_easing_value(easing_type, r, easing_left, easing_right);
-    (yr - yl) / (r - l)
-}
-
-fn speed_easing_integral(easing_type: i32, x: f32, easing_left: f32, easing_right: f32) -> f32 {
-    let (easing_type, x, easing_left, easing_right) = sanitize_speed_easing_params(easing_type, x, easing_left, easing_right);
-    let l = easing_left;
-    let r = easing_right;
-    let scaled_x = l + (r - l) * x;
-    let f_l = speed_raw_easing_value(easing_type, l);
-    let f_r = speed_raw_easing_value(easing_type, r);
-    let denom = f_r - f_l;
-    if !denom.is_finite() || denom.abs() < 1e-8 {
-        return x * x / 2.;
-    }
-    let i_scaled = speed_raw_easing_integral(easing_type, scaled_x);
-    let i_l = speed_raw_easing_integral(easing_type, l);
-    (i_scaled - i_l - f_l * (scaled_x - l)) / ((r - l) * denom)
-}
-
-enum SpeedIntegralKind {
-    Legacy {
-        easing_type: i32,
-        easing_left: f32,
-        easing_right: f32,
-        k: f32,
-        b: f32,
-    },
-    Modern {
-        easing_type: i32,
-        easing_left: f32,
-        easing_right: f32,
-        start: f32,
-        delta: f32,
-    },
-}
-
-impl SpeedIntegralKind {
-    fn partial_factor(&self, x: f32) -> f32 {
-        match *self {
-            Self::Legacy {
-                easing_type,
-                easing_left,
-                easing_right,
-                k,
-                b,
-            } => k * speed_easing_value(easing_type, x, easing_left, easing_right) + b * x,
-            Self::Modern {
-                easing_type,
-                easing_left,
-                easing_right,
-                start,
-                delta,
-            } => start * x + delta * speed_easing_integral(easing_type, x, easing_left, easing_right),
-        }
-    }
-}
-
 struct SpeedIntegralTween {
-    kind: SpeedIntegralKind,
+    tween: Rc<dyn TweenFunction>,
+    k: f32,
+    b: f32,
     total: f32,
 }
 
 impl SpeedIntegralTween {
-    fn try_create(kind: SpeedIntegralKind) -> Option<(Rc<dyn TweenFunction>, f32)> {
-        let total = kind.partial_factor(1.);
+    fn try_create(tween: Rc<dyn TweenFunction>, k: f32, b: f32) -> Option<(Rc<dyn TweenFunction>, f32)> {
+        let mut result = Self { tween, k, b, total: 0. };
+        let total = result.partial(1.);
         if !total.is_finite() || total.abs() < EPS {
             return None;
         }
-        Some((Rc::new(Self { kind, total }), total))
+        result.total = total;
+        Some((Rc::new(result), total))
+    }
+
+    fn partial(&self, x: f32) -> f32 {
+        self.tween.y(x) * self.k + self.b * x
     }
 }
 
@@ -543,7 +229,7 @@ impl TweenFunction for SpeedIntegralTween {
         if x >= 1. {
             return 1.;
         }
-        let y = self.kind.partial_factor(x) / self.total;
+        let y = self.partial(x) / self.total;
         if y.is_finite() {
             y
         } else {
@@ -566,42 +252,29 @@ fn speed_linear_tween(start_speed: f32, end_speed: f32) -> Rc<dyn TweenFunction>
     }
 }
 
-fn speed_segment_tween(
-    mode: SpeedEasingMode,
-    start_speed: f32,
-    end_speed: f32,
-    easing_type: i32,
-    easing_left: f32,
-    easing_right: f32,
-) -> (Rc<dyn TweenFunction>, f32) {
-    if easing_type <= 1 {
-        return (speed_linear_tween(start_speed, end_speed), (start_speed + end_speed) / 2.);
-    }
+fn speed_segment_tween(mode: SpeedEasingMode, start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> (Rc<dyn TweenFunction>, f32) {
     let (tween, total) = match mode {
         SpeedEasingMode::Legacy => {
-            let df0 = speed_easing_derivative(easing_type, 0., easing_left, easing_right);
-            let df1 = speed_easing_derivative(easing_type, 1., easing_left, easing_right);
+            let df0 = tween.derivative(0.);
+            let df1 = tween.derivative(1.);
             let denom = df1 - df0;
             if !denom.is_finite() || denom.abs() < 1e-8 {
                 return (speed_linear_tween(start_speed, end_speed), (start_speed + end_speed) / 2.);
             }
             let k = (end_speed - start_speed) / denom;
             let b = start_speed - k * df0;
-            SpeedIntegralTween::try_create(SpeedIntegralKind::Legacy {
-                easing_type,
-                easing_left,
-                easing_right,
-                k,
-                b,
-            })
+            SpeedIntegralTween::try_create(tween, k, b)
         }
-        SpeedEasingMode::Modern => SpeedIntegralTween::try_create(SpeedIntegralKind::Modern {
-            easing_type,
-            easing_left,
-            easing_right,
-            start: start_speed,
-            delta: end_speed - start_speed,
-        }),
+        SpeedEasingMode::Modern => {
+            let int_tween: Rc<dyn TweenFunction> = if let Some(s) = tween.as_any().downcast_ref::<StaticTween>() {
+                IntStaticTween::get_rc(s.0)
+            } else if let Some(s) = tween.as_any().downcast_ref::<ClampedTween>() {
+                Rc::new(IntClampedTween::new(s.0, s.1.clone()))
+            } else {
+                Rc::new(GeneralIntTween::new(tween))
+            };
+            SpeedIntegralTween::try_create(int_tween, end_speed - start_speed, start_speed)
+        }
     }
     .unwrap_or_else(|| (speed_linear_tween(start_speed, end_speed), (start_speed + end_speed) / 2.));
     (tween, total)
@@ -618,12 +291,6 @@ struct RPEChart {
 }
 
 type BezierMap = HashMap<(u16, i16, i16), Rc<dyn TweenFunction>>;
-
-fn bezier_key<T>(event: &RPEEvent<T>) -> (u16, i16, i16) {
-    let p = &event.bezier_points;
-    let int = |p: f32| (p * 100.).round() as i16;
-    ((int(p[0]) * 100 + int(p[1])) as u16, int(p[2]), int(p[3]))
-}
 
 fn parse_events<T: Tweenable, V: Clone + Into<T>>(
     r: &mut BpmList,
@@ -644,23 +311,14 @@ fn parse_events<T: Tweenable, V: Clone + Into<T>>(
         kfs.push(Keyframe {
             time: r.time(&e.start_time),
             value: e.start.clone().into(),
-            tween: {
-                let tween = RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
-                if e.bezier != 0 {
-                    Rc::clone(&bezier_map[&bezier_key(e)])
-                } else if e.easing_left.abs() < EPS && (e.easing_right - 1.0).abs() < EPS {
-                    StaticTween::get_rc(tween)
-                } else {
-                    Rc::new(ClampedTween::new(tween, e.easing_left..e.easing_right))
-                }
-            },
+            tween: e.tween(bezier_map),
         });
         kfs.push(Keyframe::new(r.time(&e.end_time), e.end.clone().into(), 0));
     }
     Ok(Anim::new(kfs))
 }
 
-fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32, mode: SpeedEasingMode) -> Result<AnimFloat> {
+fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &BezierMap, max_time: f32, mode: SpeedEasingMode) -> Result<AnimFloat> {
     let layers: Vec<_> = rpe.iter().filter_map(|it| it.speed_events.as_ref()).collect();
     if layers.is_empty() {
         return Ok(AnimFloat::default());
@@ -670,75 +328,66 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32, mod
         if layer.is_empty() {
             continue;
         }
-        let mut events: Vec<_> = layer
-            .iter()
-            .map(|it| {
-                (
-                    r.time(&it.start_time),
-                    r.time(&it.end_time),
-                    it.start * SPEED_RATIO,
-                    it.end * SPEED_RATIO,
-                    it.easing_type,
-                    it.easing_left,
-                    it.easing_right,
-                )
-            })
-            .collect();
-        events.sort_by_key(|it| it.0.not_nan());
+        let mut events = layer.iter().collect::<Vec<_>>();
+        events.sort_by_key(|it| it.start_time.beats().not_nan());
+
         let mut kfs = vec![Keyframe::new(0.0, 0.0, 2)];
         let mut height = 0.0;
-        let mut cursor = 0.0;
-        let mut last_speed = 0.0;
-        let push_segment = |start_time: f32,
-                            end_time: f32,
-                            start_speed: f32,
-                            end_speed: f32,
-                            easing_type: i32,
-                            easing_left: f32,
-                            easing_right: f32,
-                            mode: SpeedEasingMode,
-                            kfs: &mut Vec<Keyframe<f32>>,
-                            height: &mut f32| {
+        let mut push_kf = |start_time: f32, end_time: f32, tween: Rc<dyn TweenFunction>, factor: f32| {
             if end_time - start_time <= EPS {
                 return;
             }
-            let (tween, integral_factor) = speed_segment_tween(mode, start_speed, end_speed, easing_type, easing_left, easing_right);
             if let Some(last) = kfs.last_mut() {
                 if (last.time - start_time).abs() < EPS {
-                    last.value = *height;
+                    last.value = height;
                     last.tween = tween;
                 } else {
                     kfs.push(Keyframe {
                         time: start_time,
-                        value: *height,
+                        value: height,
                         tween,
                     });
                 }
             }
-            *height += integral_factor * (end_time - start_time);
+            height += factor * (end_time - start_time);
         };
-        for (start_time, end_time, start_speed, end_speed, easing_type, easing_left, easing_right) in events {
-            let start_time = start_time.max(cursor);
-            let end_time = end_time.max(start_time);
-            if start_time > cursor + EPS {
-                push_segment(cursor, start_time, last_speed, last_speed, 1, 0., 1., mode, &mut kfs, &mut height);
-            }
+
+        let mut cursor = 0.0;
+        let mut last_speed = 0.0;
+        for event in events {
+            let start_time = r.time(&event.start_time).max(cursor);
+            let end_time = r.time(&event.end_time).max(start_time);
+            let start_speed = event.start * SPEED_RATIO;
+            let end_speed = event.end * SPEED_RATIO;
+
+            push_kf(cursor, start_time, StaticTween::get_rc(2), last_speed);
             if end_time > start_time + EPS {
-                if easing_type <= 1 && start_speed.signum() * end_speed.signum() < 0. {
-                    let x = start_speed / (start_speed - end_speed);
-                    let mid = f32::tween(&start_time, &end_time, x);
-                    push_segment(start_time, mid, start_speed, 0., easing_type, easing_left, easing_right, mode, &mut kfs, &mut height);
-                    push_segment(mid, end_time, 0., end_speed, easing_type, easing_left, easing_right, mode, &mut kfs, &mut height);
+                if event.easing_type == 0 {
+                    push_kf(start_time, end_time, StaticTween::get_rc(2), start_speed);
+                } else if event.easing_type <= 1 {
+                    if start_speed.signum() * end_speed.signum() < 0. {
+                        let x = start_speed / (start_speed - end_speed);
+                        let mid = f32::tween(&start_time, &end_time, x);
+                        for (start_time, end_time, start, end) in [(start_time, mid, start_speed, 0.), (mid, end_time, 0., end_speed)] {
+                            let factor = start.midpoint(end);
+                            let tween = speed_linear_tween(start, end);
+                            push_kf(start_time, end_time, tween, factor);
+                        }
+                    } else {
+                        let factor = start_speed.midpoint(end_speed);
+                        let tween = speed_linear_tween(start_speed, end_speed);
+                        push_kf(start_time, end_time, tween, factor);
+                    }
                 } else {
-                    push_segment(start_time, end_time, start_speed, end_speed, easing_type, easing_left, easing_right, mode, &mut kfs, &mut height);
+                    let (tween, factor) = speed_segment_tween(mode, start_speed, end_speed, event.tween(bezier_map));
+                    push_kf(start_time, end_time, tween, factor);
                 }
             }
             cursor = end_time;
             last_speed = end_speed;
         }
-        if max_time > cursor + EPS {
-            push_segment(cursor, max_time, last_speed, last_speed, 1, 0., 1., mode, &mut kfs, &mut height);
-        }
+
+        push_kf(cursor, max_time, StaticTween::get_rc(2), last_speed);
         if let Some(last) = kfs.last() {
             if (last.time - max_time).abs() > EPS {
                 kfs.push(Keyframe::new(max_time, height, 0));
@@ -767,16 +416,7 @@ fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], 
         kfs.push(Keyframe {
             time: r.time(&e.start_time),
             value: e.start.clone().into(),
-            tween: {
-                let tween = RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
-                if e.bezier != 0 {
-                    Rc::clone(&bezier_map[&bezier_key(e)])
-                } else if e.easing_left.abs() < EPS && (e.easing_right - 1.0).abs() < EPS {
-                    StaticTween::get_rc(tween)
-                } else {
-                    Rc::new(ClampedTween::new(tween, e.easing_left..e.easing_right))
-                }
-            },
+            tween: e.tween(bezier_map),
         });
         kfs.push(Keyframe::new(r.time(&e.end_time), e.end.clone().into(), 2));
         next_rep_time = (r.time(&e.end_time) * 1000. + gif.total_time() as f32 * (1. - e.end.clone().into())).round() as u128;
@@ -936,7 +576,7 @@ async fn parse_judge_line(
         res.map_value(|v| v * factor);
         Ok(res)
     }
-    let mut height = parse_speed_events(r, &event_layers, max_time, speed_mode)?;
+    let mut height = parse_speed_events(r, &event_layers, bezier_map, max_time, speed_mode)?;
     let mut notes = parse_notes(r, rpe.notes.unwrap_or_default(), fs, &mut height, hitsounds).await?;
     let cache = JudgeLineCache::new(&mut notes);
     Ok(JudgeLine {

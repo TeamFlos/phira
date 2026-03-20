@@ -86,3 +86,11 @@ pub const RPE_TWEEN_MAP: [crate::core::TweenId; 30] = {
         e(Bounce, InOut), e(Elastic, InOut),
     ]
 };
+
+#[test]
+fn test() {
+    dbg!(RPE_TWEEN_MAP[25]);
+    use crate::core::{easing_from as e, TweenMajor::*, TweenMinor::*};
+    dbg!(e(Elastic, In));
+    panic!();
+}
