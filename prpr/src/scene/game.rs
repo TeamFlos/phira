@@ -594,9 +594,13 @@ impl GameScene {
                 match clicked {
                     Some(-1) => {
                         self.should_exit = true;
+                        #[cfg(target_env = "ohos")]
+                        miniquad::native::set_interceptor_state(false);
                     }
                     Some(0) => {
                         reset!(self, res, tm);
+                        #[cfg(target_env = "ohos")]
+                        miniquad::native::set_interceptor_state(true);
                     }
                     Some(1) => {
                         if self.mode == GameMode::Exercise
@@ -853,6 +857,8 @@ impl Scene for GameScene {
             self.music.pause()?;
             tm.pause();
         }
+        #[cfg(target_env = "ohos")]
+        miniquad::native::set_interceptor_state(false);
         Ok(())
     }
 
@@ -875,6 +881,8 @@ impl Scene for GameScene {
             tm.seek_to(self.exercise_range.start as f64);
             tm.pause();
             self.music.pause()?;
+            #[cfg(target_env = "ohos")]
+            miniquad::native::set_interceptor_state(false);
         }
         let offset = self.offset();
         let time = tm.now() as f32;
