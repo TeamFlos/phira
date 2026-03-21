@@ -399,6 +399,8 @@ impl GameScene {
                     self.music.pause()?;
                 }
                 tm.pause();
+                #[cfg(target_env = "ohos")]
+                miniquad::native::set_interceptor_state(false);
             }
         }
         ui.alpha(res.alpha, |ui| {
@@ -618,6 +620,8 @@ impl GameScene {
                         tm.resume();
                         tm.seek_to(now - 3.);
                         self.pause_rewind = Some(tm.now() - 0.2);
+                        #[cfg(target_env = "ohos")]
+                        miniquad::native::set_interceptor_state(true);
                     }
                     _ => {}
                 }
@@ -831,6 +835,8 @@ impl Scene for GameScene {
     fn enter(&mut self, tm: &mut TimeManager, target: Option<RenderTarget>) -> Result<()> {
         #[cfg(target_arch = "wasm32")]
         on_game_start();
+        #[cfg(target_env = "ohos")]
+        miniquad::native::set_interceptor_state(true);
         self.music = Self::new_music(&mut self.res)?;
         self.res.camera.render_target = target;
         tm.speed = self.res.config.speed as _;
@@ -923,6 +929,8 @@ impl Scene for GameScene {
             State::Playing => {
                 if time > self.res.track_length + WAIT_TIME {
                     self.state = State::Ending;
+                    #[cfg(target_env = "ohos")]
+                    miniquad::native::set_interceptor_state(false);
                 }
                 time
             }
