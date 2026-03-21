@@ -2126,7 +2126,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.3.25"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=9ad9235#9ad9235e405634c0c1f4d2eb73655e7d073120bf"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=eb80f20#eb80f20ef412860ac7e536c031ba4470d4f8aaf6"
 dependencies = [
  "bumpalo",
  "fontdue",
@@ -2140,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.7"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=9ad9235#9ad9235e405634c0c1f4d2eb73655e7d073120bf"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=eb80f20#eb80f20ef412860ac7e536c031ba4470d4f8aaf6"
 
 [[package]]
 name = "malloc_buf"
@@ -2209,7 +2209,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad?rev=0694542#069454242078de7e1e06855fc29a3eac86c846fb"
+source = "git+https://github.com/Mivik/prpr-miniquad?rev=fef6835#fef683501bf38da6942308b9a3f2557263eeaba0"
 dependencies = [
  "jni 0.21.1",
  "keyboard-types",
@@ -2222,6 +2222,7 @@ dependencies = [
  "objc",
  "ohos-hilog-binding",
  "ohos-ime-binding",
+ "ohos-init-binding",
  "ohos-input-sys",
  "ohos-native-buffer-sys",
  "ohos-native-window-sys",
@@ -2844,6 +2845,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "860d1e3c2c5e3217d819a16c815d2d4dcbc7610285d2612d08745a29c353a503"
 dependencies = [
+ "libc",
  "ohos-hilogs-sys",
 ]
 
@@ -2862,6 +2864,21 @@ dependencies = [
  "ohos-input-method-sys",
  "ohos_enum_macro 0.1.0",
 ]
+
+[[package]]
+name = "ohos-init-binding"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66c0aed2b773de0f45d2200b1c44147a777f9d8e3ad7aa5bc9594c2c4e0df352"
+dependencies = [
+ "ohos-init-sys",
+]
+
+[[package]]
+name = "ohos-init-sys"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50f981d2633b0b00f22ffc0a59c5ddead29c99dd285b049eeee2f576eafe53aa"
 
 [[package]]
 name = "ohos-input-method-sys"

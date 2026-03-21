@@ -57,8 +57,8 @@ objc2-foundation = "0.3.2"
 objc2-ui-kit = "0.3.2"
 objc2-uniform-type-identifiers = "0.3.2"
 
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "9ad9235", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "0694542" }
+macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "eb80f20", default-features = false }
+miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "fef6835" }
 phira = { path = "phira", default-features = false }
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }
