@@ -85,7 +85,7 @@ about-content =
   運維
   { $operations }
 
-  文檔
+  說明文件
   { $documentation }
 
   美術
@@ -97,10 +97,10 @@ about-content =
   音效
   { $audio }
 
-  社區管理
+  社群管理
   { $community }
 
-  本地化
+  在地化
   { $localization }
 
   以及許多志願譜面審核員！完整列表參見 https://phira.moe/staff
