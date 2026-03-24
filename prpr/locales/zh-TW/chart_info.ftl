@@ -1,4 +1,3 @@
-
 edit-chart = 編輯譜面
 level-displayed = 顯示難度
 chart-name = 譜面名稱
@@ -27,5 +26,4 @@ intro = 簡介
 tags = 標籤
 tag-exists = 標籤已存在
 rpe-170-speed = RPE1.7新速度緩動
-
 illegal-input = 非法輸入
