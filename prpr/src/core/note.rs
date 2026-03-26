@@ -234,7 +234,7 @@ impl Note {
         };
 
         if !config.draw_below
-            && ((res.time - FADEOUT_TIME >= self.time && !matches!(self.kind, NoteKind::Hold { .. }))
+            && (((res.time - FADEOUT_TIME >= self.time || (self.fake && res.time >= self.time)) && !matches!(self.kind, NoteKind::Hold { .. }))
                 || (self.time > res.time && cover_base <= -0.001))
         {
             return;
@@ -255,7 +255,8 @@ impl Note {
         let draw = |res: &mut Resource, tex: Texture2D| {
             let mut color = color;
             if !config.draw_below {
-                color.a *= (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
+                let alpha = (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
+                color.a *= if self.fake && res.time >= self.time { 0. } else { alpha };
             }
             color.a *= mod_alpha;
             res.with_model(self.now_transform(res, ctrl_obj, base, config.incline_sin), |res| {
