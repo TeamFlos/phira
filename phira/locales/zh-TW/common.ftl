@@ -26,4 +26,4 @@ main-character-intro =
     翩翩然如禽羽的她，在聲樂交織的夢中，看見的又是什麼呢？
 favorites = 收藏庫
 default-fav-folder = 我的最愛
-favorites-online-only = 雲端資料夾只能收藏線上譜面。本地譜面：{ $charts }
+favorites-online-only = 雲端收藏夾只能收藏線上譜面。本地譜面：{ $charts }
