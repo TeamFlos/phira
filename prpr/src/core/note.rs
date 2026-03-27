@@ -234,7 +234,7 @@ impl Note {
         };
 
         if !config.draw_below
-            && (((res.time - FADEOUT_TIME >= self.time || (self.fake && res.time >= self.time)) && !matches!(self.kind, NoteKind::Hold { .. }))
+            && (((res.time - FADEOUT_TIME >= self.time || self.fake && res.time >= self.time) && !matches!(self.kind, NoteKind::Hold { .. }))
                 || (self.time > res.time && cover_base <= -0.001))
         {
             return;
