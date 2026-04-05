@@ -2,10 +2,7 @@ use crate::{
     AVCodecContext, AVFormatContext, AVFrame, AVPacket, AVPixelFormat, AVRational, AVStreamRef, Error, Result, SwsContext, VideoStreamFormat,
 };
 use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Condvar, Mutex,
-    },
+    sync::{Arc, Condvar, Mutex},
     thread::JoinHandle,
 };
 use tracing::error;
@@ -14,10 +11,8 @@ pub struct Video {
     stream_format: VideoStreamFormat,
     video_stream: AVStreamRef,
 
-    dropped: Arc<AtomicBool>,
-    ended: AtomicBool,
-
-    mutex: Arc<(Mutex<Option<Option<&'static AVFrame>>>, Condvar)>,
+    position: Arc<(Mutex<i64>, Condvar)>,
+    frame: Arc<Mutex<(AVFrame, i64)>>,
     decode_thread: Option<JoinHandle<()>>,
 }
 
@@ -28,18 +23,16 @@ impl Video {
         format_ctx.find_stream_info()?;
 
         let video_stream = format_ctx.streams().into_iter().find(|it| it.is_video()).ok_or(Error::NoVideoStream)?;
+        let time_base = video_stream.time_base().to_f64();
 
         let decoder = video_stream.find_decoder()?;
         let mut codec_ctx = AVCodecContext::new(decoder, video_stream.codec_params(), Some(pix_fmt))?;
 
+        let stream_format = codec_ctx.video_stream_format();
         let out_format = VideoStreamFormat {
             pix_fmt,
-            ..codec_ctx.video_stream_format()
+            ..stream_format.clone()
         };
-
-        let mutex = Arc::new((Mutex::new(None), Condvar::new()));
-
-        let stream_format = codec_ctx.video_stream_format();
 
         let mut sws = SwsContext::new(stream_format.clone(), out_format.clone())?;
         let mut in_frame = AVFrame::new()?;
@@ -47,47 +40,89 @@ impl Video {
         out_frame.set_video_format(&out_format);
         out_frame.get_buffer()?;
 
-        let dropped = Arc::new(AtomicBool::default());
+        let mut buf_frame = AVFrame::new()?;
+        buf_frame.set_video_format(&stream_format);
+        buf_frame.get_buffer()?;
+
+        let position = Arc::new((Mutex::new(0), Condvar::new()));
+        let frame = Arc::new(Mutex::new((buf_frame, -1)));
+
+        let video_index = video_stream.index();
 
         let decode_thread = std::thread::spawn({
-            let mut packet = AVPacket::new()?;
-            let video_index = video_stream.index();
-            let mutex = Arc::clone(&mutex);
-            let dropped = Arc::clone(&dropped);
-            move || {
-                let mut decode_main = {
-                    let mutex = Arc::clone(&mutex);
-                    move || -> Result<()> {
-                        while !dropped.load(Ordering::Relaxed) && format_ctx.read_frame(&mut packet)? {
-                            if packet.stream_index() != video_index {
-                                continue;
-                            }
-                            codec_ctx.send_packet(&packet)?;
+            let position = position.clone();
+            let frame = frame.clone();
 
-                            while codec_ctx.receive_frame(&mut in_frame)? {
-                                sws.scale(&in_frame, &mut out_frame);
-                                let mut frame = mutex.0.lock().unwrap();
-                                *frame = Some(Some(unsafe { std::mem::transmute::<&AVFrame, &'static AVFrame>(&out_frame) }));
-                                mutex.1.notify_one();
-                                while frame.is_some() {
-                                    if dropped.load(Ordering::Relaxed) {
-                                        return Ok(());
-                                    }
-                                    frame = mutex.1.wait(frame).unwrap();
+            move || {
+                let mut run = || -> Result<()> {
+                    let mut packet = AVPacket::new()?;
+                    let mut current_ts = -1;
+
+                    let mut catching_up_to: Option<i64> = None;
+
+                    loop {
+                        let ts = {
+                            let mut guard = position.0.lock().unwrap();
+                            loop {
+                                let ts = *guard;
+                                if ts == i64::MAX {
+                                    return Ok(());
+                                }
+
+                                let diff_sec = (current_ts - ts) as f64 * time_base;
+                                if current_ts != -1 && diff_sec > 0.0 && diff_sec < 0.5 {
+                                    guard = position.1.wait(guard).unwrap();
+                                } else {
+                                    break ts;
                                 }
                             }
+                        };
+
+                        if (current_ts - ts) as f64 * time_base > 0.5 {
+                            let is_already_catching_up = catching_up_to.is_some_and(|target| ((ts - target) as f64 * time_base).abs() < 0.5);
+
+                            if !is_already_catching_up {
+                                format_ctx.seek_frame(video_index, ts, crate::ffi::AVSEEK_FLAG_BACKWARD)?;
+                                codec_ctx.flush_buffers();
+
+                                catching_up_to = Some(ts);
+                                current_ts = -1;
+                                continue;
+                            }
                         }
-                        let mut frame = mutex.0.lock().unwrap();
-                        *frame = Some(None);
-                        mutex.1.notify_one();
-                        Ok(())
+
+                        if !format_ctx.read_frame(&mut packet)? {
+                            frame.lock().unwrap().1 = -1;
+                            continue;
+                        }
+
+                        if packet.stream_index() != video_index {
+                            continue;
+                        }
+
+                        codec_ctx.send_packet(&packet)?;
+                        let mut sent = false;
+                        while codec_ctx.receive_frame(&mut in_frame)? {
+                            current_ts = in_frame.pts();
+
+                            if catching_up_to.is_some_and(|target| current_ts >= target) {
+                                catching_up_to = None;
+                            }
+
+                            if !sent && current_ts >= ts {
+                                sws.scale(&in_frame, &mut out_frame);
+                                let mut guard = frame.lock().unwrap();
+                                std::mem::swap(&mut guard.0, &mut out_frame);
+                                guard.1 = current_ts;
+                                sent = true;
+                            }
+                        }
                     }
                 };
-                if let Err(err) = decode_main() {
-                    error!("decode failed: {err:?}");
-                    let mut frame = mutex.0.lock().unwrap();
-                    *frame = Some(None);
-                    mutex.1.notify_one();
+
+                if let Err(e) = run() {
+                    error!("decode error: {e:?}");
+                    frame.lock().unwrap().1 = -1;
                 }
             }
         });
@@ -96,10 +131,8 @@ impl Video {
             stream_format,
             video_stream,
 
-            dropped,
-            ended: AtomicBool::default(),
-
-            mutex,
+            frame,
+            position,
             decode_thread: Some(decode_thread),
         })
     }
@@ -112,32 +145,34 @@ impl Video {
         self.video_stream.frame_rate()
     }
 
-    pub fn with_frame<R>(&self, f: impl FnOnce(&AVFrame) -> R) -> Option<R> {
-        let mut frame = self.mutex.0.lock().unwrap();
-        loop {
-            let Some(data) = *frame else {
-                frame = self.mutex.1.wait(frame).unwrap();
-                continue;
-            };
-            let Some(data) = data else {
-                self.ended.store(true, Ordering::SeqCst);
-                return None;
-            };
-            let res = f(data);
-            *frame = None;
-            self.mutex.1.notify_one();
-            break Some(res);
-        }
+    pub fn time_base(&self) -> AVRational {
+        self.video_stream.time_base()
+    }
+
+    pub fn duration(&self) -> f64 {
+        self.video_stream.duration() as f64 * self.time_base().to_f64()
+    }
+
+    pub fn elapsed_to_timestamp(&self, elapsed: f32) -> i64 {
+        let time_base = self.time_base();
+        (elapsed as f64 * time_base.den as f64 / time_base.num as f64).round() as i64
+    }
+
+    pub fn seek(&self, timestamp: i64) {
+        let mut guard = self.position.0.lock().unwrap();
+        *guard = timestamp;
+        self.position.1.notify_one();
+    }
+
+    pub fn with_frame<R>(&self, mut f: impl FnMut(&AVFrame, i64) -> R) -> R {
+        let guard = self.frame.lock().unwrap();
+        f(&guard.0, guard.1)
     }
 }
 
 impl Drop for Video {
     fn drop(&mut self) {
-        self.dropped.store(true, Ordering::Relaxed);
-        {
-            let _guard = self.mutex.0.lock().unwrap();
-            self.mutex.1.notify_one();
-        }
+        self.seek(i64::MAX);
         if let Some(handle) = self.decode_thread.take() {
             handle.join().unwrap();
         }

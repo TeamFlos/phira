@@ -40,55 +40,101 @@ impl Object for Collection {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ChartRef {
-    Online(i32, Option<Box<Chart>>),
-    Local(String),
+#[derive(Clone, Debug, Serialize)]
+pub struct ChartRef {
+    pub path: String,
+    pub info: Option<Box<Chart>>,
 }
-impl ChartRef {
-    pub fn local_path(&self) -> Cow<'_, str> {
-        match self {
-            Self::Online(id, _) => Cow::Owned(format!("download/{id}")),
-            Self::Local(path) => Cow::Borrowed(path),
+
+impl<'de> Deserialize<'de> for ChartRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum FuseChartRef {
+            New { path: String, info: Option<Box<Chart>> },
+            Local(String),
+            Online(i32, Option<Box<Chart>>),
         }
+
+        let fuse = FuseChartRef::deserialize(deserializer)?;
+        Ok(match fuse {
+            FuseChartRef::New { path, info } => Self { path, info },
+            FuseChartRef::Local(local_path) => Self {
+                path: local_path,
+                info: None,
+            },
+            FuseChartRef::Online(id, info) => Self {
+                path: format!("download/{id}"),
+                info,
+            },
+        })
+    }
+}
+
+impl ChartRef {
+    pub fn new_bare(id: Option<i32>, local_path: Option<&str>) -> Self {
+        let path = if let Some(id) = id {
+            format!("download/{id}")
+        } else if let Some(local) = local_path {
+            local.to_string()
+        } else {
+            panic!("chart ref must have either id or local path");
+        };
+        Self { path, info: None }
     }
 
-    pub fn is_online(&self) -> bool {
-        self.local_path().starts_with("download/")
+    pub fn exists(&self) -> bool {
+        std::fs::exists(format!("{}/{}", dir::charts().unwrap(), self.path)).unwrap()
+    }
+
+    pub fn find_local_path<'a>(&'a self) -> Result<Option<Cow<'a, str>>> {
+        let charts = dir::charts()?;
+        if std::fs::exists(format!("{charts}/{}", self.path))? {
+            return Ok(Some(Cow::Borrowed(&self.path)));
+        }
+        let Some(id) = self.id() else {
+            return Ok(None);
+        };
+        // TODO: optimize
+        Ok(get_data().charts.iter().find_map(|it| {
+            if it.info.id == Some(id) {
+                Some(Cow::Owned(it.local_path.clone()))
+            } else {
+                None
+            }
+        }))
     }
 
     pub fn id(&self) -> Option<i32> {
-        match self {
-            Self::Online(id, _) => Some(*id),
-            Self::Local(_) => None,
-        }
+        self.path.strip_prefix("download/").and_then(|s| s.parse().ok())
+    }
+    pub fn is_online(&self) -> bool {
+        self.path.starts_with("download/")
     }
 }
 
 impl From<Chart> for ChartRef {
     fn from(chart: Chart) -> Self {
-        ChartRef::Online(chart.id, Some(Box::new(chart)))
+        ChartRef {
+            path: format!("download/{}", chart.id),
+            info: Some(Box::new(chart)),
+        }
     }
 }
 
 impl PartialEq for ChartRef {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (ChartRef::Online(id1, _), ChartRef::Online(id2, _)) => id1 == id2,
-            (ChartRef::Local(path1), ChartRef::Local(path2)) => path1 == path2,
-            _ => false,
-        }
+        self.path == other.path
     }
 }
 impl Eq for ChartRef {}
 
 impl Hash for ChartRef {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            ChartRef::Online(id, _) => id.hash(state),
-            ChartRef::Local(path) => path.hash(state),
-        }
+        self.path.hash(state);
     }
 }
 
@@ -138,11 +184,13 @@ impl LocalCollection {
     pub fn cover(&self) -> Illustration {
         let mut cover = self.cover.clone();
         if matches!(cover, CollectionCover::Unset) {
-            cover = match self.charts.first() {
-                None => CollectionCover::Unset,
-                Some(ChartRef::Online(_, chart)) => CollectionCover::Online(chart.as_ref().unwrap().illustration.clone()),
-                Some(ChartRef::Local(path)) => CollectionCover::LocalChart(path.clone()),
-            };
+            if let Some(chart) = self.charts.first() {
+                if let Ok(Some(local_path)) = chart.find_local_path() {
+                    cover = CollectionCover::LocalChart(local_path.into_owned());
+                } else if let Some(info) = &chart.info {
+                    cover = CollectionCover::Online(info.illustration.clone());
+                }
+            }
         }
         match cover {
             CollectionCover::Unset => Illustration::from_done(BLACK_TEXTURE.clone()),
@@ -186,7 +234,7 @@ impl LocalCollection {
                 .iter()
                 .filter(|it| !it.is_online())
                 .filter_map(|it| {
-                    let path = format!("{dir}/{}/info.yml", it.local_path());
+                    let path = format!("{dir}/{}/info.yml", it.path);
                     let info = std::fs::read_to_string(path).ok()?;
                     serde_yaml::from_str::<ChartInfo>(&info).ok().map(|info| info.name)
                 })
@@ -198,9 +246,9 @@ impl LocalCollection {
         let should_upload = self.id.is_some() && !get_data().config.offline_mode;
         let mut updated = false;
         if add {
-            let local_paths: HashSet<String> = self.charts.iter().map(|it| it.local_path().into_owned()).collect();
+            let local_paths: HashSet<String> = self.charts.iter().map(|it| it.path.clone()).collect();
             for chart in charts {
-                if !local_paths.contains(chart.local_path().as_ref()) {
+                if !local_paths.contains(&chart.path) {
                     self.charts.push(chart.clone());
                     updated = true;
                 }
@@ -221,12 +269,12 @@ impl LocalCollection {
         }
 
         let id = self.id;
+        let col_ids = self.charts.iter().filter_map(|it| it.id()).collect::<Vec<_>>();
         data.set_collection_info(&uuid, self).unwrap();
         if !should_upload {
             return CollectionUpdate::Updated { sync_task: None, add };
         }
 
-        let col_ids = charts.iter().filter_map(|it| it.id()).collect::<Vec<_>>();
         CollectionUpdate::Updated {
             sync_task: Some(Task::new(async move {
                 let resp: Collection =

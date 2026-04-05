@@ -11,7 +11,7 @@ mod home;
 pub use home::HomePage;
 
 mod library;
-pub use library::{ExportInfo, LibraryPage, CHOOSE_COVER, CHOSEN_COVER, FAV_UPDATED};
+pub use library::{request_export, resolve_export, take_export, ExportInfo, LibraryPage, CHOOSE_COVER, CHOSEN_COVER, FAV_UPDATED};
 
 mod message;
 pub use message::MessagePage;
@@ -212,13 +212,7 @@ pub struct ChartItem {
 }
 impl ChartItem {
     pub fn to_ref(&self) -> ChartRef {
-        if let Some(local) = &self.local_path {
-            ChartRef::Local(local.clone())
-        } else if let Some(id) = self.info.id {
-            ChartRef::Online(id, None)
-        } else {
-            panic!("chart item has neither id nor local path");
-        }
+        ChartRef::new_bare(self.info.id, self.local_path.as_deref())
     }
 }
 

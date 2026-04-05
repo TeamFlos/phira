@@ -53,7 +53,7 @@ use inner::*;
 const WAIT_TIME: f32 = 0.5;
 const AFTER_TIME: f32 = 0.7;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimpleRecord {
     pub score: i32,

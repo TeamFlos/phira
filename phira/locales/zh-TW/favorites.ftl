@@ -33,3 +33,4 @@ delete-from-cloud-confirm = 確定要從雲端刪除這個收藏夾嗎？
 make-public = 設為公開
 make-private = 設為私人
 duplicate = 再製
+already-up-to-date = 已經是最新的了

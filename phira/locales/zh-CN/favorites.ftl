@@ -42,3 +42,4 @@ delete-from-cloud-confirm = 确定从云端删除该收藏夹吗？
 make-public = 设为公开
 make-private = 设为私密
 duplicate = 复制
+already-up-to-date = 已经是最新的了

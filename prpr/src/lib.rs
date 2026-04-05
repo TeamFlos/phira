@@ -16,6 +16,7 @@ pub mod ui;
 #[cfg(feature = "log")]
 pub mod log;
 
+#[rustfmt::skip]
 #[cfg(closed)]
 pub mod inner;
 

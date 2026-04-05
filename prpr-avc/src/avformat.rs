@@ -37,6 +37,10 @@ impl AVFormatContext {
             }
         }
     }
+
+    pub fn seek_frame(&mut self, stream_index: i32, timestamp: i64, flags: i32) -> Result<()> {
+        unsafe { handle(ffi::av_seek_frame(self.0 .0, stream_index, timestamp, flags)) }
+    }
 }
 
 unsafe impl Send for AVFormatContext {}

@@ -38,6 +38,10 @@ impl AVFrame {
         }
     }
 
+    pub fn pts(&self) -> i64 {
+        unsafe { self.0.as_ref().pts }
+    }
+
     pub fn get_buffer(&mut self) -> Result<()> {
         unsafe { handle(ffi::av_frame_get_buffer(self.0 .0, 0)) }
     }

@@ -42,3 +42,4 @@ delete-from-cloud-confirm = Delete this folder from cloud?
 make-public = Make public
 make-private = Make private
 duplicate = Duplicate
+already-up-to-date = Already up to date

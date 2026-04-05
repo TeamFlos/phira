@@ -126,3 +126,6 @@ stabilize-denied = 已拒絕
 stabilize-denied-passed = 已拒絕，譜面已退件
 fav-added = 已收藏（長按以選擇其他收藏夾）
 still-loading = 仍在載入，請稍候…
+
+export = 匯出
+exporting = 匯出中…

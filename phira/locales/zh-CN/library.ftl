@@ -36,7 +36,7 @@ multi-deleted = 已删除
 multi-export-title = 选择导出位置
 multi-export-no-file = 请在导出前下载全部谱面。未下载：{ $charts }
 multi-exporting = 导出中 ({ $current } / { $total })
-multi-exported = 已导出
+exported = 已导出
 
 multi-added-to-fav = 已添加到收藏夹
 multi-removed-from-fav = 已从收藏夹移除

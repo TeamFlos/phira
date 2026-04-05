@@ -146,7 +146,7 @@ impl Scene for UnlockScene {
                 }
             }
             State::Playing => {
-                if self.video.ended && t > self.music_length {
+                if t > self.video.duration && t > self.music_length {
                     self.state = State::Blanking;
                     tm.reset();
                 } else {

@@ -113,6 +113,12 @@ impl AVCodecContext {
             }
         }
     }
+
+    pub fn flush_buffers(&mut self) {
+        unsafe {
+            ffi::avcodec_flush_buffers(self.0 .0);
+        }
+    }
 }
 
 impl Drop for AVCodecContext {

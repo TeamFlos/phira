@@ -27,12 +27,11 @@ pub struct Video {
     tex_v: Texture2D,
 
     start_time: f32,
+    pub duration: f32,
+    last_pts: i64,
     scale_type: ScaleType,
     alpha: Anim<f32>,
     dim: Anim<f32>,
-    frame_delta: f64,
-    next_frame: usize,
-    pub ended: bool,
 }
 
 fn new_tex(w: u32, h: u32) -> Texture2D {
@@ -54,7 +53,7 @@ impl Video {
         video_file.write_all(&data)?;
         drop(data);
         let video = prpr_avc::Video::open(video_file.path().as_os_str().to_str().unwrap(), AVPixelFormat::YUV420P)?;
-        let frame_delta = video.frame_rate().to_f64_inv();
+        let duration = video.duration() as f32;
         let format = video.stream_format();
         let w = format.width as u32;
         let h = format.height as u32;
@@ -85,12 +84,11 @@ impl Video {
             tex_v,
 
             start_time,
+            duration,
+            last_pts: -1,
             scale_type,
             alpha,
             dim,
-            frame_delta,
-            next_frame: 0,
-            ended: false,
         })
     }
 
@@ -99,44 +97,42 @@ impl Video {
     }
 
     pub fn update(&mut self, t: f32) -> Result<()> {
-        if t < self.start_time || self.ended {
+        if !(0f32..self.duration).contains(&(t - self.start_time)) {
             return Ok(());
         }
         self.alpha.set_time(t);
         self.dim.set_time(t);
-        let that_frame = ((t - self.start_time) as f64 / self.frame_delta) as usize;
-        if self.next_frame <= that_frame {
-            VIDEO_BUFFERS.with(|it| {
-                let mut buf = it.borrow_mut();
-                while self.next_frame <= that_frame {
-                    buf[0].clear();
-                    buf[1].clear();
-                    buf[2].clear();
-                    if self
-                        .video
-                        .with_frame(|frame| {
-                            frame.get_data(0, &mut buf[0]);
-                            frame.get_data_half(1, &mut buf[1]);
-                            frame.get_data_half(2, &mut buf[2]);
-                        })
-                        .is_none()
-                    {
-                        self.ended = true;
-                        return;
-                    }
-                    self.next_frame += 1;
-                }
+        self.video.seek(self.video.elapsed_to_timestamp(t - self.start_time));
+
+        self.video.with_frame(|frame, pts| {
+            if self.last_pts == pts {
+                return;
+            }
+            self.last_pts = pts;
+            if pts == -1 {
+                return;
+            }
+
+            VIDEO_BUFFERS.with_borrow_mut(|buf| {
+                buf[0].clear();
+                buf[1].clear();
+                buf[2].clear();
+                frame.get_data(0, &mut buf[0]);
+                frame.get_data_half(1, &mut buf[1]);
+                frame.get_data_half(2, &mut buf[2]);
+
                 let ctx = unsafe { get_internal_gl() }.quad_context;
                 self.tex_y.raw_miniquad_texture_handle().update(ctx, &buf[0]);
                 self.tex_u.raw_miniquad_texture_handle().update(ctx, &buf[1]);
                 self.tex_v.raw_miniquad_texture_handle().update(ctx, &buf[2]);
             });
-        }
+        });
+
         Ok(())
     }
 
     pub fn render(&self, t: f32, aspect_ratio: f32, color: Color) {
-        if t < self.start_time || self.ended {
+        if !(0f32..self.duration).contains(&(t - self.start_time)) {
             return;
         }
         gl_use_material(self.material);
@@ -158,9 +154,8 @@ impl Video {
     }
 
     pub fn reset(&mut self) -> Result<()> {
-        self.next_frame = 0;
-        self.ended = false;
-        self.video = prpr_avc::Video::open(self.video_file.path().as_os_str().to_str().unwrap(), AVPixelFormat::YUV420P)?;
+        self.last_pts = -1;
+        self.video.seek(0);
         Ok(())
     }
 }

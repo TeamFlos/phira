@@ -259,6 +259,7 @@ impl JudgeInner {
     }
 }
 
+#[rustfmt::skip]
 #[cfg(closed)]
 pub mod inner;
 #[cfg(closed)]
@@ -442,11 +443,16 @@ impl Judge {
                 })
                 .collect()
         };
-        let (events, keys_down) = TOUCHES.with(|it| {
+        let (events, keys_down, key_delta) = TOUCHES.with(|it| {
             let guard = it.borrow();
-            (guard.touches.clone(), guard.keys_down)
+            let events = guard.touches.clone();
+            if res.config.use_keyboard {
+                (events, guard.keys_down, guard.key_delta)
+            } else {
+                (events, 0, 0)
+            }
         });
-        self.key_down_count = self.key_down_count.saturating_add_signed(TOUCHES.with(|it| it.borrow().key_delta));
+        self.key_down_count = self.key_down_count.saturating_add_signed(key_delta);
         {
             fn to_local(Vec2 { x, y }: Vec2) -> Point {
                 Point::new(x / screen_width() * 2. - 1., y / screen_height() * 2. - 1.)

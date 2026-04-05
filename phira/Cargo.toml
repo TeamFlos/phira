@@ -81,6 +81,7 @@ zstd = "0.13"
 miniquad = { workspace = true }
 phira-mp-client = { workspace = true }
 phira-mp-common = { workspace = true }
+sanitize-filename = "0.6.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.22.4"

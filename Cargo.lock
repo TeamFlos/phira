@@ -2126,7 +2126,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.3.25"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=eb80f20#eb80f20ef412860ac7e536c031ba4470d4f8aaf6"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=b2eab29#b2eab2927f31477d0d356e6fd27518d7bd16172f"
 dependencies = [
  "bumpalo",
  "fontdue",
@@ -2140,7 +2140,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.7"
-source = "git+https://github.com/Mivik/prpr-macroquad?rev=eb80f20#eb80f20ef412860ac7e536c031ba4470d4f8aaf6"
+source = "git+https://github.com/Mivik/prpr-macroquad?rev=b2eab29#b2eab2927f31477d0d356e6fd27518d7bd16172f"
 
 [[package]]
 name = "malloc_buf"
@@ -2209,7 +2209,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "miniquad"
 version = "0.3.15"
-source = "git+https://github.com/Mivik/prpr-miniquad?rev=fef6835#fef683501bf38da6942308b9a3f2557263eeaba0"
+source = "git+https://github.com/Mivik/prpr-miniquad?rev=0c525a3#0c525a3e0e38a8ab3d6d41bd2749eb8b6f676e4c"
 dependencies = [
  "jni 0.21.1",
  "keyboard-types",
@@ -3118,7 +3118,7 @@ dependencies = [
 
 [[package]]
 name = "phira"
-version = "0.7.0-rc1"
+version = "0.7.0-rc2"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3161,6 +3161,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rfd",
+ "sanitize-filename",
  "sasa",
  "semver",
  "serde",
@@ -3180,7 +3181,7 @@ dependencies = [
 
 [[package]]
 name = "phira-main"
-version = "0.7.0-rc1"
+version = "0.7.0-rc2"
 dependencies = [
  "phira",
 ]
@@ -3381,7 +3382,7 @@ dependencies = [
 
 [[package]]
 name = "prpr"
-version = "0.7.0-rc1"
+version = "0.7.0-rc2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4013,6 +4014,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "sanitize-filename"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc984f4f9ceb736a7bb755c3e3bd17dc56370af2600c9780dcc48c66453da34d"
+dependencies = [
+ "regex",
 ]
 
 [[package]]
