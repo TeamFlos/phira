@@ -212,6 +212,21 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
         }
         dy!(r.h + s);
 
+        let r = ui.text(tl!("attach-ui-fix")).size(0.47).anchor(1., 0.).draw();
+        let r = Rect::new(0.02, r.y - 0.01, r.h + 0.02, r.h + 0.02);
+        let check_str = match info.use_attach_ui_fix {
+            Some(true) => "\u{2713}",
+            Some(false) => "x",
+            None => "",
+        };
+        if ui.button("attachui", r, check_str.to_string()) {
+            const OPTIONS: [Option<bool>; 3] = [None, Some(true), Some(false)];
+            let next = OPTIONS.iter().cycle().skip_while(|&&x| x != info.use_attach_ui_fix).nth(1).unwrap();
+            info.use_attach_ui_fix = *next;
+            edit.updated = true;
+        }
+        dy!(r.h + s);
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             use crate::scene::{request_file, return_file, take_file};

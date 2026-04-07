@@ -6,7 +6,7 @@ use crate::{
     mp::MPPanel,
     page::{ExportInfo, HomePage, NextPage, Page, ResPackItem, SharedState},
     save_data,
-    scene::{confirm_dialog, import_chart_to, ImportWarnings, TEX_BACKGROUND, TEX_ICON_BACK},
+    scene::{confirm_dialog, import_chart_to, parse_warnings_to_string, TEX_BACKGROUND, TEX_ICON_BACK},
 };
 use anyhow::{anyhow, bail, Context, Result};
 use macroquad::prelude::*;
@@ -15,6 +15,7 @@ use prpr::{
     core::ResPackInfo,
     ext::{unzip_into, RectExt, SafeTexture},
     info::ChartInfo,
+    parse::ParseWarnings,
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
@@ -63,7 +64,7 @@ pub struct MainScene {
 
     pages: Vec<Box<dyn Page>>,
 
-    import_task: Option<Task<Result<(LocalChart, ImportWarnings)>>>,
+    import_task: Option<Task<Result<(LocalChart, ParseWarnings)>>>,
 
     mp_btn: RectButton,
     mp_icon: SafeTexture,
@@ -82,7 +83,7 @@ pub struct MainScene {
 }
 
 enum ImportChart {
-    Imported(Box<LocalChart>, ImportWarnings),
+    Imported(Box<LocalChart>, ParseWarnings),
     Skipped(String),
 }
 
@@ -346,7 +347,7 @@ impl Scene for MainScene {
                         show_error(err.context(itl!("import-failed")));
                     }
                     Ok((chart, warnings)) => {
-                        if let Some(warn) = warnings.to_string() {
+                        if let Some(warn) = parse_warnings_to_string(&warnings) {
                             Dialog::plain(itl!("warning"), warn).show();
                         }
                         show_message(itl!("import-success")).ok();
@@ -587,7 +588,7 @@ impl Scene for MainScene {
                         for chart in self.batch_imported_charts.drain(..) {
                             match chart {
                                 ImportChart::Imported(chart, warnings) => {
-                                    if let Some(warn) = warnings.to_string() {
+                                    if let Some(warn) = parse_warnings_to_string(&warnings) {
                                         warning_messages.push(format!("{}\n{warn}", chart.info.name));
                                     }
                                     data.charts.push(*chart);

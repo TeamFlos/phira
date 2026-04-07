@@ -75,9 +75,10 @@ impl Chart {
         res: &Resource,
         element: UIElement,
         scale_point: Option<(f32, f32)>,
-        rotation_point: Option<(f32, f32)>,
+        rotation_point: (f32, f32),
         f: impl FnOnce(&mut Ui, Color) -> R,
     ) -> R {
+        let scale_point = scale_point.unwrap_or(rotation_point);
         if let Some(id) = self.attach_ui[element as usize - 1] {
             let lines = &self.lines;
             let line = &lines[id];
@@ -85,11 +86,9 @@ impl Chart {
             let mut tr = line.fetch_pos(res, lines);
             tr.y = -tr.y;
             let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
-            let scale = obj.now_scale(scale_point.map_or_else(Vector::default, |(x, y)| Vector::new(x, y)));
-            let ro = Object::new_rotation_wrt_point(
-                Rotation2::new(-obj.rotation.now().to_radians()),
-                rotation_point.map_or_else(Vector::default, |(x, y)| Vector::new(x, y)),
-            );
+            let scale = obj.now_scale(Vector::new(scale_point.0, scale_point.1));
+            let ro =
+                Object::new_rotation_wrt_point(Rotation2::new(-obj.rotation.now().to_radians()), Vector::new(rotation_point.0, rotation_point.1));
             ui.with(Matrix::new_translation(&tr) * ro * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
         } else {
             f(ui, WHITE)

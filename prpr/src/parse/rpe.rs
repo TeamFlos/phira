@@ -16,6 +16,7 @@ use crate::{
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
     judge::{HitSound, JudgeStatus},
+    parse::ParseWarnings,
 };
 
 pub const RPE_WIDTH: f32 = 1350.;
@@ -927,13 +928,19 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra,
     Ok(Chart::new(rpe.meta.offset as f32 / 1000.0, lines, r, ChartSettings::default(), extra, hitsounds))
 }
 
-pub async fn has_new_speed_events(source: &str) -> Result<bool> {
+pub async fn lint(source: &str) -> Result<ParseWarnings> {
     let rpe: RPEChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
-    Ok(rpe
+    let has_new_speed_events = rpe
         .judge_line_list
         .iter()
         .flat_map(|line| line.event_layers.iter().flatten())
         .flat_map(|layer| layer.speed_events.iter())
         .flatten()
-        .any(|event| event.easing_type > 1))
+        .any(|event| event.easing_type > 1);
+    let has_attach_ui = rpe.judge_line_list.iter().any(|line| line.attach_ui.is_some());
+
+    Ok(ParseWarnings {
+        has_new_speed_events,
+        has_attach_ui,
+    })
 }

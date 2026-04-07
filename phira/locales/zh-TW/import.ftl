@@ -14,3 +14,4 @@ batch-import-failed = 批次匯入失敗
 batch-import-failed-chart = 批次匯入失敗: { $chart }
 warning = 警告
 warning-new-speed-event = 該譜面使用了 RPE 1.7.0 引入的速度事件緩動。出於相容性考量，Phira 預設將沿用舊行為。如需啟用新特性，請在譜面資訊中勾選「RPE1.7新速度緩動」。
+warning-attach-ui = 該譜面使用了 UI 綁定。Phira 最近的版本引入了 UI 綁定的修復，但可能會導致依賴舊行為的譜面出現問題。如有必要，請在譜面資訊中取消勾選「UI 綁定修復」。

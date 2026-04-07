@@ -38,7 +38,7 @@ use prpr::{
     ext::{semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     info::{ChartFormat, ChartInfo},
-    parse::has_new_speed_events,
+    parse::ParseWarnings,
     scene::{show_error, show_message, FullLoadingView, GameScene},
     task::Task,
     ui::{Dialog, RectButton, Scroll, Scroller, Ui},
@@ -279,48 +279,45 @@ pub fn gen_custom_dir() -> Result<(PathBuf, Uuid)> {
     Ok((dir, id))
 }
 
-#[derive(Debug, Default)]
-pub struct ImportWarnings {
-    pub has_new_speed_events: bool,
-}
-impl ImportWarnings {
-    pub fn to_string(&self) -> Option<String> {
-        let mut warnings = vec![];
-        if self.has_new_speed_events {
-            warnings.push(format!("- {}", itl!("warning-new-speed-event")));
-        }
-        if warnings.is_empty() {
-            None
-        } else {
-            Some(warnings.join("\n"))
-        }
+pub fn parse_warnings_to_string(w: &ParseWarnings) -> Option<String> {
+    let mut warnings = vec![];
+    if w.has_new_speed_events {
+        warnings.push(format!("- {}", itl!("warning-new-speed-event")));
+    }
+    if w.has_attach_ui {
+        warnings.push(format!("- {}", itl!("warning-attach-ui")));
+    }
+    if warnings.is_empty() {
+        None
+    } else {
+        Some(warnings.join("\n"))
     }
 }
 
-async fn check_speed(fs: &mut dyn FileSystem, info: &ChartInfo, warnings: &mut ImportWarnings) -> Result<()> {
+async fn lint_chart(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<ParseWarnings> {
     let bytes = GameScene::load_chart_bytes(fs, info).await.context("Failed to load chart")?;
     let format = GameScene::infer_chart_format(info, &bytes);
     if format != ChartFormat::Rpe {
-        return Ok(());
+        return Ok(ParseWarnings::default());
     }
     let source = String::from_utf8_lossy(&bytes);
-    if has_new_speed_events(&source).await? {
-        warnings.has_new_speed_events = true;
-    }
-
-    Ok(())
+    prpr::parse::lint(&source).await
 }
 
-pub async fn import_chart_to(dir: &Path, local_path: String, file: File) -> Result<(LocalChart, ImportWarnings)> {
-    let mut warnings = ImportWarnings::default();
+pub async fn import_chart_to(dir: &Path, local_path: String, file: File) -> Result<(LocalChart, ParseWarnings)> {
     let dir = prpr::dir::Dir::new(dir)?;
     unzip_into(BufReader::new(file), &dir, true)?;
     let mut fs = fs_from_path(&local_path)?;
     let mut info = fs::load_info(fs.as_mut()).await.with_context(|| itl!("info-fail"))?;
     fs::fix_info(fs.as_mut(), &mut info).await.with_context(|| itl!("invalid-chart"))?;
-    if info.use_rpe_170_speed.is_none() {
-        check_speed(fs.as_mut(), &info, &mut warnings).await?;
-    }
+    let warnings = if info.use_rpe_170_speed.is_none() || info.use_attach_ui_fix.is_none() {
+        if info.use_attach_ui_fix.is_none() {
+            info.use_attach_ui_fix = Some(true);
+        }
+        lint_chart(fs.as_mut(), &info).await?
+    } else {
+        ParseWarnings::default()
+    };
     dir.create("info.yml")?.write_all(serde_yaml::to_string(&info)?.as_bytes())?;
     Ok((
         LocalChart {
@@ -334,7 +331,7 @@ pub async fn import_chart_to(dir: &Path, local_path: String, file: File) -> Resu
     ))
 }
 
-pub async fn import_chart(file: File) -> Result<(LocalChart, ImportWarnings)> {
+pub async fn import_chart(file: File) -> Result<(LocalChart, ParseWarnings)> {
     let (dir, id) = gen_custom_dir()?;
     match import_chart_to(&dir, format!("custom/{id}"), file).await {
         Err(err) => {

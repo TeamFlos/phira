@@ -26,4 +26,5 @@ intro = 簡介
 tags = 標籤
 tag-exists = 標籤已存在
 rpe-170-speed = RPE1.7新速度緩動
+attach-ui-fix = UI 綁定修復
 illegal-input = 非法輸入
