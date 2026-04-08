@@ -510,7 +510,7 @@ pub fn unzip_into<R: std::io::Read + std::io::Seek>(reader: R, dir: &crate::dir:
     Ok(())
 }
 
-pub fn parse_time(s: &str) -> Option<f32> {
+pub fn parse_time(s: &str) -> Option<f64> {
     if s.is_empty() {
         return None;
     }
@@ -519,15 +519,15 @@ pub fn parse_time(s: &str) -> Option<f32> {
         return None;
     }
     let mut iter = r.into_iter().rev();
-    let mut res = iter.next().unwrap().parse::<f32>().ok()?;
+    let mut res = iter.next().unwrap().parse::<f64>().ok()?;
     if res < 0. {
         return None;
     }
     if let Some(mins) = iter.next() {
-        res += mins.parse::<u32>().ok()? as f32 * 60.;
+        res += mins.parse::<u32>().ok()? as f64 * 60.;
     }
     if let Some(hrs) = iter.next() {
-        res += hrs.parse::<u32>().ok()? as f32 * 3600.;
+        res += hrs.parse::<u32>().ok()? as f64 * 3600.;
     }
     Some(res)
 }

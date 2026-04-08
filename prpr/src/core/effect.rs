@@ -39,7 +39,7 @@ impl UniformValue for Color {
 
 pub trait Uniform {
     fn uniform_pair(&self) -> (String, UniformType);
-    fn set_time(&mut self, t: f32);
+    fn set_time(&mut self, t: f64);
     fn apply(&self, material: &Material);
 }
 
@@ -48,7 +48,7 @@ impl<T: UniformValue> Uniform for (String, T) {
         (self.0.clone(), T::UNIFORM_TYPE)
     }
 
-    fn set_time(&mut self, _t: f32) {}
+    fn set_time(&mut self, _t: f64) {}
 
     fn apply(&self, material: &Material) {
         material.set_uniform(&self.0, self.1.clone());
@@ -60,7 +60,7 @@ impl<T: UniformValue + Tweenable> Uniform for (String, Anim<T>) {
         (self.0.clone(), T::UNIFORM_TYPE)
     }
 
-    fn set_time(&mut self, t: f32) {
+    fn set_time(&mut self, t: f64) {
         self.1.set_time(t);
     }
 
@@ -70,8 +70,8 @@ impl<T: UniformValue + Tweenable> Uniform for (String, Anim<T>) {
 }
 
 pub struct Effect {
-    time_range: Range<f32>,
-    t: f32,
+    time_range: Range<f64>,
+    t: f64,
     material: Material,
     defaults: Vec<Box<dyn Uniform>>,
     uniforms: Vec<Box<dyn Uniform>>,
@@ -83,7 +83,7 @@ impl Effect {
         SHADERS.get(name).copied()
     }
 
-    pub fn new(time_range: Range<f32>, shader: &str, uniforms: Vec<Box<dyn Uniform>>, global: bool) -> Result<Self> {
+    pub fn new(time_range: Range<f64>, shader: &str, uniforms: Vec<Box<dyn Uniform>>, global: bool) -> Result<Self> {
         static DEF_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"uniform\s+(\w+)\s+(\w+);\s+//\s+%([^%]+)%").unwrap());
         let defaults = DEF_REGEX
             .captures_iter(shader)
@@ -126,7 +126,7 @@ impl Effect {
         }
         Ok(Self {
             time_range,
-            t: f32::NEG_INFINITY,
+            t: f64::NEG_INFINITY,
             defaults,
             material: load_material(
                 VERTEX_SHADER,

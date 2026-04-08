@@ -153,9 +153,9 @@ impl Video {
         self.video_stream.duration() as f64 * self.time_base().to_f64()
     }
 
-    pub fn elapsed_to_timestamp(&self, elapsed: f32) -> i64 {
+    pub fn elapsed_to_timestamp(&self, elapsed: f64) -> i64 {
         let time_base = self.time_base();
-        (elapsed as f64 * time_base.den as f64 / time_base.num as f64).round() as i64
+        (elapsed * time_base.den as f64 / time_base.num as f64).round() as i64
     }
 
     pub fn seek(&self, timestamp: i64) {

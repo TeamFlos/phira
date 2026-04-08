@@ -127,7 +127,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                 if st + 20. < en {
                     return Err(tl!("preview-too-long"));
                 }
-                Ok((st, en))
+                Ok((st as f32, en as f32))
             }() {
                 Err(err) => {
                     show_message(err).error();

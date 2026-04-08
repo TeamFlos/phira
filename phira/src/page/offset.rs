@@ -126,7 +126,7 @@ impl Page for OffsetPage {
 
     fn update(&mut self, _s: &mut SharedState) -> Result<()> {
         if !self.cali.paused() {
-            let pos = self.cali.position() as f64;
+            let pos = self.cali.position();
             let now = self.tm.now();
             if now > 2. {
                 self.tm.seek_to(now - 2.);
@@ -170,7 +170,7 @@ impl Page for OffsetPage {
                 self.touched = false;
             }
             if t <= 1. {
-                let w = NOTE_WIDTH_RATIO_BASE * config.note_scale * 2.;
+                let w = NOTE_WIDTH_RATIO_BASE as f32 * config.note_scale * 2.;
                 let h = w * self.click.height() / self.click.width();
                 let r = Rect::new(ct.0 - w / 2., ny, w, h);
                 ui.fill_rect(r, (*self.click, r, ScaleType::Fit));

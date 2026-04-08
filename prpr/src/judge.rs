@@ -17,13 +17,13 @@ use std::{cell::RefCell, collections::HashMap, mem, num::FpCategory};
 use tracing::debug;
 
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
-pub const LIMIT_PERFECT: f32 = 0.08;
-pub const LIMIT_GOOD: f32 = 0.16;
-pub const LIMIT_BAD: f32 = 0.22;
-pub const UP_TOLERANCE: f32 = 0.05;
-pub const DIST_FACTOR: f32 = 0.2;
+pub const LIMIT_PERFECT: f64 = 0.08;
+pub const LIMIT_GOOD: f64 = 0.16;
+pub const LIMIT_BAD: f64 = 0.22;
+pub const UP_TOLERANCE: f64 = 0.05;
+pub const DIST_FACTOR: f64 = 0.2;
 
-const EARLY_OFFSET: f32 = 0.07;
+const EARLY_OFFSET: f64 = 0.07;
 
 #[derive(Debug, Clone)]
 pub enum HitSound {
@@ -139,7 +139,7 @@ pub enum JudgeStatus {
     NotJudged,
     PreJudge,
     Judged,
-    Hold(bool, f32, f32, bool, f32), // perfect, at, diff, pre-judge, up-time
+    Hold(bool, f64, f64, bool, f64), // perfect, at, diff, pre-judge, up-time
 }
 
 #[repr(u8)]
@@ -265,7 +265,7 @@ pub mod inner;
 #[cfg(closed)]
 use inner::*;
 
-type Judgements = Vec<(f32, u32, u32, Result<Judgement, bool>)>;
+type Judgements = Vec<(f64, u32, u32, Result<Judgement, bool>)>;
 
 #[repr(C)]
 pub struct Judge {
@@ -273,7 +273,7 @@ pub struct Judge {
     // LinkedList::drain_filter is unstable...
     pub notes: Vec<(Vec<u32>, usize)>,
     pub trackers: HashMap<u64, FlickTracker>,
-    pub last_time: f32,
+    pub last_time: f64,
 
     key_down_count: u32,
 
@@ -328,7 +328,7 @@ impl Judge {
         self.judgements.borrow_mut().clear();
     }
 
-    pub fn commit(&mut self, t: f32, what: Judgement, line_id: u32, note_id: u32, diff: f32) {
+    pub fn commit(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64) {
         self.judgements.borrow_mut().push((t, line_id, note_id, Ok(what)));
         self.inner.commit(what, diff);
     }
@@ -398,8 +398,8 @@ impl Judge {
             self.auto_play_update(res, chart);
             return;
         }
-        const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
-        let spd = res.config.speed;
+        const X_DIFF_MAX: f64 = 0.21 / (16. / 9.) * 2.;
+        let spd = res.config.speed as f64;
 
         let uptime = get_uptime();
 
@@ -457,8 +457,8 @@ impl Judge {
             fn to_local(Vec2 { x, y }: Vec2) -> Point {
                 Point::new(x / screen_width() * 2. - 1., y / screen_height() * 2. - 1.)
             }
-            let delta = (t / spd - self.last_time) as f64 / (events.len() + 1) as f64;
-            let mut t = self.last_time as f64;
+            let delta = (t / spd - self.last_time) / (events.len() + 1) as f64;
+            let mut t = self.last_time;
             for Touch {
                 id,
                 phase,
@@ -499,7 +499,7 @@ impl Judge {
                 it.time = if it.time.is_infinite() {
                     f64::NEG_INFINITY
                 } else {
-                    t as f64 - (uptime - it.time) * spd as f64
+                    t - (uptime - it.time) * spd
                 };
                 it
             })
@@ -531,7 +531,7 @@ impl Judge {
             if touch.time.is_infinite() {
                 t
             } else {
-                touch.time as f32
+                touch.time
             }
         };
         let mut judgements = Vec::new();
@@ -564,7 +564,7 @@ impl Judge {
                     let dt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
-                    let dist = (x.now() - pos.x).abs() / note.judge_area;
+                    let dist = (x.now() - pos.x).abs() as f64 / note.judge_area as f64;
                     if dist > X_DIFF_MAX {
                         continue;
                     }
@@ -609,7 +609,7 @@ impl Judge {
                             NoteKind::Hold { .. } => {
                                 note.hitsound.play(res);
                                 self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
-                                note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f32::INFINITY);
+                                note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f64::INFINITY);
                             }
                             _ => unreachable!(),
                         };
@@ -671,7 +671,7 @@ impl Judge {
                         NoteKind::Hold { .. } => {
                             note.hitsound.play(res);
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
-                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f32::INFINITY);
+                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f64::INFINITY);
                         }
                         _ => unreachable!(),
                     };
@@ -693,7 +693,11 @@ impl Judge {
                         let x = &mut note.object.translation.0;
                         x.set_time(t);
                         let x = x.now();
-                        if self.key_down_count == 0 && !pos.iter().any(|it| it.is_some_and(|it| (it.x - x).abs() / note.judge_area <= X_DIFF_MAX)) {
+                        if self.key_down_count == 0
+                            && !pos
+                                .iter()
+                                .any(|it| it.is_some_and(|it| (it.x - x).abs() as f64 / note.judge_area as f64 <= X_DIFF_MAX))
+                        {
                             if t > *up_time + UP_TOLERANCE {
                                 note.judge = JudgeStatus::Judged;
                                 judgements.push((Judgement::Miss, line_id, *id, None));
@@ -701,7 +705,7 @@ impl Judge {
                                 *up_time = t;
                             }
                         } else {
-                            *up_time = f32::INFINITY;
+                            *up_time = f64::INFINITY;
                         }
                         continue;
                     }
@@ -729,7 +733,7 @@ impl Judge {
                 if self.key_down_count != 0
                     || pos.iter().any(|it| {
                         it.is_some_and(|it| {
-                            let dx = (it.x - x).abs() / note.judge_area;
+                            let dx = (it.x - x).abs() as f64 / note.judge_area as f64;
                             dx <= X_DIFF_MAX && dt <= (LIMIT_BAD - LIMIT_PERFECT * (dx - 0.9).max(0.))
                         })
                     })
@@ -825,7 +829,7 @@ impl Judge {
                                 mat *= note.now_transform(
                                     res,
                                     &line.ctrl_obj.borrow_mut(),
-                                    (note.height - line.height.now()) / res.aspect_ratio * note.speed,
+                                    ((note.height - line.height.now() as f64) / res.aspect_ratio as f64 * note.speed) as f32,
                                     incline_sin,
                                 );
                                 mat
@@ -852,7 +856,7 @@ impl Judge {
 
     fn auto_play_update(&mut self, res: &mut Resource, chart: &mut Chart) {
         let t = res.time;
-        let spd = res.config.speed;
+        let spd = res.config.speed as f64;
         let mut judgements = Vec::new();
         for (line_id, (line, (idx, st))) in chart.lines.iter_mut().zip(self.notes.iter_mut()).enumerate() {
             for id in &idx[*st..] {
@@ -875,7 +879,7 @@ impl Judge {
                 note.judge = if matches!(note.kind, NoteKind::Hold { .. }) {
                     note.hitsound.play(res);
                     self.judgements.borrow_mut().push((t, line_id as _, *id, Err(true)));
-                    JudgeStatus::Hold(true, t, (t - note.time) / spd, false, f32::INFINITY)
+                    JudgeStatus::Hold(true, t, (t - note.time) / spd, false, f64::INFINITY)
                 } else {
                     judgements.push((line_id, *id));
                     JudgeStatus::Judged

@@ -917,10 +917,10 @@ impl SongScene {
                                     hash_map::Entry::Occupied(val) => *val.get(),
                                     hash_map::Entry::Vacant(place) => *place.insert(len.try_into().ok()?),
                                 };
-                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it + 1. / 20. >= t) {
+                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it as f64 + 1. / 20. >= t) {
                                     return None;
                                 }
-                                touch_last_update.insert(id, t);
+                                touch_last_update.insert(id, t as f32);
                                 if matches!(it.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
                                     touch_ids.remove(&it.id);
                                     id = !id;
@@ -929,18 +929,18 @@ impl SongScene {
                             })
                             .collect();
                         if !points.is_empty() {
-                            touches.push_back(TouchFrame { time: t, points });
+                            touches.push_back(TouchFrame { time: t as f32, points });
                         }
-                        if last_send_touch_time + 1. < t || touches.len() > 20 {
+                        if last_send_touch_time as f64 + 1. < t || touches.len() > 20 {
                             if touches.is_empty() {
-                                touches.push_back(TouchFrame { time: t, points: Vec::new() });
+                                touches.push_back(TouchFrame { time: t as f32, points: Vec::new() });
                             }
                             let frames = Arc::new(touches.drain(..).collect());
                             client.blocking_send(ClientCommand::Touches { frames }).unwrap();
-                            last_send_touch_time = t;
+                            last_send_touch_time = t as f32;
                         }
                         judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
-                            time: it.0,
+                            time: it.0 as f32,
                             line_id: it.1,
                             note_id: it.2,
                             judgement: {
@@ -956,7 +956,7 @@ impl SongScene {
                                 }
                             },
                         }));
-                        if judges.len() > 10 || judges.front().is_some_and(|it| it.time + 0.6 < t) {
+                        if judges.len() > 10 || judges.front().is_some_and(|it| it.time + 0.6 < t as f32) {
                             let judges = Arc::new(judges.drain(..).collect());
                             client.blocking_send(ClientCommand::Judges { judges }).unwrap();
                         }

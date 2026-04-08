@@ -196,7 +196,7 @@ impl BinaryData for Color {
 impl<T: BinaryData> BinaryData for Keyframe<T> {
     fn read_binary<R: Read>(r: &mut BinaryReader<R>) -> Result<Self> {
         Ok(Self {
-            time: r.time()?,
+            time: r.time()? as f64,
             value: r.read()?,
             tween: {
                 let b = r.read::<u8>()?;
@@ -211,7 +211,7 @@ impl<T: BinaryData> BinaryData for Keyframe<T> {
     }
 
     fn write_binary<W: Write>(&self, w: &mut BinaryWriter<W>) -> Result<()> {
-        w.time(self.time)?;
+        w.time(self.time as f32)?;
         w.write(&self.value)?;
         let tween = self.tween.as_any();
         if let Some(t) = tween.downcast_ref::<StaticTween>() {
@@ -323,8 +323,8 @@ impl BinaryData for Note {
         let kind = match r.read::<u8>()? {
             0 => NoteKind::Click,
             1 => NoteKind::Hold {
-                end_time: r.read()?,
-                end_height: r.read()?,
+                end_time: r.read::<f32>()? as f64,
+                end_height: r.read::<f32>()? as f64,
             },
             2 => NoteKind::Flick,
             3 => NoteKind::Drag,
@@ -335,9 +335,9 @@ impl BinaryData for Note {
             object,
             kind,
             hitsound,
-            time: r.time()?,
-            height: r.read()?,
-            speed: if r.read()? { r.read::<f32>()? } else { 1. },
+            time: r.time()? as f64,
+            height: r.read::<f32>()? as f64,
+            speed: if r.read()? { r.read::<f32>()? as f64 } else { 1. },
             above: r.read()?,
             multiple_hint: false,
             fake: r.read()?,
@@ -356,19 +356,19 @@ impl BinaryData for Note {
             }
             NoteKind::Hold { end_time, end_height } => {
                 w.write_val(1_u8)?;
-                w.write_val(end_time)?;
-                w.write_val(end_height)?;
+                w.write_val(end_time as f32)?;
+                w.write_val(end_height as f32)?;
             }
             NoteKind::Flick => w.write_val(2_u8)?,
             NoteKind::Drag => w.write_val(3_u8)?,
         }
-        w.time(self.time)?;
-        w.write_val(self.height)?;
+        w.time(self.time as f32)?;
+        w.write_val(self.height as f32)?;
         if self.speed == 1.0 {
             w.write_val(false)?;
         } else {
             w.write_val(true)?;
-            w.write_val(self.speed)?;
+            w.write_val(self.speed as f32)?;
         }
         w.write_val(self.above)?;
         w.write_val(self.fake)?;

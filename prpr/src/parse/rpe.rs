@@ -21,12 +21,12 @@ use crate::{
 
 pub const RPE_WIDTH: f32 = 1350.;
 pub const RPE_HEIGHT: f32 = 900.;
-const SPEED_RATIO: f32 = 10. / 45. / HEIGHT_RATIO;
+const SPEED_RATIO: f64 = 10. / 45. / HEIGHT_RATIO;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RPEBpmItem {
-    bpm: f32,
+    bpm: f64,
     start_time: Triple,
 }
 
@@ -88,7 +88,7 @@ impl<T> RPEEvent<T> {
         let right = self.easing_right.clamp(0., 1.);
         if self.bezier != 0 {
             Rc::clone(&bezier_map[&self.bezier_key()])
-        } else if tween <= 2 || (left.abs() < EPS && (right - 1.0).abs() < EPS) || left >= right {
+        } else if tween <= 2 || (left.abs() < EPS as f32 && (right - 1.0).abs() < EPS as f32) || left >= right {
             StaticTween::get_rc(tween)
         } else {
             Rc::new(ClampedTween::new(tween, left..right))
@@ -100,7 +100,7 @@ impl<T> RPEEvent<T> {
 #[serde(rename_all = "camelCase")]
 struct RPECtrlEvent {
     easing: u8,
-    x: f32,
+    x: f64,
     #[serde(flatten)]
     value: HashMap<String, f32>,
 }
@@ -151,7 +151,7 @@ struct RPENote {
     size: f32,
     speed: f32,
     is_fake: u8,
-    visible_time: f32,
+    visible_time: f64,
     #[serde(default)]
     tint: Option<[u8; 3]>,
     #[serde(default)]
@@ -216,7 +216,7 @@ impl SpeedIntegralTween {
     fn try_create(tween: Rc<dyn TweenFunction>, k: f32, b: f32) -> Option<(Rc<dyn TweenFunction>, f32)> {
         let mut result = Self { tween, k, b, total: 0. };
         let total = result.partial(1.);
-        if !total.is_finite() || total.abs() < EPS {
+        if !total.is_finite() || total.abs() < EPS as f32 {
             return None;
         }
         result.total = total;
@@ -250,7 +250,7 @@ impl TweenFunction for SpeedIntegralTween {
 }
 
 fn speed_linear_tween(start_speed: f32, end_speed: f32) -> Rc<dyn TweenFunction> {
-    if (start_speed - end_speed).abs() < EPS {
+    if (start_speed - end_speed).abs() < EPS as f32 {
         StaticTween::get_rc(2)
     } else if start_speed.abs() > end_speed.abs() {
         Rc::new(ClampedTween::new(7 /*quadOut*/, 0.0..(1. - end_speed / start_speed)))
@@ -325,7 +325,7 @@ fn parse_events<T: Tweenable, V: Clone + Into<T>>(
     Ok(Anim::new(kfs))
 }
 
-fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &BezierMap, max_time: f32, mode: SpeedEasingMode) -> Result<AnimFloat> {
+fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &BezierMap, max_time: f64, mode: SpeedEasingMode) -> Result<AnimFloat> {
     let layers: Vec<_> = rpe.iter().filter_map(|it| it.speed_events.as_ref()).collect();
     if layers.is_empty() {
         return Ok(AnimFloat::default());
@@ -339,24 +339,24 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
         events.sort_by_key(|it| it.start_time.beats().not_nan());
 
         let mut kfs = vec![Keyframe::new(0.0, 0.0, 2)];
-        let mut height = 0.0;
-        let mut push_kf = |start_time: f32, end_time: f32, tween: Rc<dyn TweenFunction>, factor: f32| {
+        let mut height = 0f64;
+        let mut push_kf = |start_time: f64, end_time: f64, tween: Rc<dyn TweenFunction>, factor: f32| {
             if end_time - start_time <= EPS {
                 return;
             }
             if let Some(last) = kfs.last_mut() {
                 if (last.time - start_time).abs() < EPS {
-                    last.value = height;
+                    last.value = height as f32;
                     last.tween = tween;
                 } else {
                     kfs.push(Keyframe {
                         time: start_time,
-                        value: height,
+                        value: height as f32,
                         tween,
                     });
                 }
             }
-            height += factor * (end_time - start_time);
+            height += factor as f64 * (end_time - start_time);
         };
 
         let mut cursor = 0.0;
@@ -364,8 +364,8 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
         for event in events {
             let start_time = r.time(&event.start_time).max(cursor);
             let end_time = r.time(&event.end_time).max(start_time);
-            let start_speed = event.start * SPEED_RATIO;
-            let end_speed = event.end * SPEED_RATIO;
+            let start_speed = event.start * SPEED_RATIO as f32;
+            let end_speed = event.end * SPEED_RATIO as f32;
 
             push_kf(cursor, start_time, StaticTween::get_rc(2), last_speed);
             if end_time > start_time + EPS {
@@ -374,7 +374,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
                 } else if event.easing_type <= 1 {
                     if start_speed.signum() * end_speed.signum() < 0. {
                         let x = start_speed / (start_speed - end_speed);
-                        let mid = f32::tween(&start_time, &end_time, x);
+                        let mid = f64::tween(&start_time, &end_time, x);
                         for (start_time, end_time, start, end) in [(start_time, mid, start_speed, 0.), (mid, end_time, 0., end_speed)] {
                             let factor = start.midpoint(end);
                             let tween = speed_linear_tween(start, end);
@@ -397,7 +397,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
         push_kf(cursor, max_time, StaticTween::get_rc(2), last_speed);
         if let Some(last) = kfs.last() {
             if (last.time - max_time).abs() > EPS {
-                kfs.push(Keyframe::new(max_time, height, 0));
+                kfs.push(Keyframe::new(max_time, height as f32, 0));
             }
         }
         anis.push(AnimFloat::new(kfs));
@@ -408,7 +408,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
     Ok(AnimFloat::chain(anis))
 }
 
-fn parse_speed_events_legacy(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f32) -> Result<AnimFloat> {
+fn parse_speed_events_legacy(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f64) -> Result<AnimFloat> {
     let rpe: Vec<_> = rpe.iter().filter_map(|it| it.speed_events.as_ref()).collect();
     if rpe.is_empty() {
         // TODO or is it?
@@ -436,7 +436,7 @@ fn parse_speed_events_legacy(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f
     pts.sort();
     pts.dedup();
     let mut sani = AnimFloat::chain(anis);
-    sani.map_value(|v| v * SPEED_RATIO);
+    sani.map_value(|v| v * SPEED_RATIO as f32);
     for i in 0..(pts.len() - 1) {
         let now_time = *pts[i];
         let end_time = *pts[i + 1];
@@ -445,13 +445,13 @@ fn parse_speed_events_legacy(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f
         sani.set_time(end_time - 1e-4);
         let end_speed = sani.now();
         if speed.signum() * end_speed.signum() < 0. {
-            pts.push(f32::tween(&now_time, &end_time, speed / (speed - end_speed)).not_nan());
+            pts.push(f64::tween(&now_time, &end_time, speed / (speed - end_speed)).not_nan());
         }
     }
     pts.sort();
     pts.dedup();
     let mut kfs = Vec::new();
-    let mut height = 0.0;
+    let mut height = 0f64;
     for i in 0..(pts.len() - 1) {
         let now_time = *pts[i];
         let end_time = *pts[i + 1];
@@ -461,27 +461,27 @@ fn parse_speed_events_legacy(r: &mut BpmList, rpe: &[RPEEventLayer], max_time: f
         // using end_time causes Hold tween (x |-> 0) to be recognized as Linear tween (x |-> x)
         sani.set_time(end_time - 1e-4);
         let end_speed = sani.now();
-        kfs.push(if (speed - end_speed).abs() < EPS {
-            Keyframe::new(now_time, height, 2)
+        kfs.push(if (speed - end_speed).abs() < EPS as f32 {
+            Keyframe::new(now_time, height as f32, 2)
         } else if speed.abs() > end_speed.abs() {
             Keyframe {
                 time: now_time,
-                value: height,
+                value: height as f32,
                 tween: Rc::new(ClampedTween::new(7 /*quadOut*/, 0.0..(1. - end_speed / speed))),
             }
         } else {
             Keyframe {
                 time: now_time,
-                value: height,
+                value: height as f32,
                 tween: Rc::new(ClampedTween::new(6 /*quadIn*/, (speed / end_speed)..1.)),
             }
         });
-        height += (speed + end_speed) * (end_time - now_time) / 2.;
+        height += (speed + end_speed) as f64 * (end_time - now_time) / 2.;
     }
     if kfs.is_empty() {
         return Ok(Anim::default());
     }
-    kfs.push(Keyframe::new(max_time, height, 0));
+    kfs.push(Keyframe::new(max_time, height as f32, 0));
     Ok(AnimFloat::new(kfs))
 }
 
@@ -490,27 +490,27 @@ fn parse_gif_events<V: Clone + Into<f32>>(r: &mut BpmList, rpe: &[RPEEvent<V>], 
     kfs.push(Keyframe::new(0.0, 0.0, 2));
     let mut next_rep_time: u128 = 0;
     for e in rpe {
-        while r.time(&e.start_time) > next_rep_time as f32 / 1000. {
-            kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
-            kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
+        while r.time(&e.start_time) > next_rep_time as f64 / 1000. {
+            kfs.push(Keyframe::new(next_rep_time as f64 / 1000., 1.0, 0));
+            kfs.push(Keyframe::new(next_rep_time as f64 / 1000., 0.0, 2));
             next_rep_time += gif.total_time();
         }
-        let stop_prog = 1. - (next_rep_time as f32 - r.time(&e.start_time) * 1000.) / gif.total_time() as f32;
-        kfs.push(Keyframe::new(r.time(&e.start_time), stop_prog, 0));
+        let stop_prog = 1. - (next_rep_time as f64 - r.time(&e.start_time) * 1000.) / gif.total_time() as f64;
+        kfs.push(Keyframe::new(r.time(&e.start_time), stop_prog as f32, 0));
         kfs.push(Keyframe {
             time: r.time(&e.start_time),
             value: e.start.clone().into(),
             tween: e.tween(bezier_map),
         });
         kfs.push(Keyframe::new(r.time(&e.end_time), e.end.clone().into(), 2));
-        next_rep_time = (r.time(&e.end_time) * 1000. + gif.total_time() as f32 * (1. - e.end.clone().into())).round() as u128;
+        next_rep_time = (r.time(&e.end_time) * 1000. + gif.total_time() as f64 * (1. - e.end.clone().into()) as f64).round() as u128;
     }
 
     // TODO maybe a better approach?
-    const GIF_MAX_TIME: f32 = 2000.;
-    while GIF_MAX_TIME > next_rep_time as f32 / 1000. {
-        kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 1.0, 0));
-        kfs.push(Keyframe::new(next_rep_time as f32 / 1000., 0.0, 2));
+    const GIF_MAX_TIME: f64 = 2000.;
+    while GIF_MAX_TIME > next_rep_time as f64 / 1000. {
+        kfs.push(Keyframe::new(next_rep_time as f64 / 1000., 1.0, 0));
+        kfs.push(Keyframe::new(next_rep_time as f64 / 1000., 0.0, 2));
         next_rep_time += gif.total_time();
     }
     if kfs.is_empty() {
@@ -528,7 +528,7 @@ async fn parse_notes(
 ) -> Result<Vec<Note>> {
     let mut notes = Vec::new();
     for note in rpe {
-        let time: f32 = r.time(&note.start_time);
+        let time = r.time(&note.start_time);
         height.set_time(time);
         let note_height = height.now();
         let y_offset = note.y_offset * 2. / RPE_HEIGHT * note.speed;
@@ -539,7 +539,7 @@ async fn parse_notes(
                 height.set_time(end_time);
                 NoteKind::Hold {
                     end_time,
-                    end_height: height.now(),
+                    end_height: height.now() as f64,
                 }
             }
             3 => NoteKind::Flick,
@@ -588,8 +588,8 @@ async fn parse_notes(
             kind,
             hitsound,
             time,
-            height: note_height,
-            speed: note.speed,
+            height: note_height as f64,
+            speed: note.speed as f64,
             color: note.tint.map_or(WHITE, |[r, g, b]| Color::from_rgba(r, g, b, 255)),
             fx_color: note.tint_hit_effects.map(|[r, g, b]| Color::from_rgba(r, g, b, 255)),
             judge_area: note.judge_area.unwrap_or(1.0),
@@ -635,7 +635,7 @@ fn parse_ctrl_events(rpe: &[RPECtrlEvent], key: &str) -> AnimFloat {
 async fn parse_judge_line(
     r: &mut BpmList,
     rpe: RPEJudgeLine,
-    max_time: f32,
+    max_time: f64,
     speed_mode: SpeedEasingMode,
     fs: &mut dyn FileSystem,
     use_rpe_170_speed: bool,

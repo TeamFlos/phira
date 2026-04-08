@@ -3,13 +3,13 @@ use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Keyframe<T> {
-    pub time: f32,
+    pub time: f64,
     pub value: T,
     pub tween: Rc<dyn TweenFunction>,
 }
 
 impl<T> Keyframe<T> {
-    pub fn new(time: f32, value: T, tween: TweenId) -> Self {
+    pub fn new(time: f64, value: T, tween: TweenId) -> Self {
         Self {
             time,
             value,
@@ -21,7 +21,7 @@ impl<T> Keyframe<T> {
 #[derive(Clone)]
 /// Anim Tween Function is using the `tween` value of the first keyframe of an interval `(kf1, kf2)`
 pub struct Anim<T: Tweenable> {
-    pub time: f32,
+    pub time: f64,
     pub keyframes: Box<[Keyframe<T>]>,
     pub cursor: usize,
     /// Next Anim to chain
@@ -86,7 +86,7 @@ impl<T: Tweenable> Anim<T> {
         self.cursor + 1 >= self.keyframes.len()
     }
 
-    pub fn set_time(&mut self, time: f32) {
+    pub fn set_time(&mut self, time: f64) {
         if self.keyframes.is_empty() || time == self.time {
             self.time = time;
             return;
@@ -116,7 +116,7 @@ impl<T: Tweenable> Anim<T> {
             let kf1 = &self.keyframes[self.cursor];
             let kf2 = &self.keyframes[self.cursor + 1];
             let t = (self.time - kf1.time) / (kf2.time - kf1.time);
-            T::tween(&kf1.value, &kf2.value, kf1.tween.y(t))
+            T::tween(&kf1.value, &kf2.value, kf1.tween.y(t as f32))
         })
     }
 
@@ -153,7 +153,7 @@ impl AnimVector {
         Self(AnimFloat::fixed(v.x), AnimFloat::fixed(v.y))
     }
 
-    pub fn set_time(&mut self, time: f32) {
+    pub fn set_time(&mut self, time: f64) {
         self.0.set_time(time);
         self.1.set_time(time);
     }

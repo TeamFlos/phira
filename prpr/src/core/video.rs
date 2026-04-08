@@ -26,8 +26,8 @@ pub struct Video {
     tex_u: Texture2D,
     tex_v: Texture2D,
 
-    start_time: f32,
-    pub duration: f32,
+    start_time: f64,
+    pub duration: f64,
     last_pts: i64,
     scale_type: ScaleType,
     alpha: Anim<f32>,
@@ -48,12 +48,12 @@ fn new_tex(w: u32, h: u32) -> Texture2D {
 }
 
 impl Video {
-    pub fn new(data: Vec<u8>, start_time: f32, scale_type: ScaleType, alpha: Anim<f32>, dim: Anim<f32>) -> Result<Self> {
+    pub fn new(data: Vec<u8>, start_time: f64, scale_type: ScaleType, alpha: Anim<f32>, dim: Anim<f32>) -> Result<Self> {
         let mut video_file = NamedTempFile::new()?;
         video_file.write_all(&data)?;
         drop(data);
         let video = prpr_avc::Video::open(video_file.path().as_os_str().to_str().unwrap(), AVPixelFormat::YUV420P)?;
-        let duration = video.duration() as f32;
+        let duration = video.duration();
         let format = video.stream_format();
         let w = format.width as u32;
         let h = format.height as u32;
@@ -96,8 +96,8 @@ impl Video {
         &self.video_file
     }
 
-    pub fn update(&mut self, t: f32) -> Result<()> {
-        if !(0f32..self.duration).contains(&(t - self.start_time)) {
+    pub fn update(&mut self, t: f64) -> Result<()> {
+        if !(0f64..self.duration).contains(&(t - self.start_time)) {
             return Ok(());
         }
         self.alpha.set_time(t);
@@ -131,8 +131,8 @@ impl Video {
         Ok(())
     }
 
-    pub fn render(&self, t: f32, aspect_ratio: f32, color: Color) {
-        if !(0f32..self.duration).contains(&(t - self.start_time)) {
+    pub fn render(&self, t: f64, aspect_ratio: f32, color: Color) {
+        if !(0f64..self.duration).contains(&(t - self.start_time)) {
             return;
         }
         gl_use_material(self.material);

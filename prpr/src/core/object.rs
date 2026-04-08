@@ -22,7 +22,7 @@ impl Object {
             && self.translation.1.is_default()
     }
 
-    pub fn set_time(&mut self, time: f32) {
+    pub fn set_time(&mut self, time: f64) {
         self.alpha.set_time(time);
         self.scale.0.set_time(time);
         self.scale.1.set_time(time);
@@ -89,7 +89,7 @@ pub struct CtrlObject {
 }
 
 impl CtrlObject {
-    pub fn set_height(&mut self, height: f32) {
+    pub fn set_height(&mut self, height: f64) {
         self.alpha.set_time(height);
         self.size.set_time(height);
         self.pos.set_time(height);

@@ -22,7 +22,7 @@ const BEFORE_TIME: f32 = 1.;
 const FADE_IN_TIME: f32 = 0.6;
 
 pub type UploadFn = Arc<dyn Fn(Vec<u8>) -> Task<Result<RecordUpdateState>>>;
-pub type UpdateFn = Box<dyn FnMut(f32, &mut Resource, &mut Judge)>;
+pub type UpdateFn = Box<dyn FnMut(f64, &mut Resource, &mut Judge)>;
 pub type SaveFn = Box<dyn Fn(SimpleRecord) -> Result<()>>;
 
 fn transition_time() -> Option<f32> {

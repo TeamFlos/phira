@@ -92,7 +92,8 @@ pub struct JudgeLineCache {
 
 impl JudgeLineCache {
     pub fn new(notes: &mut [Note]) -> Self {
-        notes.sort_by_key(|it| (it.plain(), !it.above, it.speed.not_nan(), ((it.height + it.object.translation.1.now()) * it.speed).not_nan()));
+        notes
+            .sort_by_key(|it| (it.plain(), !it.above, it.speed.not_nan(), ((it.height + it.object.translation.1.now() as f64) * it.speed).not_nan()));
         let mut res = Self {
             update_order: Vec::new(),
             not_plain_count: 0,
@@ -164,7 +165,7 @@ impl JudgeLine {
         let mut ctrl_obj = self.ctrl_obj.borrow_mut();
         self.cache.update_order.retain(|id| {
             let note = &mut self.notes[*id as usize];
-            note.update(res, parent_rot, &tr, &mut ctrl_obj, line_height);
+            note.update(res, parent_rot, &tr, &mut ctrl_obj, line_height as f64);
             !note.dead()
         });
         drop(ctrl_obj);
@@ -356,8 +357,8 @@ impl JudgeLine {
             let mut config = RenderConfig {
                 settings,
                 ctrl_obj: &mut self.ctrl_obj.borrow_mut(),
-                line_height: self.height.now(),
-                appear_before: f32::INFINITY,
+                line_height: self.height.now() as f64,
+                appear_before: f64::INFINITY,
                 draw_below: self.show_below,
                 incline_sin: self.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default(),
             };
@@ -374,7 +375,7 @@ impl JudgeLine {
                         config.draw_below = false;
                     }
                     w if (100..1000).contains(&w) => {
-                        config.appear_before = (w as f32 - 100.) / 10.;
+                        config.appear_before = (w as f64 - 100.) / 10.;
                     }
                     w if (1000..2000).contains(&w) => {
                         // TODO unsupported
@@ -397,12 +398,12 @@ impl JudgeLine {
             }
             for index in &self.cache.above_indices {
                 let speed = self.notes[*index].speed;
-                let limit = height_above / speed;
+                let limit = height_above as f64 / speed;
                 for note in self.notes[*index..].iter() {
                     if !note.above || speed != note.speed {
                         break;
                     }
-                    if agg && note.height - config.line_height + note.object.translation.1.now() > limit {
+                    if agg && note.height - config.line_height + note.object.translation.1.now() as f64 > limit {
                         break;
                     }
                     note.render(res, &mut config, bpm_list);
@@ -414,12 +415,12 @@ impl JudgeLine {
                 }
                 for index in &self.cache.below_indices {
                     let speed = self.notes[*index].speed;
-                    let limit = height_below / speed;
+                    let limit = height_below as f64 / speed;
                     for note in self.notes[*index..].iter() {
                         if speed != note.speed {
                             break;
                         }
-                        if agg && note.height - config.line_height + note.object.translation.1.now() > limit {
+                        if agg && note.height - config.line_height + note.object.translation.1.now() as f64 > limit {
                             break;
                         }
                         note.render(res, &mut config, bpm_list);

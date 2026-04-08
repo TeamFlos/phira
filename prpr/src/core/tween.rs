@@ -553,6 +553,16 @@ impl Tweenable for f32 {
     }
 }
 
+impl Tweenable for f64 {
+    fn tween(x: &Self, y: &Self, t: f32) -> Self {
+        x + (y - x) * t as f64
+    }
+
+    fn add(x: &Self, y: &Self) -> Self {
+        x + y
+    }
+}
+
 impl Tweenable for Vec2 {
     fn tween(x: &Self, y: &Self, t: f32) -> Self {
         vec2(f32::tween(&x.x, &y.x, t), f32::tween(&x.y, &y.y, t))

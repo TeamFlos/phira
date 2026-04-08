@@ -412,7 +412,7 @@ pub struct Resource {
     pub last_vp: (i32, i32, i32, i32),
     pub note_width: f32,
 
-    pub time: f32,
+    pub time: f64,
 
     pub alpha: f32,
     pub judge_line_color: Color,
@@ -434,7 +434,7 @@ pub struct Resource {
 
     pub audio: AudioManager,
     pub music: AudioClip,
-    pub track_length: f32,
+    pub track_length: f64,
     pub sfx_click: Sfx,
     pub sfx_drag: Sfx,
     pub sfx_flick: Sfx,
@@ -517,7 +517,7 @@ impl Resource {
         let sfx_flick = audio.create_sfx(res_pack.sfx_flick.clone(), buffer_size)?;
 
         let aspect_ratio = config.aspect_ratio.unwrap_or(info.aspect_ratio);
-        let note_width = config.note_scale * NOTE_WIDTH_RATIO_BASE;
+        let note_width = config.note_scale * NOTE_WIDTH_RATIO_BASE as f32;
         let note_scale = config.note_scale;
 
         let emitter = ParticleEmitter::new(&res_pack, note_scale, res_pack.info.hide_particles)?;

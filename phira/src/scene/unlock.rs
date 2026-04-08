@@ -33,7 +33,7 @@ pub struct UnlockScene {
     render_target: Option<RenderTarget>,
     video: Video,
     bgm: Option<Bgm>,
-    music_length: f32,
+    music_length: f64,
 
     background: SafeTexture,
 
@@ -133,7 +133,7 @@ impl Scene for UnlockScene {
             }
         }
 
-        let t = tm.now() as f32;
+        let t = tm.now();
         match self.state {
             State::Before => {
                 if t > 0.5 {
@@ -185,7 +185,7 @@ impl Scene for UnlockScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut prpr::ui::Ui) -> Result<()> {
         let mut cam = ui.camera();
         let asp = -cam.zoom.y;
-        let t = tm.now() as f32;
+        let t = tm.now();
         cam.render_target = self.render_target;
         set_camera(&cam);
         clear_background(BLACK);
@@ -202,7 +202,7 @@ impl Scene for UnlockScene {
                 ui.loading(
                     1. - pad,
                     top - pad,
-                    t,
+                    t as f32,
                     WHITE,
                     LoadingParams {
                         width: 0.01,
@@ -215,11 +215,11 @@ impl Scene for UnlockScene {
                 let top = 1. / asp;
                 if t < 0.5 {
                     let pad = 0.07;
-                    let alpha = if t < 0.5 { 1. - t / 0.5 } else { 0. }; // TODO: more smoothly
+                    let alpha = if t < 0.5 { 1. - t as f32 / 0.5 } else { 0. }; // TODO: more smoothly
                     ui.loading(
                         1. - pad,
                         top - pad,
-                        t,
+                        t as f32,
                         semi_white(alpha),
                         LoadingParams {
                             width: 0.01,
@@ -228,7 +228,7 @@ impl Scene for UnlockScene {
                         },
                     );
                 } else {
-                    let alpha = if t < 0.5 { t / 0.5 * 0.3 } else { 0.3 };
+                    let alpha = if t < 0.5 { t as f32 / 0.5 * 0.3 } else { 0.3 };
                     let r = ui.screen_rect();
                     ui.fill_rect(r, (*self.background, r));
                     ui.fill_rect(r, semi_black(alpha));

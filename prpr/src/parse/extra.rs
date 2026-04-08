@@ -66,7 +66,7 @@ impl<V> ExtAnim<V> {
                         value: e.start.into(),
                         tween: {
                             let tween = RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
-                            if e.easing_left.abs() < EPS && (e.easing_right - 1.0).abs() < EPS {
+                            if e.easing_left.abs() < EPS as f32 && (e.easing_right - 1.0).abs() < EPS  as f32{
                                 StaticTween::get_rc(tween)
                             } else {
                                 Rc::new(ClampedTween::new(tween, e.easing_left..e.easing_right))
@@ -85,13 +85,13 @@ impl<V> ExtAnim<V> {
 #[serde(rename_all = "camelCase")]
 struct ExtBpmItem {
     time: Triple,
-    bpm: f32,
+    bpm: f64,
 }
 
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum BpmForm {
-    Single(f32),
+    Single(f64),
     List(Vec<ExtBpmItem>),
 }
 
