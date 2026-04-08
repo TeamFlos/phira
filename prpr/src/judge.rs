@@ -154,7 +154,7 @@ pub enum Judgement {
 #[cfg(not(closed))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
-    diffs: Vec<f32>,
+    diffs: Vec<f64>,
 
     combo: u32,
     max_combo: u32,
@@ -179,7 +179,7 @@ impl JudgeInner {
         }
     }
 
-    pub fn commit(&mut self, what: Judgement, diff: f32) {
+    pub fn commit(&mut self, what: Judgement, diff: f64) {
         use Judgement::*;
         if matches!(what, Judgement::Good) {
             self.diffs.push(diff);
