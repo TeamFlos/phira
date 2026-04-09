@@ -96,3 +96,4 @@ item-audio-buffer-size = Размер буфера звука
 item-show-avg-fps = Показать сред.частоту FPS
 item-ap-fc-indicator = Индикатор AP/FC
 item-ap-fc-indicator-sub = Использовать цвет линии для показа статуса AP/FC.
+item-show-avg-fps-sub = Показать среднее значение FPS в экране результатов
