@@ -1,4 +1,3 @@
-
 edit-chart = Edit Chart
 level-displayed = Level
 chart-name = Name
@@ -29,5 +28,4 @@ tags = Tags
 tag-exists = Duplicate tag detected.
 rpe-170-speed = New Speed Tween
 attach-ui-fix = Attach UI Fix
-
 illegal-input = Unallowed input.
