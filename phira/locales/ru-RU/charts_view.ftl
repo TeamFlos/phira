@@ -1,1 +1,6 @@
 select = Выбрать
+move-to-first = Перейти к первому
+move-to-last = Перейти к последнему
+move-before = Перемести до…
+move-after = Перемести после…
+choose-target = Пожалуйста, выберите объект
