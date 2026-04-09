@@ -1,5 +1,4 @@
-
-edit-chart = Бийтмапийг засах
+edit-chart = Chart-ыг засварлах
 level-displayed = Левел
 chart-name = Нэр
 author = Мап хийгч
@@ -23,5 +22,4 @@ tip = Зөвлөмж
 intro = Танилцуулга
 tags = Шошгууд
 tag-exists = Шошго аль хэдийн байна
-
 illegal-input = Буруу оруулга
