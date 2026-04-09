@@ -26,3 +26,6 @@ intro = Описание
 tags = Теги
 tag-exists = Этот тег уже присутствует
 illegal-input = Неправильно введены данные
+how-to-add-collaborator = Как добавить соавторов
+rpe-170-speed = Новый твин скорости
+attach-ui-fix = Исправление привязки UI
