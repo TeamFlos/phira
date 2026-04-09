@@ -1,7 +1,5 @@
-
-info-fail = Мэдээллийг ачаалахад амжилтгүй боллоо
-invalid-chart = Буруу бийтмап
-
+info-fail = Chart-ын мэдээллийг ачаалахад амжилтгүй боллоо
+invalid-chart = Хүчингүй chart
 importing = Импорт хийж байна
 import-success = Амжилттай импорт хийгдэв
 import-failed = Импорт хийхэд амжилтгүй боллоо
