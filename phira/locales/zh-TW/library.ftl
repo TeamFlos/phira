@@ -31,3 +31,4 @@ multi-removed-from-fav = 已從收藏夾移除
 multi-select-all = 選取全部
 multi-select-invert = 反向選取
 fav-created = 收藏夾建立成功
+exported = 已匯出
