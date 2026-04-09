@@ -933,7 +933,10 @@ impl SongScene {
                         }
                         if last_send_touch_time as f64 + 1. < t || touches.len() > 20 {
                             if touches.is_empty() {
-                                touches.push_back(TouchFrame { time: t as f32, points: Vec::new() });
+                                touches.push_back(TouchFrame {
+                                    time: t as f32,
+                                    points: Vec::new(),
+                                });
                             }
                             let frames = Arc::new(touches.drain(..).collect());
                             client.blocking_send(ClientCommand::Touches { frames }).unwrap();
