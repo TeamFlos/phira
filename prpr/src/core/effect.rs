@@ -165,7 +165,7 @@ impl Effect {
         for uniform in &self.uniforms {
             uniform.apply(&self.material);
         }
-        self.material.set_uniform("time", self.t);
+        self.material.set_uniform("time", self.t as f32);
         let target = res.chart_target.as_mut().unwrap();
         target.swap();
         let tex = target.old().texture;
