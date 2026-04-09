@@ -11,3 +11,4 @@ upload-failed = Загрузка не удалась
 upload-cancel = Отменить загрузку
 upload-retry = Повторить
 still-uploading = Загружаем в таблицу лидеров
+detail = ПОДРОБНОСТИ
