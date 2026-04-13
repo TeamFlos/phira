@@ -21,7 +21,7 @@ pub struct VideoAttach {
     pub rotation_factor: f32,
     pub alpha_factor: f32,
     pub tint_factor: f32,
-    // TODO: rotation_factor scale_x_mode scale_y_mode
+    // TODO: scale_x_mode scale_y_mode
 }
 
 pub struct Video {
