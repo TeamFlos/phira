@@ -152,11 +152,13 @@ impl Chart {
                     let mat = Rotation2::new(
                         self.lines[attach.line].fetch_rot(&self.lines).to_radians() * attach.rotation_factor).to_homogeneous()
                         .append_translation(&self.lines[attach.line].fetch_pos(res, &self.lines).component_mul(&Vector::new(attach.position_x_factor, attach.position_y_factor)));
-                    res.apply_model_of(&mat, |res| {
+                    res.apply_model_of(&mat.append_nonuniform_scaling(&Vector::new(1., -1.)), |res| {
                         video.render(res.time, res.aspect_ratio, color);
                     });
                 } else {
-                    video.render(res.time, res.aspect_ratio, WHITE);
+                    res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(1., -1.)), |res| {
+                        video.render(res.time, res.aspect_ratio, WHITE);
+                    });
                 }
             }
 
