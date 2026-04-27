@@ -417,7 +417,7 @@ impl Scene for MainScene {
                 "_import_respack" => {
                     let root = dir::respacks()?;
                     let dir = prpr::dir::Dir::new(&root)?;
-                    let mut dir_id = String::new();
+                    let mut dir_id: Option<String> = None;
                     let item: Result<ResPackItem> = (|| {
                         let config = {
                             let mut zip = zip::ZipArchive::new(BufReader::new(File::open(&file)?))?;
@@ -462,17 +462,20 @@ impl Scene for MainScene {
                         while dir.exists(uuid.to_string())? {
                             uuid = Uuid::new_v4();
                         }
-                        dir_id = uuid.to_string();
-                        dir.create_dir_all(&dir_id)?;
-                        let dir = dir.open_dir(&dir_id)?;
+                        let id = uuid.to_string();
+                        dir_id = Some(id.clone());
+                        dir.create_dir_all(&id)?;
+                        let dir = dir.open_dir(&id)?;
                         unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
-                        get_data_mut().respacks.push(dir_id.clone());
+                        get_data_mut().respacks.push(id.clone());
                         save_data()?;
-                        Ok(ResPackItem::new(Some(format!("{root}/{dir_id}").into()), config.name))
+                        Ok(ResPackItem::new(Some(format!("{root}/{id}").into()), config.name))
                     })();
                     match item {
                         Err(err) => {
-                            dir.remove_dir_all(&dir_id)?;
+                            if let Some(id) = &dir_id {
+                                dir.remove_dir_all(id)?;
+                            }
                             show_error(err.context(itl!("import-respack-failed")));
                         }
                         Ok(item) => {
