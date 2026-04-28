@@ -473,10 +473,10 @@ impl Scene for MainScene {
                     })();
                     match item {
                         Err(err) => {
+                            show_error(err.context(itl!("import-respack-failed")));
                             if let Some(id) = &dir_id {
                                 dir.remove_dir_all(id)?;
                             }
-                            show_error(err.context(itl!("import-respack-failed")));
                         }
                         Ok(item) => {
                             RESPACK_ITEM.with(|it| *it.borrow_mut() = Some(item));
