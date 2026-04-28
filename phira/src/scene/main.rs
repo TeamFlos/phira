@@ -463,9 +463,9 @@ impl Scene for MainScene {
                             uuid = Uuid::new_v4();
                         }
                         let id = uuid.to_string();
-                        dir_id = Some(id.clone());
                         dir.create_dir_all(&id)?;
                         let dir = dir.open_dir(&id)?;
+                        dir_id = Some(id.clone());
                         unzip_into(BufReader::new(File::open(file)?), &dir, false).context("failed to unzip")?;
                         get_data_mut().respacks.push(id.clone());
                         save_data()?;
