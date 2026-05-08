@@ -20,6 +20,7 @@ pub mod log;
 #[cfg(closed)]
 pub mod inner;
 
+use miniquad::conf::{LinuxBackend, LinuxX11Gl, Platform};
 pub use scene::Main;
 
 pub fn build_conf() -> macroquad::window::Conf {
@@ -27,6 +28,12 @@ pub fn build_conf() -> macroquad::window::Conf {
         window_title: "Phira".to_string(),
         window_width: 973,
         window_height: 608,
+        platform: Platform {
+            linux_x11_gl: LinuxX11Gl::GLXWithEGLFallback,
+            swap_interval: None,
+            linux_backend: LinuxBackend::WaylandWithX11Fallback,
+            framebuffer_alpha: false,
+        },
         ..Default::default()
     }
 }
