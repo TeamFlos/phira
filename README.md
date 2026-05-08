@@ -1,15 +1,22 @@
-# Phira
+# PhiraWayland
 
 ![Phira Showcase](https://phira.5wyxi.com/files/github-showcase.png)
 
 [中文版本](./README-zh_CN.md)
 
+## What the hell is this?
+
+PhiraWayland is a modified version of Phira for Linux users using the Wayland desktop. Essentially, it's a modification of its engine, miniquad.
+
+This allows it to run in pure Wayland mode, supports multi-touch, and solves the problem of touch being interpreted as swiping or the single-touch limitation in XWayland.
+
 ## Download
 
-- [GitHub Release](https://github.com/TeamFlos/phira/releases): For Android, Windows and Linux
-- [616.sb mirror](https://616.sb/#phira): Android only
-- [App Store](https://apps.apple.com/us/app/phira/id6447435864): For iOS
-- ~~[.ipa Release](https://github.com/F-Unction/phira_ipa/releases): For iOS~~
+- [Github Releases](https://github.com/AkiharaHoshina/phiraWayland/releases): Linux x86-64
+
+## About the modified engine
+
+- [prpr-MiniquadWayland](https://github.com/AkiharaHoshina/prpr-miniquadWayland) and [prpr-MacroquadWayland](https://github.com/AkiharaHoshina/prpr-macroquadWayland#)
 
 ## Contribution
 
