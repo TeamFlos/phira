@@ -11,7 +11,7 @@ use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GeneralIntTween, GifFrames,
         HitSoundMap, IntClampedTween, IntStaticTween, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween,
-        Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
+        Triple, TweenFunction, Tweenable, UIElement, Vector, EPS, HEIGHT_RATIO,
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
@@ -689,7 +689,18 @@ async fn parse_judge_line(
                     res.map_value(|v| v * factor);
                     Ok(res)
                 }
-                let factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
+                let image_factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
+                let line_factor = if rpe.texture == "line.png"
+                        && rpe.extended
+                            .as_ref()
+                            .and_then(|it| it.text_events.as_ref())
+                            .is_none_or(|it| it.is_empty())
+                        && rpe.attach_ui.is_none()
+                    {
+                        4000. / RPE_WIDTH / 6.
+                    } else {
+                        1.
+                    };
                 rpe.extended
                     .as_ref()
                     .map(|e| -> Result<_> {
@@ -697,26 +708,14 @@ async fn parse_judge_line(
                             parse(
                                 r,
                                 &e.scale_x_events,
-                                factor
-                                    * if rpe.texture == "line.png"
-                                        && rpe
-                                            .extended
-                                            .as_ref()
-                                            .and_then(|it| it.text_events.as_ref())
-                                            .is_none_or(|it| it.is_empty())
-                                        && rpe.attach_ui.is_none()
-                                    {
-                                        0.5
-                                    } else {
-                                        1.
-                                    },
+                                image_factor * line_factor,
                                 bezier_map,
                             )?,
-                            parse(r, &e.scale_y_events, factor, bezier_map)?,
+                            parse(r, &e.scale_y_events, image_factor, bezier_map)?,
                         ))
                     })
                     .transpose()?
-                    .unwrap_or_default()
+                    .unwrap_or(AnimVector::fixed(Vector::new(image_factor * line_factor, image_factor)))
             },
         },
         ctrl_obj: RefCell::new(CtrlObject {
