@@ -690,17 +690,6 @@ async fn parse_judge_line(
                     Ok(res)
                 }
                 let image_factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
-                let line_factor = if rpe.texture == "line.png"
-                        && rpe.extended
-                            .as_ref()
-                            .and_then(|it| it.text_events.as_ref())
-                            .is_none_or(|it| it.is_empty())
-                        && rpe.attach_ui.is_none()
-                    {
-                        4000. / RPE_WIDTH / 6.
-                    } else {
-                        1.
-                    };
                 rpe.extended
                     .as_ref()
                     .map(|e| -> Result<_> {
@@ -708,14 +697,14 @@ async fn parse_judge_line(
                             parse(
                                 r,
                                 &e.scale_x_events,
-                                image_factor * line_factor,
+                                image_factor,
                                 bezier_map,
                             )?,
                             parse(r, &e.scale_y_events, image_factor, bezier_map)?,
                         ))
                     })
                     .transpose()?
-                    .unwrap_or(AnimVector::fixed(Vector::new(image_factor * line_factor, image_factor)))
+                    .unwrap_or(AnimVector::fixed(Vector::new(image_factor, image_factor)))
             },
         },
         ctrl_obj: RefCell::new(CtrlObject {
