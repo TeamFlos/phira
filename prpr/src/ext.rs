@@ -414,6 +414,7 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
         use sasa::backend::cpal::*;
         AudioManager::new(CpalBackend::new(CpalSettings {
             buffer_size: config.audio_buffer_size,
+            preferred_sample_rate: Some(48000)
         }))
     }
 }
