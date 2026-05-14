@@ -13,8 +13,15 @@ thread_local! {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VideoAttach {
     pub line: usize,
+    pub position_x_factor: f32,
+    pub position_y_factor: f32,
+    pub rotation_factor: f32,
+    pub alpha_factor: f32,
+    pub tint_factor: f32,
+    // TODO: scale_x_mode scale_y_mode
 }
 
 pub struct Video {
