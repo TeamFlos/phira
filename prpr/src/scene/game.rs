@@ -155,10 +155,6 @@ pub struct GameScene {
     fps_last_frame_time: f64,
 
     dead: bool,
-
-    /// MP4 export support: when present, every rendered frame is read back
-    /// and piped into ffmpeg.
-    exporter: Option<crate::export::Exporter>,
 }
 
 macro_rules! reset {
@@ -352,11 +348,9 @@ impl GameScene {
             fps_last_frame_time: 0.0,
 
             dead: false,
-
-            exporter: None,
         };
 
-        // Pick up any pending replay/record/export configuration queued by
+        // Pick up any pending replay/record configuration queued by
         // the caller before returning.
         if let Some(replay) = crate::replay::take_pending_playback() {
             this.judge.set_replay_data(replay);
@@ -373,9 +367,6 @@ impl GameScene {
                 );
             }
         }
-        if let Some(exp) = crate::export::take_pending_exporter() {
-            this.set_exporter(exp);
-        }
         Ok(this)
     }
 
@@ -388,13 +379,6 @@ impl GameScene {
                 ..Default::default()
             },
         )
-    }
-
-    /// Enable MP4 export: every rendered frame will be captured and piped
-    /// into `ffmpeg` to produce the output file.
-    pub fn set_exporter(&mut self, exporter: crate::export::Exporter) {
-        self.res.camera.render_target = Some(exporter.render_target());
-        self.exporter = Some(exporter);
     }
 
     fn touch_scale(&self) -> f32 {
@@ -909,8 +893,7 @@ impl Scene for GameScene {
         #[cfg(target_env = "ohos")]
         miniquad::native::set_interceptor_state(true);
         self.music = Self::new_music(&mut self.res)?;
-        let final_target = self.exporter.as_ref().map(|e| e.render_target()).or(target);
-        self.res.camera.render_target = final_target;
+        self.res.camera.render_target = target;
         tm.speed = self.res.config.speed as _;
         tm.adjust_time = self.res.config.adjust_time;
         reset!(self, self.res, tm);
@@ -1026,13 +1009,6 @@ impl Scene for GameScene {
                                 }
                             }
                         }
-                    }
-
-                    // Finalize any MP4 export in progress and publish
-                    // the result so the host page can react to it.
-                    if let Some(exp) = self.exporter.take() {
-                        let result = exp.finish().map_err(|e| e.to_string());
-                        crate::export::publish_export_result(result);
                     }
 
                     let mut record_data = None;
@@ -1347,38 +1323,6 @@ impl Scene for GameScene {
             }
         }
 
-        // MP4 export: after all rendering is done, pump the offscreen render
-        // target into the ffmpeg subprocess, then draw the same frame to the
-        // user-visible screen so they can watch progress.
-        if let Some(exp) = self.exporter.as_mut() {
-            self.gl.flush();
-            if let Err(e) = exp.capture_frame() {
-                tracing::warn!("export capture failed: {e:?}");
-            }
-            let tex = exp.render_target().texture;
-            push_camera_state();
-            self.gl.quad_gl.render_pass(None);
-            self.gl.quad_gl.viewport(Some(ui.viewport));
-            set_camera(&Camera2D {
-                zoom: vec2(1., asp),
-                render_target: None,
-                viewport: Some(ui.viewport),
-                ..Default::default()
-            });
-            clear_background(BLACK);
-            draw_texture_ex(
-                tex,
-                -1.,
-                -ui.top,
-                WHITE,
-                DrawTextureParams {
-                    dest_size: Some(vec2(2., ui.top * 2.)),
-                    flip_y: true,
-                    ..Default::default()
-                },
-            );
-            pop_camera_state();
-        }
         Ok(())
     }
 

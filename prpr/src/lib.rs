@@ -2,7 +2,6 @@ pub mod bin;
 pub mod config;
 pub mod core;
 pub mod dir;
-pub mod export;
 pub mod ext;
 pub mod fs;
 pub mod info;
@@ -23,9 +22,6 @@ pub mod log;
 pub mod inner;
 
 pub use scene::Main;
-
-#[cfg(not(any(target_os = "android", target_os = "ios", target_arch = "wasm32")))]
-pub use rfd;
 
 use std::sync::Mutex;
 
