@@ -1,7 +1,7 @@
 //! Replay browser. Lists all `data/replays/*.json` files grouped by chart,
 //! lets the user replay them or export to MP4.
 
-use super::{NextPage, Page, SharedState};
+use super::{request_export, resolve_export, take_export, ExportConfig, NextPage, Page, SharedState};
 use crate::{dir, get_data, icons::Icons, scene::fs_from_path};
 use anyhow::Result;
 use chrono::{Local, TimeZone};
@@ -13,6 +13,7 @@ use prpr::{
     scene::{show_error, show_message, BasicPlayer, GameMode, LoadingScene, NextScene},
     ui::{button_hit, DRectButton, Scroll, Ui},
 };
+use std::io::Write;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 const ITEM_HEIGHT: f32 = 0.18;
@@ -41,6 +42,15 @@ pub struct ReplayListPage {
     pending_scene: Option<NextScene>,
     /// `true` if the load_task is preparing an export rather than a replay.
     loading_for_export: bool,
+
+    /// Filename the user has just clicked "export" on. We hold this until
+    /// the platform save dialog returns a writable file via `take_export()`.
+    pending_export_filename: Option<String>,
+    /// While exporting we hold the user-chosen `ExportConfig` (file +
+    /// deleter); once the encoder finishes we copy the temp mp4 into it.
+    pending_export_config: Option<ExportConfig>,
+    /// Path to the in-progress mp4 the encoder is writing to.
+    pending_export_temp: Option<std::path::PathBuf>,
 }
 
 struct FolderEntry {
@@ -75,6 +85,9 @@ impl ReplayListPage {
             load_task: None,
             pending_scene: None,
             loading_for_export: false,
+            pending_export_filename: None,
+            pending_export_config: None,
+            pending_export_temp: None,
         };
         this.reload();
         Ok(this)
@@ -306,23 +319,11 @@ impl Page for ReplayListPage {
             for i in 0..entries_len {
                 if self.export_btns[i].touch(touch, t) {
                     button_hit();
-                    #[cfg(any(target_os = "android", target_os = "ios", target_arch = "wasm32"))]
-                    {
-                        show_message("MP4 导出仅支持桌面端（需要本机的 ffmpeg）").error();
-                        return Ok(true);
-                    }
-                    #[cfg(not(any(target_os = "android", target_os = "ios", target_arch = "wasm32")))]
-                    {
-                        let file_name = self.entries[i].file_name.clone();
-                        let default = format!("{}_{}.mp4", self.entries[i].chart_name, self.entries[i].timestamp);
-                        let chosen = pick_save_path(&default);
-                        if let Some(out) = chosen {
-                            if let Err(e) = self.launch_replay_async(file_name, Some(out)) {
-                                show_error(e);
-                            }
-                        }
-                        return Ok(true);
-                    }
+                    let file_name = self.entries[i].file_name.clone();
+                    let default = format!("{}_{}.mp4", sanitize_for_filename(&self.entries[i].chart_name), self.entries[i].timestamp,);
+                    self.pending_export_filename = Some(file_name);
+                    request_export(default);
+                    return Ok(true);
                 }
                 if self.delete_btns[i].touch(touch, t) {
                     button_hit();
@@ -371,6 +372,66 @@ impl Page for ReplayListPage {
                     }
                 }
                 self.load_task = None;
+            }
+        }
+
+        // The user has picked a destination for an MP4 export via the
+        // platform-native save dialog (rfd / SAF / UIDocumentPicker).
+        if self.pending_export_filename.is_some() {
+            if let Some(cfg_res) = take_export() {
+                let filename = self.pending_export_filename.take().unwrap();
+                match cfg_res {
+                    Err(err) => show_error(err.into()),
+                    Ok(cfg) => {
+                        let temp = std::env::temp_dir().join(format!("phira_export_{}.mp4", std::process::id()));
+                        match self.launch_replay_async(filename, Some(temp.clone())) {
+                            Ok(()) => {
+                                self.pending_export_config = Some(cfg);
+                                self.pending_export_temp = Some(temp);
+                            }
+                            Err(e) => {
+                                show_error(e);
+                                let _ = (cfg.deleter)();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Encoder finished: copy temp mp4 into the user-chosen destination
+        // file, then surface the platform-specific "exported" feedback.
+        if let Some(result) = prpr::export::take_export_result() {
+            match result {
+                Err(err) => {
+                    show_error(anyhow::anyhow!("导出失败: {}", err));
+                    if let Some(cfg) = self.pending_export_config.take() {
+                        let _ = (cfg.deleter)();
+                    }
+                    if let Some(p) = self.pending_export_temp.take() {
+                        let _ = std::fs::remove_file(p);
+                    }
+                }
+                Ok(temp_path) => {
+                    if let Some(mut cfg) = self.pending_export_config.take() {
+                        let copy_res = (|| -> std::io::Result<()> {
+                            let mut input = std::fs::File::open(&temp_path)?;
+                            std::io::copy(&mut input, &mut cfg.file)?;
+                            cfg.file.flush()?;
+                            Ok(())
+                        })();
+                        let _ = std::fs::remove_file(&temp_path);
+                        if let Err(e) = copy_res {
+                            show_error(anyhow::anyhow!("写入导出文件失败: {}", e));
+                            let _ = (cfg.deleter)();
+                        } else {
+                            resolve_export();
+                        }
+                    } else {
+                        show_message(format!("已导出: {}", temp_path.display())).ok();
+                    }
+                    self.pending_export_temp = None;
+                }
             }
         }
         Ok(())
@@ -533,33 +594,14 @@ impl Page for ReplayListPage {
     }
 }
 
-/// Open a "save as" dialog. On macOS we fall back to AppleScript if rfd
-/// silently returns None (Sequoia sandboxing for non-bundled apps).
-fn pick_save_path(default_name: &str) -> Option<std::path::PathBuf> {
-    #[cfg(not(any(target_os = "android", target_os = "ios", target_arch = "wasm32")))]
-    {
-        #[allow(unused_mut)]
-        let mut out = prpr::rfd::FileDialog::new()
-            .add_filter("MP4 Video", &["mp4"])
-            .set_file_name(default_name)
-            .save_file();
-        #[cfg(target_os = "macos")]
-        if out.is_none() {
-            let script = format!("POSIX path of (choose file name default name \"{}\")", default_name.replace('"', "\\\""));
-            if let Ok(o) = std::process::Command::new("osascript").arg("-e").arg(script).output() {
-                if o.status.success() {
-                    let p = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                    if !p.is_empty() {
-                        out = Some(std::path::PathBuf::from(p));
-                    }
-                }
-            }
-        }
-        out
-    }
-    #[cfg(any(target_os = "android", target_os = "ios", target_arch = "wasm32"))]
-    {
-        let _ = default_name;
-        None
-    }
+/// Strip filesystem-unsafe characters from a chart name so it can be used
+/// as part of a default filename suggestion.
+fn sanitize_for_filename(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect()
 }

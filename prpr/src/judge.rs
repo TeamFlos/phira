@@ -466,8 +466,7 @@ impl Judge {
 
     pub fn update(&mut self, res: &mut Resource, chart: &mut Chart, bad_notes: &mut Vec<BadNote>) {
         if self.is_replaying() {
-            self.replay_update(res, chart);
-            let _ = bad_notes;
+            self.replay_update(res, chart, bad_notes);
             return;
         }
         if res.config.autoplay() {
@@ -959,7 +958,7 @@ impl Judge {
     /// Drive note state from a recorded replay. Replaces both `update` and
     /// `auto_play_update` when `is_replaying()` is true. Commits judgements
     /// matching the recording at the times they were originally committed.
-    fn replay_update(&mut self, res: &mut Resource, chart: &mut Chart) {
+    fn replay_update(&mut self, res: &mut Resource, chart: &mut Chart, bad_notes: &mut Vec<BadNote>) {
         let t = res.time;
         let spd = res.config.speed as f64;
         let Some(records) = self.replay_playback.as_ref() else {
@@ -1042,6 +1041,31 @@ impl Judge {
                         res.emit_at_origin(rot, res.res_pack.info.fx_good());
                     });
                     hitsound.play(res);
+                }
+                Judgement::Bad => {
+                    // Mirror the normal-gameplay Bad path: spawn a fading
+                    // dark note copy at the press location instead of
+                    // letting the note vanish.
+                    let line = &chart.lines[line_idx];
+                    let note = &line.notes[note_idx];
+                    if !matches!(note.kind, NoteKind::Hold { .. }) {
+                        let mut mat = line_tr;
+                        if !note.above {
+                            mat.append_nonuniform_scaling_mut(&Vector::new(1., -1.));
+                        }
+                        let incline_sin = line.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default();
+                        mat *= note.now_transform(
+                            res,
+                            &line.ctrl_obj.borrow_mut(),
+                            ((note.height - line.height.now() as f64) / res.aspect_ratio as f64 * note.speed) as f32,
+                            incline_sin,
+                        );
+                        bad_notes.push(BadNote {
+                            time: rec.time,
+                            kind: note.kind.clone(),
+                            matrix: mat,
+                        });
+                    }
                 }
                 _ => {}
             }

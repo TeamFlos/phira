@@ -1028,12 +1028,11 @@ impl Scene for GameScene {
                         }
                     }
 
-                    // Finalize any MP4 export in progress.
+                    // Finalize any MP4 export in progress and publish
+                    // the result so the host page can react to it.
                     if let Some(exp) = self.exporter.take() {
-                        match exp.finish() {
-                            Ok(path) => show_message(format!("已导出 MP4: {}", path.display())).ok(),
-                            Err(e) => show_message(format!("导出失败: {}", e)).error(),
-                        };
+                        let result = exp.finish().map_err(|e| e.to_string());
+                        crate::export::publish_export_result(result);
                     }
 
                     let mut record_data = None;
