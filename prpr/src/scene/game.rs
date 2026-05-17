@@ -146,6 +146,7 @@ pub struct GameScene {
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
     save_fn: Option<SaveFn>,
+    record_save_fn: Option<crate::replay::RecordSaveFn>,
 
     best_record: Option<SimpleRecord>,
 
@@ -245,6 +246,7 @@ impl GameScene {
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
         save_fn: Option<SaveFn>,
+        record_save_fn: Option<crate::replay::RecordSaveFn>,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -338,6 +340,7 @@ impl GameScene {
             upload_fn,
             update_fn,
             save_fn,
+            record_save_fn,
 
             best_record: None,
 
@@ -1004,8 +1007,10 @@ impl Scene for GameScene {
                             if !rec.records.is_empty() {
                                 let result = self.judge.result();
                                 rec.finalize(result.score as _, result.accuracy as _, result.max_combo as _, result.max_combo == result.num_of_notes);
-                                if let Err(e) = crate::replay::save_replay_file(&rec) {
-                                    tracing::warn!("failed to save replay: {e:?}");
+                                if let Some(f) = &self.record_save_fn {
+                                    if let Err(e) = f(rec) {
+                                        tracing::warn!("failed to save replay: {e:?}");
+                                    }
                                 }
                             }
                         }
@@ -1037,25 +1042,24 @@ impl Scene for GameScene {
                             full_combo: result.max_combo == result.num_of_notes,
                         })
                     };
-                    if is_replay {
-                        // Replay playback: just exit when the chart finishes.
-                        self.should_exit = true;
-                    }
                     self.next_scene = match self.mode {
-                        GameMode::Normal | GameMode::NoRetry | GameMode::View if !is_replay => {
+                        GameMode::Normal | GameMode::NoRetry | GameMode::View => {
                             let historic_best = self.player.as_ref().map_or(0, |it| it.historic_best);
-                            if let Some(new_rec) = &record {
-                                if let Some(f) = &self.save_fn {
-                                    f(new_rec.clone())?;
-                                }
-                                if let Some(best) = &mut self.best_record {
-                                    best.update(new_rec);
-                                } else {
-                                    self.best_record = record.clone();
-                                }
-                                if let Some(best) = &self.best_record {
-                                    if let Some(player) = &mut self.player {
-                                        player.historic_best = player.historic_best.max(best.score as _);
+                            // Don't update local best / upload during replay playback.
+                            if !is_replay {
+                                if let Some(new_rec) = &record {
+                                    if let Some(f) = &self.save_fn {
+                                        f(new_rec.clone())?;
+                                    }
+                                    if let Some(best) = &mut self.best_record {
+                                        best.update(new_rec);
+                                    } else {
+                                        self.best_record = record.clone();
+                                    }
+                                    if let Some(best) = &self.best_record {
+                                        if let Some(player) = &mut self.player {
+                                            player.historic_best = player.historic_best.max(best.score as _);
+                                        }
                                     }
                                 }
                             }
@@ -1071,17 +1075,16 @@ impl Scene for GameScene {
                                 self.judge.result(),
                                 &self.res.config,
                                 self.res.res_pack.ending.clone(),
-                                self.upload_fn.as_ref().map(Arc::clone),
+                                if is_replay { None } else { self.upload_fn.as_ref().map(Arc::clone) },
                                 self.player.as_ref().map(|it| it.rks),
                                 historic_best,
-                                record_data,
-                                self.best_record.clone(),
+                                if is_replay { None } else { record_data },
+                                if is_replay { None } else { self.best_record.clone() },
                                 if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
                             )?)))
                         }
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
-                        GameMode::Normal | GameMode::NoRetry | GameMode::View => None,
                     };
                 }
                 self.res.alpha = (1. - (t / AFTER_TIME).min(1.).powi(2)) as f32;
@@ -1322,7 +1325,6 @@ impl Scene for GameScene {
                 pop_camera_state();
             }
         }
-
         Ok(())
     }
 

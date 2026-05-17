@@ -133,19 +133,19 @@ impl ReplayData {
 
 // ------- replay file storage -------
 
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, sync::Arc};
 
-fn replay_dir() -> anyhow::Result<PathBuf> {
-    let root = crate::get_data_dir().ok_or_else(|| anyhow::anyhow!("data dir not set"))?;
-    let dir = Path::new(&root).join("replays");
-    std::fs::create_dir_all(&dir)?;
-    Ok(dir)
-}
+/// A host-supplied callback that persists a finished `ReplayData` somewhere
+/// the host knows about (typically `<data>/replays/<timestamp>_<chart>.json`).
+/// Invoked from the game scene right before tear-down so the host's directory
+/// layout doesn't have to leak into `prpr`.
+pub type RecordSaveFn = Arc<dyn Fn(ReplayData) -> anyhow::Result<()>>;
 
-/// Serialize `data` as pretty JSON into the replay directory. The filename
-/// encodes timestamp and chart name to avoid collisions.
-pub fn save_replay_file(data: &ReplayData) -> anyhow::Result<PathBuf> {
-    let dir = replay_dir()?;
+/// Convenience: serialize `data` as pretty JSON into `dir`. The filename
+/// encodes timestamp and chart name to avoid collisions. Hosts can use this
+/// from inside their own `RecordSaveFn`, or roll their own.
+pub fn save_replay_to_dir(dir: &Path, data: &ReplayData) -> anyhow::Result<PathBuf> {
+    std::fs::create_dir_all(dir)?;
     let safe_name: String = data
         .chart_name
         .chars()

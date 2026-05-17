@@ -195,9 +195,6 @@ async fn the_main() -> Result<()> {
     }
 
     let dir = dir::root()?;
-    // Tell prpr where the data dir lives so e.g. replay save_replay_file can
-    // resolve absolute paths.
-    prpr::set_data_dir(dir.clone());
     let mut data: Data = std::fs::read_to_string(format!("{dir}/data.json"))
         .map_err(anyhow::Error::new)
         .and_then(|s| Ok(serde_json::from_str(&s)?))

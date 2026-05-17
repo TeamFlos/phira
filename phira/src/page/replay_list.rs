@@ -9,6 +9,7 @@ use macroquad::prelude::*;
 use prpr::{
     ext::{poll_future, semi_black, semi_white, LocalTask, SafeTexture, ScaleType},
     fs,
+    judge::icon_index,
     replay::ReplayData,
     scene::{show_error, BasicPlayer, GameMode, LoadingScene, NextScene},
     ui::{button_hit, DRectButton, Scroll, Ui},
@@ -143,28 +144,10 @@ impl ReplayListPage {
                 historic_best: 0,
             });
 
-            let scene = LoadingScene::new(GameMode::Normal, info, config, fs_obj, player, None, None, None, Some(preload)).await?;
+            let scene = LoadingScene::new(GameMode::Normal, info, config, fs_obj, player, None, None, None, None, Some(preload)).await?;
             Ok(NextScene::Overlay(Box::new(scene)))
         }));
         Ok(())
-    }
-}
-
-fn rank_index(score: i32, full_combo: bool) -> usize {
-    if score >= 1_000_000 {
-        7 // phi
-    } else if score >= 960_000 && full_combo {
-        6 // V
-    } else if score >= 960_000 {
-        5 // S
-    } else if score >= 920_000 {
-        4 // A
-    } else if score >= 880_000 {
-        3 // B
-    } else if score >= 820_000 {
-        2 // C
-    } else {
-        1 // F
     }
 }
 
@@ -372,7 +355,7 @@ impl Page for ReplayListPage {
 
                             let pad_in = 0.018;
                             let mut tx = item_r.x + pad_in;
-                            let icon = self.rank_icons[rank_index(entry.score, entry.full_combo)].clone();
+                            let icon = self.rank_icons[icon_index(entry.score as u32, entry.full_combo)].clone();
                             let icon_size = ITEM_HEIGHT - 0.04;
                             let ic_r = Rect::new(tx, item_r.y + 0.02, icon_size, icon_size);
                             ui.fill_rect(ic_r, (*icon, ic_r, ScaleType::Fit));

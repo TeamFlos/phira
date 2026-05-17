@@ -10,8 +10,7 @@ pub const AV_ROUND_UP: AVRounding = 0;
 
 pub const AVSEEK_FLAG_BACKWARD: i32 = 1;
 
-#[cfg_attr(all(target_os = "macos", target_arch = "x86_64"), link(name = "avformat"))]
-#[cfg_attr(not(all(target_os = "macos", target_arch = "x86_64")), link(name = "avformat", kind = "static"))]
+#[link(name = "avformat", kind = "static")]
 extern "C" {
     pub fn avformat_alloc_context() -> *mut AVFormatContext;
     pub fn avformat_free_context(s: *mut AVFormatContext);
@@ -31,8 +30,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-#[cfg_attr(all(target_os = "macos", target_arch = "x86_64"), link(name = "avutil"))]
-#[cfg_attr(not(all(target_os = "macos", target_arch = "x86_64")), link(name = "avutil", kind = "static"))]
+#[link(name = "avutil", kind = "static")]
 extern "C" {
     pub fn av_strerror(errnum: ::std::os::raw::c_int, errbuf: *mut ::std::os::raw::c_char, errbuf_size: usize) -> ::std::os::raw::c_int;
     pub fn av_frame_alloc() -> *mut AVFrame;
@@ -41,8 +39,7 @@ extern "C" {
     pub fn av_rescale_rnd(a: i64, b: i64, c: i64, r: AVRounding) -> i64;
 }
 
-#[cfg_attr(all(target_os = "macos", target_arch = "x86_64"), link(name = "avcodec"))]
-#[cfg_attr(not(all(target_os = "macos", target_arch = "x86_64")), link(name = "avcodec", kind = "static"))]
+#[link(name = "avcodec", kind = "static")]
 extern "C" {
     pub fn avcodec_find_decoder(id: AVCodecID) -> *mut AVCodec;
     pub fn avcodec_alloc_context3(codec: *const AVCodec) -> *mut AVCodecContext;
@@ -57,8 +54,7 @@ extern "C" {
     pub fn avcodec_flush_buffers(avctx: *mut AVCodecContext);
 }
 
-#[cfg_attr(all(target_os = "macos", target_arch = "x86_64"), link(name = "swscale"))]
-#[cfg_attr(not(all(target_os = "macos", target_arch = "x86_64")), link(name = "swscale", kind = "static"))]
+#[link(name = "swscale", kind = "static")]
 extern "C" {
     pub fn sws_getContext(
         srcW: ::std::os::raw::c_int,
@@ -83,8 +79,7 @@ extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 
-#[cfg_attr(all(target_os = "macos", target_arch = "x86_64"), link(name = "swresample"))]
-#[cfg_attr(not(all(target_os = "macos", target_arch = "x86_64")), link(name = "swresample", kind = "static"))]
+#[link(name = "swresample", kind = "static")]
 extern "C" {
     pub fn swr_alloc_set_opts(
         s: *mut SwrContext,

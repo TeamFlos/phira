@@ -345,29 +345,29 @@ impl HomePage {
             let lf = r.right() + 0.02;
 
             s.render_fader(ui, |ui| {
-                let r = Rect::new(lf, top, 0.11, 0.07);
+                let r = Rect::new(lf, top, 0.11, 0.11);
                 self.btn_msg.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
-                    let r = r.feather(-0.005);
+                    let r = r.feather(-0.01);
                     ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
                     if self.has_new {
-                        let pad = 0.006;
-                        ui.fill_circle(r.right() - pad, r.y + pad, 0.008, RED);
+                        let pad = 0.007;
+                        ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
                     }
                 });
 
-                let r = Rect::new(lf, top + 0.08, 0.11, 0.07);
-                self.btn_replay.render_shadow(ui, r, t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                    let r = r.feather(-0.008);
-                    ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit));
-                });
-
-                let r = Rect::new(lf, top + 0.16, 0.11, 0.07);
+                let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
                 self.btn_settings.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
-                    let r = r.feather(-0.005);
+                    let r = r.feather(0.004);
                     ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
+                });
+
+                let r = Rect::new(lf, top + 0.24, 0.11, 0.11);
+                self.btn_replay.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let r = r.feather(-0.005);
+                    ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit));
                 });
             });
         });
