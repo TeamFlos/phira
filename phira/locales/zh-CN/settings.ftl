@@ -58,7 +58,7 @@ item-use-keyboard = 使用键盘游玩
 item-use-keyboard-sub = 开启后可以使用键盘进行游戏，但成绩无法上传
 
 item-auto-record = 自动录制回放
-item-auto-record-sub = 游玩时自动保存回放到 data/replays/，可在首页 → 回放中查看
+item-auto-record-sub = 自动保存回放，可在首页 → 回放中查看
 item-prefer-reduced-motion = 减少动画效果
 item-prefer-reduced-motion-sub = 减少动画和视觉特效
 item-speed = 速度

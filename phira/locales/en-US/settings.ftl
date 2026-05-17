@@ -58,7 +58,7 @@ item-use-keyboard = Use Keyboard
 item-use-keyboard-sub = Enable keyboard input for gameplay. Scores cannot be uploaded when enabled.
 
 item-auto-record = Auto-record replays
-item-auto-record-sub = Save replays to data/replays/ as you play. View them from Home → Replays.
+item-auto-record-sub = Replays are saved automatically. View them from Home → Replays.
 item-prefer-reduced-motion = Prefer Reduced Motion
 item-prefer-reduced-motion-sub = Reduce animations and visual effects
 item-speed = Speed
