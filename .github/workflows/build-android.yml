@@ -14,7 +14,7 @@ env:
   ANDROID_NDK_ROOT: ${{ github.workspace }}/android-ndk-r27c
   # Tag of the prpr-avc-ffmpeg release that ships matching prebuilt static libs.
   # Bump this together with prpr-avc to keep ABI in sync.
-  PRPR_AVC_FFMPEG_VERSION: 20260309_v0
+  PRPR_AVC_FFMPEG_VERSION: 20260408_v0
 
 jobs:
   build:
