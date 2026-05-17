@@ -65,11 +65,18 @@ jobs:
           unzip -q android-ndk.zip -d "${{ github.workspace }}"
           rm android-ndk.zip
 
-      - name: Install Rust toolchain (stable + aarch64-linux-android)
+      - name: Install stable Rust (for cargo-ndk)
         uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: aarch64-linux-android
+
+      - name: Install project toolchain + Android target
+        # rust-toolchain.toml pins the project's compiler. Make sure that
+        # toolchain is fully installed and has the Android target available
+        # so cargo-ndk can cross-compile against it.
+        working-directory: ${{ github.workspace }}
+        run: |
+          rustup show active-toolchain || rustup toolchain install --profile minimal
+          rustup target add aarch64-linux-android
+          rustup show
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -88,7 +95,7 @@ jobs:
           rm prpr-avc-static-lib.tar.gz
 
       - name: Install cargo-ndk
-        run: cargo install --locked cargo-ndk
+        run: cargo +stable install --locked cargo-ndk
 
       - name: Build phira (aarch64-linux-android, release)
         working-directory: phira
