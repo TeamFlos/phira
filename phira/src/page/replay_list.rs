@@ -31,7 +31,6 @@ pub struct ReplayListPage {
     play_btns: Vec<DRectButton>,
     export_btns: Vec<DRectButton>,
     delete_btns: Vec<DRectButton>,
-    back_btn: DRectButton,
     refresh_btn: DRectButton,
 
     scroll: Scroll,
@@ -71,7 +70,6 @@ impl ReplayListPage {
             play_btns: Vec::new(),
             export_btns: Vec::new(),
             delete_btns: Vec::new(),
-            back_btn: DRectButton::new(),
             refresh_btn: DRectButton::new(),
             scroll: Scroll::new(),
             load_task: None,
@@ -298,14 +296,6 @@ impl Page for ReplayListPage {
             return Ok(true);
         }
 
-        // Back button when inside a folder
-        if self.current_folder.is_some() && self.back_btn.touch(touch, t) {
-            button_hit();
-            self.current_folder = None;
-            self.reload();
-            return Ok(true);
-        }
-
         if self.scroll.touch(touch, t) {
             return Ok(true);
         }
@@ -316,15 +306,23 @@ impl Page for ReplayListPage {
             for i in 0..entries_len {
                 if self.export_btns[i].touch(touch, t) {
                     button_hit();
-                    let file_name = self.entries[i].file_name.clone();
-                    let default = format!("{}_{}.mp4", self.entries[i].chart_name, self.entries[i].timestamp);
-                    let chosen = pick_save_path(&default);
-                    if let Some(out) = chosen {
-                        if let Err(e) = self.launch_replay_async(file_name, Some(out)) {
-                            show_error(e);
-                        }
+                    #[cfg(any(target_os = "android", target_os = "ios", target_arch = "wasm32"))]
+                    {
+                        show_message("MP4 导出仅支持桌面端（需要本机的 ffmpeg）").error();
+                        return Ok(true);
                     }
-                    return Ok(true);
+                    #[cfg(not(any(target_os = "android", target_os = "ios", target_arch = "wasm32")))]
+                    {
+                        let file_name = self.entries[i].file_name.clone();
+                        let default = format!("{}_{}.mp4", self.entries[i].chart_name, self.entries[i].timestamp);
+                        let chosen = pick_save_path(&default);
+                        if let Some(out) = chosen {
+                            if let Err(e) = self.launch_replay_async(file_name, Some(out)) {
+                                show_error(e);
+                            }
+                        }
+                        return Ok(true);
+                    }
                 }
                 if self.delete_btns[i].touch(touch, t) {
                     button_hit();
@@ -384,19 +382,6 @@ impl Page for ReplayListPage {
         s.render_fader(ui, |ui| {
             // Header: back button + label + refresh
             let top = ui.top;
-
-            if self.current_folder.is_some() {
-                let r = Rect::new(-0.9, -top + 0.04, 0.15, 0.07);
-                self.back_btn.render_shadow(ui, r, t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.5));
-                    ui.text("返回")
-                        .pos(r.center().x, r.center().y)
-                        .anchor(0.5, 0.5)
-                        .no_baseline()
-                        .size(0.5)
-                        .draw();
-                });
-            }
 
             // Refresh button (always visible top-right)
             let rr = Rect::new(0.78, -top + 0.04, 0.12, 0.07);
@@ -534,6 +519,17 @@ impl Page for ReplayListPage {
 
     fn next_scene(&mut self, _s: &mut SharedState) -> NextScene {
         self.pending_scene.take().unwrap_or_default()
+    }
+
+    fn on_back_pressed(&mut self, _s: &mut SharedState) -> bool {
+        // Inside a chart folder: back navigates up to the folder list
+        // instead of popping the page.
+        if self.current_folder.is_some() {
+            self.current_folder = None;
+            self.reload();
+            return true;
+        }
+        false
     }
 }
 
