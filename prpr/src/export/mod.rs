@@ -12,7 +12,7 @@
 //! frame into `Exporter::capture_frame` after rendering. When the game
 //! finishes, the engine calls `Exporter::finish` to flush and close the file.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use macroquad::prelude::*;
 use std::{cell::RefCell, path::PathBuf};
 
@@ -160,6 +160,7 @@ fn pick_backend(cfg: &ExportConfig) -> Result<Box<dyn EncoderBackend>> {
 #[cfg(not(any(target_os = "android", target_os = "ios", target_arch = "wasm32")))]
 mod desktop {
     use super::*;
+    use anyhow::Context;
     use std::io::Write;
     use std::path::Path;
     use std::process::{Child, ChildStdin, Command, Stdio};
