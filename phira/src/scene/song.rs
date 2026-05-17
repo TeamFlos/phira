@@ -837,6 +837,12 @@ impl SongScene {
                     .find(|it| it.local_path == *local_path)
                     .is_some_and(|it| it.info.has_unlock && !it.played_unlock));
 
+        // Tell the next-built GameScene to record a replay if the user has
+        // auto_record enabled in settings.
+        if get_data().config.auto_record {
+            prpr::replay::set_pending_record(true);
+        }
+
         self.scene_task =
             Self::global_launch(self.info.id, local_path, self.mods, mode, None, Some(self.background.clone()), self.record.clone(), is_unlock)?;
 

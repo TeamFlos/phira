@@ -279,6 +279,13 @@ pub struct Judge {
 
     pub(crate) inner: JudgeInner,
     pub judgements: RefCell<Judgements>,
+
+    // --- Replay support ---
+    /// Accumulated replay data when recording.
+    replay_record: Option<crate::replay::ReplayData>,
+    /// Sorted list of replay events to play back, plus our read index.
+    replay_playback: Option<Vec<crate::replay::NoteRecord>>,
+    replay_playback_idx: usize,
 }
 
 #[derive(Default)]
@@ -318,7 +325,40 @@ impl Judge {
 
             inner: JudgeInner::new(chart.lines.iter().map(|it| it.notes.iter().filter(|it| !it.fake).count() as u32).sum()),
             judgements: RefCell::new(Vec::new()),
+
+            replay_record: None,
+            replay_playback: None,
+            replay_playback_idx: 0,
         }
+    }
+
+    /// Begin recording judgements into a fresh `ReplayData`. Clears any
+    /// previously-recorded events for this Judge.
+    pub fn start_recording(&mut self, chart_id: Option<i32>, chart_name: String, chart_level: String, chart_offset: f32, speed: f32) {
+        let mut data = crate::replay::ReplayData::new(chart_id, chart_name);
+        data.chart_level = chart_level;
+        data.chart_offset = chart_offset;
+        data.speed = speed;
+        self.replay_record = Some(data);
+    }
+
+    /// Consume the recorded `ReplayData`, leaving recording disabled.
+    pub fn take_replay_record(&mut self) -> Option<crate::replay::ReplayData> {
+        self.replay_record.take()
+    }
+
+    /// Enter playback mode. Consumes the provided replay events.
+    pub fn set_replay_data(&mut self, data: crate::replay::ReplayData) {
+        let mut records = data.records;
+        records.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+        self.replay_playback = Some(records);
+        self.replay_playback_idx = 0;
+    }
+
+    /// Whether this Judge is currently driving gameplay from a replay.
+    #[inline]
+    pub fn is_replaying(&self) -> bool {
+        self.replay_playback.is_some()
     }
 
     pub fn reset(&mut self) {
@@ -326,6 +366,10 @@ impl Judge {
         self.trackers.clear();
         self.inner.reset();
         self.judgements.borrow_mut().clear();
+        if let Some(rec) = self.replay_record.as_mut() {
+            rec.records.clear();
+        }
+        self.replay_playback_idx = 0;
     }
 
     /// Advance note pointers past notes before time `t`, marking them as judged.
@@ -347,6 +391,17 @@ impl Judge {
     pub fn commit(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64) {
         self.judgements.borrow_mut().push((t, line_id, note_id, Ok(what)));
         self.inner.commit(what, diff);
+
+        // Append to replay record buffer if we are recording.
+        if let Some(rec) = self.replay_record.as_mut() {
+            rec.records.push(crate::replay::NoteRecord {
+                time: t,
+                line_id,
+                note_id,
+                judgment: crate::replay::ReplayJudgement::from_commit(Ok(what)),
+                offset: diff,
+            });
+        }
     }
 
     #[inline]
@@ -410,6 +465,11 @@ impl Judge {
     }
 
     pub fn update(&mut self, res: &mut Resource, chart: &mut Chart, bad_notes: &mut Vec<BadNote>) {
+        if self.is_replaying() {
+            self.replay_update(res, chart);
+            let _ = bad_notes;
+            return;
+        }
         if res.config.autoplay() {
             self.auto_play_update(res, chart);
             return;
@@ -626,6 +686,15 @@ impl Judge {
                                 note.hitsound.play(res);
                                 self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
                                 note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f64::INFINITY);
+                                if let Some(rec) = self.replay_record.as_mut() {
+                                    rec.records.push(crate::replay::NoteRecord {
+                                        time: t,
+                                        line_id: line_id as _,
+                                        note_id: id,
+                                        judgment: if dt <= LIMIT_PERFECT { crate::replay::ReplayJudgement::HoldPerfect } else { crate::replay::ReplayJudgement::HoldGood },
+                                        offset: (t - note.time) / spd,
+                                    });
+                                }
                             }
                             _ => unreachable!(),
                         };
@@ -688,6 +757,15 @@ impl Judge {
                             note.hitsound.play(res);
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
                             note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f64::INFINITY);
+                            if let Some(rec) = self.replay_record.as_mut() {
+                                rec.records.push(crate::replay::NoteRecord {
+                                    time: t,
+                                    line_id: line_id as _,
+                                    note_id: id,
+                                    judgment: if dt <= LIMIT_PERFECT { crate::replay::ReplayJudgement::HoldPerfect } else { crate::replay::ReplayJudgement::HoldGood },
+                                    offset: (t - note.time) / spd,
+                                });
+                            }
                         }
                         _ => unreachable!(),
                     };
@@ -867,6 +945,117 @@ impl Judge {
                 *st += 1;
             }
         }
+        self.last_time = t / spd;
+    }
+
+
+    /// Drive note state from a recorded replay. Replaces both `update` and
+    /// `auto_play_update` when `is_replaying()` is true. Commits judgements
+    /// matching the recording at the times they were originally committed.
+    fn replay_update(&mut self, res: &mut Resource, chart: &mut Chart) {
+        let t = res.time;
+        let spd = res.config.speed as f64;
+        let Some(records) = self.replay_playback.as_ref() else {
+            return;
+        };
+
+        // Consume events whose time <= current game time.
+        let mut pending: Vec<crate::replay::NoteRecord> = Vec::new();
+        while self.replay_playback_idx < records.len() && records[self.replay_playback_idx].time <= t {
+            pending.push(records[self.replay_playback_idx].clone());
+            self.replay_playback_idx += 1;
+        }
+
+        for rec in pending {
+            let line_idx = rec.line_id as usize;
+            let note_idx = rec.note_id as usize;
+            if line_idx >= chart.lines.len() {
+                continue;
+            }
+            if note_idx >= chart.lines[line_idx].notes.len() {
+                continue;
+            }
+
+            let is_hold_prejudge = rec.judgment.is_hold_prejudge();
+            let judgement = rec.judgment.to_judgement();
+
+            // Prepare note for rendering FX.
+            {
+                let line = &mut chart.lines[line_idx];
+                let note = &mut line.notes[note_idx];
+                let nt = if matches!(note.kind, NoteKind::Hold { .. }) { rec.time } else { note.time };
+                line.object.set_time(nt);
+                note.object.set_time(nt);
+            }
+
+            if is_hold_prejudge {
+                let perfect = matches!(rec.judgment, crate::replay::ReplayJudgement::HoldPerfect);
+                {
+                    let note = &mut chart.lines[line_idx].notes[note_idx];
+                    if matches!(note.judge, JudgeStatus::NotJudged) {
+                        note.judge = JudgeStatus::Hold(perfect, rec.time, rec.offset, false, f64::INFINITY);
+                        note.hitsound.clone().play(res);
+                    }
+                }
+                self.judgements.borrow_mut().push((rec.time, rec.line_id, rec.note_id, Err(perfect)));
+                continue;
+            }
+
+            let Some(judgement) = judgement else { continue };
+            let _note_kind = chart.lines[line_idx].notes[note_idx].kind.clone();
+            let hitsound = chart.lines[line_idx].notes[note_idx].hitsound.clone();
+
+            {
+                let note = &mut chart.lines[line_idx].notes[note_idx];
+                note.judge = JudgeStatus::Judged;
+            }
+
+            self.commit(rec.time, judgement, rec.line_id, rec.note_id, rec.offset);
+
+            if matches!(_note_kind, NoteKind::Hold { .. }) {
+                continue;
+            }
+            let line_tr = chart.lines[line_idx].now_transform(res, &chart.lines);
+            let note_tr = chart.lines[line_idx].notes[note_idx].object.now(res);
+            match judgement {
+                Judgement::Perfect => {
+                    res.with_model(line_tr * note_tr, |res| {
+                        let rot = chart.lines[line_idx].notes[note_idx].rotation(&chart.lines[line_idx]);
+                        res.emit_at_origin(rot, res.res_pack.info.fx_perfect());
+                    });
+                    hitsound.play(res);
+                }
+                Judgement::Good => {
+                    res.with_model(line_tr * note_tr, |res| {
+                        let rot = chart.lines[line_idx].notes[note_idx].rotation(&chart.lines[line_idx]);
+                        res.emit_at_origin(rot, res.res_pack.info.fx_good());
+                    });
+                    hitsound.play(res);
+                }
+                _ => {}
+            }
+        }
+
+        // Hold notes: flush Judged state when we pass their end_time.
+        for (line, (idx, st)) in chart.lines.iter_mut().zip(self.notes.iter_mut()) {
+            for id in &idx[*st..] {
+                let note = &mut line.notes[*id as usize];
+                if let JudgeStatus::Hold(..) = note.judge {
+                    if let NoteKind::Hold { end_time, .. } = note.kind {
+                        if t >= end_time {
+                            note.judge = JudgeStatus::Judged;
+                        }
+                    }
+                }
+            }
+            while idx
+                .get(*st)
+                .is_some_and(|id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
+            {
+                *st += 1;
+            }
+        }
+
         self.last_time = t / spd;
     }
 

@@ -155,6 +155,10 @@ pub struct GameScene {
     fps_last_frame_time: f64,
 
     dead: bool,
+
+    /// MP4 export support: when present, every rendered frame is read back
+    /// and piped into ffmpeg.
+    exporter: Option<crate::export::Exporter>,
 }
 
 macro_rules! reset {
@@ -305,7 +309,8 @@ impl GameScene {
         let judge = Judge::new(&chart);
 
         let music = Self::new_music(&mut res)?;
-        Ok(Self {
+        let normal_mode = matches!(mode, GameMode::Normal);
+        let mut this = Self {
             should_exit: false,
             next_scene: None,
 
@@ -347,7 +352,34 @@ impl GameScene {
             fps_last_frame_time: 0.0,
 
             dead: false,
-        })
+
+            exporter: None,
+        };
+
+        // Pick up any pending replay/record/export configuration queued by
+        // the caller before returning.
+        if let Some(replay) = crate::replay::take_pending_playback() {
+            this.judge.set_replay_data(replay);
+        } else if crate::replay::take_pending_record() {
+            // Record only when it actually makes sense to: a normal play with
+            // no autoplay and 1x speed.
+            if normal_mode
+                && !this.res.config.autoplay()
+                && (this.res.config.speed - 1.0).abs() < 1e-3
+            {
+                this.judge.start_recording(
+                    this.res.info.id,
+                    this.res.info.name.clone(),
+                    this.res.info.level.clone(),
+                    this.res.info.offset,
+                    this.res.config.speed,
+                );
+            }
+        }
+        if let Some(exp) = crate::export::take_pending_exporter() {
+            this.set_exporter(exp);
+        }
+        Ok(this)
     }
 
     fn new_music(res: &mut Resource) -> Result<Music> {
@@ -359,6 +391,13 @@ impl GameScene {
                 ..Default::default()
             },
         )
+    }
+
+    /// Enable MP4 export: every rendered frame will be captured and piped
+    /// into `ffmpeg` to produce the output file.
+    pub fn set_exporter(&mut self, exporter: crate::export::Exporter) {
+        self.res.camera.render_target = Some(exporter.render_target());
+        self.exporter = Some(exporter);
     }
 
     fn touch_scale(&self) -> f32 {
@@ -873,7 +912,12 @@ impl Scene for GameScene {
         #[cfg(target_env = "ohos")]
         miniquad::native::set_interceptor_state(true);
         self.music = Self::new_music(&mut self.res)?;
-        self.res.camera.render_target = target;
+        let final_target = self
+            .exporter
+            .as_ref()
+            .map(|e| e.render_target())
+            .or(target);
+        self.res.camera.render_target = final_target;
         tm.speed = self.res.config.speed as _;
         tm.adjust_time = self.res.config.adjust_time;
         reset!(self, self.res, tm);
@@ -976,6 +1020,34 @@ impl Scene for GameScene {
             State::Ending => {
                 let t = time - self.res.track_length - WAIT_TIME;
                 if t >= AFTER_TIME + 0.3 {
+                    let is_replay = self.judge.is_replaying();
+
+                    // Persist any recorded replay before the scene tears down.
+                    if !is_replay {
+                        if let Some(mut rec) = self.judge.take_replay_record() {
+                            if !rec.records.is_empty() {
+                                let result = self.judge.result();
+                                rec.finalize(
+                                    result.score as _,
+                                    result.accuracy as _,
+                                    result.max_combo as _,
+                                    result.max_combo == result.num_of_notes,
+                                );
+                                if let Err(e) = crate::replay::save_replay_file(&rec) {
+                                    tracing::warn!("failed to save replay: {e:?}");
+                                }
+                            }
+                        }
+                    }
+
+                    // Finalize any MP4 export in progress.
+                    if let Some(exp) = self.exporter.take() {
+                        match exp.finish() {
+                            Ok(path) => show_message(format!("已导出 MP4: {}", path.display())).ok(),
+                            Err(e) => show_message(format!("导出失败: {}", e)).error(),
+                        };
+                    }
+
                     let mut record_data = None;
                     // TODO strengthen the protection
                     #[cfg(closed)]
@@ -1002,8 +1074,12 @@ impl Scene for GameScene {
                             full_combo: result.max_combo == result.num_of_notes,
                         })
                     };
+                    if is_replay {
+                        // Replay playback: just exit when the chart finishes.
+                        self.should_exit = true;
+                    }
                     self.next_scene = match self.mode {
-                        GameMode::Normal | GameMode::NoRetry | GameMode::View => {
+                        GameMode::Normal | GameMode::NoRetry | GameMode::View if !is_replay => {
                             let historic_best = self.player.as_ref().map_or(0, |it| it.historic_best);
                             if let Some(new_rec) = &record {
                                 if let Some(f) = &self.save_fn {
@@ -1042,6 +1118,7 @@ impl Scene for GameScene {
                         }
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
                         GameMode::Exercise => None,
+                        GameMode::Normal | GameMode::NoRetry | GameMode::View => None,
                     };
                 }
                 self.res.alpha = (1. - (t / AFTER_TIME).min(1.).powi(2)) as f32;
@@ -1281,6 +1358,39 @@ impl Scene for GameScene {
                 );
                 pop_camera_state();
             }
+        }
+
+        // MP4 export: after all rendering is done, pump the offscreen render
+        // target into the ffmpeg subprocess, then draw the same frame to the
+        // user-visible screen so they can watch progress.
+        if let Some(exp) = self.exporter.as_mut() {
+            self.gl.flush();
+            if let Err(e) = exp.capture_frame() {
+                tracing::warn!("export capture failed: {e:?}");
+            }
+            let tex = exp.render_target().texture;
+            push_camera_state();
+            self.gl.quad_gl.render_pass(None);
+            self.gl.quad_gl.viewport(Some(ui.viewport));
+            set_camera(&Camera2D {
+                zoom: vec2(1., asp),
+                render_target: None,
+                viewport: Some(ui.viewport),
+                ..Default::default()
+            });
+            clear_background(BLACK);
+            draw_texture_ex(
+                tex,
+                -1.,
+                -ui.top,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(vec2(2., ui.top * 2.)),
+                    flip_y: true,
+                    ..Default::default()
+                },
+            );
+            pop_camera_state();
         }
         Ok(())
     }
