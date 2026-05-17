@@ -133,7 +133,10 @@ impl ReplayData {
 
 // ------- replay file storage -------
 
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 /// A host-supplied callback that persists a finished `ReplayData` somewhere
 /// the host knows about (typically `<data>/replays/<timestamp>_<chart>.json`).
