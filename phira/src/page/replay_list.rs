@@ -25,8 +25,10 @@ pub struct ReplayListPage {
     /// entries (folder view).
     folders: Vec<FolderEntry>,
     entries: Vec<ReplayEntry>,
-    /// Folder we're currently inside (None = root).
-    current_folder: Option<String>,
+    /// Folder we're currently inside (None = root). Stores `(group_key,
+    /// display_name)` — the key is used to match replay files, the display
+    /// name is what the page label / title bar shows.
+    current_folder: Option<(String, String)>,
 
     folder_btns: Vec<DRectButton>,
     play_btns: Vec<DRectButton>,
@@ -42,6 +44,10 @@ pub struct ReplayListPage {
 }
 
 struct FolderEntry {
+    /// Group key: phira chart `local_path` when known, else `name:<display>`.
+    /// This is what's persisted as `current_folder` while we're inside a
+    /// chart's replay list.
+    key: String,
     chart_name: String,
     chart_id: Option<i32>,
     count: usize,
@@ -76,8 +82,8 @@ impl ReplayListPage {
     }
 
     fn reload(&mut self) {
-        if let Some(folder) = self.current_folder.clone() {
-            self.entries = read_chart_replays(&folder);
+        if let Some((key, _)) = self.current_folder.clone() {
+            self.entries = read_chart_replays(&key);
             self.entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
             self.play_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
             self.delete_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
@@ -97,6 +103,10 @@ impl ReplayListPage {
         let content = std::fs::read_to_string(&path)?;
         let replay: ReplayData = serde_json::from_str(&content)?;
 
+        // Match the recorded chart back to a local entry, preferring the
+        // strongest signal we have (online id > host's local_path > display
+        // name). Two locally imported charts with the same name no longer
+        // collide because `local_path` is unique per chart directory.
         let local_path = get_data()
             .charts
             .iter()
@@ -106,8 +116,12 @@ impl ReplayListPage {
                         return true;
                     }
                 }
-                c.info.name == replay.chart_name
+                if !replay.chart_local_path.is_empty() && c.local_path == replay.chart_local_path {
+                    return true;
+                }
+                false
             })
+            .or_else(|| get_data().charts.iter().find(|c| c.info.name == replay.chart_name))
             .map(|c| c.local_path.clone())
             .ok_or_else(|| anyhow::anyhow!("找不到对应的铺面: {}", replay.chart_name))?;
 
@@ -151,6 +165,20 @@ impl ReplayListPage {
     }
 }
 
+/// Build a stable group key for a `ReplayData`. We prefer the host's
+/// `local_path` (unique per chart directory) so two locally imported
+/// charts with the same display name don't end up in the same folder.
+/// Old replays without `chart_local_path` fall back to a name-based key.
+fn replay_group_key(r: &ReplayData) -> String {
+    if !r.chart_local_path.is_empty() {
+        format!("path:{}", r.chart_local_path)
+    } else if let Some(id) = r.chart_id {
+        format!("id:{id}")
+    } else {
+        format!("name:{}", r.chart_name)
+    }
+}
+
 fn read_all_folders() -> Vec<FolderEntry> {
     let dir = match dir::replays() {
         Ok(d) => d,
@@ -165,7 +193,9 @@ fn read_all_folders() -> Vec<FolderEntry> {
         for entry in entries.flatten() {
             if let Ok(content) = std::fs::read_to_string(entry.path()) {
                 if let Ok(replay) = serde_json::from_str::<ReplayData>(&content) {
-                    let g = groups.entry(replay.chart_name.clone()).or_insert_with(|| FolderEntry {
+                    let key = replay_group_key(&replay);
+                    let g = groups.entry(key.clone()).or_insert_with(|| FolderEntry {
+                        key,
                         chart_name: replay.chart_name.clone(),
                         chart_id: replay.chart_id,
                         count: 0,
@@ -181,7 +211,7 @@ fn read_all_folders() -> Vec<FolderEntry> {
     groups.into_values().collect()
 }
 
-fn read_chart_replays(chart_name: &str) -> Vec<ReplayEntry> {
+fn read_chart_replays(folder_key: &str) -> Vec<ReplayEntry> {
     let dir = match dir::replays() {
         Ok(d) => d,
         Err(_) => return Vec::new(),
@@ -195,7 +225,7 @@ fn read_chart_replays(chart_name: &str) -> Vec<ReplayEntry> {
         for entry in entries.flatten() {
             if let Ok(content) = std::fs::read_to_string(entry.path()) {
                 if let Ok(replay) = serde_json::from_str::<ReplayData>(&content) {
-                    if replay.chart_name == chart_name {
+                    if replay_group_key(&replay) == folder_key {
                         out.push(ReplayEntry {
                             file_name: entry.file_name().to_string_lossy().to_string(),
                             timestamp: replay.timestamp,
@@ -222,8 +252,8 @@ fn fmt_timestamp(ts: i64) -> String {
 
 impl Page for ReplayListPage {
     fn label(&self) -> Cow<'static, str> {
-        if self.current_folder.is_some() {
-            self.current_folder.clone().unwrap_or_default().into()
+        if let Some((_, name)) = &self.current_folder {
+            name.clone().into()
         } else {
             "回放列表".into()
         }
@@ -271,7 +301,8 @@ impl Page for ReplayListPage {
             for i in 0..self.folders.len() {
                 if self.folder_btns[i].touch(touch, t) {
                     button_hit();
-                    self.current_folder = Some(self.folders[i].chart_name.clone());
+                    let folder = &self.folders[i];
+                    self.current_folder = Some((folder.key.clone(), folder.chart_name.clone()));
                     self.reload();
                     return Ok(true);
                 }

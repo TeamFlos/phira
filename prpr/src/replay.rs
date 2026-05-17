@@ -75,6 +75,13 @@ pub struct ReplayData {
     pub chart_id: Option<i32>,
     /// Display name of the chart (used for matching when id is missing).
     pub chart_name: String,
+    /// Host-supplied unique identifier for the chart, e.g. phira's
+    /// `local_path` (`download/<id>` for online charts, the unzipped
+    /// directory name for local imports). Empty if unknown. Replay-list
+    /// matching prefers this over the display name to avoid two locally
+    /// imported charts with the same `chart_name` mapping to each other.
+    #[serde(default)]
+    pub chart_local_path: String,
     /// Difficulty level of the chart at recording time (e.g. "IN Lv.13").
     #[serde(default)]
     pub chart_level: String,
@@ -111,6 +118,7 @@ impl ReplayData {
         Self {
             chart_id,
             chart_name,
+            chart_local_path: String::new(),
             chart_level: String::new(),
             chart_offset: 0.,
             speed: 1.,
@@ -175,10 +183,12 @@ thread_local! {
     /// thread should play back (rather than recording).
     static PENDING_PLAYBACK: RefCell<Option<ReplayData>> = const { RefCell::new(None) };
 
-    /// A pending recording-start signal: when this is `true` the next
-    /// `GameScene::new` will start recording into a fresh `ReplayData`.
-    /// Set by phira's launch path after consulting `auto_record`.
-    static PENDING_RECORD: RefCell<bool> = const { RefCell::new(false) };
+    /// A pending record-request: when set, the next `GameScene::new` will
+    /// start recording into a fresh `ReplayData`. The string carries the
+    /// host's unique chart identifier (phira's `local_path`) so the saved
+    /// replay can be matched back to the same chart unambiguously, even
+    /// when two locally imported charts share a display name.
+    static PENDING_RECORD: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
 /// Queue replay data to be played back by the next `GameScene` on this thread.
@@ -190,15 +200,17 @@ pub fn take_pending_playback() -> Option<ReplayData> {
     PENDING_PLAYBACK.with(|cell| cell.borrow_mut().take())
 }
 
-/// Queue the next built `GameScene` to start recording a replay.
-pub fn set_pending_record(on: bool) {
-    PENDING_RECORD.with(|cell| *cell.borrow_mut() = on);
+/// Queue the next built `GameScene` to start recording a replay, tagged
+/// with `local_path` (an empty string means "host has no stable id").
+pub fn set_pending_record(local_path: String) {
+    PENDING_RECORD.with(|cell| *cell.borrow_mut() = Some(local_path));
 }
 
-pub fn take_pending_record() -> bool {
-    PENDING_RECORD.with(|cell| {
-        let v = *cell.borrow();
-        *cell.borrow_mut() = false;
-        v
-    })
+/// Cancel any pending record request.
+pub fn clear_pending_record() {
+    PENDING_RECORD.with(|cell| *cell.borrow_mut() = None);
+}
+
+pub fn take_pending_record() -> Option<String> {
+    PENDING_RECORD.with(|cell| cell.borrow_mut().take())
 }

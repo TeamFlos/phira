@@ -334,8 +334,17 @@ impl Judge {
 
     /// Begin recording judgements into a fresh `ReplayData`. Clears any
     /// previously-recorded events for this Judge.
-    pub fn start_recording(&mut self, chart_id: Option<i32>, chart_name: String, chart_level: String, chart_offset: f32, speed: f32) {
+    pub fn start_recording(
+        &mut self,
+        chart_id: Option<i32>,
+        chart_name: String,
+        chart_local_path: String,
+        chart_level: String,
+        chart_offset: f32,
+        speed: f32,
+    ) {
         let mut data = crate::replay::ReplayData::new(chart_id, chart_name);
+        data.chart_local_path = chart_local_path;
         data.chart_level = chart_level;
         data.chart_offset = chart_offset;
         data.speed = speed;

@@ -838,9 +838,11 @@ impl SongScene {
                     .is_some_and(|it| it.info.has_unlock && !it.played_unlock));
 
         // Tell the next-built GameScene to record a replay if the user has
-        // auto_record enabled in settings.
+        // auto_record enabled in settings. The chart's `local_path` is
+        // forwarded so the saved replay can be matched back even when two
+        // locally imported charts share a display name.
         if get_data().config.auto_record {
-            prpr::replay::set_pending_record(true);
+            prpr::replay::set_pending_record(local_path.clone());
         }
 
         self.scene_task =

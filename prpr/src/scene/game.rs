@@ -357,13 +357,14 @@ impl GameScene {
         // the caller before returning.
         if let Some(replay) = crate::replay::take_pending_playback() {
             this.judge.set_replay_data(replay);
-        } else if crate::replay::take_pending_record() {
+        } else if let Some(local_path) = crate::replay::take_pending_record() {
             // Record only when it actually makes sense to: a normal play with
             // no autoplay and 1x speed.
             if normal_mode && !this.res.config.autoplay() && (this.res.config.speed - 1.0).abs() < 1e-3 {
                 this.judge.start_recording(
                     this.res.info.id,
                     this.res.info.name.clone(),
+                    local_path,
                     this.res.info.level.clone(),
                     this.res.info.offset,
                     this.res.config.speed,
