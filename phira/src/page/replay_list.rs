@@ -7,7 +7,7 @@ use anyhow::Result;
 use chrono::{Local, TimeZone};
 use macroquad::prelude::*;
 use prpr::{
-    ext::{poll_future, semi_black, semi_white, SafeTexture, ScaleType, LocalTask},
+    ext::{poll_future, semi_black, semi_white, LocalTask, SafeTexture, ScaleType},
     fs,
     replay::ReplayData,
     scene::{show_error, show_message, BasicPlayer, GameMode, LoadingScene, NextScene},
@@ -18,7 +18,6 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 const ITEM_HEIGHT: f32 = 0.18;
 
 pub struct ReplayListPage {
-    icons: Arc<Icons>,
     rank_icons: [SafeTexture; 8],
 
     /// Replays grouped by chart name (root view) or list of single-replay
@@ -58,14 +57,12 @@ struct ReplayEntry {
     accuracy: f32,
     full_combo: bool,
     chart_name: String,
-    chart_id: Option<i32>,
     speed: f32,
 }
 
 impl ReplayListPage {
-    pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Result<Self> {
+    pub fn new(_icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Result<Self> {
         let mut this = Self {
-            icons,
             rank_icons,
             folders: Vec::new(),
             entries: Vec::new(),
@@ -88,7 +85,7 @@ impl ReplayListPage {
     fn reload(&mut self) {
         if let Some(folder) = self.current_folder.clone() {
             self.entries = read_chart_replays(&folder);
-            self.entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            self.entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
             self.play_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
             self.export_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
             self.delete_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
@@ -157,11 +154,7 @@ impl ReplayListPage {
             }
 
             let mut config = get_data().config.clone();
-            config.player_name = get_data()
-                .me
-                .as_ref()
-                .map(|it| it.name.clone())
-                .unwrap_or_else(|| "Guest".to_string());
+            config.player_name = get_data().me.as_ref().map(|it| it.name.clone()).unwrap_or_else(|| "Guest".to_string());
             config.res_pack_path = {
                 let id = get_data().respack_id;
                 if id == 0 {
@@ -175,7 +168,6 @@ impl ReplayListPage {
             // Replay disables auto_record so we don't record-of-replay.
             config.auto_record = false;
             if exporting {
-                
                 config.aspect_ratio = Some(16.0 / 9.0);
             }
 
@@ -187,26 +179,10 @@ impl ReplayListPage {
                 historic_best: 0,
             });
 
-            let scene = LoadingScene::new(
-                GameMode::Normal,
-                info,
-                config,
-                fs_obj,
-                player,
-                None,
-                None,
-                None,
-                Some(preload),
-            )
-            .await?;
+            let scene = LoadingScene::new(GameMode::Normal, info, config, fs_obj, player, None, None, None, Some(preload)).await?;
             Ok(NextScene::Overlay(Box::new(scene)))
         }));
         Ok(())
-    }
-
-    fn rank_icon(&self, score: i32, full_combo: bool) -> SafeTexture {
-        let idx = rank_index(score, full_combo);
-        self.rank_icons[idx].clone()
     }
 }
 
@@ -242,13 +218,11 @@ fn read_all_folders() -> Vec<FolderEntry> {
         for entry in entries.flatten() {
             if let Ok(content) = std::fs::read_to_string(entry.path()) {
                 if let Ok(replay) = serde_json::from_str::<ReplayData>(&content) {
-                    let g = groups
-                        .entry(replay.chart_name.clone())
-                        .or_insert_with(|| FolderEntry {
-                            chart_name: replay.chart_name.clone(),
-                            chart_id: replay.chart_id,
-                            count: 0,
-                        });
+                    let g = groups.entry(replay.chart_name.clone()).or_insert_with(|| FolderEntry {
+                        chart_name: replay.chart_name.clone(),
+                        chart_id: replay.chart_id,
+                        count: 0,
+                    });
                     g.count += 1;
                     if g.chart_id.is_none() {
                         g.chart_id = replay.chart_id;
@@ -282,7 +256,6 @@ fn read_chart_replays(chart_name: &str) -> Vec<ReplayEntry> {
                             accuracy: replay.accuracy,
                             full_combo: replay.full_combo,
                             chart_name: replay.chart_name,
-                            chart_id: replay.chart_id,
                             speed: replay.speed,
                         });
                     }
@@ -416,7 +389,12 @@ impl Page for ReplayListPage {
                 let r = Rect::new(-0.9, -top + 0.04, 0.15, 0.07);
                 self.back_btn.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.5));
-                    ui.text("返回").pos(r.center().x, r.center().y).anchor(0.5, 0.5).no_baseline().size(0.5).draw();
+                    ui.text("返回")
+                        .pos(r.center().x, r.center().y)
+                        .anchor(0.5, 0.5)
+                        .no_baseline()
+                        .size(0.5)
+                        .draw();
                 });
             }
 
@@ -424,7 +402,12 @@ impl Page for ReplayListPage {
             let rr = Rect::new(0.78, -top + 0.04, 0.12, 0.07);
             self.refresh_btn.render_shadow(ui, rr, t, |ui, path| {
                 ui.fill_path(&path, semi_black(0.5));
-                ui.text("刷新").pos(rr.center().x, rr.center().y).anchor(0.5, 0.5).no_baseline().size(0.45).draw();
+                ui.text("刷新")
+                    .pos(rr.center().x, rr.center().y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.45)
+                    .draw();
             });
         });
 
@@ -468,16 +451,14 @@ impl Page for ReplayListPage {
                             tx += icon_size + pad_in;
 
                             // Score + accuracy
-                            ui.text(format!("{:07}", entry.score))
-                                .pos(tx, item_r.y + 0.018)
-                                .size(0.65)
-                                .draw();
-                            let acc_text = format!("{:.2}%   {}{}", entry.accuracy * 100., if entry.full_combo { "FC " } else { "" }, fmt_timestamp(entry.timestamp));
-                            ui.text(acc_text)
-                                .pos(tx, item_r.y + 0.075)
-                                .size(0.42)
-                                .color(semi_white(0.8))
-                                .draw();
+                            ui.text(format!("{:07}", entry.score)).pos(tx, item_r.y + 0.018).size(0.65).draw();
+                            let acc_text = format!(
+                                "{:.2}%   {}{}",
+                                entry.accuracy * 100.,
+                                if entry.full_combo { "FC " } else { "" },
+                                fmt_timestamp(entry.timestamp)
+                            );
+                            ui.text(acc_text).pos(tx, item_r.y + 0.075).size(0.42).color(semi_white(0.8)).draw();
                             if (entry.speed - 1.0).abs() > 1e-3 {
                                 ui.text(format!("speed {:.2}x", entry.speed))
                                     .pos(tx, item_r.y + 0.115)
@@ -578,7 +559,7 @@ fn pick_save_path(default_name: &str) -> Option<std::path::PathBuf> {
                 }
             }
         }
-        return out;
+        out
     }
     #[cfg(any(target_os = "android", target_os = "ios", target_arch = "wasm32"))]
     {

@@ -76,18 +76,29 @@ impl Exporter {
         let mut child = Command::new("ffmpeg")
             .args([
                 "-hide_banner",
-                "-loglevel", "warning",
+                "-loglevel",
+                "warning",
                 "-y",
-                "-f", "rawvideo",
-                "-pixel_format", "rgba",
-                "-video_size", &format!("{}x{}", cfg.width, cfg.height),
-                "-framerate", &cfg.fps.to_string(),
-                "-i", "-",
-                "-vf", "vflip",
-                "-c:v", "libx264",
-                "-preset", "veryfast",
-                "-pix_fmt", "yuv420p",
-                "-movflags", "+faststart",
+                "-f",
+                "rawvideo",
+                "-pixel_format",
+                "rgba",
+                "-video_size",
+                &format!("{}x{}", cfg.width, cfg.height),
+                "-framerate",
+                &cfg.fps.to_string(),
+                "-i",
+                "-",
+                "-vf",
+                "vflip",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
             ])
             .arg(video_tmp.as_os_str())
             .stdin(Stdio::piped())
@@ -163,28 +174,20 @@ impl Exporter {
                 std::fs::remove_file(&self.cfg.output).ok();
             }
             std::fs::rename(&self.video_tmp, &self.cfg.output).or_else(|_| {
-                std::fs::copy(&self.video_tmp, &self.cfg.output).map(|_| ()).and_then(|_| std::fs::remove_file(&self.video_tmp))
+                std::fs::copy(&self.video_tmp, &self.cfg.output)
+                    .map(|_| ())
+                    .and_then(|_| std::fs::remove_file(&self.video_tmp))
             })?;
             return Ok(self.cfg.output);
         };
 
         // Mux: copy video stream, encode audio to aac, finish at -shortest.
         let mux_status = Command::new("ffmpeg")
-            .args([
-                "-hide_banner",
-                "-loglevel", "warning",
-                "-y",
-                "-i",
-            ])
+            .args(["-hide_banner", "-loglevel", "warning", "-y", "-i"])
             .arg(self.video_tmp.as_os_str())
             .arg("-i")
             .arg(audio.as_os_str())
-            .args([
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-shortest",
-                "-movflags", "+faststart",
-            ])
+            .args(["-c:v", "copy", "-c:a", "aac", "-shortest", "-movflags", "+faststart"])
             .arg(self.cfg.output.as_os_str())
             .status()
             .context("failed to run ffmpeg mux pass")?;

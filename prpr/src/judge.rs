@@ -691,7 +691,11 @@ impl Judge {
                                         time: t,
                                         line_id: line_id as _,
                                         note_id: id,
-                                        judgment: if dt <= LIMIT_PERFECT { crate::replay::ReplayJudgement::HoldPerfect } else { crate::replay::ReplayJudgement::HoldGood },
+                                        judgment: if dt <= LIMIT_PERFECT {
+                                            crate::replay::ReplayJudgement::HoldPerfect
+                                        } else {
+                                            crate::replay::ReplayJudgement::HoldGood
+                                        },
                                         offset: (t - note.time) / spd,
                                     });
                                 }
@@ -762,7 +766,11 @@ impl Judge {
                                     time: t,
                                     line_id: line_id as _,
                                     note_id: id,
-                                    judgment: if dt <= LIMIT_PERFECT { crate::replay::ReplayJudgement::HoldPerfect } else { crate::replay::ReplayJudgement::HoldGood },
+                                    judgment: if dt <= LIMIT_PERFECT {
+                                        crate::replay::ReplayJudgement::HoldPerfect
+                                    } else {
+                                        crate::replay::ReplayJudgement::HoldGood
+                                    },
                                     offset: (t - note.time) / spd,
                                 });
                             }
@@ -948,7 +956,6 @@ impl Judge {
         self.last_time = t / spd;
     }
 
-
     /// Drive note state from a recorded replay. Replaces both `update` and
     /// `auto_play_update` when `is_replaying()` is true. Commits judgements
     /// matching the recording at the times they were originally committed.
@@ -983,7 +990,11 @@ impl Judge {
             {
                 let line = &mut chart.lines[line_idx];
                 let note = &mut line.notes[note_idx];
-                let nt = if matches!(note.kind, NoteKind::Hold { .. }) { rec.time } else { note.time };
+                let nt = if matches!(note.kind, NoteKind::Hold { .. }) {
+                    rec.time
+                } else {
+                    note.time
+                };
                 line.object.set_time(nt);
                 note.object.set_time(nt);
             }

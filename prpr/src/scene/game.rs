@@ -363,10 +363,7 @@ impl GameScene {
         } else if crate::replay::take_pending_record() {
             // Record only when it actually makes sense to: a normal play with
             // no autoplay and 1x speed.
-            if normal_mode
-                && !this.res.config.autoplay()
-                && (this.res.config.speed - 1.0).abs() < 1e-3
-            {
+            if normal_mode && !this.res.config.autoplay() && (this.res.config.speed - 1.0).abs() < 1e-3 {
                 this.judge.start_recording(
                     this.res.info.id,
                     this.res.info.name.clone(),
@@ -912,11 +909,7 @@ impl Scene for GameScene {
         #[cfg(target_env = "ohos")]
         miniquad::native::set_interceptor_state(true);
         self.music = Self::new_music(&mut self.res)?;
-        let final_target = self
-            .exporter
-            .as_ref()
-            .map(|e| e.render_target())
-            .or(target);
+        let final_target = self.exporter.as_ref().map(|e| e.render_target()).or(target);
         self.res.camera.render_target = final_target;
         tm.speed = self.res.config.speed as _;
         tm.adjust_time = self.res.config.adjust_time;
@@ -1027,12 +1020,7 @@ impl Scene for GameScene {
                         if let Some(mut rec) = self.judge.take_replay_record() {
                             if !rec.records.is_empty() {
                                 let result = self.judge.result();
-                                rec.finalize(
-                                    result.score as _,
-                                    result.accuracy as _,
-                                    result.max_combo as _,
-                                    result.max_combo == result.num_of_notes,
-                                );
+                                rec.finalize(result.score as _, result.accuracy as _, result.max_combo as _, result.max_combo == result.num_of_notes);
                                 if let Err(e) = crate::replay::save_replay_file(&rec) {
                                     tracing::warn!("failed to save replay: {e:?}");
                                 }
