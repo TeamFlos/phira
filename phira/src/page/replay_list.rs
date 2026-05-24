@@ -5,13 +5,14 @@ use super::{NextPage, Page, SharedState};
 use crate::{dir, get_data, icons::Icons, scene::fs_from_path};
 use anyhow::Result;
 use chrono::{Local, TimeZone};
+use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     ext::{poll_future, semi_black, semi_white, LocalTask, SafeTexture, ScaleType},
     fs,
     judge::icon_index,
     replay::ReplayData,
-    scene::{show_error, BasicPlayer, GameMode, LoadingScene, NextScene},
+    scene::{request_input, return_input, show_error, take_input, BasicPlayer, GameMode, LoadingScene, NextScene},
     ui::{button_hit, DRectButton, Scroll, Ui},
 };
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
@@ -19,6 +20,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 const ITEM_HEIGHT: f32 = 0.18;
 
 pub struct ReplayListPage {
+    icons: Arc<Icons>,
     rank_icons: [SafeTexture; 8],
 
     /// Replays grouped by chart name (root view) or list of single-replay
@@ -32,8 +34,12 @@ pub struct ReplayListPage {
 
     folder_btns: Vec<DRectButton>,
     play_btns: Vec<DRectButton>,
+    favorite_btns: Vec<DRectButton>,
+    rename_btns: Vec<DRectButton>,
     delete_btns: Vec<DRectButton>,
-    refresh_btn: DRectButton,
+    favorite_filter_btn: DRectButton,
+    favorites_only: bool,
+    renaming_file: Option<String>,
 
     scroll: Scroll,
 
@@ -55,24 +61,31 @@ struct FolderEntry {
 
 struct ReplayEntry {
     file_name: String,
+    replay_name: String,
     timestamp: i64,
     score: i32,
     accuracy: f32,
     full_combo: bool,
     speed: f32,
+    favorite: bool,
 }
 
 impl ReplayListPage {
-    pub fn new(_icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Result<Self> {
+    pub fn new(icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Result<Self> {
         let mut this = Self {
+            icons,
             rank_icons,
             folders: Vec::new(),
             entries: Vec::new(),
             current_folder: None,
             folder_btns: Vec::new(),
             play_btns: Vec::new(),
+            favorite_btns: Vec::new(),
+            rename_btns: Vec::new(),
             delete_btns: Vec::new(),
-            refresh_btn: DRectButton::new(),
+            favorite_filter_btn: DRectButton::new(),
+            favorites_only: false,
+            renaming_file: None,
             scroll: Scroll::new(),
             load_task: None,
             pending_scene: None,
@@ -83,12 +96,14 @@ impl ReplayListPage {
 
     fn reload(&mut self) {
         if let Some((key, _)) = self.current_folder.clone() {
-            self.entries = read_chart_replays(&key);
+            self.entries = read_chart_replays(&key, self.favorites_only);
             self.entries.sort_by_key(|b| std::cmp::Reverse(b.timestamp));
             self.play_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
+            self.favorite_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
+            self.rename_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
             self.delete_btns = (0..self.entries.len()).map(|_| DRectButton::new()).collect();
         } else {
-            self.folders = read_all_folders();
+            self.folders = read_all_folders(self.favorites_only);
             self.folders.sort_by(|a, b| a.chart_name.cmp(&b.chart_name));
             self.folder_btns = (0..self.folders.len()).map(|_| DRectButton::new()).collect();
         }
@@ -96,6 +111,42 @@ impl ReplayListPage {
 
     fn replay_path(file_name: &str) -> Result<std::path::PathBuf> {
         Ok(std::path::PathBuf::from(dir::replays()?).join(file_name))
+    }
+
+    fn update_replay(file_name: &str, update: impl FnOnce(&mut ReplayData)) -> Result<()> {
+        let path = Self::replay_path(file_name)?;
+        let content = std::fs::read_to_string(&path)?;
+        let mut replay: ReplayData = serde_json::from_str(&content)?;
+        update(&mut replay);
+        std::fs::write(path, serde_json::to_string_pretty(&replay)?)?;
+        Ok(())
+    }
+
+    fn toggle_favorite(&mut self, file_name: &str) {
+        if let Err(e) = Self::update_replay(file_name, |replay| replay.favorite = !replay.favorite) {
+            show_error(e);
+        } else {
+            self.reload();
+        }
+    }
+
+    fn rename_replay(&mut self, file_name: &str, name: String) {
+        if let Err(e) = Self::update_replay(file_name, |replay| replay.replay_name = name.trim().to_string()) {
+            show_error(e);
+        } else {
+            self.reload();
+        }
+    }
+
+    fn request_rename(&mut self, index: usize) {
+        let entry = &self.entries[index];
+        let text = if entry.replay_name.is_empty() {
+            fmt_timestamp(entry.timestamp)
+        } else {
+            entry.replay_name.clone()
+        };
+        self.renaming_file = Some(entry.file_name.clone());
+        request_input("replay_rename", InputBox::new().default_text(&text));
     }
 
     fn launch_replay_async(&mut self, file_name: String) -> Result<()> {
@@ -179,7 +230,7 @@ fn replay_group_key(r: &ReplayData) -> String {
     }
 }
 
-fn read_all_folders() -> Vec<FolderEntry> {
+fn read_all_folders(favorites_only: bool) -> Vec<FolderEntry> {
     let dir = match dir::replays() {
         Ok(d) => d,
         Err(_) => return Vec::new(),
@@ -193,6 +244,9 @@ fn read_all_folders() -> Vec<FolderEntry> {
         for entry in entries.flatten() {
             if let Ok(content) = std::fs::read_to_string(entry.path()) {
                 if let Ok(replay) = serde_json::from_str::<ReplayData>(&content) {
+                    if favorites_only && !replay.favorite {
+                        continue;
+                    }
                     let key = replay_group_key(&replay);
                     let g = groups.entry(key.clone()).or_insert_with(|| FolderEntry {
                         key,
@@ -211,7 +265,7 @@ fn read_all_folders() -> Vec<FolderEntry> {
     groups.into_values().collect()
 }
 
-fn read_chart_replays(folder_key: &str) -> Vec<ReplayEntry> {
+fn read_chart_replays(folder_key: &str, favorites_only: bool) -> Vec<ReplayEntry> {
     let dir = match dir::replays() {
         Ok(d) => d,
         Err(_) => return Vec::new(),
@@ -226,13 +280,18 @@ fn read_chart_replays(folder_key: &str) -> Vec<ReplayEntry> {
             if let Ok(content) = std::fs::read_to_string(entry.path()) {
                 if let Ok(replay) = serde_json::from_str::<ReplayData>(&content) {
                     if replay_group_key(&replay) == folder_key {
+                        if favorites_only && !replay.favorite {
+                            continue;
+                        }
                         out.push(ReplayEntry {
                             file_name: entry.file_name().to_string_lossy().to_string(),
+                            replay_name: replay.replay_name,
                             timestamp: replay.timestamp,
                             score: replay.score,
                             accuracy: replay.accuracy,
                             full_combo: replay.full_combo,
                             speed: replay.speed,
+                            favorite: replay.favorite,
                         });
                     }
                 }
@@ -267,8 +326,9 @@ impl Page for ReplayListPage {
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
 
-        if self.refresh_btn.touch(touch, t) {
+        if self.favorite_filter_btn.touch(touch, t) {
             button_hit();
+            self.favorites_only = !self.favorites_only;
             self.reload();
             return Ok(true);
         }
@@ -279,6 +339,17 @@ impl Page for ReplayListPage {
         if self.current_folder.is_some() {
             let entries_len = self.entries.len();
             for i in 0..entries_len {
+                if self.favorite_btns[i].touch(touch, t) {
+                    button_hit();
+                    let file_name = self.entries[i].file_name.clone();
+                    self.toggle_favorite(&file_name);
+                    return Ok(true);
+                }
+                if self.rename_btns[i].touch(touch, t) {
+                    button_hit();
+                    self.request_rename(i);
+                    return Ok(true);
+                }
                 if self.delete_btns[i].touch(touch, t) {
                     button_hit();
                     let file_name = self.entries[i].file_name.clone();
@@ -313,6 +384,18 @@ impl Page for ReplayListPage {
     }
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
+        if let Some((id, text)) = take_input() {
+            if id == "replay_rename" {
+                if let Some(file_name) = self.renaming_file.take() {
+                    self.rename_replay(&file_name, text);
+                } else {
+                    return_input(id, text);
+                }
+            } else {
+                return_input(id, text);
+            }
+        }
+
         self.scroll.update(s.t);
 
         if let Some(task) = &mut self.load_task {
@@ -336,15 +419,17 @@ impl Page for ReplayListPage {
 
         s.render_fader(ui, |ui| {
             let top = ui.top;
-            // Refresh button (always visible top-right)
-            let rr = Rect::new(0.78, -top + 0.04, 0.12, 0.07);
-            self.refresh_btn.render_shadow(ui, rr, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.5));
-                ui.text("刷新")
+            let chosen = self.favorites_only;
+            let rr = Rect::new(0.76, -top + 0.04, 0.20, 0.07);
+            self.favorite_filter_btn.render_shadow(ui, rr, t, |ui, path| {
+                ui.fill_path(&path, if chosen { WHITE } else { semi_black(0.5) });
+                ui.text("仅显示收藏")
                     .pos(rr.center().x, rr.center().y)
                     .anchor(0.5, 0.5)
                     .no_baseline()
-                    .size(0.45)
+                    .size(0.35)
+                    .max_width(rr.w - 0.02)
+                    .color(if chosen { Color::new(0.3, 0.3, 0.3, 1.) } else { WHITE })
                     .draw();
             });
         });
@@ -392,17 +477,36 @@ impl Page for ReplayListPage {
                             ui.fill_rect(ic_r, (*icon, ic_r, ScaleType::Fit));
                             tx += icon_size + pad_in;
 
-                            ui.text(format!("{:07}", entry.score)).pos(tx, item_r.y + 0.018).size(0.55).draw();
-                            let acc_text = format!(
-                                "{:.2}%   {}{}",
-                                entry.accuracy * 100.,
-                                if entry.full_combo { "FC " } else { "" },
-                                fmt_timestamp(entry.timestamp)
-                            );
+                            let title = if entry.replay_name.is_empty() {
+                                format!("{:07}", entry.score)
+                            } else {
+                                entry.replay_name.clone()
+                            };
+                            ui.text(title)
+                                .pos(tx, item_r.y + 0.018)
+                                .size(0.55)
+                                .max_width(cell_w - icon_size - 0.18)
+                                .draw();
+                            let acc_text = if entry.replay_name.is_empty() {
+                                format!(
+                                    "{:.2}%   {}{}",
+                                    entry.accuracy * 100.,
+                                    if entry.full_combo { "FC " } else { "" },
+                                    fmt_timestamp(entry.timestamp)
+                                )
+                            } else {
+                                format!(
+                                    "{:07}  {:.2}%   {}{}",
+                                    entry.score,
+                                    entry.accuracy * 100.,
+                                    if entry.full_combo { "FC " } else { "" },
+                                    fmt_timestamp(entry.timestamp)
+                                )
+                            };
                             ui.text(acc_text)
                                 .pos(tx, item_r.y + 0.07)
-                                .size(0.32)
-                                .max_width(cell_w - icon_size - 0.07)
+                                .size(0.3)
+                                .max_width(cell_w - icon_size - 0.18)
                                 .color(semi_white(0.8))
                                 .draw();
                             if (entry.speed - 1.0).abs() > 1e-3 {
@@ -413,13 +517,20 @@ impl Page for ReplayListPage {
                                     .draw();
                             }
 
-                            // Bottom-right: 删除 button.
-                            let btn_w = 0.10;
-                            let btn_h = 0.05;
-                            let bx = item_r.right() - btn_w - pad_in;
-                            let by = item_r.bottom() - btn_h - 0.012;
-                            let del_r = Rect::new(bx, by, btn_w, btn_h);
-                            self.delete_btns[i].render_text(ui, del_r, t, "删除", 0.35, false);
+                            let icon_size = 0.045;
+                            let icon_x = item_r.right() - pad_in - icon_size;
+                            let fav_r = Rect::new(icon_x, item_r.y + 0.018, icon_size, icon_size);
+                            let fav_icon = if entry.favorite { &self.icons.star } else { &self.icons.star_outline };
+                            ui.fill_rect(fav_r, (**fav_icon, fav_r, ScaleType::Fit, if entry.favorite { YELLOW } else { WHITE }));
+                            self.favorite_btns[i].inner.set(ui, fav_r);
+
+                            let edit_r = Rect::new(icon_x, item_r.y + 0.068, icon_size, icon_size);
+                            ui.fill_rect(edit_r, (*self.icons.edit, edit_r, ScaleType::Fit));
+                            self.rename_btns[i].inner.set(ui, edit_r);
+
+                            let del_r = Rect::new(icon_x, item_r.y + 0.118, icon_size, icon_size);
+                            ui.fill_rect(del_r, (*self.icons.delete, del_r, ScaleType::Fit));
+                            self.delete_btns[i].inner.set(ui, del_r);
                         }
                         (r.w, total_h)
                     } else {

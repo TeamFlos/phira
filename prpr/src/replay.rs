@@ -105,6 +105,12 @@ pub struct ReplayData {
     /// Full-combo flag.
     #[serde(default)]
     pub full_combo: bool,
+    /// User-marked favorite flag.
+    #[serde(default)]
+    pub favorite: bool,
+    /// User-provided display name for this replay.
+    #[serde(default)]
+    pub replay_name: String,
     /// Unix timestamp of the game session.
     pub timestamp: i64,
 }
@@ -127,6 +133,8 @@ impl ReplayData {
             accuracy: 0.,
             max_combo: 0,
             full_combo: false,
+            favorite: false,
+            replay_name: String::new(),
             timestamp: chrono::Utc::now().timestamp(),
         }
     }
