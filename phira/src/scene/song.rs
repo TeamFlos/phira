@@ -837,14 +837,6 @@ impl SongScene {
                     .find(|it| it.local_path == *local_path)
                     .is_some_and(|it| it.info.has_unlock && !it.played_unlock));
 
-        // Tell the next-built GameScene to record a replay if the user has
-        // auto_record enabled in settings. The chart's `local_path` is
-        // forwarded so the saved replay can be matched back even when two
-        // locally imported charts share a display name.
-        if get_data().config.auto_record {
-            prpr::replay::set_pending_record(local_path.clone());
-        }
-
         self.scene_task =
             Self::global_launch(self.info.id, local_path, self.mods, mode, None, Some(self.background.clone()), self.record.clone(), is_unlock)?;
 
@@ -865,6 +857,7 @@ impl SongScene {
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         let can_rated = id.is_some() || local_path.starts_with(':');
+        let replay_local_path = local_path.to_owned();
         #[cfg(feature = "video")]
         let local_path = local_path.to_owned();
         #[cfg(closed)]
@@ -1075,11 +1068,18 @@ impl SongScene {
                     })
                 })
             }));
+            let replay_handoff = if get_data().config.auto_record && mode == GameMode::Normal {
+                Some(prpr::replay::ReplayHandoff::Record {
+                    chart_local_path: replay_local_path,
+                })
+            } else {
+                None
+            };
             if is_unlock {
                 #[cfg(not(feature = "video"))]
                 {
                     warn!("this build does not support unlock video.");
-                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, Some(preload))
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, replay_handoff, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
@@ -1091,12 +1091,12 @@ impl SongScene {
                         save_data()?;
                     }
 
-                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, Some(preload))
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, replay_handoff, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
             } else {
-                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, Some(preload))
+                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, replay_handoff, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
             }

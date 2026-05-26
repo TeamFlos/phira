@@ -247,7 +247,14 @@ impl GameScene {
         update_fn: Option<UpdateFn>,
         save_fn: Option<SaveFn>,
         record_save_fn: Option<crate::replay::RecordSaveFn>,
+        replay_handoff: Option<crate::replay::ReplayHandoff>,
     ) -> Result<Self> {
+        let pending_playback = crate::replay::take_pending_playback();
+        let pending_record = crate::replay::take_pending_record();
+        let replay_handoff = replay_handoff
+            .or_else(|| pending_playback.map(crate::replay::ReplayHandoff::Playback))
+            .or_else(|| pending_record.map(|chart_local_path| crate::replay::ReplayHandoff::Record { chart_local_path }));
+
         match mode {
             GameMode::TweakOffset => {
                 config.mods.insert(Mods::AUTOPLAY);
@@ -355,20 +362,25 @@ impl GameScene {
 
         // Pick up any pending replay/record configuration queued by
         // the caller before returning.
-        if let Some(replay) = crate::replay::take_pending_playback() {
-            this.judge.set_replay_data(replay);
-        } else if let Some(local_path) = crate::replay::take_pending_record() {
-            // Record only when it actually makes sense to: a normal play with
-            // no autoplay and 1x speed.
-            if normal_mode && !this.res.config.autoplay() && (this.res.config.speed - 1.0).abs() < 1e-3 {
-                this.judge.start_recording(
-                    this.res.info.id,
-                    this.res.info.name.clone(),
-                    local_path,
-                    this.res.info.level.clone(),
-                    this.res.info.offset,
-                    this.res.config.speed,
-                );
+        if let Some(replay_handoff) = replay_handoff {
+            match replay_handoff {
+                crate::replay::ReplayHandoff::Playback(replay) => {
+                    this.judge.set_replay_data(replay);
+                }
+                crate::replay::ReplayHandoff::Record { chart_local_path } => {
+                    // Record only when it actually makes sense to: a normal
+                    // play with no autoplay and 1x speed.
+                    if normal_mode && !this.res.config.autoplay() && (this.res.config.speed - 1.0).abs() < 1e-3 {
+                        this.judge.start_recording(
+                            this.res.info.id,
+                            this.res.info.name.clone(),
+                            chart_local_path,
+                            this.res.info.level.clone(),
+                            this.res.info.offset,
+                            this.res.config.speed,
+                        );
+                    }
+                }
             }
         }
         Ok(this)

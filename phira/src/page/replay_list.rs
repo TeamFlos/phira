@@ -1,6 +1,8 @@
 //! Replay browser. Lists all `data/replays/*.json` files grouped by chart
 //! and lets the user replay them.
 
+prpr_l10n::tl_file!("replay_list");
+
 use super::{NextPage, Page, SharedState};
 use crate::{dir, get_data, icons::Icons, scene::fs_from_path};
 use anyhow::Result;
@@ -155,28 +157,18 @@ impl ReplayListPage {
         let replay: ReplayData = serde_json::from_str(&content)?;
 
         // Match the recorded chart back to a local entry, preferring the
-        // strongest signal we have (online id > host's local_path > display
-        // name). Two locally imported charts with the same name no longer
-        // collide because `local_path` is unique per chart directory.
+        // host's exact local_path when present. Two locally imported charts
+        // with the same display name no longer collide because `local_path`
+        // is unique per chart directory.
         let local_path = get_data()
             .charts
             .iter()
-            .find(|c| {
-                if let Some(id) = replay.chart_id {
-                    if c.info.id == Some(id) {
-                        return true;
-                    }
-                }
-                if !replay.chart_local_path.is_empty() && c.local_path == replay.chart_local_path {
-                    return true;
-                }
-                false
-            })
+            .find(|c| !replay.chart_local_path.is_empty() && c.local_path == replay.chart_local_path)
+            .or_else(|| get_data().charts.iter().find(|c| replay.chart_id.is_some_and(|id| c.info.id == Some(id))))
             .or_else(|| get_data().charts.iter().find(|c| c.info.name == replay.chart_name))
             .map(|c| c.local_path.clone())
-            .ok_or_else(|| anyhow::anyhow!("找不到对应的铺面: {}", replay.chart_name))?;
+            .ok_or_else(|| anyhow::anyhow!(tl!("chart-not-found", "chart" => replay.chart_name.as_str())))?;
 
-        prpr::replay::set_pending_playback(replay.clone());
         let replay_clone = replay;
 
         self.load_task = Some(Box::pin(async move {
@@ -187,7 +179,9 @@ impl ReplayListPage {
             }
 
             let mut config = get_data().config.clone();
-            config.player_name = get_data().me.as_ref().map(|it| it.name.clone()).unwrap_or_else(|| "Guest".to_string());
+            if let Some(me) = get_data().me.as_ref() {
+                config.player_name = me.name.clone();
+            }
             config.res_pack_path = {
                 let id = get_data().respack_id;
                 if id == 0 {
@@ -198,6 +192,7 @@ impl ReplayListPage {
             };
             config.offline_mode = true;
             config.speed = replay_clone.speed.max(0.5);
+            config.mods = Default::default();
             // Replay disables auto_record so we don't record-of-replay.
             config.auto_record = false;
 
@@ -209,7 +204,20 @@ impl ReplayListPage {
                 historic_best: 0,
             });
 
-            let scene = LoadingScene::new(GameMode::Normal, info, config, fs_obj, player, None, None, None, None, Some(preload)).await?;
+            let scene = LoadingScene::new(
+                GameMode::Normal,
+                info,
+                config,
+                fs_obj,
+                player,
+                None,
+                None,
+                None,
+                None,
+                Some(prpr::replay::ReplayHandoff::Playback(replay_clone)),
+                Some(preload),
+            )
+            .await?;
             Ok(NextScene::Overlay(Box::new(scene)))
         }));
         Ok(())
@@ -314,7 +322,7 @@ impl Page for ReplayListPage {
         if let Some((_, name)) = &self.current_folder {
             name.clone().into()
         } else {
-            "回放列表".into()
+            tl!("label")
         }
     }
 
@@ -405,7 +413,7 @@ impl Page for ReplayListPage {
                         self.pending_scene = Some(scene);
                     }
                     Err(e) => {
-                        show_error(e.context("加载回放失败"));
+                        show_error(e.context(tl!("load-failed")));
                     }
                 }
                 self.load_task = None;
@@ -423,7 +431,7 @@ impl Page for ReplayListPage {
             let rr = Rect::new(0.76, -top + 0.04, 0.20, 0.07);
             self.favorite_filter_btn.render_shadow(ui, rr, t, |ui, path| {
                 ui.fill_path(&path, if chosen { WHITE } else { semi_black(0.5) });
-                ui.text("仅显示收藏")
+                ui.text(tl!("favorites-only"))
                     .pos(rr.center().x, rr.center().y)
                     .anchor(0.5, 0.5)
                     .no_baseline()
@@ -451,7 +459,7 @@ impl Page for ReplayListPage {
                         let rows = n.div_ceil(cols);
                         let total_h = pad + rows as f32 * (ITEM_HEIGHT + pad);
                         if n == 0 {
-                            ui.text("此谱面暂无回放")
+                            ui.text(tl!("chart-empty"))
                                 .pos(r.w / 2., 0.2)
                                 .anchor(0.5, 0.)
                                 .size(0.5)
@@ -538,13 +546,13 @@ impl Page for ReplayListPage {
                         let rows = n.div_ceil(cols);
                         let total_h = pad + rows as f32 * (ITEM_HEIGHT + pad);
                         if n == 0 {
-                            ui.text("还没有任何回放")
+                            ui.text(tl!("empty"))
                                 .pos(r.w / 2., 0.15)
                                 .anchor(0.5, 0.)
                                 .size(0.6)
                                 .color(semi_white(0.7))
                                 .draw();
-                            ui.text("打开 \"自动录制回放\" 后开始游玩，回放会出现在这里")
+                            ui.text(tl!("empty-hint"))
                                 .pos(r.w / 2., 0.27)
                                 .anchor(0.5, 0.)
                                 .size(0.42)
@@ -566,7 +574,7 @@ impl Page for ReplayListPage {
                                 .size(0.6)
                                 .max_width(item_r.w - 0.08)
                                 .draw();
-                            ui.text(format!("{} 个回放", folder.count))
+                            ui.text(tl!("replay-count", "count" => folder.count))
                                 .pos(item_r.x + 0.025, item_r.y + 0.105)
                                 .size(0.4)
                                 .color(semi_white(0.7))

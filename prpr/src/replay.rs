@@ -150,6 +150,7 @@ impl ReplayData {
 // ------- replay file storage -------
 
 use std::{
+    io::{ErrorKind, Write},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -160,9 +161,16 @@ use std::{
 /// layout doesn't have to leak into `prpr`.
 pub type RecordSaveFn = Arc<dyn Fn(ReplayData) -> anyhow::Result<()>>;
 
+/// Replay/record setup to apply to a newly-created game scene.
+pub enum ReplayHandoff {
+    Playback(ReplayData),
+    Record { chart_local_path: String },
+}
+
 /// Convenience: serialize `data` as pretty JSON into `dir`. The filename
-/// encodes timestamp and chart name to avoid collisions. Hosts can use this
-/// from inside their own `RecordSaveFn`, or roll their own.
+/// encodes timestamp and chart name, with a numeric suffix when needed to
+/// avoid overwriting another replay. Hosts can use this from inside their
+/// own `RecordSaveFn`, or roll their own.
 pub fn save_replay_to_dir(dir: &Path, data: &ReplayData) -> anyhow::Result<PathBuf> {
     std::fs::create_dir_all(dir)?;
     let safe_name: String = data
@@ -174,11 +182,24 @@ pub fn save_replay_to_dir(dir: &Path, data: &ReplayData) -> anyhow::Result<PathB
             c => c,
         })
         .collect();
-    let filename = format!("{}_{}.json", data.timestamp, safe_name);
-    let path = dir.join(filename);
     let json = serde_json::to_string_pretty(data)?;
-    std::fs::write(&path, json)?;
-    Ok(path)
+    for index in 0u32.. {
+        let filename = if index == 0 {
+            format!("{}_{}.json", data.timestamp, safe_name)
+        } else {
+            format!("{}_{}_{}.json", data.timestamp, safe_name, index)
+        };
+        let path = dir.join(filename);
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(mut file) => {
+                file.write_all(json.as_bytes())?;
+                return Ok(path);
+            }
+            Err(err) if err.kind() == ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err.into()),
+        }
+    }
+    unreachable!()
 }
 
 // --- thread-local handoff so callers can queue a replay/recording config

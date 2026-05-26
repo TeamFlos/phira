@@ -181,9 +181,6 @@ impl JudgeInner {
 
     pub fn commit(&mut self, what: Judgement, diff: f64) {
         use Judgement::*;
-        if matches!(what, Judgement::Good) {
-            self.diffs.push(diff);
-        }
         if diff < 0. {
             self.early_kind[what as usize] += 1;
         } else if diff > 0. {
@@ -200,6 +197,12 @@ impl JudgeInner {
             _ => {
                 self.combo = 0;
             }
+        }
+    }
+
+    pub fn record_timing_diff(&mut self, diff: f64) {
+        if diff.is_finite() {
+            self.diffs.push(diff);
         }
     }
 
@@ -236,6 +239,11 @@ impl JudgeInner {
 
     pub fn result(&self) -> PlayResult {
         let early = self.diffs.iter().filter(|it| **it < 0.).count() as u32;
+        let std = if self.diffs.is_empty() {
+            0.
+        } else {
+            (self.diffs.iter().map(|it| it * it).sum::<f64>() / self.diffs.len() as f64).sqrt() as f32
+        };
         PlayResult {
             score: self.score(),
             accuracy: self.accuracy(),
@@ -244,7 +252,7 @@ impl JudgeInner {
             counts: self.counts,
             early,
             late: self.diffs.len() as u32 - early,
-            std: 0.,
+            std,
             early_kind: self.early_kind,
             late_kind: self.late_kind,
         }
@@ -397,9 +405,16 @@ impl Judge {
         self.last_time = t;
     }
 
-    pub fn commit(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64) {
+    fn commit_with_timing_diff(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64, timing_diff: Option<f64>) {
         self.judgements.borrow_mut().push((t, line_id, note_id, Ok(what)));
+        #[cfg(closed)]
+        self.inner.commit(what, diff as f32);
+        #[cfg(not(closed))]
         self.inner.commit(what, diff);
+        #[cfg(not(closed))]
+        if let Some(timing_diff) = timing_diff {
+            self.inner.record_timing_diff(timing_diff);
+        }
 
         // Append to replay record buffer if we are recording.
         if let Some(rec) = self.replay_record.as_mut() {
@@ -411,6 +426,10 @@ impl Judge {
                 offset: diff,
             });
         }
+    }
+
+    pub fn commit(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64) {
+        self.commit_with_timing_diff(t, what, line_id, note_id, diff, Some(diff));
     }
 
     #[inline]
@@ -896,19 +915,19 @@ impl Judge {
             let line = &chart.lines[line_id];
             let note = &line.notes[id as usize];
             let line_tr = line.now_transform(res, &chart.lines);
-            self.commit(
-                t,
-                judgement,
-                line_id as _,
-                id,
-                if matches!(judgement, Judgement::Miss) {
-                    0.25
-                } else if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
-                    0.
-                } else {
-                    (diff.unwrap_or(t) - note.time) / spd
-                },
-            );
+            let diff = if matches!(judgement, Judgement::Miss) {
+                0.25
+            } else if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
+                0.
+            } else {
+                (diff.unwrap_or(t) - note.time) / spd
+            };
+            let timing_diff = if matches!(judgement, Judgement::Miss) || matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
+                None
+            } else {
+                Some(diff)
+            };
+            self.commit_with_timing_diff(t, judgement, line_id as _, id, diff, timing_diff);
             if matches!(note.kind, NoteKind::Hold { .. }) {
                 continue;
             }
@@ -998,13 +1017,8 @@ impl Judge {
             {
                 let line = &mut chart.lines[line_idx];
                 let note = &mut line.notes[note_idx];
-                let nt = if matches!(note.kind, NoteKind::Hold { .. }) {
-                    rec.time
-                } else {
-                    note.time
-                };
-                line.object.set_time(nt);
-                note.object.set_time(nt);
+                line.object.set_time(rec.time);
+                note.object.set_time(rec.time);
             }
 
             if is_hold_prejudge {
@@ -1021,7 +1035,7 @@ impl Judge {
             }
 
             let Some(judgement) = judgement else { continue };
-            let _note_kind = chart.lines[line_idx].notes[note_idx].kind.clone();
+            let note_kind = chart.lines[line_idx].notes[note_idx].kind.clone();
             let hitsound = chart.lines[line_idx].notes[note_idx].hitsound.clone();
 
             {
@@ -1029,9 +1043,14 @@ impl Judge {
                 note.judge = JudgeStatus::Judged;
             }
 
-            self.commit(rec.time, judgement, rec.line_id, rec.note_id, rec.offset);
+            let timing_diff = if matches!(judgement, Judgement::Miss) || matches!(note_kind, NoteKind::Drag | NoteKind::Flick) {
+                None
+            } else {
+                Some(rec.offset)
+            };
+            self.commit_with_timing_diff(rec.time, judgement, rec.line_id, rec.note_id, rec.offset, timing_diff);
 
-            if matches!(_note_kind, NoteKind::Hold { .. }) {
+            if matches!(note_kind, NoteKind::Hold { .. }) {
                 continue;
             }
             let line_tr = chart.lines[line_idx].now_transform(res, &chart.lines);
@@ -1142,7 +1161,7 @@ impl Judge {
             }
         }
         for (line_id, id) in judgements.into_iter() {
-            self.commit(t, Judgement::Perfect, line_id as _, id, 0.);
+            self.commit_with_timing_diff(t, Judgement::Perfect, line_id as _, id, 0., None);
             let (note_transform, note_hitsound) = {
                 let line = &mut chart.lines[line_id];
                 let note = &mut line.notes[id as usize];

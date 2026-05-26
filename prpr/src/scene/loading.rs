@@ -101,6 +101,7 @@ impl LoadingScene {
         update_fn: Option<UpdateFn>,
         save_fn: Option<SaveFn>,
         record_save_fn: Option<crate::replay::RecordSaveFn>,
+        replay_handoff: Option<crate::replay::ReplayHandoff>,
 
         preloaded: Option<(SafeTexture, SafeTexture, Color)>,
     ) -> Result<Self> {
@@ -131,6 +132,7 @@ impl LoadingScene {
             update_fn,
             save_fn,
             record_save_fn,
+            replay_handoff,
         ));
         let charter = Regex::new(r"\[!:[0-9]+:([^:]*)\]").unwrap().replace_all(&info.charter, "$1").to_string();
 
