@@ -112,6 +112,10 @@ impl ReplayListPage {
     }
 
     fn replay_path(file_name: &str) -> Result<std::path::PathBuf> {
+        anyhow::ensure!(
+            !file_name.is_empty() && std::path::Path::new(file_name).file_name().and_then(|it| it.to_str()) == Some(file_name),
+            "invalid replay file name"
+        );
         Ok(std::path::PathBuf::from(dir::replays()?).join(file_name))
     }
 
@@ -176,6 +180,9 @@ impl ReplayListPage {
             let mut info = fs::load_info(fs_obj.as_mut()).await?;
             if info.id.is_none() {
                 info.id = replay_clone.chart_id;
+            }
+            if let Some(chart_offset) = replay_clone.chart_offset {
+                info.offset = chart_offset;
             }
 
             let mut config = get_data().config.clone();

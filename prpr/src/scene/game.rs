@@ -586,12 +586,13 @@ impl GameScene {
     }
 
     fn overlay_ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
+        let is_replay = self.judge.is_replaying();
         let c = semi_white(self.res.alpha);
         let res = &mut self.res;
         if tm.paused() {
             let h = 1. / res.aspect_ratio;
             draw_rectangle(-1., -h, 2., h * 2., Color::new(0., 0., 0., 0.6));
-            let o = if self.mode == GameMode::Exercise { -0.3 } else { 0. };
+            let o = if self.mode == GameMode::Exercise || is_replay { -0.3 } else { 0. };
             let s = 0.06;
             let w = 0.05;
             let no_retry = self.mode == GameMode::NoRetry;
@@ -639,7 +640,7 @@ impl GameScene {
                     clicked = None;
                 }
                 let mut pos = self.music.position();
-                if self.mode == GameMode::Exercise {
+                if self.mode == GameMode::Exercise || is_replay {
                     pos = tm.now();
                 }
                 if clicked.is_some_and(|it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
@@ -802,6 +803,60 @@ impl GameScene {
                 tx.ui
                     .fill_rect(re.feather(0.01), Color::new(1., 1., 1., if self.exercise_btns.1.touching() { 0.5 } else { 1. }));
                 tx.draw();
+                for touch in ui.ensure_touches() {
+                    touch.position /= asp;
+                }
+            } else if is_replay {
+                let asp = self.touch_scale();
+                for touch in ui.ensure_touches() {
+                    touch.position *= asp;
+                }
+                ui.dy(0.06);
+                let hw = 0.7;
+                let h = 0.06;
+                let rad = 0.03;
+                let track_length = self.res.track_length.max(1e-3);
+                let t = self.res.time.clamp(0., track_length);
+                let cur = -hw + (t / track_length) as f32 * hw * 2.;
+                ui.fill_rect(Rect::new(-hw, -h, hw * 2., h * 2.), GRAY);
+                ui.fill_rect(Rect::new(-hw, -h, cur + hw, h * 2.), WHITE);
+                ui.fill_rect(Rect::new(cur, -h, 0., h * 2.).feather(0.005), GREEN);
+                ui.fill_circle(cur, 0., rad, GREEN);
+                if self.exercise_press.is_none() {
+                    let r = ui.rect_to_global(Rect::new(-hw, -h, hw * 2., h * 2.).feather(rad));
+                    self.exercise_press = Judge::get_touches()
+                        .iter()
+                        .find(|it| it.phase == TouchPhase::Started && r.contains(it.position))
+                        .map(|it| (0, it.id));
+                }
+                ui.text(format!("{} / {}", fmt_time(t as f32), fmt_time(track_length as f32)))
+                    .pos(0., -0.23)
+                    .anchor(0.5, 0.)
+                    .size(0.8)
+                    .draw();
+                if let Some((_, id)) = self.exercise_press {
+                    let mut release_press = false;
+                    if let Some(touch) = Judge::get_touches().into_iter().rfind(|it| it.id == id) {
+                        let x = touch.position.x;
+                        let p = ((x + hw) as f64 / (hw * 2.) as f64 * track_length).clamp(0., track_length);
+                        let timeline_pos = p + self.offset() as f64;
+                        tm.seek_to(timeline_pos);
+                        self.music.seek_to(timeline_pos.max(0.))?;
+                        self.res.time = p;
+                        self.bad_notes.clear();
+                        self.chart.reset();
+                        self.judge.seek_replay_to(&mut self.chart, p);
+                        self.res.judge_line_color = self.res.res_pack.info.color_perfect();
+                        if matches!(touch.phase, TouchPhase::Cancelled | TouchPhase::Ended) {
+                            release_press = true;
+                        }
+                    } else {
+                        release_press = true;
+                    }
+                    if release_press {
+                        self.exercise_press = None;
+                    }
+                }
                 for touch in ui.ensure_touches() {
                     touch.position /= asp;
                 }

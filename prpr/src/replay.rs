@@ -85,9 +85,10 @@ pub struct ReplayData {
     /// Difficulty level of the chart at recording time (e.g. "IN Lv.13").
     #[serde(default)]
     pub chart_level: String,
-    /// Chart offset (seconds) when the replay was recorded.
-    #[serde(default)]
-    pub chart_offset: f32,
+    /// Chart offset (seconds) when the replay was recorded. `None` means the
+    /// replay was saved by an older version before this field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chart_offset: Option<f32>,
     /// Playback speed at recording time.
     #[serde(default = "default_speed")]
     pub speed: f32,
@@ -126,7 +127,7 @@ impl ReplayData {
             chart_name,
             chart_local_path: String::new(),
             chart_level: String::new(),
-            chart_offset: 0.,
+            chart_offset: None,
             speed: 1.,
             records: Vec::new(),
             score: 0,
@@ -242,4 +243,40 @@ pub fn clear_pending_record() {
 
 pub fn take_pending_record() -> Option<String> {
     PENDING_RECORD.with(|cell| cell.borrow_mut().take())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_chart_offset_deserializes_as_none() {
+        let replay: ReplayData = serde_json::from_str(
+            r#"{
+                "chart_id": null,
+                "chart_name": "legacy",
+                "records": [],
+                "timestamp": 1
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(replay.chart_offset, None);
+
+        let json = serde_json::to_string(&replay).unwrap();
+        assert!(!json.contains("chart_offset"));
+    }
+
+    #[test]
+    fn present_chart_offset_round_trips() {
+        let mut replay = ReplayData::new(Some(42), "offset".to_owned());
+        replay.chart_offset = Some(0.08);
+        replay.timestamp = 1;
+
+        let json = serde_json::to_string(&replay).unwrap();
+        assert!(json.contains(r#""chart_offset":0.08"#));
+
+        let replay: ReplayData = serde_json::from_str(&json).unwrap();
+        assert_eq!(replay.chart_offset, Some(0.08));
+    }
 }

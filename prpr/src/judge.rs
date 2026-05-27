@@ -354,7 +354,7 @@ impl Judge {
         let mut data = crate::replay::ReplayData::new(chart_id, chart_name);
         data.chart_local_path = chart_local_path;
         data.chart_level = chart_level;
-        data.chart_offset = chart_offset;
+        data.chart_offset = Some(chart_offset);
         data.speed = speed;
         self.replay_record = Some(data);
     }
@@ -403,6 +403,88 @@ impl Judge {
             }
         }
         self.last_time = t;
+    }
+
+    /// Rebuild replay playback state at time `t` without playing sounds or FX.
+    /// Used by replay seeking while paused.
+    pub fn seek_replay_to(&mut self, chart: &mut Chart, t: f64) {
+        if self.replay_playback.is_none() {
+            self.advance_to(chart, t);
+            return;
+        }
+
+        self.notes.iter_mut().for_each(|it| it.1 = 0);
+        self.trackers.clear();
+        self.inner.reset();
+        self.judgements.borrow_mut().clear();
+        self.replay_playback_idx = 0;
+
+        let target_idx = self
+            .replay_playback
+            .as_ref()
+            .map(|records| records.iter().take_while(|record| record.time <= t).count())
+            .unwrap_or_default();
+
+        for idx in 0..target_idx {
+            let rec = {
+                let records = self.replay_playback.as_ref().unwrap();
+                records[idx].clone()
+            };
+            self.apply_replay_record_for_seek(chart, rec);
+        }
+        self.replay_playback_idx = target_idx;
+
+        for (line, (idx, st)) in chart.lines.iter_mut().zip(self.notes.iter_mut()) {
+            for id in &idx[*st..] {
+                let note = &mut line.notes[*id as usize];
+                if let JudgeStatus::Hold(..) = note.judge {
+                    if let NoteKind::Hold { end_time, .. } = note.kind {
+                        if t >= end_time {
+                            note.judge = JudgeStatus::Judged;
+                        }
+                    }
+                }
+            }
+            while idx
+                .get(*st)
+                .is_some_and(|id| matches!(line.notes[*id as usize].judge, JudgeStatus::Judged))
+            {
+                *st += 1;
+            }
+        }
+
+        self.judgements.borrow_mut().clear();
+        self.last_time = t;
+    }
+
+    fn apply_replay_record_for_seek(&mut self, chart: &mut Chart, rec: crate::replay::NoteRecord) {
+        let line_idx = rec.line_id as usize;
+        let note_idx = rec.note_id as usize;
+        if line_idx >= chart.lines.len() || note_idx >= chart.lines[line_idx].notes.len() {
+            return;
+        }
+
+        if rec.judgment.is_hold_prejudge() {
+            let perfect = matches!(rec.judgment, crate::replay::ReplayJudgement::HoldPerfect);
+            let note = &mut chart.lines[line_idx].notes[note_idx];
+            if matches!(note.judge, JudgeStatus::NotJudged) {
+                note.judge = JudgeStatus::Hold(perfect, rec.time, rec.offset, false, f64::INFINITY);
+            }
+            return;
+        }
+
+        let Some(judgement) = rec.judgment.to_judgement() else {
+            return;
+        };
+        let note_kind = chart.lines[line_idx].notes[note_idx].kind.clone();
+        chart.lines[line_idx].notes[note_idx].judge = JudgeStatus::Judged;
+
+        let timing_diff = if matches!(judgement, Judgement::Miss) || matches!(note_kind, NoteKind::Drag | NoteKind::Flick) {
+            None
+        } else {
+            Some(rec.offset)
+        };
+        self.commit_with_timing_diff(rec.time, judgement, rec.line_id, rec.note_id, rec.offset, timing_diff);
     }
 
     fn commit_with_timing_diff(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64, timing_diff: Option<f64>) {
