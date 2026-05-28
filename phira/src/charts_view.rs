@@ -568,7 +568,7 @@ impl ChartsView {
                                             .draw_using(&BOLD_FONT);
                                     }
                                 } else {
-                                    ui.fill_path(&path, (*self.icons.r#abstract, r));
+                                    ui.fill_path(&path, (Texture2D::clone(&self.icons.r#abstract), r));
                                     ui.fill_path(&path, semi_black(0.2));
                                     let ct = r.center();
                                     use crate::page::coll::{tl as page_tl, L10N_LOCAL};
@@ -596,7 +596,7 @@ impl ChartsView {
                 let p = if transit.back { p } else { 1. - p };
                 let r = Rect::tween(&fr, &ui.screen_rect(), p);
                 let path = r.rounded(0.02 * (1. - p));
-                ui.fill_path(&path, (*transit.chart.illu.texture.1, r.feather(0.01 * (1. - p))));
+                ui.fill_path(&path, (Texture2D::clone(&transit.chart.illu.texture.1), r.feather(0.01 * (1. - p))));
                 ui.fill_path(&path, semi_black(0.55));
             }
         }

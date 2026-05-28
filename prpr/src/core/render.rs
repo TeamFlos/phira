@@ -2,14 +2,12 @@ use macroquad::{
     texture::{RenderTarget, Texture2D},
     window::get_internal_gl,
 };
-use miniquad::{gl::GLuint, RenderPass, Texture, TextureFormat};
+use macroquad::miniquad::{self as miniquad, gl::GLuint};
 
-// TODO: doc
 pub struct MSRenderTarget {
     dim: (u32, u32),
     fbo: GLuint,
-    rbo: GLuint,
-    dummy: RenderTarget,
+    input: RenderTarget,
     output: [Option<RenderTarget>; 2],
 }
 
@@ -24,101 +22,106 @@ pub fn copy_fbo(src: GLuint, dst: GLuint, dim: (u32, u32)) -> bool {
     }
 }
 
+fn get_fbo(target: &RenderTarget) -> GLuint {
+    let gl = unsafe { get_internal_gl() };
+    let rp = target.render_pass.raw_miniquad_id();
+    unsafe {
+        gl.quad_context.begin_pass(Some(rp), miniquad::PassAction::Nothing);
+        let mut fbo: GLuint = 0;
+        miniquad::gl::glGetIntegerv(miniquad::gl::GL_FRAMEBUFFER_BINDING, &mut fbo as *mut _ as *mut _);
+        gl.quad_context.end_render_pass();
+        fbo
+    }
+}
+
 pub fn internal_id(target: RenderTarget) -> GLuint {
-    target.render_pass.gl_internal_id(unsafe { get_internal_gl() }.quad_context)
+    get_fbo(&target)
+}
+
+fn create_render_target_rgb8(width: u32, height: u32, sample_count: i32) -> RenderTarget {
+    let gl = unsafe { get_internal_gl() };
+    let ctx = gl.quad_context;
+
+    let color_texture = ctx.new_render_texture(miniquad::TextureParams {
+        width,
+        height,
+        format: miniquad::TextureFormat::RGB8,
+        sample_count,
+        ..Default::default()
+    });
+
+    let render_pass = if sample_count > 1 {
+        let resolve_texture = ctx.new_render_texture(miniquad::TextureParams {
+            width,
+            height,
+            format: miniquad::TextureFormat::RGB8,
+            sample_count: 1,
+            ..Default::default()
+        });
+        ctx.new_render_pass_mrt(&[color_texture], Some(&[resolve_texture]), None)
+    } else {
+        ctx.new_render_pass(color_texture, None)
+    };
+
+    // Get the texture that contains the final result (resolve texture for MSAA, color texture otherwise)
+    let result_texture_id = if sample_count > 1 {
+        ctx.render_pass_color_attachments(render_pass)[0]
+    } else {
+        color_texture
+    };
+
+    RenderTarget {
+        texture: Texture2D::from_miniquad_texture(result_texture_id),
+        render_pass: macroquad::texture::RenderPass {
+            color_texture: Texture2D::from_miniquad_texture(result_texture_id),
+            depth_texture: None,
+            render_pass: std::sync::Arc::new(render_pass),
+        },
+    }
 }
 
 impl MSRenderTarget {
     pub fn new(dim: (u32, u32), samples: u32) -> Self {
-        let mut fbo = 0;
-        let mut rbo = 0;
-        unsafe {
-            use miniquad::gl::*;
-            glGenRenderbuffers(1, &mut rbo as *mut _);
-            glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-            glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples as _, GL_RGB8, dim.0 as _, dim.1 as _);
-            glGenFramebuffers(1, &mut fbo as *mut _);
-            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rbo);
-        }
-        let gl = unsafe { get_internal_gl() };
-        let texture = Texture::new_render_texture(
-            gl.quad_context,
-            miniquad::TextureParams {
-                width: dim.0,
-                height: dim.1,
-                format: TextureFormat::RGB8,
-                ..Default::default()
-            },
-        );
-        let render_pass = RenderPass::new(gl.quad_context, texture, None);
-        let dummy_render_pass = RenderPass::from_raw(gl.quad_context, fbo, texture);
+        let input = create_render_target_rgb8(dim.0, dim.1, samples as i32);
+        let output = create_render_target_rgb8(dim.0, dim.1, 1);
+        let fbo = get_fbo(&input);
         Self {
             dim,
             fbo,
-            rbo,
-            dummy: RenderTarget {
-                texture: Texture2D::from_miniquad_texture(texture),
-                render_pass: dummy_render_pass,
-            },
-            output: [
-                Some(RenderTarget {
-                    texture: Texture2D::from_miniquad_texture(texture),
-                    render_pass,
-                }),
-                None,
-            ],
+            input,
+            output: [Some(output), None],
         }
     }
 
     pub fn blit(&self) {
-        copy_fbo(self.fbo, internal_id(self.output[0].unwrap()), self.dim);
+        if let Some(target) = &self.output[0] {
+            let dst_fbo = get_fbo(target);
+            copy_fbo(self.fbo, dst_fbo, self.dim);
+        }
     }
 
     pub fn swap(&mut self) {
         self.output.swap(0, 1);
         if self.output[0].is_none() {
-            let gl = unsafe { get_internal_gl() };
-            let texture = miniquad::Texture::new_render_texture(
-                gl.quad_context,
-                miniquad::TextureParams {
-                    width: self.dim.0,
-                    height: self.dim.1,
-                    format: TextureFormat::RGB8,
-                    ..Default::default()
-                },
-            );
-            let render_pass = RenderPass::new(gl.quad_context, texture, None);
-            self.output[0] = Some(RenderTarget {
-                texture: Texture2D::from_miniquad_texture(texture),
-                render_pass,
-            });
-            copy_fbo(internal_id(self.output[1].unwrap()), internal_id(self.output[0].unwrap()), self.dim);
+            self.output[0] = Some(create_render_target_rgb8(self.dim.0, self.dim.1, 1));
         }
     }
 
     pub fn input(&self) -> RenderTarget {
-        self.dummy
+        self.input.clone()
     }
 
     pub fn output(&self) -> RenderTarget {
-        self.output[0].unwrap()
+        self.output[0].clone().unwrap()
     }
 
     pub fn old(&self) -> RenderTarget {
-        self.output[1].unwrap()
+        self.output[1].clone().unwrap()
     }
 }
 
 impl Drop for MSRenderTarget {
     fn drop(&mut self) {
-        unsafe {
-            use miniquad::gl::*;
-            glDeleteRenderbuffers(1, &self.rbo as *const _);
-            glDeleteFramebuffers(1, &self.fbo as *const _);
-        }
-        for target in self.output.iter().flatten() {
-            target.delete();
-        }
+        // Render pass and texture cleanup is handled by macroquad's RenderPass Drop impl
     }
 }

@@ -169,18 +169,6 @@ impl Chart {
                     target.blit();
                 }
             }
-            if !res.no_effect {
-                let render = |res: &mut Resource| {
-                    for effect in &self.extra.effects {
-                        effect.render(res);
-                    }
-                };
-                if res.config.flip_x() {
-                    res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(-1., 1.)), render);
-                } else {
-                    render(res);
-                }
-            }
         });
     }
 }

@@ -212,10 +212,8 @@ async fn the_main() -> Result<()> {
         rx
     };
 
-    unsafe { get_internal_gl() }
-        .quad_context
-        .display_mut()
-        .set_pause_resume_listener(on_pause_resume);
+    // NOTE: set_pause_resume_listener no longer exists in the new miniquad API.
+    // Pause/resume is now handled through macroquad's window_minimized/window_restored events.
 
     if let Some(me) = &get_data().me {
         anti_addiction_action("startup", Some(format!("phira-{}", me.id)));

@@ -9,11 +9,11 @@ use macroquad::prelude::{
     utils::{register_input_subscriber, repeat_all_miniquad_input},
     *,
 };
-use miniquad::{EventHandler, MouseButton};
+use macroquad::miniquad::{EventHandler, KeyMods, MouseButton, TouchPhase as MiniquadTouchPhase};
 use once_cell::sync::Lazy;
 use sasa::{PlaySfxParams, Sfx};
 use serde::Serialize;
-use std::{cell::RefCell, collections::HashMap, mem, num::FpCategory};
+use std::{cell::RefCell, collections::HashMap, mem, num::FpCategory, time::Instant};
 use tracing::debug;
 
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
@@ -24,6 +24,8 @@ pub const UP_TOLERANCE: f64 = 0.05;
 pub const DIST_FACTOR: f64 = 0.2;
 
 const EARLY_OFFSET: f64 = 0.07;
+
+static START_TIME: Lazy<Instant> = Lazy::new(Instant::now);
 
 #[derive(Debug, Clone)]
 pub enum HitSound {
@@ -83,7 +85,7 @@ fn get_uptime() -> f64 {
 
 #[cfg(target_os = "windows")]
 fn get_uptime() -> f64 {
-    miniquad::native::windows::get_uptime()
+    START_TIME.elapsed().as_secs_f64()
 }
 
 pub struct FlickTracker {
@@ -975,9 +977,9 @@ fn button_to_id(button: MouseButton) -> u64 {
 }
 
 impl EventHandler for Handler {
-    fn update(&mut self, _: &mut miniquad::Context) {}
-    fn draw(&mut self, _: &mut miniquad::Context) {}
-    fn touch_event(&mut self, _: &mut miniquad::Context, phase: miniquad::TouchPhase, id: u64, x: f32, y: f32, time: f64) {
+    fn update(&mut self) {}
+    fn draw(&mut self) {}
+    fn touch_event(&mut self, phase: MiniquadTouchPhase, id: u64, x: f32, y: f32, time: f64) {
         self.status.touches.push(Touch {
             id,
             phase: phase.into(),
@@ -986,12 +988,12 @@ impl EventHandler for Handler {
         });
     }
 
-    fn mouse_wheel_event(&mut self, _ctx: &mut miniquad::Context, x: f32, y: f32) {
+    fn mouse_wheel_event(&mut self, x: f32, y: f32) {
         self.wheel.0 += x;
         self.wheel.1 += y;
     }
 
-    fn mouse_button_down_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
+    fn mouse_button_down_event(&mut self, button: MouseButton, x: f32, y: f32) {
         self.status.touches.push(Touch {
             id: button_to_id(button),
             phase: TouchPhase::Started,
@@ -1000,7 +1002,7 @@ impl EventHandler for Handler {
         });
     }
 
-    fn mouse_button_up_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
+    fn mouse_button_up_event(&mut self, button: MouseButton, x: f32, y: f32) {
         self.status.touches.push(Touch {
             id: button_to_id(button),
             phase: TouchPhase::Ended,
@@ -1009,14 +1011,14 @@ impl EventHandler for Handler {
         });
     }
 
-    fn key_down_event(&mut self, _ctx: &mut miniquad::Context, _keycode: KeyCode, _keymods: miniquad::KeyMods, repeat: bool) {
+    fn key_down_event(&mut self, _keycode: KeyCode, _keymods: KeyMods, repeat: bool) {
         if !repeat {
             self.status.key_delta += 1;
             self.status.keys_down += 1;
         }
     }
 
-    fn key_up_event(&mut self, _ctx: &mut miniquad::Context, _keycode: KeyCode, _keymods: miniquad::KeyMods) {
+    fn key_up_event(&mut self, _keycode: KeyCode, _keymods: KeyMods) {
         self.status.key_delta -= 1;
     }
 }

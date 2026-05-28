@@ -86,7 +86,6 @@ impl RectExt for Rect {
 struct SafeTextureInner(Texture2D);
 impl Drop for SafeTextureInner {
     fn drop(&mut self) {
-        self.0.delete()
     }
 }
 
@@ -94,16 +93,19 @@ pub struct SafeTexture(Arc<SafeTextureInner>);
 impl SafeTexture {
     pub fn into_inner(self) -> Texture2D {
         let arc = self.0;
-        let res = arc.0;
+        let res = arc.0.clone();
         std::mem::forget(arc);
         res
     }
 
     pub fn with_mipmap(self) -> Self {
-        let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
+        let id = self.0 .0.raw_miniquad_id();
+        let gl_id = match unsafe { get_internal_gl().quad_context.texture_raw_id(id) } {
+            miniquad::RawId::OpenGl(id) => id,
+        };
         unsafe {
             use miniquad::gl::*;
-            glBindTexture(GL_TEXTURE_2D, id);
+            glBindTexture(GL_TEXTURE_2D, gl_id);
             glGenerateMipmap(GL_TEXTURE_2D);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as _);
         }
@@ -111,10 +113,13 @@ impl SafeTexture {
     }
 
     pub fn with_filter(self, filter: GLenum) -> Self {
-        let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
+        let id = self.0 .0.raw_miniquad_id();
+        let gl_id = match unsafe { get_internal_gl().quad_context.texture_raw_id(id) } {
+            miniquad::RawId::OpenGl(id) => id,
+        };
         unsafe {
             use miniquad::gl::*;
-            glBindTexture(GL_TEXTURE_2D, id);
+            glBindTexture(GL_TEXTURE_2D, gl_id);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter as _);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter as _);
         }
@@ -171,17 +176,7 @@ pub fn nalgebra_to_glm(mat: &Matrix) -> Mat4 {
 
 pub fn get_viewport() -> (i32, i32, i32, i32) {
     let gl = unsafe { get_internal_gl() };
-    gl.quad_gl.get_viewport().unwrap_or_else(|| {
-        let (w, h) = gl
-            .quad_gl
-            .get_active_render_pass()
-            .map(|it| {
-                let tex = it.texture(gl.quad_context);
-                (tex.width as i32, tex.height as i32)
-            })
-            .unwrap_or_else(|| (screen_width() as _, screen_height() as _));
-        (0, 0, w, h)
-    })
+    gl.quad_gl.get_viewport()
 }
 
 #[inline]
@@ -226,7 +221,7 @@ pub fn source_of_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) -> Op
     }
 }
 
-pub fn draw_image(tex: Texture2D, rect: Rect, scale_type: ScaleType) {
+pub fn draw_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) {
     let source = source_of_image(&tex, rect, scale_type);
     let (w, h) = (tex.width(), tex.height());
     draw_texture_ex(
@@ -259,7 +254,7 @@ pub fn draw_parallelogram_ex(rect: Rect, texture: Option<(Texture2D, Rect)>, top
     ];
     let v = if let Some((tex, tex_rect)) = texture {
         let lt = tex_rect.h * tex.height() * PARALLELOGRAM_SLOPE / tex.width();
-        gl.texture(Some(tex));
+        gl.texture(Some(&tex));
         [
             Vertex::new(p[0].x, p[0].y, 0., tex_rect.x + lt, tex_rect.y, top),
             Vertex::new(p[1].x, p[1].y, 0., tex_rect.right(), tex_rect.y, top),
@@ -426,8 +421,7 @@ pub fn make_pipeline(write_color: bool, pass_op: StencilOp, test_func: CompareFu
     } = unsafe { get_internal_gl() };
     gl.make_pipeline(
         context,
-        shader::VERTEX,
-        shader::FRAGMENT,
+        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::FRAGMENT },
         PipelineParams {
             color_write: (write_color, write_color, write_color, write_color),
             color_blend: Some(BlendState::new(

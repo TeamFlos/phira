@@ -5,7 +5,7 @@ use crate::{
     ui::Ui,
 };
 use macroquad::prelude::*;
-use miniquad::{RenderPass, Texture, TextureParams, TextureWrap};
+use macroquad::miniquad::{self, RenderPass, TextureId, TextureParams, TextureWrap};
 use nalgebra::Rotation2;
 use serde::Deserialize;
 use std::cell::RefCell;
@@ -259,7 +259,7 @@ impl JudgeLine {
                         }
                         let hf = vec2(texture.width(), texture.height());
                         draw_texture_ex(
-                            **texture,
+                            &*texture,
                             -hf.x / 2.,
                             -hf.y / 2.,
                             color,
@@ -277,7 +277,7 @@ impl JudgeLine {
                         color.a = alpha.max(0.0);
                         let hf = vec2(frame.width(), frame.height());
                         draw_texture_ex(
-                            **frame,
+                            &*frame,
                             -hf.x / 2.,
                             -hf.y / 2.,
                             color,
@@ -304,17 +304,18 @@ impl JudgeLine {
                         let vp = get_viewport();
                         let pass = *guard.0.get_or_insert_with(|| {
                             let ctx = &mut gl.quad_context;
-                            let tex = Texture::new_render_texture(
-                                ctx,
+                            let tex = ctx.new_render_texture(
                                 TextureParams {
                                     width: vp.2 as _,
                                     height: vp.3 as _,
                                     format: miniquad::TextureFormat::RGBA8,
-                                    filter: FilterMode::Linear,
+                                    min_filter: FilterMode::Linear,
+                                    mag_filter: FilterMode::Linear,
                                     wrap: TextureWrap::Clamp,
+                                    ..Default::default()
                                 },
                             );
-                            RenderPass::new(ctx, tex, None)
+                            ctx.new_render_pass(tex, None)
                         });
                         gl.flush();
                         let old_pass = gl.quad_gl.get_active_render_pass();
@@ -340,10 +341,10 @@ impl JudgeLine {
                 let guard = state.borrow_mut();
                 if guard.1 {
                     let ctx = unsafe { get_internal_gl() }.quad_context;
-                    let tex = guard.0.as_ref().unwrap().texture(ctx);
+                    let tex = ctx.render_pass_texture(*guard.0.as_ref().unwrap());
                     let top = 1. / res.aspect_ratio;
                     draw_texture_ex(
-                        Texture2D::from_miniquad_texture(tex),
+                        &Texture2D::from_miniquad_texture(tex),
                         -1.,
                         -top,
                         WHITE,

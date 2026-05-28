@@ -289,7 +289,7 @@ fn render_about(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let ct = r.center();
     let s = 0.1;
     let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
-    ui.fill_path(&ir.rounded(0.02), (**icon, ir));
+    ui.fill_path(&ir.rounded(0.02), (Texture2D::clone(icon), ir));
 
     let staff = &*STAFF_LIST;
     let text = tl!(
@@ -591,7 +591,7 @@ impl GeneralList {
             let rt = render_title(ui, tl!("item-lang"), None);
             let w = 0.06;
             let r = Rect::new(rt + 0.01, (ITEM_HEIGHT - w) / 2., w, w);
-            ui.fill_rect(r, (*self.icon_lang, r));
+            ui.fill_rect(r, (Texture2D::clone(&self.icon_lang), r));
             self.lang_btn.render(ui, rr, t);
         }
 

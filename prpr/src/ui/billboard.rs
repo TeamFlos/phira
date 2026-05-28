@@ -157,7 +157,7 @@ impl BillBoard {
             tx.ui.fill_rect(r, Color::new(1., 1., 1., 0.4));
             if let Some(icons) = self.icons.as_ref() {
                 let r = r.feather(-0.02);
-                tx.ui.fill_rect(r, (*icons[msg.kind.clone() as u8 as usize], r, ScaleType::Fit));
+                tx.ui.fill_rect(r, (Texture2D::clone(&icons[msg.kind.clone() as u8 as usize]), r, ScaleType::Fit));
             }
             tx.draw();
             true

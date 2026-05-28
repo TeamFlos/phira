@@ -61,12 +61,12 @@ impl Rate {
                 let pos = (i as f32 - 2.) * (pad + s);
                 let r = Rect::new(pos, s / 2., 0., 0.).feather(s / 2.);
                 if self.score >= (i + 1) * 2 {
-                    ui.fill_rect(r, (**icon_star, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(icon_star), r, ScaleType::Fit));
                 } else {
-                    ui.fill_rect(r, (**icon_star, r, ScaleType::Fit, cc));
+                    ui.fill_rect(r, (Texture2D::clone(icon_star), r, ScaleType::Fit, cc));
                     if self.score == i * 2 + 1 {
                         let hr = Rect { w: r.w / 2., ..r };
-                        ui.fill_rect(hr, (**icon_star, r, ScaleType::Fit));
+                        ui.fill_rect(hr, (Texture2D::clone(icon_star), r, ScaleType::Fit));
                     }
                 }
             }

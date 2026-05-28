@@ -2,7 +2,7 @@ use super::Anim;
 use crate::ext::{source_of_image, ScaleType};
 use anyhow::Result;
 use macroquad::prelude::*;
-use miniquad::{Texture, TextureFormat, TextureParams, TextureWrap};
+use macroquad::miniquad::{TextureId, TextureFormat, TextureParams, TextureWrap};
 use prpr_avc::AVPixelFormat;
 use serde::Deserialize;
 use std::{cell::RefCell, io::Write};
@@ -35,14 +35,15 @@ pub struct Video {
 }
 
 fn new_tex(w: u32, h: u32) -> Texture2D {
-    Texture2D::from_miniquad_texture(Texture::new_render_texture(
-        unsafe { get_internal_gl() }.quad_context,
+    Texture2D::from_miniquad_texture(unsafe { get_internal_gl() }.quad_context.new_render_texture(
         TextureParams {
             width: w,
             height: h,
             format: TextureFormat::Alpha,
-            filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
             wrap: TextureWrap::Clamp,
+            ..Default::default()
         },
     ))
 }
@@ -59,8 +60,7 @@ impl Video {
         let h = format.height as u32;
 
         let material = load_material(
-            shader::VERTEX,
-            shader::FRAGMENT,
+            ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::FRAGMENT },
             MaterialParams {
                 pipeline_params: PipelineParams::default(),
                 uniforms: Vec::new(),
@@ -70,9 +70,9 @@ impl Video {
         let tex_y = new_tex(w, h);
         let tex_u = new_tex(w / 2, h / 2);
         let tex_v = new_tex(w / 2, h / 2);
-        material.set_texture("tex_y", tex_y);
-        material.set_texture("tex_u", tex_u);
-        material.set_texture("tex_v", tex_v);
+        material.set_texture("tex_y", tex_y.clone());
+        material.set_texture("tex_u", tex_u.clone());
+        material.set_texture("tex_v", tex_v.clone());
 
         Ok(Self {
             video,
@@ -122,9 +122,9 @@ impl Video {
                 frame.get_data_half(2, &mut buf[2]);
 
                 let ctx = unsafe { get_internal_gl() }.quad_context;
-                self.tex_y.raw_miniquad_texture_handle().update(ctx, &buf[0]);
-                self.tex_u.raw_miniquad_texture_handle().update(ctx, &buf[1]);
-                self.tex_v.raw_miniquad_texture_handle().update(ctx, &buf[2]);
+                ctx.texture_update(self.tex_y.raw_miniquad_id(), &buf[0]);
+                ctx.texture_update(self.tex_u.raw_miniquad_id(), &buf[1]);
+                ctx.texture_update(self.tex_v.raw_miniquad_id(), &buf[2]);
             });
         });
 
@@ -135,7 +135,7 @@ impl Video {
         if !(0f64..self.duration).contains(&(t - self.start_time)) {
             return;
         }
-        gl_use_material(self.material);
+        gl_use_material(&self.material);
         let top = 1. / aspect_ratio;
         let r = Rect::new(-1., -top, 2., top * 2.);
         let s = source_of_image(&self.tex_y, r, self.scale_type).unwrap_or_else(|| Rect::new(0., 0., 1., 1.));

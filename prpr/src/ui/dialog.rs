@@ -4,6 +4,7 @@ use super::{DRectButton, RectButton, Scroll, Ui};
 use crate::{core::BOLD_FONT, ext::RectExt, scene::show_message};
 use anyhow::Error;
 use macroquad::prelude::*;
+use macroquad::miniquad;
 
 const WIDTH_RADIO: f32 = 0.5;
 const HEIGHT_RATIO: f32 = 0.7;
@@ -71,7 +72,7 @@ impl Dialog {
             buttons: vec![tl!("error-copy").to_string(), tl!("ok").to_string()],
             listener: Some(Box::new(move |_dialog, pos| {
                 if pos == 0 {
-                    unsafe { get_internal_gl() }.quad_context.clipboard_set(&error);
+                    miniquad::window::clipboard_set(&error);
                     show_message(tl!("error-copied")).ok();
                 }
                 false

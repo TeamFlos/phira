@@ -8,9 +8,9 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
-use miniquad::{
+use macroquad::miniquad::{
     gl::{GLuint, GL_LINEAR},
-    Texture, TextureWrap,
+    RawId, TextureFormat, TextureId, TextureWrap,
 };
 use sasa::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;
@@ -92,9 +92,9 @@ pub struct ResPackInfo {
 
 fn parse_color_guess_alpha(c: u32) -> Color {
     if c > 0xffffff {
-        Color::from_hex_argb(c)
+        Color::from_hex(c)
     } else {
-        Color::from_hex_rgb(c)
+        Color::from_hex(c)
     }
 }
 
@@ -246,7 +246,7 @@ impl ResourcePack {
                     &pixels.bytes[(atlas.0 as usize * width as usize * 4)..(pixels.bytes.len() - atlas.1 as usize * width as usize * 4)],
                 );
                 let context = unsafe { get_internal_gl() }.quad_context;
-                res.raw_miniquad_texture_handle().set_wrap(context, TextureWrap::Repeat);
+                context.texture_set_wrap(res.raw_miniquad_id(), TextureWrap::Repeat, TextureWrap::Repeat);
                 style.hold_body = Some(res.into());
             }
             get_body(&mut note_style);
@@ -320,7 +320,7 @@ impl ParticleEmitter {
             scale: res_pack.info.hit_fx_scale,
             emitter: Emitter::new(EmitterConfig {
                 local_coords: false,
-                texture: Some(*res_pack.hit_fx),
+                texture: Some((*res_pack.hit_fx).clone()),
                 lifetime: res_pack.info.hit_fx_duration,
                 lifetime_randomness: 0.0,
                 initial_rotation_randomness: 0.0,
@@ -394,7 +394,7 @@ impl NoteBuffer {
         let gl = gl.quad_gl;
         gl.draw_mode(DrawMode::Triangles);
         for ((_, tex_id), meshes) in std::mem::take(&mut self.0).into_iter() {
-            gl.texture(Some(Texture2D::from_miniquad_texture(unsafe { Texture::from_raw_id(tex_id, miniquad::TextureFormat::RGBA8) })));
+            gl.texture(Some(&Texture2D::from_miniquad_texture(TextureId::from_raw_id(RawId::OpenGl(tex_id)))));
             for mesh in meshes {
                 gl.geometry(&mesh.0, &mesh.1);
             }
@@ -504,7 +504,7 @@ impl Resource {
             .context("Failed to load resource pack")?;
         let camera = Camera2D {
             target: vec2(0., 0.),
-            zoom: vec2(1., -config.aspect_ratio.unwrap_or(info.aspect_ratio)),
+            zoom: vec2(1., config.aspect_ratio.unwrap_or(info.aspect_ratio)),
             ..Default::default()
         };
 
@@ -614,7 +614,7 @@ impl Resource {
             self.camera.viewport = Some(viewport(aspect_ratio, vp));
         } else {
             self.aspect_ratio = aspect_ratio.min(vp.2 as f32 / vp.3 as f32);
-            self.camera.zoom.y = -self.aspect_ratio;
+            self.camera.zoom.y = self.aspect_ratio;
             self.camera.viewport = Some(viewport(self.aspect_ratio, vp));
         };
         true

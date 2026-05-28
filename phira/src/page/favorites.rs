@@ -1115,7 +1115,7 @@ impl Page for FavoritesPage {
                     ui.dy(-ui.top + 0.03);
                     let s = 0.08;
                     let r = Rect::new(-s, 0., s, s);
-                    ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, WHITE));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.menu), r, ScaleType::Fit, WHITE));
                     self.operations_menu_btn.set(ui, r);
                     if self.need_show_operations_menu {
                         self.need_show_operations_menu = false;
@@ -1127,7 +1127,7 @@ impl Page for FavoritesPage {
                     }
                     if get_data().collection_by_index(index).is_owned() {
                         ui.dx(-r.w - 0.03);
-                        ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, WHITE));
+                        ui.fill_rect(r, (Texture2D::clone(&self.icons.edit), r, ScaleType::Fit, WHITE));
                         self.edit_btn.set(ui, r);
                         if self.need_show_edit_menu {
                             self.need_show_edit_menu = false;
@@ -1143,9 +1143,9 @@ impl Page for FavoritesPage {
                         r,
                         (
                             if get_data().collection_by_index(index).id.is_some() {
-                                *self.icons.cloud_check
+                                Texture2D::clone(&self.icons.cloud_check)
                             } else {
-                                *self.icons.cloud_none
+                                Texture2D::clone(&self.icons.cloud_none)
                             },
                             r,
                             ScaleType::Fit,
@@ -1161,12 +1161,12 @@ impl Page for FavoritesPage {
                         self.cloud_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                     }
                     ui.dx(-r.w - 0.03);
-                    ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.info), r, ScaleType::Fit));
                     self.info_btn.set(ui, r);
 
                     ui.dx(-r.w - 0.03);
                     if self.fetch_like_task.is_some() {
-                        ui.fill_rect(r, (*self.icons.heart_outline, r, ScaleType::Fit, semi_white(0.4)));
+                        ui.fill_rect(r, (Texture2D::clone(&self.icons.heart_outline), r, ScaleType::Fit, semi_white(0.4)));
                         let ct = r.center();
                         ui.loading(
                             ct.x,
@@ -1181,7 +1181,7 @@ impl Page for FavoritesPage {
                         );
                     } else {
                         let icon = if self.liked { &self.icons.heart } else { &self.icons.heart_outline };
-                        ui.fill_rect(r, (**icon, r, ScaleType::Fit, if self.liked { ORANGE } else { WHITE }));
+                        ui.fill_rect(r, (Texture2D::clone(icon), r, ScaleType::Fit, if self.liked { ORANGE } else { WHITE }));
                         self.like_btn.set(ui, r);
                     }
                 });

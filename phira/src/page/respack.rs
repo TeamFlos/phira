@@ -276,7 +276,7 @@ impl Page for ResPackPage {
                     let y = r.y;
                     r.h = tex.height() / tex.width() * r.w;
                     r.y = y - r.h / 2.;
-                    ui.fill_rect(r, (tex, r, ScaleType::Fit));
+                    ui.fill_rect(r, (tex.clone(), r, ScaleType::Fit));
                     r.x += r.w * 1.8;
                     r.w *= mh.width() / tex.width();
                     r.x -= r.w / 2.;
@@ -285,11 +285,11 @@ impl Page for ResPackPage {
                     ui.fill_rect(r, (mh, r, ScaleType::Fit));
                 };
                 let sp = (cr.h - 0.4) / 2.;
-                draw(r, *pack.note_style.click, *pack.note_style_mh.click);
+                draw(r, Texture2D::clone(&pack.note_style.click), Texture2D::clone(&pack.note_style_mh.click));
                 r.y += sp;
-                draw(r, *pack.note_style.drag, *pack.note_style_mh.drag);
+                draw(r, Texture2D::clone(&pack.note_style.drag), Texture2D::clone(&pack.note_style_mh.drag));
                 r.y += sp;
-                draw(r, *pack.note_style.flick, *pack.note_style_mh.flick);
+                draw(r, Texture2D::clone(&pack.note_style.flick), Texture2D::clone(&pack.note_style_mh.flick));
                 let mut r = Rect::new(0.1, cr.y + 0.1, width, cr.h - 0.38);
                 let draw = |mut r: Rect, style: &NoteStyle, width: f32| {
                     let conv = |r: Rect, tex: &SafeTexture| Rect::new(r.x * tex.width(), r.y * tex.height(), r.w * tex.width(), r.h * tex.height());
@@ -299,7 +299,7 @@ impl Page for ResPackPage {
                     let r2 = Rect::new(r.x, r.y - h * factor, width, h);
                     let r2 = ui.rect_to_global(r2);
                     draw_texture_ex(
-                        *style.hold,
+                        &*style.hold,
                         r2.x,
                         r2.y,
                         semi_white(ui.alpha),
@@ -314,7 +314,7 @@ impl Page for ResPackPage {
                     let r2 = Rect::new(r.x, r.bottom() - h * (1. - factor), width, h);
                     let r2 = ui.rect_to_global(r2);
                     draw_texture_ex(
-                        *style.hold,
+                        &*style.hold,
                         r2.x,
                         r2.y,
                         semi_white(ui.alpha),
@@ -328,9 +328,9 @@ impl Page for ResPackPage {
                     let r2 = ui.rect_to_global(r);
                     draw_texture_ex(
                         if pack.info.hold_repeat {
-                            **style.hold_body.as_ref().unwrap()
+                            &**style.hold_body.as_ref().unwrap()
                         } else {
-                            *style.hold
+                            &*style.hold
                         },
                         r2.x,
                         r2.y,
@@ -362,9 +362,9 @@ impl Page for ResPackPage {
                 let rnd = t.div_euclid(inter);
                 let irnd = rnd as u32;
                 let tex = match irnd % 3 {
-                    0 => *pack.note_style.click,
-                    1 => *pack.note_style.drag,
-                    2 => *pack.note_style.flick,
+                    0 => Texture2D::clone(&pack.note_style.click),
+                    1 => Texture2D::clone(&pack.note_style.drag),
+                    2 => Texture2D::clone(&pack.note_style.flick),
                     _ => unreachable!(),
                 };
                 let st = r.y + 0.06;
@@ -401,14 +401,14 @@ impl Page for ResPackPage {
             self.delete_btn.render_shadow(ui, tr, t, |ui, path| {
                 ui.fill_path(&path, semi_black(0.2));
                 let r = tr.feather(-0.02);
-                ui.fill_rect(r, (*self.icons.delete, r, ScaleType::Fit));
+                ui.fill_rect(r, (Texture2D::clone(&self.icons.delete), r, ScaleType::Fit));
             });
             if item.loaded.is_some() {
                 tr.x -= tr.w + 0.02;
                 self.info_btn.render_shadow(ui, tr, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.2));
                     let r = tr.feather(-0.02);
-                    ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.info), r, ScaleType::Fit));
                 });
             }
         });

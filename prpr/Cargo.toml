@@ -76,7 +76,6 @@ uuid = { workspace = true, features = ["v4"] }
 zip = { workspace = true, default-features = false, features = ["deflate"] }
 
 macroquad = { workspace = true, default-features = false }
-miniquad = { workspace = true }
 prpr-avc = { workspace = true, optional = true }
 prpr-l10n = { workspace = true }
 
