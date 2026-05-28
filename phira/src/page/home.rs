@@ -782,7 +782,7 @@ impl Page for HomePage {
             {
                 let r = ui.screen_rect();
                 let r = ui
-                    .text("备案号：闽ICP�?8008307�?64A")
+                    .text("备案号：闽ICP备18008307号-64A")
                     .pos(r.x + 0.02, r.bottom() - 0.03)
                     .size(0.5)
                     .anchor(0., 1.)

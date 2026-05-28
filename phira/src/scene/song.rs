@@ -93,7 +93,7 @@ pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 /// Matches any `@name#id (role)` or `@name#id` or `@name (role)` or `@name`.
 /// Parentheses may be ASCII `()` or fullwidth `（）`; whitespace before `(` is optional.
 /// Groups: 1=name, 2=id (optional), 3=role (optional)
-static MENTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s#@(（]+)(?:#(\d+))?(?:\s*[�?]([^)）]+)[)）])?").unwrap());
+static MENTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s#@(（]+)(?:#(\d+))?(?:\s*[（(]([^)）]+)[)）])?").unwrap());
 
 /// Parse all `@name#id` resolved collaborator mentions and return `(id, role)` pairs.
 fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
@@ -127,7 +127,7 @@ fn find_unresolved_mentions(intro: &str) -> Vec<(usize, usize, String)> {
         .captures_iter(intro)
         .filter_map(|cap| {
             if cap.get(2).is_some() {
-                // Already has #id �?resolved
+                // Already has #id — resolved
                 return None;
             }
             let m = cap.get(0)?;
@@ -1548,8 +1548,8 @@ impl SongScene {
         }
     }
 
-    /// 构建收藏夹菜单的选项列表�?
-    /// 已或包含该谱面的条目会以“\u2713 前缀标记�?
+    /// 构建收藏夹菜单的选项列表。
+    /// 已或包含该谱面的条目会以“\u2713 前缀标记。
     fn get_fav_menu_options(&mut self) -> Vec<String> {
         let data = get_data();
         let mut options = Vec::new();

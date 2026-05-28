@@ -125,9 +125,9 @@ pub struct LibraryPage {
     rating_last_show: bool,
     filter_show_tag: bool,
 
-    // 收藏�?|| Favorites
+    // 收藏夹 || Favorites
     fav_btn: DRectButton,
-    // None = 显示全部 || show all,      Some(folder_name) = 过滤指定收藏�?|| filter by folder
+    // None = 显示全部 || show all,      Some(folder_name) = 过滤指定收藏夹 || filter by folder
     current_fav_index: Option<usize>,
     sync_fav_task: Option<Task<Result<Option<Collection>>>>,
     force_sync_to_cloud: Arc<AtomicBool>,
@@ -1401,7 +1401,7 @@ impl Page for LibraryPage {
                 r.w = r.h;
                 r.x -= r.w;
 
-                // 多选模式操作按�?
+                // 多选模式操作按钮
                 if let Some(selected) = &mut self.tabs.selected_mut().view.multi_select {
                     self.multi_operation_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, WHITE);
