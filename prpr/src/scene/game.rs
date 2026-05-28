@@ -127,6 +127,7 @@ pub struct GameScene {
     chart_bytes: Vec<u8>,
     chart_format: ChartFormat,
     info_offset: f32,
+    replay_record_local_path: Option<String>,
     effects: Vec<Effect>,
 
     first_in: bool,
@@ -329,6 +330,7 @@ impl GameScene {
             chart_format,
             effects,
             info_offset,
+            replay_record_local_path: None,
 
             first_in: false,
             exercise_range,
@@ -371,14 +373,8 @@ impl GameScene {
                     // Record only when it actually makes sense to: a normal
                     // play with no autoplay and 1x speed.
                     if normal_mode && !this.res.config.autoplay() && (this.res.config.speed - 1.0).abs() < 1e-3 {
-                        this.judge.start_recording(
-                            this.res.info.id,
-                            this.res.info.name.clone(),
-                            chart_local_path,
-                            this.res.info.level.clone(),
-                            this.res.info.offset,
-                            this.res.config.speed,
-                        );
+                        this.replay_record_local_path = Some(chart_local_path);
+                        this.start_replay_recording();
                     }
                 }
             }
@@ -661,7 +657,9 @@ impl GameScene {
                         miniquad::native::set_interceptor_state(false);
                     }
                     Some(0) => {
+                        self.judge.discard_replay_record();
                         reset!(self, res, tm);
+                        Self::start_replay_recording_with(&mut self.judge, res, self.replay_record_local_path.clone());
                         if self.mode == GameMode::Exercise {
                             self.judge.advance_to(&mut self.chart, self.exercise_range.start);
                         }
@@ -893,6 +891,44 @@ impl GameScene {
         self.chart.offset + self.res.config.offset + self.info_offset
     }
 
+    fn start_replay_recording_with(judge: &mut Judge, res: &Resource, chart_local_path: Option<String>) {
+        let Some(chart_local_path) = chart_local_path else {
+            return;
+        };
+        if judge.is_replaying() {
+            return;
+        }
+        judge.start_recording(res.info.id, res.info.name.clone(), chart_local_path, res.info.level.clone(), res.info.offset, res.config.speed);
+    }
+
+    fn start_replay_recording(&mut self) {
+        Self::start_replay_recording_with(&mut self.judge, &self.res, self.replay_record_local_path.clone());
+    }
+
+    fn save_replay_recording_with(judge: &mut Judge, record_save_fn: &Option<crate::replay::RecordSaveFn>) {
+        if judge.is_replaying() {
+            return;
+        }
+        let Some(mut rec) = judge.take_replay_record() else {
+            return;
+        };
+        if rec.records.is_empty() {
+            return;
+        }
+
+        let result = judge.result();
+        rec.finalize(result.score as _, result.accuracy as _, result.max_combo as _, result.max_combo == result.num_of_notes);
+        if let Some(f) = record_save_fn {
+            if let Err(e) = f(rec) {
+                tracing::warn!("failed to save replay: {e:?}");
+            }
+        }
+    }
+
+    fn save_replay_recording(&mut self) {
+        Self::save_replay_recording_with(&mut self.judge, &self.record_save_fn);
+    }
+
     fn tweak_offset(&mut self, ui: &mut Ui, ita: bool) {
         ui.scope(|ui| {
             let width = 0.55;
@@ -970,6 +1006,9 @@ impl Scene for GameScene {
         reset!(self, self.res, tm);
         set_camera(&self.res.camera);
         self.first_in = true;
+        if self.replay_record_local_path.is_some() && !self.judge.is_recording_replay() {
+            self.start_replay_recording();
+        }
         Ok(())
     }
 
@@ -1070,19 +1109,7 @@ impl Scene for GameScene {
                     let is_replay = self.judge.is_replaying();
 
                     // Persist any recorded replay before the scene tears down.
-                    if !is_replay {
-                        if let Some(mut rec) = self.judge.take_replay_record() {
-                            if !rec.records.is_empty() {
-                                let result = self.judge.result();
-                                rec.finalize(result.score as _, result.accuracy as _, result.max_combo as _, result.max_combo == result.num_of_notes);
-                                if let Some(f) = &self.record_save_fn {
-                                    if let Err(e) = f(rec) {
-                                        tracing::warn!("failed to save replay: {e:?}");
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    self.save_replay_recording();
 
                     let mut record_data = None;
                     // TODO strengthen the protection

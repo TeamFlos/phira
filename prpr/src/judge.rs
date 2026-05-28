@@ -364,6 +364,15 @@ impl Judge {
         self.replay_record.take()
     }
 
+    pub fn discard_replay_record(&mut self) {
+        self.replay_record = None;
+    }
+
+    #[inline]
+    pub fn is_recording_replay(&self) -> bool {
+        self.replay_record.is_some()
+    }
+
     /// Enter playback mode. Consumes the provided replay events.
     pub fn set_replay_data(&mut self, data: crate::replay::ReplayData) {
         let mut records = data.records;
