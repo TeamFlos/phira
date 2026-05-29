@@ -299,7 +299,7 @@ impl Page for ResPackPage {
                     let r2 = Rect::new(r.x, r.y - h * factor, width, h);
                     let r2 = ui.rect_to_global(r2);
                     draw_texture_ex(
-                        &*style.hold,
+                        &style.hold,
                         r2.x,
                         r2.y,
                         semi_white(ui.alpha),
@@ -314,7 +314,7 @@ impl Page for ResPackPage {
                     let r2 = Rect::new(r.x, r.bottom() - h * (1. - factor), width, h);
                     let r2 = ui.rect_to_global(r2);
                     draw_texture_ex(
-                        &*style.hold,
+                        &style.hold,
                         r2.x,
                         r2.y,
                         semi_white(ui.alpha),
@@ -328,9 +328,9 @@ impl Page for ResPackPage {
                     let r2 = ui.rect_to_global(r);
                     draw_texture_ex(
                         if pack.info.hold_repeat {
-                            &**style.hold_body.as_ref().unwrap()
+                            style.hold_body.as_ref().unwrap()
                         } else {
-                            &*style.hold
+                            &style.hold
                         },
                         r2.x,
                         r2.y,

@@ -100,9 +100,7 @@ impl SafeTexture {
 
     pub fn with_mipmap(self) -> Self {
         let id = self.0 .0.raw_miniquad_id();
-        let gl_id = match unsafe { get_internal_gl().quad_context.texture_raw_id(id) } {
-            miniquad::RawId::OpenGl(id) => id,
-        };
+        let miniquad::RawId::OpenGl(gl_id) = unsafe { get_internal_gl().quad_context.texture_raw_id(id) };
         unsafe {
             use miniquad::gl::*;
             glBindTexture(GL_TEXTURE_2D, gl_id);
@@ -114,9 +112,7 @@ impl SafeTexture {
 
     pub fn with_filter(self, filter: GLenum) -> Self {
         let id = self.0 .0.raw_miniquad_id();
-        let gl_id = match unsafe { get_internal_gl().quad_context.texture_raw_id(id) } {
-            miniquad::RawId::OpenGl(id) => id,
-        };
+        let miniquad::RawId::OpenGl(gl_id) = unsafe { get_internal_gl().quad_context.texture_raw_id(id) };
         unsafe {
             use miniquad::gl::*;
             glBindTexture(GL_TEXTURE_2D, gl_id);
@@ -222,7 +218,7 @@ pub fn source_of_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) -> Op
 }
 
 pub fn draw_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) {
-    let source = source_of_image(&tex, rect, scale_type);
+    let source = source_of_image(tex, rect, scale_type);
     let (w, h) = (tex.width(), tex.height());
     draw_texture_ex(
         tex,

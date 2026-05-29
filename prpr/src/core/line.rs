@@ -5,7 +5,7 @@ use crate::{
     ui::Ui,
 };
 use macroquad::prelude::*;
-use macroquad::miniquad::{self, RenderPass, TextureId, TextureParams, TextureWrap};
+use macroquad::miniquad::{self, RenderPass, TextureParams, TextureWrap};
 use nalgebra::Rotation2;
 use serde::Deserialize;
 use std::cell::RefCell;
@@ -259,7 +259,7 @@ impl JudgeLine {
                         }
                         let hf = vec2(texture.width(), texture.height());
                         draw_texture_ex(
-                            &*texture,
+                            texture,
                             -hf.x / 2.,
                             -hf.y / 2.,
                             color,
@@ -277,7 +277,7 @@ impl JudgeLine {
                         color.a = alpha.max(0.0);
                         let hf = vec2(frame.width(), frame.height());
                         draw_texture_ex(
-                            &*frame,
+                            frame,
                             -hf.x / 2.,
                             -hf.y / 2.,
                             color,

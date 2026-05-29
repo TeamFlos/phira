@@ -307,7 +307,7 @@ impl Scene for EndingScene {
             let icon = &self.icons[icon_index(res.score, res.max_combo == res.num_of_notes)];
             let p = ran(t, 1.7, 2.4).powi(2);
             let r = Rect::new(0.75, br.center().y, 0., 0.).feather(0.13 + (1. - p) * 0.05);
-            ui.fill_rect(r, (Texture2D::clone(&*icon), r, ScaleType::Fit, semi_white(p)));
+            ui.fill_rect(r, (Texture2D::clone(icon), r, ScaleType::Fit, semi_white(p)));
 
             let y = y + 0.16;
             let lf = -0.48 + (1.2 - y) / 1.9 * 0.4;

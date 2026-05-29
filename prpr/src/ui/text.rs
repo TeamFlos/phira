@@ -8,7 +8,7 @@ use glyph_brush::{
     BrushAction, BrushError, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, SectionGlyph, Text,
 };
 use macroquad::{
-    miniquad::{TextureId, TextureParams},
+    miniquad::TextureParams,
     prelude::*,
 };
 use once_cell::sync::Lazy;

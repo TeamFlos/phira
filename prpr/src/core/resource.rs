@@ -10,7 +10,7 @@ use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
 use macroquad::miniquad::{
     gl::{GLuint, GL_LINEAR},
-    RawId, TextureFormat, TextureId, TextureWrap,
+    RawId, TextureId, TextureWrap,
 };
 use sasa::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;

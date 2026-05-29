@@ -2,7 +2,7 @@ use super::Anim;
 use crate::ext::{source_of_image, ScaleType};
 use anyhow::Result;
 use macroquad::prelude::*;
-use macroquad::miniquad::{TextureId, TextureFormat, TextureParams, TextureWrap};
+use macroquad::miniquad::{TextureFormat, TextureParams, TextureWrap};
 use prpr_avc::AVPixelFormat;
 use serde::Deserialize;
 use std::{cell::RefCell, io::Write};

@@ -560,7 +560,7 @@ impl GameScene {
             let w = 0.05;
             let no_retry = self.mode == GameMode::NoRetry;
             draw_texture_ex(
-                &*res.icon_back,
+                &res.icon_back,
                 -s * 3. - w,
                 -s + o,
                 c,
@@ -573,7 +573,7 @@ impl GameScene {
             let disabled_color = semi_white(res.alpha * 0.4);
             ui.fill_rect(r, ((*res.icon_retry).clone(), r.feather(0.02), ScaleType::Fit, if no_retry { disabled_color } else { c }));
             draw_texture_ex(
-                &*res.icon_resume,
+                &res.icon_resume,
                 s + w,
                 -s + o,
                 if self.dead { disabled_color } else { c },
