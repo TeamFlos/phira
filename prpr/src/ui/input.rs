@@ -73,6 +73,8 @@ impl InlineInputBox {
         self.state.active = false;
         self.state.cursor = 0;
         self.state.backspace_time = None;
+        miniquad::window::set_ime_enabled(false);
+        miniquad::window::show_keyboard(false);
         std::mem::take(&mut self.buffer)
     }
 

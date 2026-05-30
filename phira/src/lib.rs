@@ -199,6 +199,7 @@ async fn the_main() -> Result<()> {
     set_data(data);
     sync_data();
     save_data()?;
+    miniquad::window::set_ime_enabled(false);
 
     let rx = {
         let (tx, rx) = mpsc::channel();
