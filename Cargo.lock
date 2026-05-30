@@ -1879,7 +1879,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.4.15"
-source = "git+https://github.com/2278535805/macroquad#70c98b44830a420f5fc21db7bd0c139220c967e5"
+source = "git+https://github.com/2278535805/macroquad#5c46fdd330b0cd8c68c99981b30193b5f7c384ab"
 dependencies = [
  "fontdue",
  "glam 0.27.0",
@@ -1892,7 +1892,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.8"
-source = "git+https://github.com/2278535805/macroquad#70c98b44830a420f5fc21db7bd0c139220c967e5"
+source = "git+https://github.com/2278535805/macroquad#5c46fdd330b0cd8c68c99981b30193b5f7c384ab"
 
 [[package]]
 name = "malloc_buf"
@@ -1960,11 +1960,14 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "miniquad"
 version = "0.4.10"
-source = "git+https://github.com/2278535805/miniquad#757d6c1be4f666cd9d85daddbe143fe0e6d9563b"
+source = "git+https://github.com/2278535805/miniquad#e0d138a95dca4ea5a7636607eb44319a8570d28e"
 dependencies = [
+ "jni 0.21.1",
  "libc",
+ "ndk-context",
  "ndk-sys 0.2.2",
  "objc-rs",
+ "rustls-platform-verifier",
  "winapi",
 ]
 
