@@ -49,6 +49,7 @@ impl InlineInputBox {
         self.buffer = initial.to_string();
         self.multiline = multiline;
         self.state.cursor = initial.chars().count();
+        self.state.selection_anchor = None;
         self.state.backspace_time = None;
         self.state.scroll_x = 0.0;
         self.state.scroll_y = 0.0;
@@ -63,7 +64,7 @@ impl InlineInputBox {
     pub fn cancel(&mut self) {
         self.state.active = false;
         self.buffer.clear();
-        self.state.cursor = 0;
+        self.state.selection_anchor = None;
         self.state.backspace_time = None;
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
@@ -71,7 +72,7 @@ impl InlineInputBox {
 
     pub fn confirm(&mut self) -> String {
         self.state.active = false;
-        self.state.cursor = 0;
+        self.state.selection_anchor = None;
         self.state.backspace_time = None;
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
@@ -470,6 +471,8 @@ impl InlineInputBox {
                     let hi = (cursor_w - margin).max(0.0).min(full_text.w - max_w);
                     if lo <= hi {
                         self.state.scroll_x = self.state.scroll_x.clamp(lo, hi);
+                    } else {
+                    self.state.scroll_x = hi;
                     }
                     text_x - self.state.scroll_x
                 } else {
@@ -482,6 +485,8 @@ impl InlineInputBox {
                     let hi = (cursor_y - margin).max(0.0).min(full_text.h - max_h);
                     if lo <= hi {
                         self.state.scroll_y = self.state.scroll_y.clamp(lo, hi);
+                    } else {
+                        self.state.scroll_y = hi;
                     }
                     text_y - self.state.scroll_y
                 } else {
@@ -563,6 +568,8 @@ impl InlineInputBox {
                     let hi = (cursor_w - margin).max(0.0).min(full_w - max_w);
                     if lo <= hi {
                         self.state.scroll_x = self.state.scroll_x.clamp(lo, hi);
+                    } else {
+                        self.state.scroll_x = hi;
                     }
                     text_x - self.state.scroll_x
                 } else {
