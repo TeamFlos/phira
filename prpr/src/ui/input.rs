@@ -1,6 +1,6 @@
 use super::Ui;
 use crate::{
-    ext::RectExt,
+    ext::RectExt, judge::take_wheel, ui::scroll::WHEEL_STEP,
 };
 use macroquad::{
     input::Touch,
@@ -32,6 +32,15 @@ struct State {
     cursor_positions: Vec<(f32, f32)>,
     scroll_x: f32,
     scroll_y: f32,
+
+    touch_start_pos: (f32, f32),
+    touch_start_time: f64,
+    touch_mode: u8,
+    touch_start_scroll_x: f32,
+    touch_start_scroll_y: f32,
+    touch_scale_x: f32,
+    touch_scale_y: f32,
+    manual_scroll: bool,
 }
 
 impl InlineInputBox {
@@ -53,8 +62,11 @@ impl InlineInputBox {
         self.state.backspace_time = None;
         self.state.scroll_x = 0.0;
         self.state.scroll_y = 0.0;
+        self.state.manual_scroll = false;
         miniquad::window::set_ime_enabled(true);
         miniquad::window::show_keyboard(true);
+
+        while get_char_pressed().is_some() {}
     }
 
     pub fn is_active(&self) -> bool {
@@ -137,22 +149,83 @@ impl InlineInputBox {
         let p = touch.position;
         let in_rect = self.rect.contains(p);
         let cursor = self.find_nearest_cursor(p.x, p.y);
-        match touch.phase {
-            TouchPhase::Moved => {
-                if in_rect {
+        if is_mouse_button_down(MouseButton::Left) || is_mouse_button_released(MouseButton::Left) {
+            match touch.phase {
+                TouchPhase::Moved => {
                     self.state.cursor = cursor;
+                    false
                 }
-                false
-            }
-            TouchPhase::Stationary | TouchPhase::Ended | TouchPhase::Cancelled => {
-                false
-            }
-            TouchPhase::Started => {
-                if in_rect {
-                    self.state.cursor = cursor;
-                    self.state.selection_anchor = Some(cursor);
+                TouchPhase::Stationary | TouchPhase::Ended | TouchPhase::Cancelled => {
+                    false
                 }
-                !in_rect
+                TouchPhase::Started => {
+                    if in_rect {
+                        self.state.cursor = cursor;
+                        self.state.selection_anchor = Some(cursor);
+                    }
+                    !in_rect
+                }
+            }
+        } else {
+            match touch.phase {
+                TouchPhase::Started => {
+                    if in_rect {
+                        self.state.touch_start_pos = (p.x, p.y);
+                        self.state.touch_start_time = get_time();
+                        self.state.touch_mode = 0;
+                        self.state.touch_start_scroll_x = self.state.scroll_x;
+                        self.state.touch_start_scroll_y = self.state.scroll_y;
+                    }
+                    !in_rect
+                }
+                TouchPhase::Moved => {
+                    let dx = p.x - self.state.touch_start_pos.0;
+                    let dy = p.y - self.state.touch_start_pos.1;
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    let dt = get_time() - self.state.touch_start_time;
+
+                    match self.state.touch_mode {
+                        0 => {
+                            if dist > 0.05 {
+                                self.state.touch_mode = 1;
+                                self.state.manual_scroll = true;
+                            } else if dt > 0.5 {
+                                if self.selection_range().is_some() {
+                                    if let Some(text) = self.selected_text() {
+                                        clipboard_set(&text);
+                                        self.state.selection_anchor = None;
+                                    }
+                                    self.state.touch_mode = 3;
+                                } else {
+                                    self.state.touch_mode = 2;
+                                    self.state.cursor = cursor;
+                                    self.state.selection_anchor = Some((cursor - 1).max(0));
+                                }
+                            }
+                        }
+                        1 => {
+                            let dx_ui = dx * self.state.touch_scale_x;
+                            let dy_ui = dy * self.state.touch_scale_y;
+                            self.state.scroll_x = self.state.touch_start_scroll_x - dx_ui;
+                            self.state.scroll_y = self.state.touch_start_scroll_y - dy_ui;
+                        }
+                        2 => {
+                            self.state.cursor = cursor;
+                        }
+                        _ => {}
+                    }
+                    false
+                }
+                TouchPhase::Ended | TouchPhase::Cancelled => {
+                    if self.state.touch_mode == 0 && in_rect {
+                        self.state.cursor = cursor;
+                        self.state.selection_anchor = None;
+                        self.state.manual_scroll = false;
+                    }
+                    self.state.touch_mode = 0;
+                    false
+                }
+                _ => false,
             }
         }
     }
@@ -416,10 +489,22 @@ impl InlineInputBox {
         if is_key_pressed(KeyCode::Escape) {
             self.cancel();
         }
+
+        // Mouse wheel
+        if self.multiline {
+            let (x, y) = take_wheel();
+            if x.abs() > 1e-5 || y.abs() > 1e-5 {
+                self.state.scroll_x -= x * WHEEL_STEP;
+                self.state.scroll_y -= y * WHEEL_STEP;
+                self.state.manual_scroll = true;
+            }
+        }
     }
 
-    pub fn render(&mut self, ui: &mut Ui, rect: Rect, c: Color, placeholder: &str) {
+    pub fn render(&mut self, ui: &mut Ui, rect: Rect, t: f32, placeholder: &str) {
         self.rect = ui.rect_to_global(rect);
+        self.state.touch_scale_x = if self.rect.w > 0.0 { rect.w / self.rect.w } else { 1.0 };
+        self.state.touch_scale_y = if self.rect.h > 0.0 { rect.h / self.rect.h } else { 1.0 };
         let bx = rect.x;
         let by = rect.y;
         let bw = rect.w;
@@ -427,11 +512,11 @@ impl InlineInputBox {
 
         ui.fill_path(
             &Rect::new(bx, by, bw, bh).rounded(0.008),
-            Color::new(0.35, 0.5, 1.0, c.a * 0.8),
+            Color::new(0.35, 0.5, 1.0, t),
         );
         ui.fill_path(
             &Rect::new(bx + 0.002, by + 0.002, bw - 0.004, bh - 0.004).rounded(0.006),
-            Color::new(0.15, 0.15, 0.18, c.a),
+            Color::new(0.15, 0.15, 0.18, t),
         );
 
         let line_h = ui.text("0").size(0.42).measure().h;
@@ -447,11 +532,11 @@ impl InlineInputBox {
                     .anchor(0.0, 0.5)
                     .no_baseline()
                     .size(0.42)
-                    .color(Color::new(1.0, 1.0, 1.0, c.a * 0.3))
+                    .color(Color::new(1.0, 1.0, 1.0, t * 0.3))
                     .draw();
                 let cursor_x = text_x;
                 let cursor_y = by + 0.01;
-                ui.fill_rect(Rect::new(cursor_x, cursor_y, 0.003, bh - 0.02), Color::new(1.0, 1.0, 1.0, c.a * 0.9));
+                ui.fill_rect(Rect::new(cursor_x, cursor_y, 0.003, bh - 0.02), Color::new(1.0, 1.0, 1.0, t * 0.9));
                 self.update_ime(ui, (cursor_x, text_y - line_h * 0.5));
                 self.state.cursor_positions.clear();
                 self.state.cursor_positions.push(ui.to_global((cursor_x, text_y)));
@@ -472,7 +557,7 @@ impl InlineInputBox {
                     if lo <= hi {
                         self.state.scroll_x = self.state.scroll_x.clamp(lo, hi);
                     } else {
-                    self.state.scroll_x = hi;
+                        self.state.scroll_x = hi;
                     }
                     text_x - self.state.scroll_x
                 } else {
@@ -480,13 +565,18 @@ impl InlineInputBox {
                     text_x
                 };
                 let text_y_adj = if full_text.h > max_h {
-                    let margin = max_h * 0.1;
-                    let lo = (cursor_y + line_h - max_h + margin).max(0.0);
-                    let hi = (cursor_y - margin).max(0.0).min(full_text.h - max_h);
-                    if lo <= hi {
-                        self.state.scroll_y = self.state.scroll_y.clamp(lo, hi);
+                    if self.state.manual_scroll {
+                        let max_scroll = (full_text.h - max_h).max(0.0);
+                        self.state.scroll_y = self.state.scroll_y.clamp(0.0, max_scroll);
                     } else {
-                        self.state.scroll_y = hi;
+                        let margin = max_h * 0.1;
+                        let lo = (cursor_y + line_h - max_h + margin).max(0.0);
+                        let hi = (cursor_y - margin).max(0.0).min(full_text.h - max_h);
+                        if lo <= hi {
+                            self.state.scroll_y = self.state.scroll_y.clamp(lo, hi);
+                        } else {
+                            self.state.scroll_y = hi;
+                        }
                     }
                     text_y - self.state.scroll_y
                 } else {
@@ -518,7 +608,7 @@ impl InlineInputBox {
                             let x = text_x_adj + start_w;
                             let w = end_w - start_w;
                             if w > 0.0 {
-                                ui.fill_rect(Rect::new(x, y, w, line_h + 0.01), Color::new(0.3, 0.5, 1.0, c.a * 0.3));
+                                ui.fill_rect(Rect::new(x, y, w, line_h + 0.01), Color::new(0.3, 0.5, 1.0, t * 0.3));
                             }
                         }
 
@@ -528,11 +618,11 @@ impl InlineInputBox {
                 ui.text(&self.buffer)
                     .pos(text_x_adj, text_y_adj)
                     .size(0.42)
-                    .color(Color::new(1.0, 1.0, 1.0, c.a))
+                    .color(Color::new(1.0, 1.0, 1.0, t))
                     .multiline()
                     .draw();
                 let cx = text_x_adj + cursor_w;
-                ui.fill_rect(Rect::new(cx, cursor_y_adj, 0.003, line_h + 0.01), Color::new(1.0, 1.0, 1.0, c.a * 0.9));
+                ui.fill_rect(Rect::new(cx, cursor_y_adj, 0.003, line_h + 0.01), Color::new(1.0, 1.0, 1.0, t * 0.9));
                 self.update_ime(ui, (cx, cursor_y_adj + 0.002));
                 self.state.cursor_positions.clear();
                 let chars_count = self.buffer.chars().count();
@@ -584,17 +674,17 @@ impl InlineInputBox {
                     let sel_end_w = ui.text(end_before).size(0.42).measure().w;
                     let sel_x = text_x_adj + sel_start_w;
                     let sel_w = sel_end_w - sel_start_w;
-                    ui.fill_rect(Rect::new(sel_x, by + 0.01, sel_w, bh - 0.02), Color::new(0.3, 0.5, 1.0, c.a * 0.3));
+                    ui.fill_rect(Rect::new(sel_x, by + 0.01, sel_w, bh - 0.02), Color::new(0.3, 0.5, 1.0, t * 0.3));
                 }
                 ui.text(&self.buffer)
                     .pos(text_x_adj, text_y)
                     .anchor(0.0, 0.5)
                     .no_baseline()
                     .size(0.42)
-                    .color(Color::new(1.0, 1.0, 1.0, c.a))
+                    .color(Color::new(1.0, 1.0, 1.0, t))
                     .draw();
                 let cx = text_x_adj + cursor_w;
-                ui.fill_rect(Rect::new(cx, by + 0.01, 0.003, bh - 0.02), Color::new(1.0, 1.0, 1.0, c.a * 0.9));
+                ui.fill_rect(Rect::new(cx, by + 0.01, 0.003, bh - 0.02), Color::new(1.0, 1.0, 1.0, t * 0.9));
                 self.update_ime(ui, (cx, text_y - line_h * 0.5));
                 self.state.cursor_positions.clear();
                 let chars_count = self.buffer.chars().count();

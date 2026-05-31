@@ -1960,7 +1960,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "miniquad"
 version = "0.4.10"
-source = "git+https://github.com/2278535805/miniquad#e0d138a95dca4ea5a7636607eb44319a8570d28e"
+source = "git+https://github.com/2278535805/miniquad#8ae589abe04694b169e542e8c6d906b60c111951"
 dependencies = [
  "jni 0.21.1",
  "libc",

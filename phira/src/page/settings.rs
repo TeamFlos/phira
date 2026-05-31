@@ -635,7 +635,7 @@ impl GeneralList {
         item! {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
             if self.mp_addr_input.is_active() {
-                self.mp_addr_input.render(ui, rr, WHITE, &tl!("item-mp-addr"));
+                self.mp_addr_input.render(ui, rr, t, &tl!("item-mp-addr"));
             } else {
                 self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false)
             };
