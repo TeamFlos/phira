@@ -2873,12 +2873,18 @@ pub fn compress_folder<W: Write + Seek>(src: &Path, dst: &mut W) -> Result<()> {
         let entry = entry?;
         let path = entry.path();
         let name = path.strip_prefix(src)?;
+        let mod_time = entry
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .map(|t| DateTime::<Utc>::from(t).naive_utc())
+            .unwrap_or_else(|| Utc::now().naive_utc());
         if path.is_file() {
-            zip.start_file_from_path(name, options)?;
+            zip.start_file_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
             let mut f = File::open(path)?;
             std::io::copy(&mut f, &mut zip)?;
         } else if !name.as_os_str().is_empty() {
-            zip.add_directory_from_path(name, options)?;
+            zip.add_directory_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
         }
     }
     zip.finish()?;
