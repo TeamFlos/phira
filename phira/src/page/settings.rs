@@ -523,7 +523,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.mp_addr_btn.touch(touch, t) {
-            self.mp_addr_input.activate(&config.mp_address, false);
+            self.mp_addr_input.activate(&config.mp_address, false, false);
             return Ok(Some(true));
         }
         #[cfg(not(target_env = "ohos"))]

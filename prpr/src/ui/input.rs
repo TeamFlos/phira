@@ -12,6 +12,7 @@ pub struct InlineInputBox {
     buffer: String,
     rect: Rect,
     multiline: bool,
+    password: bool,
 
     state: State,
 }
@@ -49,14 +50,16 @@ impl InlineInputBox {
             buffer: String::new(),
             rect: Rect::new(0., 0., 0., 0.),
             multiline: false,
+            password: false,
             state: State::default()
         }
     }
 
-    pub fn activate(&mut self, initial: &str, multiline: bool) {
+    pub fn activate(&mut self, initial: &str, multiline: bool, password: bool) {
         self.state.active = true;
         self.buffer = initial.to_string();
         self.multiline = multiline;
+        self.password = password;
         self.state.cursor = initial.chars().count();
         self.state.selection_anchor = None;
         self.state.backspace_time = None;
@@ -190,7 +193,7 @@ impl InlineInputBox {
                                 self.state.touch_mode = 1;
                                 self.state.manual_scroll = true;
                             } else if dt > 0.5 {
-                                if self.selection_range().is_some() {
+                                if self.selection_range().is_some() & !self.password {
                                     if let Some(text) = self.selected_text() {
                                         clipboard_set(&text);
                                         self.state.selection_anchor = None;
@@ -387,7 +390,7 @@ impl InlineInputBox {
         }
 
         // Copy/Paste/Cut
-        if ctrl {
+        if ctrl & !self.password {
             if is_key_pressed(KeyCode::C) {
                 if let Some(text) = self.selected_text() {
                     clipboard_set(&text);
@@ -543,13 +546,22 @@ impl InlineInputBox {
             } else if self.multiline {
                 let text_y = by + 0.02;
                 let line_h_with_space = ui.text("0\n0").size(0.42).multiline().measure().h - ui.text("0").size(0.42).measure().h;
-                let before = self.text_before();
-                let line_start = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
-                let cursor_line_text = &before[line_start..];
-                let line_num = before.chars().filter(|c| *c == '\n').count() as f32;
+                let display = if self.password {
+                    &self.buffer.chars().map(|_| '•').collect::<String>()
+                } else {
+                    &self.buffer
+                };
+                let display_before = if self.password {
+                    &self.text_before().chars().map(|_| '•').collect::<String>()
+                } else {
+                    self.text_before()
+                };
+                let line_start = display_before.rfind('\n').map(|i| i + 1).unwrap_or(0);
+                let cursor_line_text = &display_before[line_start..];
+                let line_num = display_before.chars().filter(|c| *c == '\n').count() as f32;
                 let cursor_w = ui.text(cursor_line_text).size(0.42).multiline().measure().w;
                 let cursor_y = line_num * line_h_with_space;
-                let full_text = ui.text(&self.buffer).size(0.42).multiline().measure();
+                let full_text = ui.text(display).size(0.42).multiline().measure();
                 let text_x_adj = if full_text.w > max_w {
                     let margin = max_w * 0.1;
                     let lo = (cursor_w - max_w + margin).max(0.0);
@@ -586,7 +598,7 @@ impl InlineInputBox {
                 let cursor_y_adj = text_y_adj + line_num * line_h_with_space;
                 if let Some((sel_start, sel_end)) = self.selection_range() {
                     let mut char_offset = 0usize;
-                    for (line_idx, line) in self.buffer.split('\n').enumerate() {
+                    for (line_idx, line) in display.split('\n').enumerate() {
                         let line_len = line.chars().count();
                         let line_char_start = char_offset;
                         let line_char_end = char_offset + line_len;
@@ -615,7 +627,7 @@ impl InlineInputBox {
                         char_offset += line_len + 1;
                     }
                 }
-                ui.text(&self.buffer)
+                ui.text(display)
                     .pos(text_x_adj, text_y_adj)
                     .size(0.42)
                     .color(Color::new(1.0, 1.0, 1.0, t))
@@ -625,19 +637,19 @@ impl InlineInputBox {
                 ui.fill_rect(Rect::new(cx, cursor_y_adj, 0.003, line_h + 0.01), Color::new(1.0, 1.0, 1.0, t * 0.9));
                 self.update_ime(ui, (cx, cursor_y_adj + 0.002));
                 self.state.cursor_positions.clear();
-                let chars_count = self.buffer.chars().count();
+                let chars_count = display.chars().count();
                 let mut line_num_cur = 0usize;
                 let mut line_start_byte = 0usize;
                 for i in 0..=chars_count {
                     if i > 0 {
-                        let prev_byte = self.byte_at(i - 1);
-                        if self.buffer.as_bytes()[prev_byte] == b'\n' {
+                        let prev_byte = display.char_indices().nth(i - 1).map(|(j, _)| j).unwrap_or(display.len());
+                        if display.as_bytes()[prev_byte] == b'\n' {
                             line_num_cur += 1;
                             line_start_byte = prev_byte + 1;
                         }
                     }
-                    let byte_pos = self.byte_at(i);
-                    let line_text = &self.buffer[line_start_byte..byte_pos];
+                    let byte_pos = display.char_indices().nth(i).map(|(j, _)| j).unwrap_or(display.len());
+                    let line_text = &display[line_start_byte..byte_pos];
                     let w = if line_text.is_empty() {
                         0.0
                     } else {
@@ -649,9 +661,18 @@ impl InlineInputBox {
                 }
             } else {
                 let text_y = by + bh / 2.0;
-                let before = self.text_before();
-                let cursor_w = ui.text(before).size(0.42).measure().w;
-                let full_w = ui.text(&self.buffer).size(0.42).measure().w;
+                let display = if self.password {
+                    &self.buffer.chars().map(|_| '•').collect::<String>()
+                } else {
+                    &self.buffer
+                };
+                let display_before = if self.password {
+                    &self.text_before().chars().map(|_| '•').collect::<String>()
+                } else {
+                    self.text_before()
+                };
+                let cursor_w = ui.text(display_before).size(0.42).measure().w;
+                let full_w = ui.text(display).size(0.42).measure().w;
                 let text_x_adj = if full_w > max_w {
                     let margin = max_w * 0.1;
                     let lo = (cursor_w - max_w + margin).max(0.0);
@@ -668,15 +689,15 @@ impl InlineInputBox {
                 };
                 // Draw selection highlight
                 if let Some((sel_start, sel_end)) = self.selection_range() {
-                    let start_before = &self.buffer[..self.byte_at(sel_start)];
-                    let end_before = &self.buffer[..self.byte_at(sel_end)];
+                    let start_before = &display[..display.char_indices().nth(sel_start).map(|(i, _)| i).unwrap_or(display.len())];
+                    let end_before = &display[..display.char_indices().nth(sel_end).map(|(i, _)| i).unwrap_or(display.len())];
                     let sel_start_w = ui.text(start_before).size(0.42).measure().w;
                     let sel_end_w = ui.text(end_before).size(0.42).measure().w;
                     let sel_x = text_x_adj + sel_start_w;
                     let sel_w = sel_end_w - sel_start_w;
                     ui.fill_rect(Rect::new(sel_x, by + 0.01, sel_w, bh - 0.02), Color::new(0.3, 0.5, 1.0, t * 0.3));
                 }
-                ui.text(&self.buffer)
+                ui.text(display)
                     .pos(text_x_adj, text_y)
                     .anchor(0.0, 0.5)
                     .no_baseline()
@@ -687,9 +708,9 @@ impl InlineInputBox {
                 ui.fill_rect(Rect::new(cx, by + 0.01, 0.003, bh - 0.02), Color::new(1.0, 1.0, 1.0, t * 0.9));
                 self.update_ime(ui, (cx, text_y - line_h * 0.5));
                 self.state.cursor_positions.clear();
-                let chars_count = self.buffer.chars().count();
+                let chars_count = display.chars().count();
                 for i in 0..=chars_count {
-                    let before_i = &self.buffer[..self.byte_at(i)];
+                    let before_i = &display[..display.char_indices().nth(i).map(|(j, _)| j).unwrap_or(display.len())];
                     let w = ui.text(before_i).size(0.42).measure().w;
                     let x = text_x_adj + w;
                     self.state.cursor_positions.push(ui.to_global((x, text_y)));
