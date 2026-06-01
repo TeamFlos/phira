@@ -413,6 +413,8 @@ impl GameScene {
             }
         }
         ui.alpha(res.alpha, |ui| {
+            ui.text("MAGIC BUGFIX TEXT").color(Color::new(0., 0., 0., 0.)).draw();
+            ui.text("").draw_using(&PGR_FONT);
             if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
                 ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
             }
