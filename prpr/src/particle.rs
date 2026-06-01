@@ -431,7 +431,8 @@ impl Emitter {
         let InternalGlContext { quad_context: ctx, .. } = unsafe { get_internal_gl() };
 
         // empty, dynamic instance-data vertex buffer
-        let positions_vertex_buffer = ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::empty::<GpuParticle>(Self::MAX_PARTICLES));
+        let zeroed = vec![0u8; Self::MAX_PARTICLES * std::mem::size_of::<GpuParticle>()];
+        let positions_vertex_buffer = ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::slice(&zeroed));
 
         let bindings = config.shape.build_bindings(ctx, positions_vertex_buffer, config.texture.clone());
 

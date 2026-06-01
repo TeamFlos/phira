@@ -413,7 +413,6 @@ impl GameScene {
             }
         }
         ui.alpha(res.alpha, |ui| {
-            ui.text("MAGIC BUGFIX TEXT").color(Color::new(0., 0., 0., 0.)).draw();
             if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
                 ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
             }
@@ -511,8 +510,6 @@ impl GameScene {
                     });
                 }
             }
-            // magic to make score visible, refer to phira/src/rate.rs#L219
-            ui.text("").draw_using(&PGR_FONT);
             let lf = -1. + margin;
             let bt = -top - eps * 2.8 + (1. - p) * 0.4;
             let scale_point = legacy_aui.then(|| {
