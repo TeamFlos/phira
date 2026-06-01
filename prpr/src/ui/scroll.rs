@@ -12,7 +12,7 @@ use nalgebra::Translation2;
 use std::collections::VecDeque;
 
 const THRESHOLD: f32 = 0.03;
-const WHEEL_STEP: f32 = 0.1;
+pub const WHEEL_STEP: f32 = 0.1;
 
 pub struct VelocityTracker {
     movements: VecDeque<(f32, Point)>,
