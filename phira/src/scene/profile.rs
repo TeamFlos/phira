@@ -264,7 +264,7 @@ impl Scene for ProfileScene {
         }
         if self.btn_name.touch(touch) {
             if let Some(user) = &self.user {
-                unsafe { get_internal_gl() }.quad_context.clipboard_set(&user.name);
+                macroquad::miniquad::window::clipboard_set(&user.name);
                 show_message(tl!("name-copied")).ok();
             }
             return Ok(true);
@@ -313,9 +313,9 @@ impl Scene for ProfileScene {
         let t = tm.now() as f32;
 
         let r = ui.screen_rect();
-        ui.fill_rect(r, (*self.background, r));
+        ui.fill_rect(r, (Texture2D::clone(&self.background), r));
         let r = ui.back_rect();
-        ui.fill_rect(r, (*self.icon_back, r));
+        ui.fill_rect(r, (Texture2D::clone(&self.icon_back), r));
         self.btn_back.set(ui, r);
 
         let r = Rect::new(-0.85, -ui.top + 0.1, 0.6, 2.);
@@ -432,14 +432,14 @@ impl Scene for ProfileScene {
                                     }
                                     item.illu.notify();
                                     item.btn.render_shadow(ui, r, t, |ui, path| {
-                                        ui.fill_path(&path, (*item.illu.texture.0, r));
+                                        ui.fill_path(&path, (Texture2D::clone(&item.illu.texture.0), r));
                                         ui.fill_path(&path, semi_black(0.6));
                                     });
 
                                     let icon = icon_index(item.record.score as _, item.record.full_combo);
                                     let s = r.h - pad * 2.;
                                     let ir = Rect::new(r.x + pad, r.y + pad, s, s);
-                                    ui.fill_rect(ir, (*self.rank_icons[icon], ir, ScaleType::Fit));
+                                    ui.fill_rect(ir, (Texture2D::clone(&self.rank_icons[icon]), ir, ScaleType::Fit));
 
                                     let lf = ir.right() + 0.02;
 

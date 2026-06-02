@@ -112,7 +112,7 @@ impl Effect {
         let mut new_uniforms = Vec::new();
         let mut add_uniform = |(name, its_type): (String, UniformType)| {
             if ocurred_uniforms.insert(name.clone()) {
-                new_uniforms.push((name, its_type));
+                new_uniforms.push(UniformDesc::new(&name, its_type));
             }
         };
         for def in &defaults {
@@ -129,8 +129,7 @@ impl Effect {
             t: f64::NEG_INFINITY,
             defaults,
             material: load_material(
-                VERTEX_SHADER,
-                shader,
+                ShaderSource::Glsl { vertex: VERTEX_SHADER, fragment: shader },
                 MaterialParams {
                     uniforms: new_uniforms,
                     textures: vec!["screenTexture".to_owned()],
@@ -169,15 +168,15 @@ impl Effect {
         let target = res.chart_target.as_mut().unwrap();
         target.swap();
         let tex = target.old().texture;
-        self.material.set_texture("screenTexture", tex);
+        self.material.set_texture("screenTexture", tex.clone());
         let screen_dim = vec2(tex.width(), tex.height());
         self.material.set_uniform("screenSize", screen_dim);
-        gl.quad_gl.render_pass(Some(target.output().render_pass));
+        gl.quad_gl.render_pass(Some(target.output().render_pass.raw_miniquad_id()));
 
         let vp = get_viewport();
         self.material.set_uniform("UVScale", vec2(vp.2 as _, vp.3 as _) / screen_dim);
 
-        gl_use_material(self.material);
+        gl_use_material(&self.material);
         let top = 1. / if self.global { screen_aspect() } else { res.aspect_ratio };
         draw_rectangle(-1., -top, 2., top * 2., WHITE);
         gl_use_default_material();
@@ -186,7 +185,6 @@ impl Effect {
 
 impl Drop for Effect {
     fn drop(&mut self) {
-        self.material.delete();
     }
 }
 

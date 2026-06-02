@@ -286,7 +286,7 @@ impl HomePage {
                         let p = (t - self.board_last_time) / BOARD_TRANSIT_TIME;
                         if p > 1. {
                             self.board_tex_last = None;
-                            ui.fill_path(&path, (**cur, r));
+                            ui.fill_path(&path, (Texture2D::clone(cur), r));
                         } else if let Some(last) = &self.board_tex_last {
                             let (cur, last) = if self.board_dir { (last, cur) } else { (cur, last) };
                             let p = 1. - (1. - p).powi(3);
@@ -294,20 +294,20 @@ impl HomePage {
                             clip_rounded_rect(ui, r, rad, |ui| {
                                 let mut nr = r;
                                 nr.h = r.h * (1. - p);
-                                ui.fill_rect(nr, (**last, nr));
+                                ui.fill_rect(nr, (Texture2D::clone(last), nr));
 
                                 nr.h = r.h * p;
                                 nr.y = r.bottom() - nr.h;
-                                ui.fill_rect(nr, (**cur, nr));
+                                ui.fill_rect(nr, (Texture2D::clone(cur), nr));
                             });
                         } else {
-                            ui.fill_path(&path, (**cur, r, ScaleType::CropCenter, semi_white(p)));
+                            ui.fill_path(&path, (Texture2D::clone(cur), r, ScaleType::CropCenter, semi_white(p)));
                         }
                     }
                     ui.fill_path(&path, (semi_black(0.7), (r.x, r.y), Color::default(), (r.x + 0.6, r.y)));
                     ui.text(tl!("play")).pos(r.x + pad, r.y + pad).draw();
                     let r = Rect::new(r.x + 0.02, r.bottom() - 0.18, 0.17, 0.17);
-                    ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit, semi_white(0.6)));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.play), r, ScaleType::Fit, semi_white(0.6)));
                 });
                 top + 0.03
             })
@@ -335,10 +335,10 @@ impl HomePage {
         let mat = self.btn_other_3d.now(ui, Rect::new(0., top - 0.4, 0.83, 0.23), t);
         ui.with_gl(mat, |ui| {
             let r = Rect::new(0., top, 0.38, 0.23);
-            text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), *self.icons.medal);
+            text_and_icon(s, ui, r, &mut self.btn_event, tl!("event"), Texture2D::clone(&self.icons.medal));
 
             let r = Rect::new(r.right() + 0.02, top, 0.29, 0.23);
-            text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), *self.icons.respack);
+            text_and_icon(s, ui, r, &mut self.btn_respack, tl!("respack"), Texture2D::clone(&self.icons.respack));
 
             let lf = r.right() + 0.02;
 
@@ -347,7 +347,7 @@ impl HomePage {
                 self.btn_msg.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
                     let r = r.feather(-0.01);
-                    ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.msg), r, ScaleType::Fit));
                     if self.has_new {
                         let pad = 0.007;
                         ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
@@ -358,7 +358,7 @@ impl HomePage {
                 self.btn_settings.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
                     let r = r.feather(0.004);
-                    ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.settings), r, ScaleType::Fit));
                 });
             });
         });
@@ -649,7 +649,7 @@ impl Page for HomePage {
                 let p = self.char_appear_p.now(t);
                 let (ox, oy, ow, oh) = self.character.illu_adjust;
                 let r = Rect::new(r.x + ox, r.y + (1. - p) * 0.05 + oy, r.w + ow, r.h + oh);
-                ui.fill_rect(ui.screen_rect(), (**illu, r, ScaleType::CropCenter, semi_white(p)));
+                ui.fill_rect(ui.screen_rect(), (Texture2D::clone(illu), r, ScaleType::CropCenter, semi_white(p)));
             }
             self.char_btn.set(ui, r);
 

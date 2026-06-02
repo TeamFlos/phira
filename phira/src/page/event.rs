@@ -206,10 +206,10 @@ impl Page for EventPage {
                 self.btn_down.set(ui, Rect::new(0., d, 0., 0.).feather(s));
                 self.index = (self.scroll.y_scroller.offset / (ui.top * 2.)).round() as usize;
                 ui.with(Rotation2::new(std::f32::consts::FRAC_PI_2).into(), |ui| {
-                    ui.fill_rect(r, (*self.icons.back, r, ScaleType::CropCenter, semi_white(if self.index == 0 { 0.3 } else { 1. })));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.back), r, ScaleType::CropCenter, semi_white(if self.index == 0 { 0.3 } else { 1. })));
                 });
                 ui.with(Rotation2::new(-std::f32::consts::FRAC_PI_2).into(), |ui| {
-                    ui.fill_rect(r, (*self.icons.back, r, ScaleType::CropCenter, semi_white(if self.index + 1 >= events.len() { 0.3 } else { 1. })));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.back), r, ScaleType::CropCenter, semi_white(if self.index + 1 >= events.len() { 0.3 } else { 1. })));
                 });
                 if events.is_empty() {
                     ui.text(ttl!("list-empty")).anchor(0.5, 0.5).no_baseline().size(1.4).draw();

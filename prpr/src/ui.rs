@@ -22,6 +22,9 @@ pub use shadow::*;
 mod text;
 pub use text::{DrawText, TextPainter};
 
+mod input;
+pub use input::InlineInputBox;
+
 pub use glyph_brush::ab_glyph::FontArc;
 
 use crate::{
@@ -136,7 +139,7 @@ impl<T: Shading> VertexBuilder<T> {
 
     pub fn commit(&self) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.texture(self.shading.texture());
+        gl.texture(self.shading.texture().as_ref());
         gl.draw_mode(DrawMode::Triangles);
         gl.geometry(&self.vertices, &self.indices);
     }
@@ -687,7 +690,7 @@ impl<'a> Ui<'a> {
 
     pub fn camera(&self) -> Camera2D {
         Camera2D {
-            zoom: vec2(1., -self.viewport.2 as f32 / self.viewport.3 as f32),
+            zoom: vec2(1., self.viewport.2 as f32 / self.viewport.3 as f32),
             viewport: Some(self.viewport),
             ..Default::default()
         }
@@ -769,7 +772,7 @@ impl<'a> Ui<'a> {
 
     fn emit_lyon(&mut self, texture: Option<Texture2D>) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.texture(texture);
+        gl.texture(texture.as_ref());
         gl.draw_mode(DrawMode::Triangles);
         gl.geometry(&std::mem::take(&mut self.vertex_buffers.vertices), &std::mem::take(&mut self.vertex_buffers.indices));
     }
@@ -954,11 +957,11 @@ impl<'a> Ui<'a> {
     }
 
     pub fn accent(&self) -> Color {
-        Color::from_hex_rgb(0x2196f3)
+        Color::from_hex(0x2196f3)
     }
 
     pub fn background(&self) -> Color {
-        Color::from_hex_rgb(0x2a323c)
+        Color::from_hex(0x2a323c)
     }
 
     pub fn button(&mut self, id: &str, rect: Rect, text: impl Into<String>) -> bool {
@@ -1134,7 +1137,7 @@ impl<'a> Ui<'a> {
         let rect = Rect::new(cx - r, cy - r, r * 2., r * 2.);
         match avatar {
             Ok(Some(avatar)) => {
-                self.fill_circle(cx, cy, r, (*avatar, rect));
+                self.fill_circle(cx, cy, r, (Texture2D::clone(&*avatar), rect));
             }
             Ok(None) => {
                 self.loading(
@@ -1151,7 +1154,7 @@ impl<'a> Ui<'a> {
             }
             Err(icon) => {
                 self.fill_circle(cx, cy, r, semi_black(0.2));
-                self.fill_circle(cx, cy, r, (*icon, rect.feather(-0.025), ScaleType::CropCenter, WHITE));
+                self.fill_circle(cx, cy, r, (Texture2D::clone(&*icon), rect.feather(-0.025), ScaleType::CropCenter, WHITE));
             }
         }
         self.stroke_circle(cx, cy, r, 0.004, WHITE);

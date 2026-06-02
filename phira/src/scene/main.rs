@@ -631,8 +631,8 @@ impl Scene for MainScene {
         set_camera(&ui.camera());
 
         STRIPE_MATERIAL.set_uniform("time", ((tm.real_time() * 0.025) % (std::f64::consts::PI * 2.)) as f32);
-        gl_use_material(*STRIPE_MATERIAL);
-        ui.fill_rect(ui.screen_rect(), (*self.background, ui.screen_rect()));
+        gl_use_material(&STRIPE_MATERIAL);
+        ui.fill_rect(ui.screen_rect(), (Texture2D::clone(&self.background), ui.screen_rect()));
         gl_use_default_material();
 
         let s = &mut self.state;
@@ -669,7 +669,7 @@ impl Scene for MainScene {
                     2 => s.fader.for_sub(|f| f.progress(s.t)),
                     _ => 0.,
                 } * r.h;
-                ui.fill_rect(r, (*self.icon_back, r));
+                ui.fill_rect(r, (Texture2D::clone(&self.icon_back), r));
             });
         }
 
@@ -683,7 +683,7 @@ impl Scene for MainScene {
             let r = Rect::new(self.mp_btn_pos.x, self.mp_btn_pos.y, 0., 0.).feather(r);
             self.mp_btn.set(ui, r);
             let r = r.feather(-0.02);
-            ui.fill_rect(r, (*self.mp_icon, r));
+            ui.fill_rect(r, (Texture2D::clone(&self.mp_icon), r));
 
             MP_PANEL.with(|it| {
                 if let Some(panel) = it.borrow_mut().as_mut() {
@@ -719,10 +719,9 @@ impl Scene for MainScene {
 
 static STRIPE_MATERIAL: Lazy<Material> = Lazy::new(|| {
     load_material(
-        shader::VERTEX,
-        shader::FRAGMENT,
+        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::FRAGMENT },
         MaterialParams {
-            uniforms: vec![("time".to_owned(), UniformType::Float1)],
+            uniforms: vec![UniformDesc::new("time", UniformType::Float1)],
             ..Default::default()
         },
     )

@@ -43,7 +43,7 @@ impl Difficulty {
     }
 
     pub fn color(&self) -> Color {
-        Color::from_hex_rgb(match self {
+        Color::from_hex(match self {
             Self::Easy => 0x16a34a,
             Self::Hard => 0xf97316,
             Self::Extreme => 0xdc2626,
@@ -282,10 +282,10 @@ impl Scene for ChapterScene {
         let t = tm.now() as f32;
 
         let r = ui.screen_rect();
-        ui.fill_rect(r, (*self.cover, r));
+        ui.fill_rect(r, (Texture2D::clone(&self.cover), r));
         ui.fill_rect(r, semi_black(0.3));
         let r = ui.back_rect();
-        ui.fill_rect(r, (*self.icons.back, r));
+        ui.fill_rect(r, (Texture2D::clone(&self.icons.back), r));
         self.btn_back.set(ui, r);
 
         use crate::resource::L10N_LOCAL;
@@ -333,7 +333,7 @@ impl Scene for ChapterScene {
                 for chart in &mut self.charts {
                     let r = Rect::new(-Self::WIDTH / 2., y - Self::HEIGHT / 2., Self::WIDTH, Self::HEIGHT);
                     chart.btn.render_shadow(ui, r, t, |ui, path| {
-                        ui.fill_path(&path, (*chart.illu, r));
+                        ui.fill_path(&path, (Texture2D::clone(&chart.illu), r));
                         ui.fill_path(&path, semi_black(0.4));
                         let mut t = ui
                             .text(&chart.info.levels[self.diff as usize].level)

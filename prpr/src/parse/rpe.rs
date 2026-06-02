@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
 use macroquad::prelude::{Color, WHITE};
+use macroquad::window::get_internal_gl;
 use sasa::AudioClip;
 use serde::{Deserialize, Deserializer};
 use std::{any::Any, cell::RefCell, collections::HashMap, future::IntoFuture, io::Cursor, rc::Rc, str::FromStr, time::Duration};
@@ -773,7 +774,7 @@ async fn parse_judge_line(
                 let events = parse_gif_events(r, events, bezier_map, &frames).with_context(|| ptl!("gif-events-parse-failed"))?;
                 JudgeLineKind::TextureGif(events, frames, rpe.texture.clone())
             } else if let Some(texture) = line_texture_map.get(&rpe.texture) {
-                debug!("texture {} reused, id: {}", rpe.texture.clone(), texture.clone().into_inner().raw_miniquad_texture_handle().gl_internal_id());
+                debug!("texture {} reused, id: {:?}", rpe.texture.clone(), unsafe { get_internal_gl().quad_context.texture_raw_id(texture.clone().into_inner().raw_miniquad_id()) });
                 JudgeLineKind::Texture(texture.clone(), rpe.texture.clone())
             } else {
                 let texture = SafeTexture::from(image::load_from_memory(
@@ -786,7 +787,7 @@ async fn parse_judge_line(
                 JudgeLineKind::Texture(texture, rpe.texture.clone())
             }
         } else if let Some(texture) = line_texture_map.get(&rpe.texture) {
-            debug!("texture {} reused, id: {}", rpe.texture.clone(), texture.clone().into_inner().raw_miniquad_texture_handle().gl_internal_id());
+            debug!("texture {} reused, id: {:?}", rpe.texture.clone(), unsafe { get_internal_gl().quad_context.texture_raw_id(texture.clone().into_inner().raw_miniquad_id()) });
             JudgeLineKind::Texture(texture.clone(), rpe.texture.clone())
         } else {
             let texture = SafeTexture::from(image::load_from_memory(

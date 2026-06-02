@@ -28,7 +28,7 @@ fluent = "0.17.0"
 fluent-syntax = "0.12.0"
 futures-util = "0.3.32"
 hex = "0.4.3"
-image = { version = "0.25.10", default-features = false }
+image = { version = "0.24", default-features = false }
 inputbox = "0.1.1"
 lru = "0.16.3"
 lyon = "1.0.19"
@@ -57,8 +57,8 @@ objc2-foundation = "0.3.2"
 objc2-ui-kit = "0.3.2"
 objc2-uniform-type-identifiers = "0.3.2"
 
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "b2eab29", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "0c525a3" }
+macroquad = { git = "https://github.com/2278535805/macroquad" }
+# macroquad ={ path = "../macroquad" }
 phira = { path = "phira", default-features = false }
 phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", rev = "6967475" }

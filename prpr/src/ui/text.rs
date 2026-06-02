@@ -8,7 +8,7 @@ use glyph_brush::{
     BrushAction, BrushError, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, SectionGlyph, Text,
 };
 use macroquad::{
-    miniquad::{Texture, TextureParams},
+    miniquad::TextureParams,
     prelude::*,
 };
 use once_cell::sync::Lazy;
@@ -302,14 +302,15 @@ impl TextPainter {
 
     fn new_cache_texture(dim: (u32, u32)) -> Texture2D {
         debug!("creating cache texture: {}x{}", dim.0, dim.1);
-        Texture2D::from_miniquad_texture(Texture::new_render_texture(
-            unsafe { get_internal_gl() }.quad_context,
+        Texture2D::from_miniquad_texture(unsafe { get_internal_gl() }.quad_context.new_render_texture(
             TextureParams {
                 width: dim.0,
                 height: dim.1,
-                filter: FilterMode::Linear,
+                min_filter: FilterMode::Linear,
+                mag_filter: FilterMode::Linear,
                 format: miniquad::TextureFormat::RGBA8,
                 wrap: miniquad::TextureWrap::Clamp,
+                ..Default::default()
             },
         ))
     }
@@ -328,7 +329,8 @@ impl TextPainter {
                         flushed = true;
                     }
                     use miniquad::gl::*;
-                    glBindTexture(GL_TEXTURE_2D, self.cache_texture.raw_miniquad_texture_handle().gl_internal_id());
+                    let miniquad::RawId::OpenGl(gl_id) = get_internal_gl().quad_context.texture_raw_id(self.cache_texture.raw_miniquad_id());
+                    glBindTexture(GL_TEXTURE_2D, gl_id);
                     self.data_buffer.clear();
                     self.data_buffer.reserve(tex_data.len() * 4);
                     for alpha in tex_data {
@@ -364,7 +366,7 @@ impl TextPainter {
                         unsafe { get_internal_gl() }.flush();
                         flushed = true;
                     }
-                    self.cache_texture.delete();
+                    unsafe { get_internal_gl() }.quad_context.delete_texture(self.cache_texture.raw_miniquad_id());
                     self.cache_texture = Self::new_cache_texture(suggested);
                     self.brush.resize_texture(suggested.0, suggested.1);
                 }
@@ -389,7 +391,7 @@ impl TextPainter {
 
     fn redraw(&self, tr: Matrix) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.texture(Some(self.cache_texture));
+        gl.texture(Some(&self.cache_texture));
         for vertices in self.vertices_buffer.chunks_exact(4) {
             let vertices = [
                 self.transform(&vertices[0], tr),
@@ -404,6 +406,6 @@ impl TextPainter {
 
 impl Drop for TextPainter {
     fn drop(&mut self) {
-        self.cache_texture.delete();
+        unsafe { get_internal_gl() }.quad_context.delete_texture(self.cache_texture.raw_miniquad_id());
     }
 }

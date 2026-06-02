@@ -27,5 +27,5 @@ void main() {
     vec2 slice_offset = (t - 1.0) * power * offset;
     c += slice * texture2D(screenTexture, uv + slice_offset).rgb;
   }
-  gl_FragColor.rgb = c / sum;
+  gl_FragColor = vec4(c / sum, 1.0);
 }

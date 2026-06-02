@@ -14,10 +14,9 @@ void main() {
   vec2 direction = uv - vec2(centerX, centerY);
   vec3 c = vec3(0.0);
   float f = 1.0 / sampleCount;
-  vec2 screen_uv = uv / 2.0 + vec2(0.5, 0.5);
   for (float i = 0.0; i < 64.0; ++i) {
     if (i >= sampleCount) break;
     c += texture2D(screenTexture, uv - power * direction * i).rgb * f;
   }
-  gl_FragColor.rgb = c;
+  gl_FragColor = vec4(c, 1.0);
 }

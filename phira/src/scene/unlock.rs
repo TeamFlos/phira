@@ -184,9 +184,9 @@ impl Scene for UnlockScene {
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut prpr::ui::Ui) -> Result<()> {
         let mut cam = ui.camera();
-        let asp = -cam.zoom.y;
+        let asp = cam.zoom.y;
         let t = tm.now();
-        cam.render_target = self.render_target;
+        cam.render_target = self.render_target.clone();
         set_camera(&cam);
         clear_background(BLACK);
 
@@ -230,7 +230,7 @@ impl Scene for UnlockScene {
                 } else {
                     let alpha = if t < 0.5 { t as f32 / 0.5 * 0.3 } else { 0.3 };
                     let r = ui.screen_rect();
-                    ui.fill_rect(r, (*self.background, r));
+                    ui.fill_rect(r, (Texture2D::clone(&self.background), r));
                     ui.fill_rect(r, semi_black(alpha));
                 }
             }

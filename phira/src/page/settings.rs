@@ -16,10 +16,10 @@ use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
-    ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
+    ext::{LocalTask, RectExt, SafeTexture, open_url, poll_future, semi_white},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION},
+    ui::{DRectButton, InlineInputBox, PREFER_REDUCED_MOTION, Scroll, Slider, Ui},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
@@ -289,7 +289,7 @@ fn render_about(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let ct = r.center();
     let s = 0.1;
     let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
-    ui.fill_path(&ir.rounded(0.02), (**icon, ir));
+    ui.fill_path(&ir.rounded(0.02), (Texture2D::clone(icon), ir));
 
     let staff = &*STAFF_LIST;
     let text = tl!(
@@ -393,6 +393,7 @@ struct GeneralList {
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
     mp_addr_btn: DRectButton,
+    mp_addr_input: InlineInputBox,
     #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
     prefer_reduced_motion_btn: DRectButton,
@@ -428,6 +429,7 @@ impl GeneralList {
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
             mp_addr_btn: DRectButton::new(),
+            mp_addr_input: InlineInputBox::new(),
             #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
             prefer_reduced_motion_btn: DRectButton::new(),
@@ -474,6 +476,20 @@ impl GeneralList {
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
         let data = get_data_mut();
+        if self.mp_addr_input.is_active() {
+            let submitted = self.mp_addr_input.touch(touch);
+            if submitted {
+                let text = self.mp_addr_input.confirm();
+                if text.trim().is_empty() {
+                    data.config.mp_address = String::new();
+                    return Ok(Some(true));
+                }
+                data.config.mp_address = text;
+                return Ok(Some(true));
+            }
+            return Ok(Some(false));
+        }
+
         let config = &mut data.config;
         if self.lang_btn.touch(touch, t) {
             return Ok(Some(false));
@@ -507,7 +523,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.mp_addr_btn.touch(touch, t) {
-            request_input("mp_addr", InputBox::new().default_text(&config.mp_address));
+            self.mp_addr_input.activate(&config.mp_address, false, false);
             return Ok(Some(true));
         }
         #[cfg(not(target_env = "ohos"))]
@@ -538,6 +554,9 @@ impl GeneralList {
     pub fn update(&mut self, t: f32) -> Result<bool> {
         self.lang_btn.update(t);
         let data = get_data_mut();
+        if self.mp_addr_input.is_active() {
+            self.mp_addr_input.update();
+        }
         if self.lang_btn.changed() {
             data.language = Some(LANG_IDENTS[self.lang_btn.selected()].to_string());
             sync_data();
@@ -591,7 +610,7 @@ impl GeneralList {
             let rt = render_title(ui, tl!("item-lang"), None);
             let w = 0.06;
             let r = Rect::new(rt + 0.01, (ITEM_HEIGHT - w) / 2., w, w);
-            ui.fill_rect(r, (*self.icon_lang, r));
+            ui.fill_rect(r, (Texture2D::clone(&self.icon_lang), r));
             self.lang_btn.render(ui, rr, t);
         }
 
@@ -615,7 +634,11 @@ impl GeneralList {
         }
         item! {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
-            self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
+            if self.mp_addr_input.is_active() {
+                self.mp_addr_input.render(ui, rr, t, &tl!("item-mp-addr"));
+            } else {
+                self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false)
+            };
         }
         item! {
             render_title(ui, tl!("item-prefer-reduced-motion"), Some(tl!("item-prefer-reduced-motion-sub")));

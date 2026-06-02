@@ -217,7 +217,7 @@ impl Element for Image {
         }
         let r = c.r.eval(uml)?.rect()?;
         if let Some(tex) = self.tex.borrow().as_ref() {
-            ui.fill_rect(r, (**tex, r, c.t, c.c.0));
+            ui.fill_rect(r, (Texture2D::clone(tex), r, c.t, c.c.0));
         }
         Ok(Var::Rect(r))
     }

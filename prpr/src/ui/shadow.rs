@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 use miniquad::{BlendFactor, BlendState, BlendValue, Equation};
 use once_cell::sync::Lazy;
 
-fn alpha_blend_material_params(uniforms: Vec<(String, UniformType)>) -> MaterialParams {
+fn alpha_blend_material_params(uniforms: Vec<UniformDesc>) -> MaterialParams {
     MaterialParams {
         pipeline_params: PipelineParams {
             color_blend: Some(BlendState::new(
@@ -19,25 +19,23 @@ fn alpha_blend_material_params(uniforms: Vec<(String, UniformType)>) -> Material
 }
 
 static SHADOW_MATERIAL: Lazy<Material> =
-    Lazy::new(|| load_material(shader::VERTEX, shader::SHADOW_FRAGMENT, alpha_blend_material_params(ShadowConfig::uniforms())).unwrap());
+    Lazy::new(|| load_material(ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::SHADOW_FRAGMENT }, alpha_blend_material_params(ShadowConfig::uniforms())).unwrap());
 
 static RR_MATERIAL: Lazy<Material> = Lazy::new(|| {
     load_material(
-        shader::VERTEX,
-        shader::RR_FRAGMENT,
-        alpha_blend_material_params(vec![("rect".to_owned(), UniformType::Float4), ("radius".to_owned(), UniformType::Float1)]),
+        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::RR_FRAGMENT },
+        alpha_blend_material_params(vec![UniformDesc::new("rect", UniformType::Float4), UniformDesc::new("radius", UniformType::Float1)]),
     )
     .unwrap()
 });
 
 static SECTOR_MATERIAL: Lazy<Material> = Lazy::new(|| {
     load_material(
-        shader::VERTEX,
-        shader::SECTOR_FRAGMENT,
+        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::SECTOR_FRAGMENT },
         alpha_blend_material_params(vec![
-            ("center".to_owned(), UniformType::Float2),
-            ("angle".to_owned(), UniformType::Float2),
-            ("blur".to_owned(), UniformType::Float2),
+            UniformDesc::new("center", UniformType::Float2),
+            UniformDesc::new("angle", UniformType::Float2),
+            UniformDesc::new("blur", UniformType::Float2),
         ]),
     )
     .unwrap()
@@ -60,12 +58,12 @@ impl Default for ShadowConfig {
 }
 
 impl ShadowConfig {
-    pub fn uniforms() -> Vec<(String, UniformType)> {
+    pub fn uniforms() -> Vec<UniformDesc> {
         vec![
-            ("rect".to_owned(), UniformType::Float4),
-            ("elevation".to_owned(), UniformType::Float1),
-            ("radius".to_owned(), UniformType::Float1),
-            ("base".to_owned(), UniformType::Float1),
+            UniformDesc::new("rect", UniformType::Float4),
+            UniformDesc::new("elevation", UniformType::Float1),
+            UniformDesc::new("radius", UniformType::Float1),
+            UniformDesc::new("base", UniformType::Float1),
         ]
     }
 
@@ -78,7 +76,7 @@ impl ShadowConfig {
 
 pub fn rounded_rect_shadow(ui: &mut Ui, r: Rect, config: &ShadowConfig) {
     // r.y += elevation * 0.5;
-    let mat = *SHADOW_MATERIAL;
+    let mat = SHADOW_MATERIAL.clone();
     let gr = ui.rect_to_global(r);
     mat.set_uniform("rect", vec4(gr.x, gr.y, gr.right(), gr.bottom()));
     ShadowConfig {
@@ -86,30 +84,30 @@ pub fn rounded_rect_shadow(ui: &mut Ui, r: Rect, config: &ShadowConfig) {
         ..*config
     }
     .apply(&mat);
-    gl_use_material(mat);
+    gl_use_material(&mat);
     let r3 = config.elevation * 3.0;
     draw_rectangle(gr.x - r3, gr.y - r3, gr.w + r3 * 2., gr.h + r3 * 2., WHITE);
     gl_use_default_material();
 }
 
 pub fn clip_rounded_rect<R>(ui: &mut Ui, r: Rect, radius: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
-    let mat = *RR_MATERIAL;
+    let mat = RR_MATERIAL.clone();
     let gr = ui.rect_to_global(r);
     mat.set_uniform("rect", vec4(gr.x, gr.y, gr.right(), gr.bottom()));
     mat.set_uniform("radius", radius);
-    gl_use_material(mat);
+    gl_use_material(&mat);
     let res = f(ui);
     gl_use_default_material();
     res
 }
 
 pub fn clip_sector<R>(ui: &mut Ui, ct: Vec2, start: f32, end: f32, f: impl FnOnce(&mut Ui) -> R) -> R {
-    let mat = *SECTOR_MATERIAL;
+    let mat = SECTOR_MATERIAL.clone();
     mat.set_uniform("center", ui.to_global((ct.x, ct.y)));
     mat.set_uniform("angle", vec2(start, end));
     let t = -end.sin();
     mat.set_uniform("blur", vec2((ct.y - ui.top) / t, (ct.y + ui.top) / t));
-    gl_use_material(mat);
+    gl_use_material(&mat);
     let res = f(ui);
     gl_use_default_material();
     res
