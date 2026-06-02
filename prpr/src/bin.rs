@@ -463,12 +463,14 @@ impl BinaryData for ChartSettings {
         Ok(Self {
             pe_alpha_extension: r.read::<u8>()? == 1,
             hold_partial_cover: r.read::<u8>()? == 1,
+            negative_length_hold: r.read::<u8>()? == 1,
         })
     }
 
     fn write_binary<W: Write>(&self, w: &mut BinaryWriter<W>) -> Result<()> {
         w.write_val(self.pe_alpha_extension as u8)?;
         w.write_val(self.hold_partial_cover as u8)?;
+        w.write_val(self.negative_length_hold as u8)?;
         Ok(())
     }
 }
