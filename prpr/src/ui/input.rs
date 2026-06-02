@@ -47,6 +47,15 @@ pub struct InlineInputBox {
 }
 
 #[derive(Default)]
+enum TouchMode {
+    #[default]
+    None,
+    Selecting,
+    Scrolling,
+    Wating,
+}
+
+#[derive(Default)]
 struct State {
     active: bool,
     cursor: usize,
@@ -57,6 +66,8 @@ struct State {
 
     left_arrow_time: Option<f64>,
     right_arrow_time: Option<f64>,
+    up_arrow_time: Option<f64>,
+    down_arrow_time: Option<f64>,
     last_cursor_time: Option<f64>,
 
     cursor_positions: Vec<(f32, f32)>,
@@ -65,7 +76,7 @@ struct State {
 
     touch_start_pos: (f32, f32),
     touch_start_time: f64,
-    touch_mode: u8,
+    touch_mode: TouchMode,
     touch_start_scroll_x: f32,
     touch_start_scroll_y: f32,
     touch_scale_x: f32,
@@ -184,6 +195,50 @@ impl InlineInputBox {
         let p = touch.position;
         let in_rect = self.rect.contains(p);
         let cursor = self.find_nearest_cursor(p.x, p.y);
+        match touch.phase {
+            TouchPhase::Started => {}
+            TouchPhase::Moved | TouchPhase::Stationary => {}
+            TouchPhase::Ended | TouchPhase::Cancelled => {
+                if self.context_menu.visible && !matches!(self.state.touch_mode, TouchMode::Wating) {
+                    if self.context_menu.rect.contains(p) {
+                        for (i, btn_rect) in self.context_menu.items.iter().enumerate() {
+                            if btn_rect.0.contains(p) {
+                                match i {
+                                    0 => { // Select All
+                                        self.state.selection_anchor = Some(0);
+                                        self.state.cursor = self.buffer.chars().count();
+                                    }
+                                    1 => { // Copy
+                                        if let Some(text) = self.selected_text() {
+                                            clipboard_set(&text);
+                                        }
+                                    }
+                                    2 => { // Cut
+                                        if let Some(text) = self.selected_text() {
+                                            clipboard_set(&text);
+                                            self.delete_selection();
+                                        }
+                                    }
+                                    3 => { // Paste
+                                        if let Some(text) = clipboard_get().map(|s| s.to_string()) {
+                                            self.delete_selection();
+                                            let byte_pos = self.byte_at(self.state.cursor);
+                                            self.buffer.insert_str(byte_pos, &text);
+                                            self.state.cursor += text.chars().count();
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                                self.context_menu.visible = false;
+                                break;
+                            }
+                        }
+                    } else {
+                        self.context_menu.visible = false;
+                    }
+                }
+            }
+        }
         if is_mouse_button_down(MouseButton::Left) || is_mouse_button_released(MouseButton::Left) {
             match touch.phase {
                 TouchPhase::Moved | TouchPhase::Stationary => {
@@ -193,44 +248,6 @@ impl InlineInputBox {
                     false
                 }
                 TouchPhase::Ended | TouchPhase::Cancelled => {
-                    if self.context_menu.visible {
-                        if self.context_menu.rect.contains(p) {
-                            for (i, btn_rect) in self.context_menu.items.iter().enumerate() {
-                                if btn_rect.0.contains(p) {
-                                    match i {
-                                        0 => { // Select All
-                                            self.state.selection_anchor = Some(0);
-                                            self.state.cursor = self.buffer.chars().count();
-                                        }
-                                        1 => { // Copy
-                                            if let Some(text) = self.selected_text() {
-                                                clipboard_set(&text);
-                                            }
-                                        }
-                                        2 => { // Cut
-                                            if let Some(text) = self.selected_text() {
-                                                clipboard_set(&text);
-                                                self.delete_selection();
-                                            }
-                                        }
-                                        3 => { // Paste
-                                            if let Some(text) = clipboard_get().map(|s| s.to_string()) {
-                                                self.delete_selection();
-                                                let byte_pos = self.byte_at(self.state.cursor);
-                                                self.buffer.insert_str(byte_pos, &text);
-                                                self.state.cursor += text.chars().count();
-                                            }
-                                        }
-                                        _ => {}
-                                    }
-                                    self.context_menu.visible = false;
-                                    break;
-                                }
-                            }
-                        } else {
-                            self.context_menu.visible = false;
-                        }
-                    }
                     false
                 }
                 TouchPhase::Started => {
@@ -269,7 +286,7 @@ impl InlineInputBox {
                     if in_rect {
                         self.state.touch_start_pos = (p.x, p.y);
                         self.state.touch_start_time = get_time();
-                        self.state.touch_mode = 0;
+                        self.state.touch_mode = TouchMode::None;
                         self.state.touch_start_scroll_x = self.state.scroll_x;
                         self.state.touch_start_scroll_y = self.state.scroll_y;
                     }
@@ -282,32 +299,24 @@ impl InlineInputBox {
                     let dt = get_time() - self.state.touch_start_time;
 
                     match self.state.touch_mode {
-                        0 => {
+                        TouchMode::None => {
                             if dist > 0.05 {
-                                self.state.touch_mode = 1;
+                                self.state.touch_mode = TouchMode::Scrolling;
                                 self.state.manual_scroll = true;
-                            } else if dt > 0.5 {
-                                if self.selection_range().is_some() & !self.password {
-                                    if let Some(text) = self.selected_text() {
-                                        clipboard_set(&text);
-                                        self.state.selection_anchor = None;
-                                    }
-                                    self.state.touch_mode = 3;
-                                } else {
-                                    self.state.touch_mode = 2;
-                                    self.state.cursor = cursor;
-                                    self.state.selection_anchor = Some((cursor - 1).max(0));
-                                    self.state.manual_scroll = false;
-                                }
+                            } else if dt > 0.5 && self.state.selection_anchor.is_none() {
+                                self.state.touch_mode = TouchMode::Selecting;
+                                self.state.cursor = cursor;
+                                self.state.selection_anchor = Some(cursor);
+                                self.state.manual_scroll = false;
                             }
                         }
-                        1 => {
+                        TouchMode::Scrolling => {
                             let dx_ui = dx * self.state.touch_scale_x;
                             let dy_ui = dy * self.state.touch_scale_y;
                             self.state.scroll_x = self.state.touch_start_scroll_x - dx_ui;
                             self.state.scroll_y = self.state.touch_start_scroll_y - dy_ui;
                         }
-                        2 => {
+                        TouchMode::Selecting => {
                             self.state.cursor = cursor;
                         }
                         _ => {}
@@ -315,12 +324,24 @@ impl InlineInputBox {
                     false
                 }
                 TouchPhase::Ended | TouchPhase::Cancelled => {
-                    if self.state.touch_mode == 0 && in_rect {
+                    let dx = p.x - self.state.touch_start_pos.0;
+                    let dy = p.y - self.state.touch_start_pos.1;
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    let dt = get_time() - self.state.touch_start_time;
+                    if dt > 0.5 && dist <= 0.05 && !self.password && self.rect.contains(p) && !self.context_menu.visible {
+                        self.context_menu.visible = true;
+                        self.context_menu.position = (
+                            p.x.max(self.rect.x).min(self.rect.right() - CONTEXT_MENU_MENU_W),
+                            p.y.max(self.rect.y).min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32)
+                        );
+                        self.state.touch_mode = TouchMode::Wating;
+                    }
+                    if matches!(self.state.touch_mode, TouchMode::None) && in_rect && !self.context_menu.visible {
                         self.state.cursor = cursor;
                         self.state.selection_anchor = None;
                         self.state.manual_scroll = false;
                     }
-                    self.state.touch_mode = 0;
+                    self.state.touch_mode = TouchMode::None;
                     false
                 }
             }
@@ -345,6 +366,96 @@ impl InlineInputBox {
         best_idx
     }
 
+    fn find_nearest_col_cursor(&self, from_cursor: usize, to_cursor: usize) -> usize {
+        if self.state.cursor_positions.is_empty() {
+            return 0;
+        }
+        let mut best_idx = 0;
+        let mut best_dist = f32::MAX;
+        let x = self.state.cursor_positions.get(from_cursor).map_or(0.0, |&(x, _)| x);
+        let y = self.state.cursor_positions.get(to_cursor).map_or(0.0, |&(_, y)| y);
+        for (i, &(px, py)) in self.state.cursor_positions.iter().enumerate() {
+            let dx = x - px;
+            let dy = y - py;
+            let dist = dx * dx + dy * dy * 10000.0;
+            if dist < best_dist {
+                best_dist = dist;
+                best_idx = i;
+            }
+        }
+        best_idx
+    }
+
+    fn cursor_right(&mut self, shift: bool) {
+        if shift {
+            if self.state.selection_anchor.is_none() {
+                self.state.selection_anchor = Some(self.state.cursor);
+            }
+        } else {
+            self.state.selection_anchor = None;
+        }
+        if self.state.cursor < self.buffer.chars().count() {
+            self.state.cursor += 1;
+        }
+    }
+
+    fn cursor_left(&mut self, shift: bool) {
+        if shift {
+            if self.state.selection_anchor.is_none() {
+                self.state.selection_anchor = Some(self.state.cursor);
+            }
+        } else {
+            self.state.selection_anchor = None;
+        }
+        if self.state.cursor > 0 {
+            self.state.cursor -= 1;
+        }
+    }
+
+    fn cursor_up(&mut self, shift: bool) {
+        if shift {
+            if self.state.selection_anchor.is_none() {
+                self.state.selection_anchor = Some(self.state.cursor);
+            }
+        } else {
+            self.state.selection_anchor = None;
+        }
+        let before = self.text_before();
+        if let Some(line_start) = before.rfind('\n') {
+            let col = before.len() - line_start - 1;
+            let prev_line = &before[..line_start];
+            let prev_start = prev_line.rfind('\n').map(|i| i + 1).unwrap_or(0);
+            let prev_col = col.min(line_start - prev_start);
+            let target_byte = prev_start + prev_col;
+            let target_byte_adj = self.find_nearest_col_cursor(self.state.cursor, target_byte);
+            self.state.cursor = self.buffer.char_indices().take_while(|(i, _)| *i < target_byte_adj).count();
+        }
+    }
+
+    fn cursor_down(&mut self, shift: bool) {
+        if shift {
+            if self.state.selection_anchor.is_none() {
+                self.state.selection_anchor = Some(self.state.cursor);
+            }
+        } else {
+            self.state.selection_anchor = None;
+        }
+        let before = self.text_before();
+        let before_byte = self.byte_at(self.state.cursor);
+        let line_start_byte = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
+        let col = before_byte - line_start_byte;
+        let after = &self.buffer[before_byte..];
+        if let Some(rel_nl) = after.find('\n') {
+            let next_line_start = before_byte + rel_nl + 1;
+            let next_line_end = self.buffer[next_line_start..].find('\n').map(|i| next_line_start + i).unwrap_or(self.buffer.chars().count());
+            let next_line_len = next_line_end - next_line_start;
+            let target_col = col.min(next_line_len);
+            let target_byte = next_line_start + target_col;
+            let target_byte_adj = self.find_nearest_col_cursor(self.state.cursor, target_byte);
+            self.state.cursor = self.buffer.char_indices().take_while(|(i, _)| *i < target_byte_adj).count();
+        }
+    }
+
     pub fn update(&mut self) {
         let now = get_time();
         let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
@@ -353,31 +464,13 @@ impl InlineInputBox {
         // Arrow keys
         if is_key_pressed(KeyCode::Right) {
             self.state.right_arrow_time = Some(now);
-            if shift {
-                if self.state.selection_anchor.is_none() {
-                    self.state.selection_anchor = Some(self.state.cursor);
-                }
-            } else {
-                self.state.selection_anchor = None;
-            }
-            if self.state.cursor < self.buffer.chars().count() {
-                self.state.cursor += 1;
-            }
+            self.cursor_right(shift);
         } else if let Some(arrow_time) = self.state.right_arrow_time {
             if is_key_down(KeyCode::Right) {
                 if now - arrow_time > 0.5 {
                     if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
                         self.state.last_cursor_time = Some(now);
-                        if shift {
-                            if self.state.selection_anchor.is_none() {
-                                self.state.selection_anchor = Some(self.state.cursor);
-                            }
-                        } else {
-                            self.state.selection_anchor = None;
-                        }
-                        if self.state.cursor < self.buffer.chars().count() {
-                            self.state.cursor += 1;
-                        }
+                        self.cursor_right(shift);
                     }
                 }
             } else {
@@ -386,31 +479,13 @@ impl InlineInputBox {
         }
         if is_key_pressed(KeyCode::Left) {
             self.state.left_arrow_time = Some(now);
-            if shift {
-                if self.state.selection_anchor.is_none() {
-                    self.state.selection_anchor = Some(self.state.cursor);
-                }
-            } else {
-                self.state.selection_anchor = None;
-            }
-            if self.state.cursor > 0 {
-                self.state.cursor -= 1;
-            }
+            self.cursor_left(shift);
         } else if let Some(arrow_time) = self.state.left_arrow_time {
             if is_key_down(KeyCode::Left) {
                 if now - arrow_time > 0.5 {
                     if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
                         self.state.last_cursor_time = Some(now);
-                        if shift {
-                            if self.state.selection_anchor.is_none() {
-                                self.state.selection_anchor = Some(self.state.cursor);
-                            }
-                        } else {
-                            self.state.selection_anchor = None;
-                        }
-                        if self.state.cursor > 0 {
-                            self.state.cursor -= 1;
-                        }
+                        self.cursor_left(shift);
                     }
                 }
             } else {
@@ -419,42 +494,33 @@ impl InlineInputBox {
         }
         if self.multiline {
             if is_key_pressed(KeyCode::Up) {
-                if shift {
-                    if self.state.selection_anchor.is_none() {
-                        self.state.selection_anchor = Some(self.state.cursor);
+                self.state.up_arrow_time = Some(now);
+                self.cursor_up(shift);
+            } else if let Some(arrow_time) = self.state.up_arrow_time {
+                if is_key_down(KeyCode::Up) {
+                    if now - arrow_time > 0.5 {
+                        if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
+                            self.state.last_cursor_time = Some(now);
+                            self.cursor_up(shift);
+                        }
                     }
                 } else {
-                    self.state.selection_anchor = None;
-                }
-                let before = self.text_before();
-                if let Some(line_start) = before.rfind('\n') {
-                    let col = before.len() - line_start - 1;
-                    let prev_line = &before[..line_start];
-                    let prev_start = prev_line.rfind('\n').map(|i| i + 1).unwrap_or(0);
-                    let prev_col = col.min(line_start - prev_start);
-                    let target_byte = prev_start + prev_col;
-                    self.state.cursor = self.buffer.char_indices().take_while(|(i, _)| *i < target_byte).count();
+                    self.state.up_arrow_time = None;
                 }
             }
             if is_key_pressed(KeyCode::Down) {
-                if shift {
-                    if self.state.selection_anchor.is_none() {
-                        self.state.selection_anchor = Some(self.state.cursor);
+                self.state.down_arrow_time = Some(now);
+                self.cursor_down(shift);
+            } else if let Some(arrow_time) = self.state.down_arrow_time {
+                if is_key_down(KeyCode::Down) {
+                    if now - arrow_time > 0.5 {
+                        if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
+                            self.state.last_cursor_time = Some(now);
+                            self.cursor_down(shift);
+                        }
                     }
                 } else {
-                    self.state.selection_anchor = None;
-                }
-                let before = self.text_before();
-                let before_byte = self.byte_at(self.state.cursor);
-                let line_start_byte = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
-                let col = before_byte - line_start_byte;
-                let after = &self.buffer[before_byte..];
-                if let Some(rel_nl) = after.find('\n') {
-                    let next_line_start = before_byte + rel_nl + 1;
-                    let next_line_end = self.buffer[next_line_start..].find('\n').map(|i| next_line_start + i).unwrap_or(self.buffer.chars().count());
-                    let next_line_len = next_line_end - next_line_start;
-                    let target_col = col.min(next_line_len);
-                    self.state.cursor = self.buffer.char_indices().take_while(|(i, _)| *i < next_line_start + target_col).count();
+                    self.state.down_arrow_time = None;
                 }
             }
         }
