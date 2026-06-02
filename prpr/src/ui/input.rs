@@ -251,8 +251,8 @@ impl InlineInputBox {
                         if !self.password && self.rect.contains(p) && !self.context_menu.visible {
                             self.context_menu.visible = true;
                             self.context_menu.position = (
-                                p.x.clamp(self.rect.x, self.rect.right() - CONTEXT_MENU_MENU_W),
-                                p.y.clamp(self.rect.y, self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32)
+                                p.x.max(self.rect.x).min(self.rect.right() - CONTEXT_MENU_MENU_W),
+                                p.y.max(self.rect.y).min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32)
                             );
                         }
                     }
