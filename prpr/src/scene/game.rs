@@ -11,12 +11,12 @@ use super::{
 use crate::{
     bin::BinaryReader,
     config::{Config, Mods},
-    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, PGR_FONT},
-    ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
+    core::{BadNote, Chart, ChartExtra, Effect, PGR_FONT, Point, Resource, UIElement, Vector, copy_fbo},
+    ext::{RectExt, SafeTexture, ScaleType, parse_time, screen_aspect, semi_white},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
     judge::Judge,
-    parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
+    parse::{RPE_WIDTH, parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
     ui::{RectButton, TextPainter, Ui},
@@ -292,6 +292,10 @@ impl GameScene {
         )
         .await
         .context("Failed to load resources")?;
+
+        if matches!(chart_format, ChartFormat::Rpe) {
+            res.info.line_length *= 4000. / RPE_WIDTH / 6.;
+        }
 
         // Prepare extra sfx from chart.hitsounds
         chart.hitsounds.drain().for_each(|(name, clip)| {
