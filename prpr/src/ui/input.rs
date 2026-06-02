@@ -237,6 +237,7 @@ impl InlineInputBox {
                     if !self.context_menu.visible && in_rect {
                         self.state.cursor = cursor;
                         self.state.selection_anchor = Some(cursor);
+                        self.state.manual_scroll = false;
                     }
                     !in_rect
                 }
@@ -296,6 +297,7 @@ impl InlineInputBox {
                                     self.state.touch_mode = 2;
                                     self.state.cursor = cursor;
                                     self.state.selection_anchor = Some((cursor - 1).max(0));
+                                    self.state.manual_scroll = false;
                                 }
                             }
                         }
