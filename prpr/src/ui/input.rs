@@ -76,6 +76,7 @@ struct State {
 
     touch_start_pos: (f32, f32),
     touch_start_time: f64,
+    touch_is_moved: bool,
     touch_mode: TouchMode,
     touch_start_scroll_x: f32,
     touch_start_scroll_y: f32,
@@ -289,6 +290,7 @@ impl InlineInputBox {
                         self.state.touch_mode = TouchMode::None;
                         self.state.touch_start_scroll_x = self.state.scroll_x;
                         self.state.touch_start_scroll_y = self.state.scroll_y;
+                        self.state.touch_is_moved = false;
                     }
                     !in_rect
                 }
@@ -296,11 +298,14 @@ impl InlineInputBox {
                     let dx = p.x - self.state.touch_start_pos.0;
                     let dy = p.y - self.state.touch_start_pos.1;
                     let dist = (dx * dx + dy * dy).sqrt();
+                    if !self.state.touch_is_moved && dist > 0.05 {
+                        self.state.touch_is_moved = true;
+                    }
                     let dt = get_time() - self.state.touch_start_time;
 
                     match self.state.touch_mode {
                         TouchMode::None => {
-                            if dist > 0.05 {
+                            if self.state.touch_is_moved {
                                 self.state.touch_mode = TouchMode::Scrolling;
                                 self.state.manual_scroll = true;
                             } else if dt > 0.5 && self.state.selection_anchor.is_none() {
@@ -324,15 +329,14 @@ impl InlineInputBox {
                     false
                 }
                 TouchPhase::Ended | TouchPhase::Cancelled => {
-                    let dx = p.x - self.state.touch_start_pos.0;
-                    let dy = p.y - self.state.touch_start_pos.1;
-                    let dist = (dx * dx + dy * dy).sqrt();
                     let dt = get_time() - self.state.touch_start_time;
-                    if dt > 0.5 && dist <= 0.05 && !self.password && self.rect.contains(p) && !self.context_menu.visible {
+                    if dt > 0.5 && !self.state.touch_is_moved && !self.password && self.rect.contains(p) && !self.context_menu.visible {
                         self.context_menu.visible = true;
                         self.context_menu.position = (
-                            p.x.max(self.rect.x).min(self.rect.right() - CONTEXT_MENU_MENU_W),
-                            p.y.max(self.rect.y).min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32)
+                            self.state.cursor_positions.get(self.state.cursor).map_or(p.x, |&(x, _)| x)
+                                .max(self.rect.x).min(self.rect.right() - CONTEXT_MENU_MENU_W),
+                            self.state.cursor_positions.get(self.state.cursor).map_or(p.y, |&(_, y)| y)
+                                .max(self.rect.y).min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32),
                         );
                         self.state.touch_mode = TouchMode::Wating;
                     }
@@ -340,6 +344,7 @@ impl InlineInputBox {
                         self.state.cursor = cursor;
                         self.state.selection_anchor = None;
                         self.state.manual_scroll = false;
+                        miniquad::window::show_keyboard(true);
                     }
                     self.state.touch_mode = TouchMode::None;
                     false
