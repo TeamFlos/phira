@@ -1257,7 +1257,8 @@ impl Page for LibraryPage {
                 let mut zip = zip::ZipWriter::new(BufWriter::new(output));
                 let options = zip::write::SimpleFileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored)
-                    .unix_permissions(0o755);
+                    .unix_permissions(0o755)
+                    .last_modified_time(chrono::Utc::now().naive_utc().try_into().unwrap_or_default());
                 for (i, name) in paths.iter().enumerate() {
                     zip.start_file(format!("{name}.zip"), options)?;
                     let mut chart_bytes = Vec::new();
