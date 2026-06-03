@@ -1,17 +1,34 @@
-
 label = LIBRARY
 local = Local
 popular = Popular
-
 page = หน้า { $current } / { $total }
 prev-page = หน้าที่แล้ว
 next-page = หน้าต่อไป
-
 not-opened = ยังไม่มีให้บริการ ณ ขณะนี้
 failed-to-load-online = ไม่สามารถโหลด Chart online ได้
-
 import = เพิ่ม
-
 offline-mode = ไม่สามารถโหลด Chart online ในโหมด Offline ได้
-
 must-login = คุณต้อง Login เพื่อดู Online chart
+order-by = จัดเรียงโดย：{ $order }
+order-asc = จากน้อยไปมาก
+order-desc = จากมากไปน้อย
+order-updated = เรียงโดยการอัพเดต
+order-update-failed-sort = สามารถอัปเดตการจัดเรียงได้เฉพาะในรูปแบบการจัดเรียงเริ่มต้นเท่านั้น
+fav-synced = ซิ้งค์ Favorites เรียบร้อย
+fav-sync-failed = ไม่สามารถซิ้งค์ Favorites ได้
+multi-select-status = { $count } ถูกเลือก
+multi-export = Export
+multi-create-fav = สร้าง Favorites
+multi-manage-fav = แก้ไข Favorites
+multi-delete = ลบ
+multi-delete-confirm = คุณแน่ใจหรือไม่ที่จะลบ { $count } Chart ทิ้ง? การกระทำต่อจากนี้จะไม่สามารถย้อนกลับได้
+multi-deleted = ลบแล้ว
+multi-export-title = เลือกที่ที่จะ Export
+multi-export-no-file = กรุณา Download chart ทั้งหทดก่อน ก่อนที่จะ Export (ขาด: { $charts })
+multi-exporting = กำลัง Export... ({ $current } / { $total })
+exported = Export แล้ว
+multi-added-to-fav = เพิ่มไปยัง Favorites
+multi-removed-from-fav = นำออกจาก Favorites
+multi-select-all = เลือกทั้งหมด
+multi-select-invert = เลือกแบบย้อนกลับ
+fav-created = สร้าง Favorites แล้ว
