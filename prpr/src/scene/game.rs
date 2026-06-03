@@ -16,7 +16,7 @@ use crate::{
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
     judge::Judge,
-    parse::{RPE_WIDTH, parse_extra, parse_pec, parse_phigros, parse_rpe},
+    parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
     ui::{RectButton, TextPainter, Ui},
@@ -292,10 +292,6 @@ impl GameScene {
         )
         .await
         .context("Failed to load resources")?;
-
-        if matches!(chart_format, ChartFormat::Rpe) {
-            res.info.line_length *= 4000. / RPE_WIDTH / 6.;
-        }
 
         // Prepare extra sfx from chart.hitsounds
         chart.hitsounds.drain().for_each(|(name, clip)| {
