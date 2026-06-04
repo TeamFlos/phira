@@ -460,17 +460,17 @@ impl BinaryData for JudgeLine {
 
 impl BinaryData for ChartSettings {
     fn read_binary<R: Read>(r: &mut BinaryReader<R>) -> Result<Self> {
+        let flags = r.read::<u8>()?;
         Ok(Self {
-            pe_alpha_extension: r.read::<u8>()? == 1,
+            pe_alpha_extension: flags & 1 != 0,
             hold_partial_cover: r.read::<u8>()? == 1,
-            negative_length_hold: r.read::<u8>()? == 1,
+            negative_length_hold: flags >> 2 & 1 != 0,
         })
     }
 
     fn write_binary<W: Write>(&self, w: &mut BinaryWriter<W>) -> Result<()> {
-        w.write_val(self.pe_alpha_extension as u8)?;
+        w.write_val((self.pe_alpha_extension as u8) | ((self.negative_length_hold as u8) << 2))?;
         w.write_val(self.hold_partial_cover as u8)?;
-        w.write_val(self.negative_length_hold as u8)?;
         Ok(())
     }
 }
