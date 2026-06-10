@@ -15,12 +15,8 @@ impl AVCodecParamsRef {
         unsafe { (*self.0).codec_id }
     }
 
-    pub fn channel_layout(&self) -> u64 {
-        unsafe { (*self.0).channel_layout }
-    }
-
-    pub fn channels(&self) -> i32 {
-        unsafe { (*self.0).channels }
+    pub fn channel_layout(&self) -> ffi::AVChannelLayout {
+        unsafe { (*self.0).ch_layout }
     }
 
     pub fn sample_format(&self) -> ffi::AVSampleFormat {
@@ -51,7 +47,7 @@ impl AVCodecRef {
 static EXPECTED_PIX_FMT_EDIT: Mutex<()> = Mutex::new(());
 static EXPECTED_PIX_FMT: AtomicI32 = AtomicI32::new(-1);
 
-unsafe fn get_format(s: *mut ffi::AVCodecContext, fmt: *const ffi::AVPixelFormat) -> ffi::AVPixelFormat {
+unsafe extern "C" fn get_format(s: *mut ffi::AVCodecContext, fmt: *const ffi::AVPixelFormat) -> ffi::AVPixelFormat {
     let expected = EXPECTED_PIX_FMT.load(Ordering::SeqCst);
     for i in 0.. {
         let fmt = fmt.add(i).read();
@@ -75,7 +71,7 @@ impl AVCodecContext {
             let _guard = expected.map(|pix_fmt| {
                 let guard = EXPECTED_PIX_FMT_EDIT.lock().unwrap();
                 EXPECTED_PIX_FMT.store(pix_fmt.0, Ordering::SeqCst);
-                ptr.as_mut().get_format = get_format as _;
+                ptr.as_mut().get_format = Some(get_format);
                 guard
             });
             handle(ffi::avcodec_open2(ptr.0, codec.0, null_mut()))?;
