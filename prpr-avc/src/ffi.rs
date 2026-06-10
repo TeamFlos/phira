@@ -49,8 +49,6 @@ extern "C" {
 #[link(name = "avcodec", kind = "static")]
 extern "C" {
     pub fn avcodec_find_decoder(id: AVCodecID) -> *mut AVCodec;
-    #[cfg(target_env = "ohos")]
-    pub fn avcodec_find_decoder_by_name(name: *const ::std::os::raw::c_char) -> *mut AVCodec;
     pub fn avcodec_alloc_context3(codec: *const AVCodec) -> *mut AVCodecContext;
     pub fn avcodec_free_context(avctx: *mut *mut AVCodecContext);
     pub fn avcodec_parameters_to_context(codec: *mut AVCodecContext, par: *const AVCodecParameters) -> ::std::os::raw::c_int;
