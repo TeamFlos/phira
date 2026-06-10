@@ -160,6 +160,10 @@ mod dir {
     pub fn respacks() -> Result<String> {
         ensure("data/respack")
     }
+
+    pub fn replays() -> Result<String> {
+        ensure("data/replays")
+    }
 }
 
 async fn the_main() -> Result<()> {

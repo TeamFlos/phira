@@ -51,6 +51,8 @@ impl UnlockScene {
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
         save_fn: Option<SaveFn>,
+        record_save_fn: Option<prpr::replay::RecordSaveFn>,
+        replay_handoff: Option<prpr::replay::ReplayHandoff>,
         preloaded: Option<(prpr::ext::SafeTexture, prpr::ext::SafeTexture, Color)>,
     ) -> Result<UnlockScene> {
         let bytes = fs
@@ -76,7 +78,9 @@ impl UnlockScene {
         };
 
         let (_, background, _) = preloaded.clone().unwrap_or(LoadingScene::load(&mut *fs, &info.illustration).await?);
-        let loading_scene = Box::new(LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, preloaded).await?);
+        let loading_scene = Box::new(
+            LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, replay_handoff, preloaded).await?,
+        );
 
         Ok(UnlockScene {
             loading_scene,
