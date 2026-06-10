@@ -346,9 +346,6 @@ impl Judge {
 
     pub fn commit(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64) {
         self.judgements.borrow_mut().push((t, line_id, note_id, Ok(what)));
-        #[cfg(closed)]
-        self.inner.commit(what, diff as f32);
-        #[cfg(not(closed))]
         self.inner.commit(what, diff);
     }
 
