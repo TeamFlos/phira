@@ -173,7 +173,7 @@ impl Page for OffsetPage {
                 let w = NOTE_WIDTH_RATIO_BASE as f32 * config.note_scale * 2.;
                 let h = w * self.click.height() / self.click.width();
                 let r = Rect::new(ct.0 - w / 2., ny, w, h);
-                ui.fill_rect(r, (*self.click, r, ScaleType::Fit));
+                ui.fill_rect(r, (Texture2D::clone(&self.click), r, ScaleType::Fit));
                 self.cali_last = true;
             } else {
                 if self.cali_last {

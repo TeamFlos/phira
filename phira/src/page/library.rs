@@ -1407,7 +1407,7 @@ impl Page for LibraryPage {
                     self.multi_operation_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, WHITE);
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.r#mod, cr, ScaleType::Fit, BLACK));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.r#mod), cr, ScaleType::Fit, BLACK));
                     });
                     if self.need_show_multi_operation_menu {
                         self.need_show_multi_operation_menu = false;
@@ -1426,7 +1426,7 @@ impl Page for LibraryPage {
                     self.multi_select_btn.render_shadow(ui, sr, t, |ui, path| {
                         ui.fill_path(&path, WHITE);
                         let ir = Rect::new(sr.x + 0.04, sr.center().y, 0., 0.).feather(0.025);
-                        ui.fill_rect(ir, (*self.icons.select, ir, ScaleType::Fit, BLACK));
+                        ui.fill_rect(ir, (Texture2D::clone(&self.icons.select), ir, ScaleType::Fit, BLACK));
                         ui.text(text)
                             .pos((ir.right() + sr.right() - 0.01) / 2., sr.center().y)
                             .size(0.5)
@@ -1448,7 +1448,7 @@ impl Page for LibraryPage {
                     self.multi_select_cancel_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, WHITE);
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.close, cr, ScaleType::Fit, BLACK));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.close), cr, ScaleType::Fit, BLACK));
                     });
                     r.x -= r.w + 0.02;
                 }
@@ -1457,7 +1457,7 @@ impl Page for LibraryPage {
                     self.import_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.plus, cr, ScaleType::Fit));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.plus), cr, ScaleType::Fit));
                     });
                     r.x -= r.w + 0.02;
                 }
@@ -1466,7 +1466,7 @@ impl Page for LibraryPage {
                     self.filter_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.filter), cr, ScaleType::Fit));
                     });
                     r.x -= r.w + 0.02;
                 } else if !multi_select {
@@ -1475,9 +1475,9 @@ impl Page for LibraryPage {
                         ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
                         let cr = r.feather(-0.01);
                         if active {
-                            ui.fill_rect(cr, (*self.icons.star, cr, ScaleType::Fit, Color::from_rgba(255, 193, 7, 255)));
+                            ui.fill_rect(cr, (Texture2D::clone(&self.icons.star), cr, ScaleType::Fit, Color::from_rgba(255, 193, 7, 255)));
                         } else {
-                            ui.fill_rect(cr, (*self.icons.star_outline, cr, ScaleType::Fit));
+                            ui.fill_rect(cr, (Texture2D::clone(&self.icons.star_outline), cr, ScaleType::Fit));
                         }
                     });
                     r.x -= r.w + 0.02;
@@ -1486,7 +1486,7 @@ impl Page for LibraryPage {
                 self.order_btn.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
                     let cr = r.feather(-0.01);
-                    ui.fill_rect(cr, (*self.icons.order, cr, ScaleType::Fit));
+                    ui.fill_rect(cr, (Texture2D::clone(&self.icons.order), cr, ScaleType::Fit));
                 });
                 if self.need_show_order_meta_menu {
                     self.need_show_order_meta_menu = false;
@@ -1518,11 +1518,11 @@ impl Page for LibraryPage {
                 let mut r = r.feather(-0.01);
                 r.w = r.h;
                 if !empty {
-                    ui.fill_rect(r, (*self.icons.close, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.close), r, ScaleType::Fit));
                     self.search_clr_btn.set(ui, r);
                     r.x += r.w;
                 }
-                ui.fill_rect(r, (*self.icons.search, r, ScaleType::Fit));
+                ui.fill_rect(r, (Texture2D::clone(&self.icons.search), r, ScaleType::Fit));
                 ui.text(&self.search_str)
                     .pos(r.right() + 0.01, r.center().y)
                     .anchor(0., 0.5)

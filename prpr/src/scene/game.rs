@@ -414,6 +414,7 @@ impl GameScene {
         }
         ui.alpha(res.alpha, |ui| {
             ui.text("MAGIC BUGFIX TEXT").color(Color::new(0., 0., 0., 0.)).draw();
+            ui.text("").draw_using(&PGR_FONT);
             if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
                 ui.fill_circle(pause_center.x, pause_center.y, 0.05, Color::new(1., 1., 1., 0.5));
             }
@@ -511,8 +512,6 @@ impl GameScene {
                     });
                 }
             }
-            // magic to make score visible, refer to phira/src/rate.rs#L219
-            ui.text("").draw_using(&PGR_FONT);
             let lf = -1. + margin;
             let bt = -top - eps * 2.8 + (1. - p) * 0.4;
             let scale_point = legacy_aui.then(|| {
@@ -560,7 +559,7 @@ impl GameScene {
             let w = 0.05;
             let no_retry = self.mode == GameMode::NoRetry;
             draw_texture_ex(
-                *res.icon_back,
+                &res.icon_back,
                 -s * 3. - w,
                 -s + o,
                 c,
@@ -571,9 +570,9 @@ impl GameScene {
             );
             let r = Rect::new(0., o, 0., 0.).feather(s);
             let disabled_color = semi_white(res.alpha * 0.4);
-            ui.fill_rect(r, (*res.icon_retry, r.feather(0.02), ScaleType::Fit, if no_retry { disabled_color } else { c }));
+            ui.fill_rect(r, ((*res.icon_retry).clone(), r.feather(0.02), ScaleType::Fit, if no_retry { disabled_color } else { c }));
             draw_texture_ex(
-                *res.icon_resume,
+                &res.icon_resume,
                 s + w,
                 -s + o,
                 if self.dead { disabled_color } else { c },
@@ -935,18 +934,6 @@ impl Scene for GameScene {
                     }
                     tm.now()
                 } else {
-                    #[cfg(target_os = "windows")]
-                    {
-                        // wtf bro. why must particles exist on Windows?
-                        let emitter_config = self.res.emitter.emitter.config.clone();
-                        let emitter_square_config = self.res.emitter.emitter_square.config.clone();
-                        self.res.emitter.emitter.config.size = 0.0;
-                        self.res.emitter.emitter_square.config.size = 0.0;
-                        self.res.emitter.emitter.emit(vec2(0.0, 0.0), 1);
-                        self.res.emitter.emitter_square.emit(vec2(0.0, 0.0), 1);
-                        self.res.emitter.emitter.config = emitter_config;
-                        self.res.emitter.emitter_square.config = emitter_square_config;
-                    }
                     self.res.alpha = (1. - (1. - time / Self::BEFORE_TIME).powi(3)) as f32;
                     if self.mode == GameMode::Exercise {
                         self.exercise_range.start
@@ -1181,48 +1168,71 @@ impl Scene for GameScene {
         }
 
         let res = &mut self.res;
-        let asp = ui.viewport.2 as f32 / ui.viewport.3 as f32;
         if res.update_size(ui.viewport) || self.mode == GameMode::View {
             set_camera(&res.camera);
         }
 
         let msaa = res.config.sample_count > 1;
 
-        let chart_onto = res
-            .chart_target
-            .as_ref()
-            .map(|it| if msaa { it.input() } else { it.output() })
-            .or(res.camera.render_target);
-        push_camera_state();
-        set_camera(&Camera2D {
-            zoom: vec2(1., -asp),
-            viewport: if res.chart_target.is_some() { None } else { Some(ui.viewport) },
-            render_target: chart_onto,
-            ..Default::default()
-        });
-        clear_background(BLACK);
-        draw_background(*res.background);
-        pop_camera_state();
-
-        let chart_target_vp = if res.chart_target.is_some() {
-            let vp = res.camera.viewport.unwrap();
+        // camera setup
+        let vp = res.camera.viewport.unwrap_or(ui.viewport);
+        let viewport_window = Some(ui.viewport);
+        let viewport_chart = if res.chart_target.is_some() {
             Some((vp.0 - ui.viewport.0, vp.1 - ui.viewport.1, vp.2, vp.3))
         } else {
             res.camera.viewport
         };
-        self.gl.quad_gl.render_pass(chart_onto.map(|it| it.render_pass));
-        self.gl.quad_gl.viewport(chart_target_vp);
+
+        let asp2_window = ui.viewport.2 as f32 / ui.viewport.3 as f32;
+        let asp2_chart = vp.2 as f32 / vp.3 as f32;
+        let asp2_ui = vp.2 as f32 / vp.3 as f32;
+
+        let chart_onto = res
+            .chart_target
+            .as_ref()
+            .map(|it| if msaa { it.input() } else { it.output() })
+            .or(res.camera.render_target.clone());
 
         let h = 1. / res.aspect_ratio;
-        draw_rectangle(-1., -h, 2., h * 2., Color::new(0., 0., 0., res.alpha * res.info.background_dim));
+        set_camera(&Camera2D {
+            zoom: vec2(1., asp2_window),
+            viewport: if res.chart_target.is_some() { None } else { viewport_window },
+            render_target: chart_onto.clone(),
+            ..Default::default()
+        });
+        clear_background(BLACK);
+        draw_background(&res.background);
 
+        {
+            let dim_alpha = 0.7;
+            //let alpha = res.alpha * (1. - dim_alpha) + dim_alpha;    
+            let dim = Color::new(0.1, 0.1, 0.1, dim_alpha * res.alpha);
+            let x_range = vp.0 as f32 / ui.viewport.2 as f32;
+            let y_range =  vp.1 as f32 / vp.3 as f32;
+            draw_rectangle(-1., -h,x_range * 2., h * 2., dim); // Left
+            draw_rectangle(1., -h,-x_range * 2., h * 2., dim); // Right
+            draw_rectangle(-1., -h,2., -y_range * 2., dim); // Top
+            draw_rectangle(-1., h,2., y_range * 2., dim); // Bottom
+            draw_rectangle(x_range * 2. - 1., -h, (1. - x_range * 2.) * 2., h * 2., Color::new(0., 0., 0., res.alpha * res.info.background_dim));
+        }
+
+        let chart_zoom = vec2(1., asp2_chart);
+        let chart_viewport = viewport_chart;
+
+        set_camera( &Camera2D {
+            zoom: chart_zoom,
+            viewport: chart_viewport,
+            render_target: chart_onto.clone(),
+            ..Default::default()
+        });
+        self.gl.quad_gl.render_pass(chart_onto.as_ref().map(|it| it.render_pass.raw_miniquad_id()));
         self.chart.render(ui, res);
 
         self.gl.quad_gl.render_pass(
             res.chart_target
                 .as_ref()
-                .map(|it| it.output().render_pass)
-                .or_else(|| res.camera.render_pass()),
+                .map(|it| it.output().render_pass.raw_miniquad_id())
+                .or_else(|| Some(res.camera.render_pass()?.raw_miniquad_id())),
         );
 
         self.bad_notes.retain(|dummy| dummy.render(res));
@@ -1231,46 +1241,93 @@ impl Scene for GameScene {
         if res.config.particle {
             res.emitter.draw(dt);
         }
-        self.ui(ui, tm)?;
-        self.overlay_ui(ui, tm)?;
 
-        if self.mode == GameMode::TweakOffset {
-            push_camera_state();
-            self.gl.quad_gl.viewport(None);
+        if !res.no_effect {
             set_camera(&Camera2D {
-                zoom: vec2(1., -screen_aspect()),
-                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target),
+                zoom: vec2(1., asp2_chart),
+                render_target: chart_onto.clone(),
+                viewport: Some(ui.viewport),
                 ..Default::default()
             });
-            self.tweak_offset(ui, Self::interactive(&self.res, &self.state));
-            pop_camera_state();
+            for effect in &self.chart.extra.effects {
+                effect.render(res);
+            }
+        }
+
+        {
+            set_camera(&Camera2D {
+                zoom: vec2(1., asp2_ui),
+                viewport: chart_viewport,
+                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                ..Default::default()
+            });
+            self.ui(ui, tm)?;
         }
 
         if !self.res.no_effect && !self.effects.is_empty() {
-            push_camera_state();
             set_camera(&Camera2D {
-                zoom: vec2(1., asp),
+                zoom: vec2(1., asp2_window),
+                render_target: chart_onto.clone(),
+                viewport: Some(ui.viewport),
                 ..Default::default()
             });
-            for e in &self.effects {
-                e.render(&mut self.res);
+            for effect in &self.effects {
+                effect.render(&mut self.res);
             }
-            pop_camera_state();
         }
-        if msaa || !self.res.no_effect {
+
+        {
+            set_camera(&Camera2D {
+                zoom: vec2(1., 1.),
+                viewport: viewport_window,
+                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                ..Default::default()
+            });
+            if tm.paused() {
+                draw_rectangle(-1., -1., 2., 2., Color::new(0., 0., 0., 0.6));
+            }
+        }
+
+        {
+            set_camera(&Camera2D {
+                zoom: vec2(1., asp2_window),
+                viewport: viewport_window,
+                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                ..Default::default()
+            });
+            if self.mode == GameMode::TweakOffset {
+                self.tweak_offset(ui, Self::interactive(&self.res, &self.state));
+            }
+            if self.res.config.touch_debug {
+                for touch in Judge::get_touches() {
+                    ui.fill_circle(touch.position.x, touch.position.y, 0.04, Color { a: 0.4, ..RED });
+                }
+            }
+        }
+        
+        {
+            set_camera(&Camera2D {
+                zoom: vec2(1., asp2_chart),
+                viewport: viewport_chart,
+                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                ..Default::default()
+            });
+            self.overlay_ui(ui, tm)?;
+        }
+
+        if !self.res.no_effect || msaa {
             // render the texture onto screen
             if let Some(target) = &self.res.chart_target {
                 self.gl.flush();
-                push_camera_state();
                 self.gl.quad_gl.viewport(None);
                 set_camera(&Camera2D {
-                    zoom: vec2(1., asp),
-                    render_target: self.res.camera.render_target,
+                    zoom: vec2(1., asp2_window),
+                    render_target: self.res.camera.render_target.clone(),
                     viewport: Some(ui.viewport),
                     ..Default::default()
                 });
                 draw_texture_ex(
-                    target.output().texture,
+                    &target.output().texture,
                     -1.,
                     -ui.top,
                     WHITE,
@@ -1279,7 +1336,6 @@ impl Scene for GameScene {
                         ..Default::default()
                     },
                 );
-                pop_camera_state();
             }
         }
         Ok(())

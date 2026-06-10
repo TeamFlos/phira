@@ -170,12 +170,12 @@ impl Scene for LoadingScene {
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         let mut cam = ui.camera();
-        let asp = -cam.zoom.y;
+        let asp = cam.zoom.y;
         let top = 1. / asp;
         let t = tm.now() as f32;
-        cam.render_target = self.target;
+        cam.render_target = self.target.clone();
         set_camera(&cam);
-        draw_background(*self.background);
+        draw_background(&self.background);
 
         ui.alpha((t / FADE_IN_TIME).min(1.), |ui| {
             let dx = if t > self.finish_time {
@@ -202,7 +202,7 @@ impl Scene for LoadingScene {
             rounded_rect_shadow(ui, r, &config);
             clip_rounded_rect(ui, r, config.radius, |ui| {
                 ui.fill_rect(r, Color { a: 0.6, ..self.theme_color });
-                ui.fill_rect(ir, (*self.illustration, ir));
+                ui.fill_rect(ir, (Texture2D::clone(&*self.illustration), ir));
                 ui.fill_rect(ir, (semi_black(0.5), (ir.x, ir.bottom()), Color::default(), (ir.x, ir.y)));
             });
 

@@ -64,6 +64,7 @@ use std::{
     collections::{hash_map, BTreeMap, HashMap, VecDeque},
     fs::File,
     io::{BufWriter, Cursor, Seek, Write},
+    ops::Deref,
     path::Path,
     sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
@@ -2616,12 +2617,12 @@ impl Scene for SongScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
         let t = tm.now() as f32;
-        ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
+        ui.fill_rect(ui.screen_rect(), (Texture2D::clone(&self.illu.texture.1), ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
 
         let r = ui.back_rect();
         self.back_btn.set(ui, r);
-        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
+        ui.fill_rect(r, (Texture2D::clone(&self.icons.back), r, ScaleType::Fit));
 
         let alpha = fade_in_time().map_or(1., |tt| ((t - self.fade_start) / tt).clamp(-1., 0.) + 1.);
         ui.alpha::<Result<()>>(alpha, |ui| {
@@ -2641,7 +2642,7 @@ impl Scene for SongScene {
             let s = 0.25;
             let r = Rect::new(-0.94, ui.top - s - 0.06, s, s);
             let icon = self.record.as_ref().map_or(0, |it| icon_index(it.score as _, it.full_combo));
-            ui.fill_rect(r, (*self.rank_icons[icon], r, ScaleType::Fit));
+            ui.fill_rect(r, (Texture2D::clone(&self.rank_icons[icon]), r, ScaleType::Fit));
             let score = self.record.as_ref().map(|it| it.score).unwrap_or_default();
             let accuracy = self.record.as_ref().map(|it| it.accuracy).unwrap_or_default();
             let r = ui
@@ -2660,7 +2661,7 @@ impl Scene for SongScene {
             if self.info.id.is_some() {
                 let h = 0.09;
                 let mut r = Rect::new(r.x, r.y - h, h, h);
-                ui.fill_rect(r, (*self.icons.ldb, r, ScaleType::Fit));
+                ui.fill_rect(r, (Texture2D::clone(&self.icons.ldb), r, ScaleType::Fit));
                 if let Some((rank, _)) = &self.ldb {
                     ui.text(if let Some(rank) = rank {
                         format!("#{rank}")
@@ -2700,9 +2701,9 @@ impl Scene for SongScene {
                     r,
                     (
                         if self.local_path.is_some() {
-                            *self.icons.play
+                            Texture2D::clone(&self.icons.play)
                         } else {
-                            *self.icons.download
+                            Texture2D::clone(&self.icons.download)
                         },
                         r,
                         ScaleType::Fit,
@@ -2716,7 +2717,7 @@ impl Scene for SongScene {
                 let s = 0.08;
                 let r = Rect::new(-s, 0., s, s);
                 let cc = semi_white(0.4);
-                ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
+                ui.fill_rect(r, (Texture2D::clone(&self.icons.menu), r, ScaleType::Fit, if self.menu_options.is_empty() { cc } else { WHITE }));
                 self.menu_btn.set(ui, r);
                 if self.need_show_menu {
                     self.need_show_menu = false;
@@ -2727,7 +2728,7 @@ impl Scene for SongScene {
                     self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                 }
                 ui.dx(-r.w - 0.03);
-                ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                ui.fill_rect(r, (Texture2D::clone(&self.icons.info), r, ScaleType::Fit));
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
 
@@ -2743,7 +2744,7 @@ impl Scene for SongScene {
                         fav
                     };
                     let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
-                    ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(fav_icon), r, ScaleType::Fit));
                     self.fav_btn.set(ui, r);
                     if self.need_show_fav_menu {
                         self.need_show_fav_menu = false;
@@ -2755,11 +2756,11 @@ impl Scene for SongScene {
                     }
                     ui.dx(-r.w - 0.03);
 
-                    ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.edit), r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                     self.edit_btn.set(ui, r);
                     ui.dx(-r.w - 0.03);
                 }
-                ui.fill_rect(r, (*self.icons.r#mod, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
+                ui.fill_rect(r, (Texture2D::clone(&self.icons.r#mod), r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                 self.mod_btn.set(ui, r);
             });
 
@@ -2839,7 +2840,7 @@ impl Scene for SongScene {
             let mut r = ui.screen_rect();
             r.y += r.h * (1. - p);
             rect_shadow(r, 0.01, 0.5);
-            ui.fill_rect(r, (**self.background.lock().unwrap().as_ref().unwrap(), r));
+            ui.fill_rect(r, (self.background.lock().unwrap().as_ref().unwrap().deref().clone(), r));
             ui.fill_rect(r, semi_black(0.3));
         }
 

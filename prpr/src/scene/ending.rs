@@ -245,13 +245,13 @@ impl Scene for EndingScene {
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         let mut cam = ui.camera();
-        let asp = -cam.zoom.y;
+        let asp = cam.zoom.y;
         let top = 1. / asp;
         let t = tm.now() as f32;
-        cam.render_target = self.target;
+        cam.render_target = self.target.clone();
         let sr = ui.screen_rect();
         set_camera(&cam);
-        draw_background(*self.background);
+        draw_background(&self.background);
 
         fn ran(t: f32, l: f32, r: f32) -> f32 {
             ((t - l) / (r - l)).clamp(0., 1.)
@@ -307,7 +307,7 @@ impl Scene for EndingScene {
             let icon = &self.icons[icon_index(res.score, res.max_combo == res.num_of_notes)];
             let p = ran(t, 1.7, 2.4).powi(2);
             let r = Rect::new(0.75, br.center().y, 0., 0.).feather(0.13 + (1. - p) * 0.05);
-            ui.fill_rect(r, (**icon, r, ScaleType::Fit, semi_white(p)));
+            ui.fill_rect(r, (Texture2D::clone(icon), r, ScaleType::Fit, semi_white(p)));
 
             let y = y + 0.16;
             let lf = -0.48 + (1.2 - y) / 1.9 * 0.4;
@@ -414,12 +414,12 @@ impl Scene for EndingScene {
                         .text(format!("-{}", res.early_kind[id]))
                         .pos(x + 0.03, y)
                         .size(s)
-                        .color(Color::from_hex_rgb(0x81d4fa))
+                        .color(Color::from_hex(0x81d4fa))
                         .draw_using(&BOLD_FONT);
                     ui.text(format!("+{}", res.late_kind[id]))
                         .pos(r.right() + 0.01, y)
                         .size(s)
-                        .color(Color::from_hex_rgb(0xffab91))
+                        .color(Color::from_hex(0xffab91))
                         .draw_using(&BOLD_FONT)
                 } else {
                     ui.text(res.counts[id].to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT)
@@ -514,9 +514,9 @@ impl Scene for EndingScene {
             r.x -= r.w;
             r.y -= r.h;
             self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex_rgb(0x3f51b5));
+                ui.fill_path(&path, Color::from_hex(0x3f51b5));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                ui.fill_rect(ir, (*self.icon_proceed, ir));
+                ui.fill_rect(ir, ((*self.icon_proceed).clone(), ir));
                 ui.text(tl!("proceed"))
                     .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
                     .anchor(0.5, 0.5)
@@ -527,9 +527,9 @@ impl Scene for EndingScene {
 
             r.x -= r.w + 0.02;
             self.btn_retry.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex_rgb(0x78909c));
+                ui.fill_path(&path, Color::from_hex(0x78909c));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                ui.fill_rect(ir, (*self.icon_retry, ir));
+                ui.fill_rect(ir, ((*self.icon_retry).clone(), ir));
                 ui.text(tl!("retry"))
                     .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
                     .anchor(0.5, 0.5)
@@ -618,17 +618,17 @@ impl Scene for EndingScene {
                     let icon_x = current_x + (para_w - icon_size) / 2. + skew_offset / 2.;
                     let icon_y = ty - icon_size / 2.;
                     let icon_rect = Rect::new(icon_x, icon_y, icon_size, icon_size);
-                    ui.fill_rect(icon_rect, (*self.mod_icons[mod_idx], icon_rect, ScaleType::Fit, semi_black(0.6)));
+                    ui.fill_rect(icon_rect, ((*self.mod_icons[mod_idx]).clone(), icon_rect, ScaleType::Fit, semi_black(0.6)));
                     current_x = para_right + 0.02;
                 }
             }
         }
         clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
-            ui.fill_rect(sr, (*self.illustration, sr));
+            ui.fill_rect(sr, ((*self.illustration).clone(), sr));
         });
         let sector_start = (p * 1.4 - 0.3).max(0.) * (angle_end - angle_start - center_angle) + angle_start;
         clip_sector(ui, ct, sector_start, sector_start + center_angle * 0.5, |ui| {
-            ui.fill_rect(sr, (*self.illustration, sr.feather(0.15)));
+            ui.fill_rect(sr, ((*self.illustration).clone(), sr.feather(0.15)));
         });
 
         ui.alpha(pf, |ui| {
@@ -668,7 +668,7 @@ impl Scene for EndingScene {
             } else {
                 (&self.illustration, 0.55)
             };
-            ui.fill_rect(r, (**tex, r));
+            ui.fill_rect(r, (Texture2D::clone(tex), r));
             ui.fill_rect(r, semi_black(alpha));
         }
 
