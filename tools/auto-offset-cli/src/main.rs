@@ -4,7 +4,7 @@ use prpr::{
     fs::{fs_from_file, load_info},
     parse::{parse_pec, parse_phigros, parse_rpe},
 };
-use prpr_auto_offset::{AlignConfig, AlignmentResult, EnergyDiff, NoteGaussian, SpectralFlux};
+use prpr_auto_offset::{AlignConfig, AlignmentResult, EnergyDiff, NoteGaussian, SpectralFlux, SuperFlux};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -15,11 +15,15 @@ struct Cli {
     /// Path to a Phira chart file (zip archive)
     chart: PathBuf,
 
-    /// Search range in seconds
-    #[arg(short, long, default_value = "5.0")]
+    /// Search range in seconds (centered at chart's author offset, or at 0 with --wide)
+    #[arg(short, long, default_value = "0.30")]
     range: f64,
 
-    /// Audio novelty method: spectral or energy
+    /// Wide-range search: ignore author offset, search full ±range from 0
+    #[arg(short = 'w', long)]
+    wide: bool,
+
+    /// Audio novelty method: superflux, spectral, or energy
     #[arg(long, default_value = "spectral")]
     audio_method: String,
 
@@ -28,7 +32,7 @@ struct Cli {
     note_method: String,
 
     /// Sampling interval for the cross-correlation grid, in seconds
-    #[arg(short, long, default_value = "0.001")]
+    #[arg(short, long, default_value = "0.005")]
     interval: f64,
 
     /// Gaussian blur sigma for the note signal, in seconds
@@ -65,6 +69,7 @@ fn print_result(result: &AlignmentResult, verbose: bool) {
 async fn run(
     chart_path: &PathBuf,
     search_range: f64,
+    wide: bool,
     audio_method: &str,
     note_method: &str,
     sampling_interval: f64,
@@ -142,13 +147,32 @@ async fn run(
     }
 
     // 6. Configure
+    let author_offset = info.offset as f64;
     let config = AlignConfig {
         search_range_sec: search_range,
         sampling_interval_sec: sampling_interval,
+        search_center_sec: if wide { 0.0 } else { author_offset },
     };
+
+    if verbose {
+        if wide {
+            println!("  Search: +/-{:.0}ms (wide, centered at 0)", search_range * 1000.0);
+        } else {
+            println!("  Search: +/-{:.0}ms (centered at author offset {:.0}ms)", search_range * 1000.0, author_offset * 1000.0);
+        }
+    }
 
     // 7. Select methods and run
     let result = match (audio_method, note_method) {
+        ("superflux", "gaussian") => {
+            if verbose {
+                println!("  Audio method: superflux");
+                println!("  Note method: gaussian (sigma={}ms)", blur_sigma * 1000.0);
+            }
+            let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
+            let note = NoteGaussian::new(note_times, blur_sigma);
+            prpr_auto_offset::estimate_with(&audio, &note, duration, &config)
+        }
         ("spectral", "gaussian") => {
             if verbose {
                 println!("  Audio method: spectral flux");
@@ -177,5 +201,5 @@ async fn run(
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    run(&cli.chart, cli.range, &cli.audio_method, &cli.note_method, cli.interval, cli.blur_sigma, cli.verbose).await
+    run(&cli.chart, cli.range, cli.wide, &cli.audio_method, &cli.note_method, cli.interval, cli.blur_sigma, cli.verbose).await
 }

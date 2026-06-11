@@ -1,17 +1,24 @@
 /// Configuration for the alignment algorithm.
 #[derive(Debug, Clone)]
 pub struct AlignConfig {
-    /// Search range for offset, in seconds. Default ±5.0s.
+    /// Search range for offset, in seconds. Default ±0.30s (narrow, centered at
+    /// [`search_center_sec`]).
     pub search_range_sec: f64,
-    /// Time step for the shared sampling grid, in seconds. Default 0.001 (1ms).
+    /// Time step for the shared sampling grid, in seconds. Default 0.005 (5ms).
     pub sampling_interval_sec: f64,
+    /// Center of the search window, in seconds.
+    ///
+    /// Set this to the chart author's configured offset so the algorithm only
+    /// searches for a small correction nearby. Default 0.0.
+    pub search_center_sec: f64,
 }
 
 impl Default for AlignConfig {
     fn default() -> Self {
         Self {
-            search_range_sec: 5.0,
-            sampling_interval_sec: 0.001,
+            search_range_sec: 0.30,
+            sampling_interval_sec: 0.005,
+            search_center_sec: 0.0,
         }
     }
 }

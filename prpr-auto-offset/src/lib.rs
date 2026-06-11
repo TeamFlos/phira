@@ -4,7 +4,7 @@ mod note;
 mod signal;
 mod types;
 
-pub use audio::{EnergyDiff, SpectralFlux};
+pub use audio::{EnergyDiff, SpectralFlux, SuperFlux};
 pub use estimate::{estimate, estimate_with};
 pub use note::NoteGaussian;
 pub use signal::Signal;

@@ -93,9 +93,9 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
         };
     }
 
-    // Build shared sampling grid
-    let t_min = -config.search_range_sec;
-    let t_max = duration_sec + config.search_range_sec;
+    // Build shared sampling grid centered at search_center_sec
+    let t_min = config.search_center_sec - config.search_range_sec;
+    let t_max = config.search_center_sec + duration_sec + config.search_range_sec;
     let ts = build_ts_grid(t_min, t_max, config.sampling_interval_sec);
 
     // Sample both signals
