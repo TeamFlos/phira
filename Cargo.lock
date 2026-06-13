@@ -3127,9 +3127,9 @@ checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
 name = "ordered-float"
-version = "5.1.0"
+version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f4779c6901a562440c3786d08192c6fbda7c1c2060edd10006b05ee35d10f2d"
+checksum = "b7d950ca161dc355eaf28f82b11345ed76c6e1f6eb1f4f4479e0323b9e2fbd0e"
 dependencies = [
  "num-traits",
 ]
@@ -3550,6 +3550,7 @@ dependencies = [
  "open",
  "ordered-float",
  "phf",
+ "prpr-auto-offset",
  "prpr-avc",
  "prpr-l10n",
  "rand 0.8.5",
@@ -3619,6 +3620,24 @@ dependencies = [
  "tracing",
  "unic-langid",
  "walkdir",
+]
+
+[[package]]
+name = "prpr-latency-visualizer"
+version = "0.7.1"
+dependencies = [
+ "anyhow",
+ "glyph_brush",
+ "image",
+ "lyon",
+ "macroquad",
+ "prpr",
+ "prpr-auto-offset",
+ "prpr-avc",
+ "rfd",
+ "sasa",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

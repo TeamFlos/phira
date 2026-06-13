@@ -90,6 +90,7 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
             offset: 0.0,
             correlation: 0.0,
             reliable: false,
+            correlation_curve: Vec::new(),
         };
     }
 
@@ -107,13 +108,24 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
             offset: 0.0,
             correlation: 0.0,
             reliable: false,
+            correlation_curve: Vec::new(),
         };
     }
 
     // Cross-correlation
     let max_lag_bins = (config.search_range_sec / config.sampling_interval_sec).ceil() as usize;
-    let (_corr, best_lag, best_val) = cross_correlation(&note_samples, &audio_samples, max_lag_bins);
+    let (corr, best_lag, best_val) = cross_correlation(&note_samples, &audio_samples, max_lag_bins);
     let offset = (best_lag as isize - max_lag_bins as isize) as f64 * config.sampling_interval_sec;
+
+    // Build correlation curve
+    let correlation_curve: Vec<(f64, f32)> = corr
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| {
+            let lag = i as isize - max_lag_bins as isize;
+            (lag as f64 * config.sampling_interval_sec, v)
+        })
+        .collect();
 
     // Normalized correlation at best lag
     let lag = best_lag as isize - max_lag_bins as isize;
@@ -123,5 +135,6 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
         offset,
         correlation,
         reliable: correlation > RELIABILITY_THRESHOLD,
+        correlation_curve,
     }
 }

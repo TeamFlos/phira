@@ -9,6 +9,7 @@ members = [
     "prpr-l10n",
     "prpr-pbc",
     "tools/auto-offset-cli",
+    "tools/latency-visualizer",
 ]
 resolver = "2"
 

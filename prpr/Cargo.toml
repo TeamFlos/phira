@@ -52,6 +52,7 @@ obfstr = "0.4.4"
 once_cell = { workspace = true }
 ordered-float = "5.1.0"
 phf = { version = "0.13.1", features = ["macros"] }
+prpr-auto-offset = { workspace = true }
 prpr-avc = { workspace = true, optional = true }
 prpr-l10n = { workspace = true }
 rand = { workspace = true }

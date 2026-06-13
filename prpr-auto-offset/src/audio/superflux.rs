@@ -58,6 +58,16 @@ impl SuperFlux {
             native_dt,
         }
     }
+
+    /// Access the native onset-strength samples (after adaptive threshold).
+    pub fn onset_samples(&self) -> &[f32] {
+        &self.native
+    }
+
+    /// Time step between native onset samples, in seconds.
+    pub fn onset_dt(&self) -> f64 {
+        self.native_dt
+    }
 }
 
 impl Signal for SuperFlux {
@@ -114,14 +124,14 @@ fn mel_to_hz(mel: f32) -> f32 {
 
 // ─── Mel filterbank ─────────────────────────────────────────────────────
 
-struct MelFilterbank {
+pub struct MelFilterbank {
     /// Triangular filter weights: [mel_band][fft_bin]
-    weights: Vec<Vec<f32>>,
-    n_mels: usize,
+    pub weights: Vec<Vec<f32>>,
+    pub n_mels: usize,
 }
 
 impl MelFilterbank {
-    fn new(sample_rate: u32, window_size: usize, n_mels: usize, f_min: f32, f_max: f32) -> Self {
+    pub fn new(sample_rate: u32, window_size: usize, n_mels: usize, f_min: f32, f_max: f32) -> Self {
         let n_fft_bins = window_size / 2 + 1;
         let mel_min = hz_to_mel(f_min);
         let mel_max = hz_to_mel(f_max.min(sample_rate as f32 / 2.0));
@@ -161,7 +171,7 @@ impl MelFilterbank {
     }
 
     /// Apply mel filterbank to a power spectrum, returns log-magnitudes per mel band (dB).
-    fn apply(&self, power_spectrum: &[f32]) -> Vec<f32> {
+    pub fn apply(&self, power_spectrum: &[f32]) -> Vec<f32> {
         let mut mel = vec![0.0f32; self.n_mels];
         for (m, w) in self.weights.iter().enumerate() {
             let sum: f32 = power_spectrum.iter().zip(w).map(|(&p, &w)| p * w).sum();
@@ -173,7 +183,7 @@ impl MelFilterbank {
 
 // ─── Mel-spectrogram computation ────────────────────────────────────────
 
-fn compute_mel_spectrogram(
+pub fn compute_mel_spectrogram(
     samples: &[f32],
     sample_rate: u32,
     window_size: usize,
