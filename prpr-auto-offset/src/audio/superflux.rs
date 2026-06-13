@@ -157,12 +157,12 @@ impl MelFilterbank {
             } else {
                 mel_centers[m + 1]
             };
-            for k in 0..n_fft_bins {
+            for (k, w) in weights[m].iter_mut().enumerate() {
                 let f = bin_hz(k);
                 if f >= left && f <= center {
-                    weights[m][k] = (f - left) / (center - left).max(1e-10);
+                    *w = (f - left) / (center - left).max(1e-10);
                 } else if f > center && f <= right {
-                    weights[m][k] = (right - f) / (right - center).max(1e-10);
+                    *w = (right - f) / (right - center).max(1e-10);
                 }
             }
         }
@@ -250,12 +250,12 @@ fn whiten_spectrogram(frames: &mut [Vec<f32>], window_frames: usize) {
     for band in 0..n_bands {
         // Compute local means
         let mut smoothed = vec![0.0f32; n_frames];
-        for t in 0..n_frames {
-            let lo = if t >= half { t - half } else { 0 };
+        for (t, s) in smoothed.iter_mut().enumerate() {
+            let lo = t.saturating_sub(half);
             let hi = (t + half).min(n_frames - 1);
             let count = (hi - lo + 1) as f32;
             let sum: f32 = frames[lo..=hi].iter().map(|f| f[band]).sum();
-            smoothed[t] = sum / count;
+            *s = sum / count;
         }
         // Subtract local mean from each frame
         for t in 0..n_frames {
@@ -281,18 +281,17 @@ fn compute_superflux(mel_frames: &[Vec<f32>], lag: usize) -> Vec<f32> {
         return vec![0.0; n_frames];
     }
 
-    let n_bands = mel_frames[0].len();
     let mut onset = vec![0.0f32; n_frames];
 
     for t in lag..n_frames {
         let mut flux = 0.0f32;
-        for b in 0..n_bands {
+        for (b, &cur) in mel_frames[t].iter().enumerate() {
             // Max of previous `lag` frames
             let mut max_prev = mel_frames[t - 1][b];
             for d in 2..=lag {
                 max_prev = max_prev.max(mel_frames[t - d][b]);
             }
-            let diff = mel_frames[t][b] - max_prev;
+            let diff = cur - max_prev;
             if diff > 0.0 {
                 flux += diff;
             }
@@ -336,7 +335,7 @@ fn adaptive_threshold(onset: &[f32], median_window: f32, multiplier: f32) -> Vec
     let mut thresholded = vec![0.0f32; n];
 
     for t in 0..n {
-        let lo = if t >= half { t - half } else { 0 };
+        let lo = t.saturating_sub(half);
         let hi = (t + half).min(n - 1);
         let count = hi - lo + 1;
         let mut window_vals: Vec<f32> = onset[lo..=hi].to_vec();

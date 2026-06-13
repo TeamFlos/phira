@@ -921,7 +921,7 @@ impl GameScene {
         for i in (0..curve.len()).step_by(step) {
             let (o, s) = curve[i];
             let x = inner.x + ((o - min_o) / o_range) as f32 * inner.w;
-            let y = inner.y + (1.0 - (s - min_s) / s_range) as f32 * inner.h;
+            let y = inner.y + (1.0 - (s - min_s) / s_range) * inner.h;
             if first {
                 path_builder.begin(point(x, y));
                 first = false;
@@ -990,11 +990,10 @@ impl GameScene {
             ui.fill_rect(Rect::new(0., 0., width, height), GRAY);
             ui.dy(0.02);
             let r =  ui.text(tl!("adjust-offset")).pos(width / 2.-0.03, 0.).anchor(1.0, 0.).size(0.7).no_baseline().draw();
-            if ui.button("auto-offset", Rect::new(width / 2.+0.03, r.top(), r.w, r.h), tl!("auto-offset-btn")) {
-                if !matches!(self.analysis_state, OffsetAnalysisState::Computing) {
+            if ui.button("auto-offset", Rect::new(width / 2.+0.03, r.top(), r.w, r.h), tl!("auto-offset-btn"))
+                && !matches!(self.analysis_state, OffsetAnalysisState::Computing) {
                     self.analysis_requested = true;
                 }
-            }
             ui.dy(0.04 + r.h/2.);
             // Graph area
             let graph_rect = Rect::new(0., 0., width, 0.17-r.h/2.);
