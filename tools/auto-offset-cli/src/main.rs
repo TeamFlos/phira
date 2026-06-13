@@ -65,7 +65,7 @@ fn print_result(result: &AlignmentResult, verbose: bool) {
     println!("  Reliable:          {}", if result.reliable { "yes" } else { "no" });
     println!("═══════════════════════════════════════");
 }
-
+#[allow(clippy::too_many_arguments)]
 async fn run(
     chart_path: &PathBuf,
     search_range: f64,
