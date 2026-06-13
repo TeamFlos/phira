@@ -852,13 +852,11 @@ impl GameScene {
         let clip = self.res.music.clone();
         let pcm: Vec<f32> = clip.frames().iter().map(|f| (f.0 + f.1) / 2.0).collect();
         let sample_rate = clip.sample_rate();
-        let author_offset = self.chart.offset + self.res.config.offset;
-
-        // 3. Build config
+        // 3. Build config — search centered on chart's own offset
         let config = AlignConfig {
             search_range_sec: 0.30,
             sampling_interval_sec: 0.005,
-            search_center_sec: author_offset as f64,
+            search_center_sec: self.chart.offset as f64,
         };
 
         // 4. Create shared result slot
@@ -909,10 +907,11 @@ impl GameScene {
         let v_pad = 0.08;
         let inner = Rect::new(rect.x, rect.y + rect.h * v_pad, rect.w, rect.h * (1.0 - 2.0 * v_pad));
 
-        // Correlation curve: keep point density roughly constant regardless of rect width
-        let pt_spacing = rect.w as f64 / 55.0;
-        let step = ((curve.len() as f64 * pt_spacing) / rect.w as f64).ceil() as usize;
-        let step = step.max(1);
+        // Correlation curve — limit path points to stay within geometry budget.
+        // lyon stroke tessellation generates 30-60 vertices per segment; with
+        // other UI elements, ~70 path points keeps total well under the drawcall cap.
+        let max_pts = 70usize;
+        let step = ((curve.len() as f64) / (max_pts as f64)).ceil() as usize;
         let mut path_builder = lyon::path::Path::builder();
         let mut first = true;
         for i in (0..curve.len()).step_by(step) {
@@ -968,7 +967,6 @@ impl GameScene {
             mb.end(false);
             ui.stroke_path(&mb.build(), marker_line_w, Color::new(0.0, 0.5, 1.0, 0.5));
         }
-
     }
 
     fn tweak_offset(&mut self, ui: &mut Ui, ita: bool) {
@@ -1041,8 +1039,7 @@ impl GameScene {
                         let o_range = (max_o - min_o).max(1e-6);
                         let content_width = width * GRAPH_CONTENT_RATIO;
                         let green_x = ((result.offset - min_o) / o_range) as f32 * content_width;
-                        self.scroll.x_scroller.offset =
-                            (green_x - width / 2.0).clamp(0.0, content_width - width);
+                        self.scroll.x_scroller.offset = (green_x - width / 2.0).clamp(0.0, content_width - width);
                         self.scroll_centered = true;
                     }
                     ui.dy(graph_rect.h);
