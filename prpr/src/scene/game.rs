@@ -26,7 +26,7 @@ use concat_string::concat_string;
 use inputbox::InputBox;
 use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
-use prpr_auto_offset::{AlignConfig, AlignmentResult, NoteGaussian, SuperFlux, estimate_with};
+use prpr_auto_offset::{estimate_with, AlignConfig, AlignmentResult, NoteGaussian, SuperFlux};
 use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -876,12 +876,7 @@ impl GameScene {
         // wasm32: no threading support; analysis not available on web
     }
 
-    fn draw_offset_graph(
-        &self,
-        ui: &mut Ui,
-        rect: Rect,
-        result: &AlignmentResult,
-    ) {
+    fn draw_offset_graph(&self, ui: &mut Ui, rect: Rect, result: &AlignmentResult) {
         use lyon::math::point;
 
         let curve = &result.correlation_curve;
@@ -898,19 +893,11 @@ impl GameScene {
         let s_range = (max_s - min_s).max(1e-6);
 
         // Background — fill full width
-        ui.fill_rect(
-            rect,
-            Color::new(0.0, 0.0, 0.0, 0.3),
-        );
+        ui.fill_rect(rect, Color::new(0.0, 0.0, 0.0, 0.3));
 
         // Use full width, only pad vertically
         let v_pad = 0.08;
-        let inner = Rect::new(
-            rect.x,
-            rect.y + rect.h * v_pad,
-            rect.w,
-            rect.h * (1.0 - 2.0 * v_pad),
-        );
+        let inner = Rect::new(rect.x, rect.y + rect.h * v_pad, rect.w, rect.h * (1.0 - 2.0 * v_pad));
 
         // Correlation curve: gray, alpha 0.6, ~0.01 Ui-unit per point
         let pt_spacing = 0.01;
@@ -989,14 +976,21 @@ impl GameScene {
             ui.dy(ui.top - height - 0.02);
             ui.fill_rect(Rect::new(0., 0., width, height), GRAY);
             ui.dy(0.02);
-            let r =  ui.text(tl!("adjust-offset")).pos(width / 2.-0.03, 0.).anchor(1.0, 0.).size(0.7).no_baseline().draw();
-            if ui.button("auto-offset", Rect::new(width / 2.+0.03, r.top(), r.w, r.h), tl!("auto-offset-btn"))
-                && !matches!(self.analysis_state, OffsetAnalysisState::Computing) {
-                    self.analysis_requested = true;
-                }
-            ui.dy(0.04 + r.h/2.);
+            let r = ui
+                .text(tl!("adjust-offset"))
+                .pos(width / 2. - 0.03, 0.)
+                .anchor(1.0, 0.)
+                .size(0.7)
+                .no_baseline()
+                .draw();
+            if ui.button("auto-offset", Rect::new(width / 2. + 0.03, r.top(), r.w, r.h), tl!("auto-offset-btn"))
+                && !matches!(self.analysis_state, OffsetAnalysisState::Computing)
+            {
+                self.analysis_requested = true;
+            }
+            ui.dy(0.04 + r.h / 2.);
             // Graph area
-            let graph_rect = Rect::new(0., 0., width, 0.17-r.h/2.);
+            let graph_rect = Rect::new(0., 0., width, 0.17 - r.h / 2.);
             match self.analysis_state.clone() {
                 OffsetAnalysisState::Idle => {
                     ui.dy(graph_rect.h / 2. - 0.03);

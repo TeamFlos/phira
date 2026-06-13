@@ -39,8 +39,7 @@ impl SuperFlux {
         let mel = MelFilterbank::new(sample_rate, window_size, 80, 50.0, 12000.0);
 
         // 3. Mel-spectrogram
-        let (mut mel_frames, frame_rate) =
-            compute_mel_spectrogram(&samples, sample_rate, window_size, hop_size, &mel);
+        let (mut mel_frames, frame_rate) = compute_mel_spectrogram(&samples, sample_rate, window_size, hop_size, &mel);
 
         // 4. Spectral whitening (1-second window)
         whiten_spectrogram(&mut mel_frames, (frame_rate * 1.0) as usize);
@@ -53,10 +52,7 @@ impl SuperFlux {
 
         // Use the declared native_dt (frame_rate may differ slightly due to rounding)
         let _ = frame_rate;
-        Self {
-            native: onset,
-            native_dt,
-        }
+        Self { native: onset, native_dt }
     }
 
     /// Access the native onset-strength samples (after adaptive threshold).
@@ -75,9 +71,7 @@ impl Signal for SuperFlux {
         if ts.is_empty() {
             return vec![];
         }
-        ts.iter()
-            .map(|&t| interpolate(&self.native, self.native_dt, t))
-            .collect()
+        ts.iter().map(|&t| interpolate(&self.native, self.native_dt, t)).collect()
     }
 }
 
@@ -86,11 +80,7 @@ impl Signal for SuperFlux {
 fn highpass_50hz(samples: &mut [f32], sample_rate: u32) {
     // 1st-order Butterworth: y[n] = alpha*y[n-1] + alpha*(x[n] - x[n-1])
     // Remove DC offset first, then initialize state to avoid transient
-    let dc = samples
-        .iter()
-        .take((sample_rate as usize / 10).min(samples.len()))
-        .sum::<f32>()
-        / (sample_rate as f32 / 10.0).min(samples.len() as f32);
+    let dc = samples.iter().take((sample_rate as usize / 10).min(samples.len())).sum::<f32>() / (sample_rate as f32 / 10.0).min(samples.len() as f32);
     for s in &mut *samples {
         *s -= dc;
     }
@@ -138,25 +128,15 @@ impl MelFilterbank {
         let mel_step = (mel_max - mel_min) / (n_mels + 1) as f32;
 
         // Center frequencies of mel bands
-        let mel_centers: Vec<f32> = (0..n_mels)
-            .map(|i| mel_to_hz(mel_min + (i + 1) as f32 * mel_step))
-            .collect();
+        let mel_centers: Vec<f32> = (0..n_mels).map(|i| mel_to_hz(mel_min + (i + 1) as f32 * mel_step)).collect();
 
         let bin_hz = |k: usize| k as f32 * sample_rate as f32 / window_size as f32;
 
         // Build triangular filter weights
         let mut weights = vec![vec![0.0f32; n_fft_bins]; n_mels];
         for (m, &center) in mel_centers.iter().enumerate() {
-            let left = if m == 0 {
-                f_min
-            } else {
-                mel_centers[m - 1]
-            };
-            let right = if m == n_mels - 1 {
-                f_max
-            } else {
-                mel_centers[m + 1]
-            };
+            let left = if m == 0 { f_min } else { mel_centers[m - 1] };
+            let right = if m == n_mels - 1 { f_max } else { mel_centers[m + 1] };
             for (k, w) in weights[m].iter_mut().enumerate() {
                 let f = bin_hz(k);
                 if f >= left && f <= center {
@@ -183,13 +163,7 @@ impl MelFilterbank {
 
 // ─── Mel-spectrogram computation ────────────────────────────────────────
 
-pub fn compute_mel_spectrogram(
-    samples: &[f32],
-    sample_rate: u32,
-    window_size: usize,
-    hop_size: usize,
-    mel: &MelFilterbank,
-) -> (Vec<Vec<f32>>, f32) {
+pub fn compute_mel_spectrogram(samples: &[f32], sample_rate: u32, window_size: usize, hop_size: usize, mel: &MelFilterbank) -> (Vec<Vec<f32>>, f32) {
     use rayon::prelude::*;
     use realfft::RealFftPlanner;
     use std::sync::Arc;
@@ -201,10 +175,7 @@ pub fn compute_mel_spectrogram(
     };
 
     let window: Vec<f32> = (0..window_size)
-        .map(|n| {
-            0.5 * (1.0
-                - (2.0 * std::f32::consts::PI * n as f32 / (window_size - 1) as f32).cos())
-        })
+        .map(|n| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (window_size - 1) as f32).cos()))
         .collect();
 
     let mut planner = RealFftPlanner::<f32>::new();
@@ -214,19 +185,12 @@ pub fn compute_mel_spectrogram(
         .into_par_iter()
         .map(|frame_idx| {
             let start = frame_idx * hop_size;
-            let mut windowed: Vec<f32> = samples[start..start + window_size]
-                .iter()
-                .zip(&window)
-                .map(|(&s, &w)| s * w)
-                .collect();
+            let mut windowed: Vec<f32> = samples[start..start + window_size].iter().zip(&window).map(|(&s, &w)| s * w).collect();
 
             let mut spectrum = r2c.make_output_vec();
             r2c.process(&mut windowed, &mut spectrum).unwrap();
 
-            let power: Vec<f32> = spectrum
-                .iter()
-                .map(|c| c.re * c.re + c.im * c.im)
-                .collect();
+            let power: Vec<f32> = spectrum.iter().map(|c| c.re * c.re + c.im * c.im).collect();
             mel.apply(&power)
         })
         .collect();
@@ -302,11 +266,7 @@ fn compute_superflux(mel_frames: &[Vec<f32>], lag: usize) -> Vec<f32> {
     // Robust normalize: skip first ~1s (HP filter transient), use 99th pct
     let skip_frames = 40.min(onset.len() / 4);
     if skip_frames < onset.len() {
-        let mut sorted: Vec<f32> = onset[skip_frames..]
-            .iter()
-            .cloned()
-            .filter(|&v| v > 0.0)
-            .collect();
+        let mut sorted: Vec<f32> = onset[skip_frames..].iter().cloned().filter(|&v| v > 0.0).collect();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let p99 = if sorted.is_empty() {
             0.0
@@ -350,16 +310,9 @@ fn adaptive_threshold(onset: &[f32], median_window: f32, multiplier: f32) -> Vec
     // Robust re-normalize: skip first ~1s, use 99th percentile
     let skip = 40.min(thresholded.len() / 4);
     if skip < thresholded.len() {
-        let mut vals: Vec<f32> = thresholded[skip..]
-            .iter()
-            .cloned()
-            .filter(|&v| v > 0.0)
-            .collect();
+        let mut vals: Vec<f32> = thresholded[skip..].iter().cloned().filter(|&v| v > 0.0).collect();
         vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let p99 = vals
-            .get((vals.len() as f32 * 0.99) as usize)
-            .copied()
-            .unwrap_or(0.0);
+        let p99 = vals.get((vals.len() as f32 * 0.99) as usize).copied().unwrap_or(0.0);
         if p99 > 0.0 {
             for v in &mut thresholded {
                 *v /= p99;

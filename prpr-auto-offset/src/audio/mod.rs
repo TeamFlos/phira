@@ -4,4 +4,4 @@ mod superflux;
 
 pub use energy::EnergyDiff;
 pub use spectral::SpectralFlux;
-pub use superflux::{SuperFlux, MelFilterbank, compute_mel_spectrogram};
+pub use superflux::{compute_mel_spectrogram, MelFilterbank, SuperFlux};
