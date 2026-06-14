@@ -94,14 +94,22 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
         };
     }
 
-    // Build shared sampling grid centered at search_center_sec
+    // Build absolute-time sampling grid for the audio signal.
     let t_min = config.search_center_sec - config.search_range_sec;
     let t_max = config.search_center_sec + duration_sec + config.search_range_sec;
     let ts = build_ts_grid(t_min, t_max, config.sampling_interval_sec);
 
-    // Sample both signals
+    // Sample audio on the absolute-time grid.
     let audio_samples = audio.samples(&ts);
-    let note_samples = note.samples(&ts);
+
+    // Shift the note signal into absolute time by sampling it at
+    //    ts_note[i] = ts[i] - search_center_sec
+    // so that a note event at chart time `note.time` appears at absolute
+    // time `note.time + search_center_sec`.  After this shift the two
+    // signals share a single (absolute) coordinate system and the
+    // cross-correlation lag is a small residual rather than the full offset.
+    let note_ts: Vec<f64> = ts.iter().map(|&t| t - config.search_center_sec).collect();
+    let note_samples = note.samples(&note_ts);
 
     if audio_samples.is_empty() || note_samples.is_empty() {
         return AlignmentResult {
@@ -112,19 +120,15 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
         };
     }
 
-    // Cross-correlation
+    // Cross-correlation — now the best lag is a small residual around zero
     let max_lag_bins = (config.search_range_sec / config.sampling_interval_sec).ceil() as usize;
     let (corr, best_lag, best_val) = cross_correlation(&note_samples, &audio_samples, max_lag_bins);
 
-    // Best lag in seconds (relative to search center)
+    // Residual lag, then add search_center_sec to get absolute offset
     let best_lag_sec = (best_lag as isize - max_lag_bins as isize) as f64 * config.sampling_interval_sec;
-    // Absolute offset: search center + measured lag correction
     let offset = config.search_center_sec + best_lag_sec;
 
-    // Build correlation curve with absolute offset on the x-axis.
-    // This makes the curve consistent with chart_offset and info_offset values,
-    // so the orange (chart offset) and green (suggested offset) markers are
-    // positioned correctly on the graph.
+    // Correlation curve: x = absolute offset (search_center + lag)
     let correlation_curve: Vec<(f64, f32)> = corr
         .iter()
         .enumerate()
