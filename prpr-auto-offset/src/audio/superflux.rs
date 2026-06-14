@@ -202,13 +202,13 @@ impl Filterbank {
 
             // Rising edge: start..mid
             let n_rise = mid - start;
-            for i in start..mid {
-                weights[i][band] = height * (i - start) as f32 / n_rise as f32;
+            for (offset, w) in weights[start..mid].iter_mut().enumerate() {
+                w[band] = height * offset as f32 / n_rise as f32;
             }
             // Falling edge: mid..stop
             let n_fall = stop - mid;
-            for i in mid..stop {
-                weights[i][band] = height * (stop - i) as f32 / n_fall as f32;
+            for (offset, w) in weights[mid..stop].iter_mut().enumerate() {
+                w[band] = height * (n_fall - offset) as f32 / n_fall as f32;
             }
         }
 

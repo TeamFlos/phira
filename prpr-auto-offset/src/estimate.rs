@@ -115,15 +115,22 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
     // Cross-correlation
     let max_lag_bins = (config.search_range_sec / config.sampling_interval_sec).ceil() as usize;
     let (corr, best_lag, best_val) = cross_correlation(&note_samples, &audio_samples, max_lag_bins);
-    let offset = (best_lag as isize - max_lag_bins as isize) as f64 * config.sampling_interval_sec;
 
-    // Build correlation curve
+    // Best lag in seconds (relative to search center)
+    let best_lag_sec = (best_lag as isize - max_lag_bins as isize) as f64 * config.sampling_interval_sec;
+    // Absolute offset: search center + measured lag correction
+    let offset = config.search_center_sec + best_lag_sec;
+
+    // Build correlation curve with absolute offset on the x-axis.
+    // This makes the curve consistent with chart_offset and info_offset values,
+    // so the orange (chart offset) and green (suggested offset) markers are
+    // positioned correctly on the graph.
     let correlation_curve: Vec<(f64, f32)> = corr
         .iter()
         .enumerate()
         .map(|(i, &v)| {
-            let lag = i as isize - max_lag_bins as isize;
-            (lag as f64 * config.sampling_interval_sec, v)
+            let lag = (i as isize - max_lag_bins as isize) as f64 * config.sampling_interval_sec;
+            (config.search_center_sec + lag, v)
         })
         .collect();
 
