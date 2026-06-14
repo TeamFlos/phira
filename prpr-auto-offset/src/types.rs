@@ -27,7 +27,8 @@ impl Default for AlignConfig {
 #[derive(Debug, Clone)]
 pub struct AlignmentResult {
     /// Suggested global offset in seconds.
-    /// Positive means notes should be delayed (hit later).
+    /// This value is in absolute time. To get the chart offset correction, subtract the search center:
+    ///     chart_offset_correction = offset - search_center_sec
     pub offset: f64,
     /// Normalized cross-correlation peak, in [0.0, 1.0].
     ///
@@ -38,5 +39,6 @@ pub struct AlignmentResult {
     pub reliable: bool,
     /// Full correlation curve: (offset_seconds, raw_correlation_score).
     /// Useful for visualization of the score-vs-offset landscape.
+    /// The offset_seconds values are in absolute time, so the search center is at `search_center_sec`.
     pub correlation_curve: Vec<(f64, f32)>,
 }
