@@ -6,11 +6,11 @@ use crate::Signal;
 /// from:
 /// "Maximum Filter Vibrato Suppression for Onset Detection"
 /// Sebastian Böck and Gerhard Widmer, DAFx-13, Maynooth, Ireland, September 2013.
-/// 
+///
 /// Paper: https://www.dafx.de/paper-archive/2013/papers/09.dafx2013_submission_12.pdf
-/// 
+///
 /// Reference Python implementation: https://github.com/CPJKU/SuperFlux/blob/master/SuperFlux.py
-/// 
+///
 /// Processing steps:
 ///   1. High-pass filter (50 Hz) to remove sub-bass rumble
 ///   2. Log-scale triangular filterbank (24 bands/octave, 30 Hz – 17 kHz)
@@ -162,24 +162,14 @@ impl Filterbank {
     /// * `fmin` - Minimum frequency in Hz (default: 30).
     /// * `fmax` - Maximum frequency in Hz (default: 17000, capped at Nyquist).
     /// * `equal` - If true, normalize each triangular filter to have area 1.
-    pub fn new(
-        sample_rate: u32,
-        window_size: usize,
-        bands_per_octave: usize,
-        fmin: f32,
-        fmax: f32,
-        equal: bool,
-    ) -> Self {
+    pub fn new(sample_rate: u32, window_size: usize, bands_per_octave: usize, fmin: f32, fmax: f32, equal: bool) -> Self {
         let n_fft_bins = window_size / 2;
         let fmax = fmax.min(sample_rate as f32 / 2.0);
 
         // Generate log-spaced frequencies and map to FFT bins
         let frequencies = log_frequencies(bands_per_octave, fmin, fmax);
         let factor = (sample_rate as f32 / 2.0) / n_fft_bins as f32;
-        let mut bins: Vec<usize> = frequencies
-            .iter()
-            .map(|&f| (f / factor).round() as usize)
-            .collect();
+        let mut bins: Vec<usize> = frequencies.iter().map(|&f| (f / factor).round() as usize).collect();
         bins.sort();
         bins.dedup();
         bins.retain(|&b| b < n_fft_bins);
@@ -194,11 +184,7 @@ impl Filterbank {
             let mid = bins[band + 1];
             let stop = bins[band + 2];
 
-            let height = if equal {
-                2.0 / (stop - start) as f32
-            } else {
-                1.0
-            };
+            let height = if equal { 2.0 / (stop - start) as f32 } else { 1.0 };
 
             // Rising edge: start..mid
             let n_rise = mid - start;
@@ -270,11 +256,7 @@ pub fn compute_spectrogram(
         .into_par_iter()
         .map(|frame_idx| {
             let start = frame_idx * hop_size;
-            let mut windowed: Vec<f32> = samples[start..start + window_size]
-                .iter()
-                .zip(&window)
-                .map(|(&s, &w)| s * w)
-                .collect();
+            let mut windowed: Vec<f32> = samples[start..start + window_size].iter().zip(&window).map(|(&s, &w)| s * w).collect();
 
             let mut spectrum = r2c.make_output_vec();
             r2c.process(&mut windowed, &mut spectrum).unwrap();
