@@ -2,12 +2,21 @@ use crate::Signal;
 
 /// SuperFlux onset detection signal.
 ///
-/// Computes a percussion-onset novelty curve using the SuperFlux algorithm:
+/// Computes a percussion-onset novelty curve using the SuperFlux algorithm
+/// from:
+/// "Maximum Filter Vibrato Suppression for Onset Detection"
+/// Sebastian Böck and Gerhard Widmer, DAFx-13, Maynooth, Ireland, September 2013.
+/// 
+/// Paper: https://www.dafx.de/paper-archive/2013/papers/09.dafx2013_submission_12.pdf
+/// 
+/// Reference Python implementation: https://github.com/CPJKU/SuperFlux/blob/master/SuperFlux.py
+/// 
+/// Processing steps:
 ///   1. High-pass filter (50 Hz) to remove sub-bass rumble
-///   2. Mel filterbank (80 bands, 50 Hz – 12 kHz)
-///   3. Mel-spectrogram (Hann-windowed STFT → mel band energy in dB)
+///   2. Log-scale triangular filterbank (24 bands/octave, 30 Hz – 17 kHz)
+///   3. Magnitude spectrogram → filterbank → log10 scaling
 ///   4. Per-band spectral whitening (subtract local running mean)
-///   5. SuperFlux temporal difference (max-filtered spectral flux)
+///   5. Frequency-direction maximum filter (vibrato suppression) + temporal difference
 ///   6. Adaptive threshold via running median
 ///
 /// The result is a dense time series with one onset-strength value per STFT
@@ -35,17 +44,18 @@ impl SuperFlux {
         let mut samples = pcm.to_vec();
         highpass_50hz(&mut samples, sample_rate);
 
-        // 2. Mel filterbank (80 bands, 50Hz–12kHz)
-        let mel = MelFilterbank::new(sample_rate, window_size, 80, 50.0, 12000.0);
+        // 2. Log-scale filterbank (24 bands/octave, 30Hz–17kHz, matching paper)
+        let filterbank = Filterbank::new(sample_rate, window_size, 24, 30.0, 17000.0, false);
 
-        // 3. Mel-spectrogram
-        let (mut mel_frames, frame_rate) = compute_mel_spectrogram(&samples, sample_rate, window_size, hop_size, &mel);
+        // 3. Spectrogram: |STFT| → filterbank → log10 (matching paper)
+        let (mut spec_frames, frame_rate) = compute_spectrogram(&samples, sample_rate, window_size, hop_size, &filterbank, 1.0, 1.0);
 
         // 4. Spectral whitening (1-second window)
-        whiten_spectrogram(&mut mel_frames, (frame_rate * 1.0) as usize);
+        whiten_spectrogram(&mut spec_frames, (frame_rate * 1.0) as usize);
 
-        // 5. SuperFlux temporal difference (lag=3)
-        let onset = compute_superflux(&mel_frames, 3);
+        // 5. SuperFlux: frequency-direction max filter + temporal diff
+        //    diff_frames=3, max_bins=3 (matching paper defaults)
+        let onset = compute_superflux(&spec_frames, 3, 3);
 
         // 6. Adaptive threshold
         let onset = adaptive_threshold(&onset, frame_rate * 2.0, 0.5);
@@ -102,68 +112,141 @@ fn highpass_50hz(samples: &mut [f32], sample_rate: u32) {
     }
 }
 
-// ─── Mel scale conversion ──────────────────────────────────────────────
+// ─── Log-scale frequency generation ────────────────────────────────────
 
-fn hz_to_mel(hz: f32) -> f32 {
-    2595.0 * (1.0 + hz / 700.0).log10()
+/// Generate frequencies on a logarithmic scale, matching Python's
+/// `Filter.frequencies()` with A0 = 440 Hz as the reference.
+fn log_frequencies(bands_per_octave: usize, fmin: f32, fmax: f32) -> Vec<f32> {
+    let factor = 2.0f32.powf(1.0 / bands_per_octave as f32);
+    let a = 440.0f32;
+
+    let mut frequencies = vec![a];
+
+    // Go upwards from A0
+    let mut freq = a;
+    while freq <= fmax {
+        freq *= factor;
+        frequencies.push(freq);
+    }
+
+    // Go downwards from A0
+    freq = a;
+    while freq >= fmin {
+        freq /= factor;
+        frequencies.push(freq);
+    }
+
+    frequencies.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    frequencies
 }
 
-fn mel_to_hz(mel: f32) -> f32 {
-    700.0 * (10.0f32.powf(mel / 2595.0) - 1.0)
-}
+// ─── Triangular filterbank (log-scale, paper-compatible) ────────────────
 
-// ─── Mel filterbank ─────────────────────────────────────────────────────
-
-pub struct MelFilterbank {
-    /// Triangular filter weights: [mel_band][fft_bin]
+/// Log-spaced triangular filterbank matching the Python reference `Filter` class.
+///
+/// Uses logarithmic frequency spacing (bands per octave) with A0 = 440 Hz as
+/// the reference pitch, and maps triangular filters to FFT bins.
+pub struct Filterbank {
+    /// Triangular filter weights: `[fft_bin][filter_band]`
     pub weights: Vec<Vec<f32>>,
-    pub n_mels: usize,
+    pub n_bands: usize,
 }
 
-impl MelFilterbank {
-    pub fn new(sample_rate: u32, window_size: usize, n_mels: usize, f_min: f32, f_max: f32) -> Self {
-        let n_fft_bins = window_size / 2 + 1;
-        let mel_min = hz_to_mel(f_min);
-        let mel_max = hz_to_mel(f_max.min(sample_rate as f32 / 2.0));
-        let mel_step = (mel_max - mel_min) / (n_mels + 1) as f32;
+impl Filterbank {
+    /// Create a log-spaced triangular filterbank.
+    ///
+    /// # Arguments
+    /// * `sample_rate` - Audio sample rate in Hz.
+    /// * `window_size` - STFT window size in samples.
+    /// * `bands_per_octave` - Number of filter bands per octave (default: 24).
+    /// * `fmin` - Minimum frequency in Hz (default: 30).
+    /// * `fmax` - Maximum frequency in Hz (default: 17000, capped at Nyquist).
+    /// * `equal` - If true, normalize each triangular filter to have area 1.
+    pub fn new(
+        sample_rate: u32,
+        window_size: usize,
+        bands_per_octave: usize,
+        fmin: f32,
+        fmax: f32,
+        equal: bool,
+    ) -> Self {
+        let n_fft_bins = window_size / 2;
+        let fmax = fmax.min(sample_rate as f32 / 2.0);
 
-        // Center frequencies of mel bands
-        let mel_centers: Vec<f32> = (0..n_mels).map(|i| mel_to_hz(mel_min + (i + 1) as f32 * mel_step)).collect();
+        // Generate log-spaced frequencies and map to FFT bins
+        let frequencies = log_frequencies(bands_per_octave, fmin, fmax);
+        let factor = (sample_rate as f32 / 2.0) / n_fft_bins as f32;
+        let mut bins: Vec<usize> = frequencies
+            .iter()
+            .map(|&f| (f / factor).round() as usize)
+            .collect();
+        bins.sort();
+        bins.dedup();
+        bins.retain(|&b| b < n_fft_bins);
 
-        let bin_hz = |k: usize| k as f32 * sample_rate as f32 / window_size as f32;
+        let n_bands = bins.len().saturating_sub(2);
+        assert!(n_bands >= 3, "cannot create filterbank with less than 3 frequencies");
 
-        // Build triangular filter weights
-        let mut weights = vec![vec![0.0f32; n_fft_bins]; n_mels];
-        for (m, &center) in mel_centers.iter().enumerate() {
-            let left = if m == 0 { f_min } else { mel_centers[m - 1] };
-            let right = if m == n_mels - 1 { f_max } else { mel_centers[m + 1] };
-            for (k, w) in weights[m].iter_mut().enumerate() {
-                let f = bin_hz(k);
-                if f >= left && f <= center {
-                    *w = (f - left) / (center - left).max(1e-10);
-                } else if f > center && f <= right {
-                    *w = (right - f) / (right - center).max(1e-10);
-                }
+        let mut weights = vec![vec![0.0f32; n_bands]; n_fft_bins];
+
+        for band in 0..n_bands {
+            let start = bins[band];
+            let mid = bins[band + 1];
+            let stop = bins[band + 2];
+
+            let height = if equal {
+                2.0 / (stop - start) as f32
+            } else {
+                1.0
+            };
+
+            // Rising edge: start..mid
+            let n_rise = mid - start;
+            for i in start..mid {
+                weights[i][band] = height * (i - start) as f32 / n_rise as f32;
+            }
+            // Falling edge: mid..stop
+            let n_fall = stop - mid;
+            for i in mid..stop {
+                weights[i][band] = height * (stop - i) as f32 / n_fall as f32;
             }
         }
 
-        MelFilterbank { weights, n_mels }
+        Filterbank { weights, n_bands }
     }
 
-    /// Apply mel filterbank to a power spectrum, returns log-magnitudes per mel band (dB).
-    pub fn apply(&self, power_spectrum: &[f32]) -> Vec<f32> {
-        let mut mel = vec![0.0f32; self.n_mels];
-        for (m, w) in self.weights.iter().enumerate() {
-            let sum: f32 = power_spectrum.iter().zip(w).map(|(&p, &w)| p * w).sum();
-            mel[m] = 20.0 * (sum.sqrt().max(1e-10)).log10(); // dB
+    /// Apply filterbank to a **magnitude** spectrum, returning per-band
+    /// energy (linear magnitude, not dB).
+    pub fn apply(&self, magnitude_spectrum: &[f32]) -> Vec<f32> {
+        let mut bands = vec![0.0f32; self.n_bands];
+        for (b, w) in self.weights.iter().enumerate() {
+            // w is [band] at this FFT bin — sum up contributions per band
+            // weights layout: [fft_bin][band]
+            for band in 0..self.n_bands {
+                bands[band] += magnitude_spectrum[b] * w[band];
+            }
         }
-        mel
+        bands
     }
 }
 
-// ─── Mel-spectrogram computation ────────────────────────────────────────
+// ─── Spectrogram computation ────────────────────────────────────────────
 
-pub fn compute_mel_spectrogram(samples: &[f32], sample_rate: u32, window_size: usize, hop_size: usize, mel: &MelFilterbank) -> (Vec<Vec<f32>>, f32) {
+/// Compute a log-magnitude spectrogram through a filterbank.
+///
+/// Matches the Python reference `Spectrogram` class:
+///   `|STFT| → filterbank → log10(mul · X + add)`
+///
+/// Defaults: `mul = 1.0`, `add = 1.0` (log scaling on, matching Python defaults).
+pub fn compute_spectrogram(
+    samples: &[f32],
+    sample_rate: u32,
+    window_size: usize,
+    hop_size: usize,
+    filterbank: &Filterbank,
+    mul: f32,
+    add: f32,
+) -> (Vec<Vec<f32>>, f32) {
     use rayon::prelude::*;
     use realfft::RealFftPlanner;
     use std::sync::Arc;
@@ -174,34 +257,49 @@ pub fn compute_mel_spectrogram(samples: &[f32], sample_rate: u32, window_size: u
         (samples.len() - window_size) / hop_size + 1
     };
 
+    // Hann window
+    let n2 = (window_size - 1) as f32;
     let window: Vec<f32> = (0..window_size)
-        .map(|n| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / (window_size - 1) as f32).cos()))
+        .map(|n| 0.5 * (1.0 - (2.0 * std::f32::consts::PI * n as f32 / n2).cos()))
         .collect();
 
     let mut planner = RealFftPlanner::<f32>::new();
     let r2c = Arc::new(planner.plan_fft_forward(window_size));
 
-    let mel_frames: Vec<Vec<f32>> = (0..num_frames)
+    let spec_frames: Vec<Vec<f32>> = (0..num_frames)
         .into_par_iter()
         .map(|frame_idx| {
             let start = frame_idx * hop_size;
-            let mut windowed: Vec<f32> = samples[start..start + window_size].iter().zip(&window).map(|(&s, &w)| s * w).collect();
+            let mut windowed: Vec<f32> = samples[start..start + window_size]
+                .iter()
+                .zip(&window)
+                .map(|(&s, &w)| s * w)
+                .collect();
 
             let mut spectrum = r2c.make_output_vec();
             r2c.process(&mut windowed, &mut spectrum).unwrap();
 
-            let power: Vec<f32> = spectrum.iter().map(|c| c.re * c.re + c.im * c.im).collect();
-            mel.apply(&power)
+            // Magnitude spectrum (not power)
+            let magnitude: Vec<f32> = spectrum.iter().map(|c| c.norm()).collect();
+
+            // Apply filterbank → linear per-band energy
+            let mut bands = filterbank.apply(&magnitude);
+
+            // Log scaling: log10(mul * X + add), matching Python defaults
+            for v in &mut bands {
+                *v = (mul * *v + add).log10();
+            }
+            bands
         })
         .collect();
 
     let frame_rate = sample_rate as f32 / hop_size as f32;
-    (mel_frames, frame_rate)
+    (spec_frames, frame_rate)
 }
 
 // ─── Spectral whitening ─────────────────────────────────────────────────
 
-/// For each mel band, subtract a local running mean (half-width = window_frames/2).
+/// For each filter band, subtract a local running mean (half-width = window_frames/2).
 /// Clamps negative values to -120 dB floor.
 fn whiten_spectrogram(frames: &mut [Vec<f32>], window_frames: usize) {
     let half = window_frames / 2;
@@ -234,28 +332,53 @@ fn whiten_spectrogram(frames: &mut [Vec<f32>], window_frames: usize) {
 
 /// Core SuperFlux algorithm.
 ///
-/// For each frame `t` and each mel band `b`:
-///   `diff(t) = Σ_b max(0, X[t][b] - max(X[t-1][b], ..., X[t-lag][b]))`
+/// Implements the method described in:
+/// "Maximum Filter Vibrato Suppression for Onset Detection"
+/// Sebastian Böck and Gerhard Widmer, DAFx-13, Maynooth, Ireland, September 2013.
+///
+/// Steps:
+///   1. Apply a maximum filter of width `max_bins` in the **frequency** direction
+///      on the spectrogram to suppress vibrato (the key contribution).
+///   2. For each frame `t` and band `b`:
+///      `diff(t,b) = max(0, X[t][b] - max_filtered(X)[t-diff_frames][b])`
+///   3. Sum across all bands: `onset(t) = Σ_b diff(t,b)`
 ///
 /// Robust-normalized by the 99th percentile (skipping the first ~1 s to avoid
 /// HP filter transient).
-fn compute_superflux(mel_frames: &[Vec<f32>], lag: usize) -> Vec<f32> {
-    let n_frames = mel_frames.len();
-    if n_frames <= lag {
-        return vec![0.0; n_frames];
+fn compute_superflux(spec_frames: &[Vec<f32>], diff_frames: usize, max_bins: usize) -> Vec<f32> {
+    let n_frames = spec_frames.len();
+    if n_frames == 0 {
+        return vec![];
     }
+    let n_bands = spec_frames[0].len();
 
     let mut onset = vec![0.0f32; n_frames];
 
-    for t in lag..n_frames {
+    if n_frames <= diff_frames {
+        return onset;
+    }
+
+    // Step 1: Maximum filter in frequency direction (vibrato suppression).
+    // For each bin [t][b], replace with max over [b - half, b + half].
+    let half = max_bins / 2;
+    let max_spec: Vec<Vec<f32>> = spec_frames
+        .iter()
+        .map(|frame| {
+            (0..n_bands)
+                .map(|b| {
+                    let lo = b.saturating_sub(half);
+                    let hi = (b + half).min(n_bands - 1);
+                    frame[lo..=hi].iter().cloned().fold(0.0f32, f32::max)
+                })
+                .collect()
+        })
+        .collect();
+
+    // Step 2: Temporal difference — current raw spec vs. max-filtered previous frame.
+    for t in diff_frames..n_frames {
         let mut flux = 0.0f32;
-        for (b, &cur) in mel_frames[t].iter().enumerate() {
-            // Max of previous `lag` frames
-            let mut max_prev = mel_frames[t - 1][b];
-            for d in 2..=lag {
-                max_prev = max_prev.max(mel_frames[t - d][b]);
-            }
-            let diff = cur - max_prev;
+        for b in 0..n_bands {
+            let diff = spec_frames[t][b] - max_spec[t - diff_frames][b];
             if diff > 0.0 {
                 flux += diff;
             }

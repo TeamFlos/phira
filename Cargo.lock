@@ -3623,24 +3623,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prpr-latency-visualizer"
-version = "0.7.1"
-dependencies = [
- "anyhow",
- "glyph_brush",
- "image",
- "lyon",
- "macroquad",
- "prpr",
- "prpr-auto-offset",
- "prpr-avc",
- "rfd",
- "sasa",
- "tempfile",
- "tokio",
-]
-
-[[package]]
 name = "prpr-pbc"
 version = "0.1.0"
 dependencies = [
