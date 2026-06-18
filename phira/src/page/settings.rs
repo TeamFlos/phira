@@ -1,5 +1,9 @@
 prpr_l10n::tl_file!("settings");
 
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 use super::{NextPage, OffsetPage, Page, SharedState};
 use crate::{
     dir, get_data, get_data_mut,

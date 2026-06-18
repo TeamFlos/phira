@@ -1,3 +1,7 @@
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 mod chart;
 pub use chart::*;
 

@@ -1,3 +1,7 @@
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 use super::{Illustration, Page, SharedState};
 use crate::{
     client::{Client, Event},

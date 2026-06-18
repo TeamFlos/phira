@@ -1,5 +1,9 @@
 prpr_l10n::tl_file!("profile");
 
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
     anti_addiction_action,

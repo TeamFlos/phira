@@ -1,5 +1,9 @@
 prpr_l10n::tl_file!("charts_view");
 
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 use crate::{
     client::{Chart, ChartRef},
     dir, get_data, get_data_mut,

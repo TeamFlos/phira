@@ -1,5 +1,9 @@
 prpr_l10n::tl_file!("home");
 
+// rust-analyzer textual scope support issue workaround:
+#[allow(unused_imports)]
+use crate::ttl;
+
 use super::{
     load_font_with_cksum, set_bold_font, EventPage, LibraryPage, MessagePage, NextPage, Page, ResPackPage, SFader, SettingsPage, SharedState,
     BOLD_FONT_CKSUM,
