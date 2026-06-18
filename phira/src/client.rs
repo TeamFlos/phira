@@ -1,3 +1,5 @@
+//! Http client for Phira API.
+
 mod model;
 pub use model::*;
 use tracing::debug;
@@ -19,8 +21,8 @@ static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_point
 
 pub struct Client;
 
-// const API_URL: &str = "http://localhost:2924";
-const API_URL: &str = "https://phira.5wyxi.com";
+// pub const API_URL: &str = "http://localhost:2924";
+pub const API_URL: &str = "https://phira.5wyxi.com";
 
 pub fn basic_client_builder() -> ClientBuilder {
     let policy = reqwest::redirect::Policy::custom(|attempt| {
@@ -69,7 +71,7 @@ pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
         let status = response.status().as_str().to_owned();
         let text = response.text().await.context("failed to receive text")?;
         if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(detail) = what["detail"].as_str() {
+            if let Some(detail) = what["error"].as_str() {
                 bail!("request failed ({status}): {detail}");
             }
         }
@@ -162,7 +164,7 @@ impl Client {
             let status = resp.status().as_str().to_owned();
             let text = resp.text().await.context("failed to receive text")?;
             if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-                if let Some(detail) = what["detail"].as_str() {
+                if let Some(detail) = what["error"].as_str() {
                     bail!("request failed ({status}): {detail}");
                 }
             }

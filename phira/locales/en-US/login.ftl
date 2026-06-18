@@ -7,6 +7,7 @@ register = Register
 email = Email
 username = Username
 password = Password
+forget-password = Forgot password?
 
 name-length-req = Username length should be between 4 and 20 characters.
 name-has-illegal-char = Username contains unallowed characters.

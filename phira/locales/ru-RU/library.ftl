@@ -1,19 +1,34 @@
-
-label = БИБЛИОТЕКА ЧАРТОВ
-
+label = ЧАРТЫ
 local = Локальные
-online = Онлайн
 popular = Популярные
-
 page = Страница { $current } из { $total }
 prev-page = Пред.
 next-page = След.
-
-not-opened = Не доступно на данный момент
+not-opened = Не доступно на данный момент.
 failed-to-load-online = Ошибка при загрузке онлайн чартов
-
 import = Импорт
-
-offline-mode = Невозможно загрузить в оффлайн-режиме
-
-must-login = Войдите что бы загрузить чарты.
+offline-mode = Доступ отклонён, т.к. включён оффлайн-режим в настройках.
+must-login = Вам нужно войти для доступа к чартам.
+order-by = Сортировка по: { $order }
+order-asc = По возрастанию
+order-desc = По убыванию
+multi-select-status = Выбрано: { $count }
+multi-select-all = Выбрать все
+multi-select-invert = Обратить выделение
+order-updated = Порядок обновлён
+order-update-failed-sort = Обновить порядок можно только в режиме сортировки по умолчанию
+fav-synced = Избранные успешно синхронизированы
+fav-sync-failed = Синхронизация избранных не удалась
+multi-export = Мульти-экспорт
+multi-create-fav = Создать "Избранных"
+multi-manage-fav = Управлять "Избранных"
+multi-delete = Удалить
+multi-delete-confirm = Вы точно хотите удалить { $count } чарт(-ов)? Это действие необратимо.
+multi-deleted = Удалено
+multi-export-title = Выберите место экспорта
+multi-exporting = Экспортируем… ({ $current } / { $total })
+exported = Экспортировано
+multi-added-to-fav = Добавлены в избранные
+multi-export-no-file = Пожалуйста, загрузите все чарты перед экспортированием. Отсутствует: { $charts }
+multi-removed-from-fav = Удалены из избранных
+fav-created = Избранные созданы

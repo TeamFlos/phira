@@ -16,6 +16,6 @@ troll = Шуточный
 plain = Простой
 visual = Визуальный
 
-filter-me = Выложенные мной
+filter-me = Выложенные Вами
 filter-unreviewed = Не подтверждëнные
 filter-stabilize = С запросом на подтверждение

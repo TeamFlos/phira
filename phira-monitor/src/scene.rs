@@ -61,7 +61,7 @@ pub struct PlayerView {
     judges: VecDeque<JudgeEvent>,
 
     current_touches: HashMap<i8, Vec2>,
-    current_time: f32,
+    current_time: f64,
 
     latest_time: Option<f32>,
 }
@@ -115,7 +115,7 @@ impl PlayerView {
         let t = res.time;
 
         let mut updated = false;
-        while self.touches.front().is_some_and(|it| it.time < t) {
+        while self.touches.front().is_some_and(|it| t > it.time as f64) {
             let Some(frame) = self.touches.pop_front() else { unreachable!() };
             for (id, pos) in frame.points {
                 if id >= 0 {
@@ -124,7 +124,7 @@ impl PlayerView {
                     self.current_touches.remove(&!id);
                 }
             }
-            self.current_time = frame.time;
+            self.current_time = frame.time as f64;
             updated = true;
         }
         if updated {
@@ -135,7 +135,7 @@ impl PlayerView {
                     let pos = vec2(pos.x(), pos.y());
                     let id = if *id >= 0 { *id } else { !*id };
                     let pos = if let Some(old) = current.remove(&id) {
-                        Vec2::tween(&old, &pos, (t - self.current_time) / (frame.time - self.current_time))
+                        Vec2::tween(&old, &pos, ((t - self.current_time) / (frame.time as f64 - self.current_time)) as f32)
                     } else {
                         return None;
                     };
@@ -149,7 +149,7 @@ impl PlayerView {
         self.chart.update(res);
 
         while let Some(event) = self.judges.front() {
-            if event.time > t {
+            if event.time as f64 > t {
                 break;
             }
             let Some(event) = self.judges.pop_front() else { unreachable!() };
@@ -195,7 +195,7 @@ impl PlayerView {
                                     mat *= note.now_transform(
                                         res,
                                         &line.ctrl_obj.borrow_mut(),
-                                        (note.height - line.height.now()) / res.aspect_ratio * note.speed,
+                                        ((note.height - line.height.now() as f64) / res.aspect_ratio as f64 * note.speed) as f32,
                                         incline_sin,
                                     );
                                     mat
@@ -206,7 +206,7 @@ impl PlayerView {
                     }
                 }
                 Err(perfect) => {
-                    note.judge = JudgeStatus::Hold(perfect, t, 0., false, f32::INFINITY);
+                    note.judge = JudgeStatus::Hold(perfect, t, 0., false, f64::INFINITY);
                 }
             }
         }

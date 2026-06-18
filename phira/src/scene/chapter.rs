@@ -43,10 +43,10 @@ impl Difficulty {
     }
 
     pub fn color(&self) -> Color {
-        Color::from_hex(match self {
-            Self::Easy => 0xff16a34a,
-            Self::Hard => 0xfff97316,
-            Self::Extreme => 0xffdc2626,
+        Color::from_hex_rgb(match self {
+            Self::Easy => 0x16a34a,
+            Self::Hard => 0xf97316,
+            Self::Extreme => 0xdc2626,
         })
     }
 }
@@ -107,7 +107,7 @@ impl ChapterScene {
             "c1" => vec!["snow", "jumping23"],
             _ => vec![],
         };
-        let mut charts = Vec::with_capacity(songs.capacity());
+        let mut charts = Vec::with_capacity(songs.len());
         for song in songs {
             let info = serde_yaml::from_slice(&load_file(&format!("res/song/{song}/info.yml")).await?)?;
             let illu = load_res_tex(&format!("res/song/{song}/cover")).await;
@@ -255,6 +255,9 @@ impl Scene for ChapterScene {
 
                     hold_partial_cover: true,
                     note_uniform_scale: false,
+                    force_aspect_ratio: false,
+                    use_rpe_170_speed: Some(false),
+                    use_attach_ui_fix: Some(true),
 
                     created: None,
                     updated: None,

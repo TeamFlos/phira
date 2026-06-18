@@ -1,6 +1,7 @@
 
 retry = 重試
 proceed = 繼續
+detail = 詳細資訊
 
 new-best = 新紀錄
 max-combo = 最大連擊數
@@ -14,4 +15,4 @@ upload-failed = 成績上傳失敗
 upload-cancel = 取消上傳
 upload-retry = 重試
 
-still-uploading = 尚在上傳成績…
+still-uploading = 仍在上傳成績，請稍候…

@@ -41,6 +41,10 @@ item-dhint = 더블 힌트
 item-dhint-sub = 선을 따라 동시에 터치하는 노트가 강조됩니다.
 item-opt = 고성능 최적화
 item-opt-sub = 성능을 향상시킬 수 있지만, 부정확한 동작을 유발할 수 있습니다.
+item-use-keyboard = 키보드 사용
+item-use-keyboard-sub = 키보드로 게임을 플레이할 수 있습니다. 활성화하면 점수가 업로드되지 않습니다.
+item-prefer-reduced-motion = 애니메이션 줄이기
+item-prefer-reduced-motion-sub = 애니메이션과 시각 효과를 줄입니다
 item-speed = 노트 속도
 item-note-size = 노트 크기
 
@@ -51,14 +55,40 @@ item-touch-debug-sub = 터치 지점 표시
 
 load-cali-failed = 오디오를 로드하는데 실패했습니다.
 
-
 about-content =
   Phira v{ $version }
 
-  Phira는 비상업적인 커뮤니티 중심의 리듬 게임으로, Phigros에서 영감을 받아 Rust로 개발되었습니다.
+  Phira는 Phigros에서 영감을 받은 비상업적 커뮤니티 중심의 리듬 게임입니다.
 
   BiliBili 계정: @Phira官方
   QQ 길드: r48eajexth
+  Discord 서버: discord.gg/gqpR3bTSsP
 
-  모든 후원자 분들께 감사드립니다! (사전순으로 정렬됨)
-  -哎喂哟-, 114514opkl, 123165, 341819481, 43167364miku, AEsir, Afterglow, akuanoneko, amstlkqp, ApecY176, Arashi, Ark小周, Aromq, Atariter, Aurora., Avencess, Bigironpig, Bradish, brightquasar, buguwu, ccw., CH06E01, CQBZ, Dagehoo, DongZheng, dslzhz, Dumbledore防重复, Ehdiwhxishs, Enigma, evmb, Fall_Li_distance, flamo, Fly段某, Gentle Emperor, GR-17, GYuuLT, Hen77777Tai, hibikip3p, huahbas, huanle, humosu, icyfish, Jerry24, Jiangling, jike, Kaji Emperor, KevinJame1, KKZN, KQ_KongQi, KRYSGCJ, Kynovter, LemonKnife, Lh_39_master, Lighear, liminghao, Lin124, Lio_the_Fox, LJMSTKZF, lorac, luftsch1oss, Maedey, mancy, MaxJack, MGRB, Miku.official, Miska1123, MSSkn, NaiTaGQ, NananEbina, nanxiangx, NEROILY, NingNing0721, NoChoco, Nothu, NsdrfChkew, O-DouSan, obsession, pgwcm, Phira-一个随意废物, PopCatNya, QAQwhatever, QingF_青枫, qwer0160, QWQYuRin, rainbowbex, Ransen, Reeslith, Requiem, RinceTacroix, Rinorsi, Rpec, RUNFORFUNQAQ, sbcujbj, Sensant, Shaaadowsong, Sixi, sksks, Sky_Frozen, soppi, Tearout, Tesla T-T, Thunderlis, Tigerzzz, Tixbicg, Tony0703, Ulyssses, Wind_And_Sky, wjxwp, wszyj, WuJi, wylwktd, xiaoqian, xiaozhemu, XOO_cookie, Xr888, yang125, YMiiiiiii, YN呓凝, YT_XT, yulilizi, yyyyyylll, ZERO707, Zips, ほしの アイ, 一片普通的茶叶, 三月鸠, 不会玩音游的屑, 久往大魔王, 乙酸乙烯酯, 二货甜鱼, 傲丙初A1bcu, 冷光_Lumine, 华树邶, 四十四次日落, 城边的一朵云, 天启之云, 如月清风, 小懒max, 小鲁班, 幻枫落晨, 御坂13900号, 心兮可念, 悲伤很菜, 我永远喜欢爱莉希雅, 日暖随安, 早安起不早, 明晓破风, 易阳Easy_sun, 晨曜, 曲奇cookies, 望悅不是月, 林江恒, 柒柒柒柒, 梓川川川川川川, 欧皇本蝗, 残风, 洛尘sama, 灵晨没有准度, 炫金创创鹅, 甘城猫猫猫猫, 男德村村西张寡妇, 白衣炫五月, 老王, 芝士土拨鼠, 若笛, 荷叶鸭腿, 落弦winglow, 落痕luor, 逐潘, 邮疣铀, 银酱, 露西亚是我的, 飞驰的压路机, 骁龙750G
+  최신 소식을 받고 도움을 받으려면 QQ 길드 또는 Discord 서버에 가입하는 것을 권장합니다.
+
+  스태프 목록 (사전순)
+  개발
+  { $development }
+
+  운영
+  { $operations }
+
+  문서
+  { $documentation }
+
+  아트
+  { $art }
+
+  음악
+  { $music }
+
+  오디오
+  { $audio }
+
+  커뮤니티 관리
+  { $community }
+
+  현지화 기여자
+  { $localization }
+
+  그리고 많은 자원봉사 채보 리뷰어들에게 감사드립니다. 전체 목록은 https://phira.moe/staff 를 참조하세요.

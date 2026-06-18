@@ -1,6 +1,8 @@
 use crate::page::Fader;
 use macroquad::prelude::*;
+use nalgebra::Translation2;
 use prpr::{
+    core::Matrix,
     ext::{semi_black, semi_white, RectExt},
     ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, Scroll, ShadowConfig, Ui},
 };
@@ -16,6 +18,9 @@ pub struct Popup {
     height: f32,
     fader: Fader,
     changed: bool,
+    auto_dismiss: bool,
+    pending_dismiss: bool,
+    auto_adjust: Option<Rect>,
 }
 
 impl Popup {
@@ -31,12 +36,21 @@ impl Popup {
             height: 0.1,
             fader: Fader::new().with_time(0.4).with_distance(0.04),
             changed: false,
+            auto_dismiss: true,
+            pending_dismiss: false,
+            auto_adjust: None,
         }
     }
 
     #[inline]
     pub fn with_options(mut self, options: Vec<String>) -> Self {
         self.set_options(options);
+        self
+    }
+
+    #[inline]
+    pub fn with_size(mut self, size: f32) -> Self {
+        self.size = size;
         self
     }
 
@@ -55,12 +69,30 @@ impl Popup {
         self.selected = selected;
     }
 
+    #[inline]
+    pub fn set_auto_dismiss(&mut self, auto_dismiss: bool) {
+        self.auto_dismiss = auto_dismiss;
+    }
+
+    #[inline]
+    pub fn set_auto_adjust(&mut self, auto_adjust: Option<Rect>) {
+        self.auto_adjust = auto_adjust;
+    }
+
     pub fn set_bottom(&mut self, bottom: bool) {
         self.fader.distance = self.fader.distance.abs() * if bottom { 1. } else { -1. };
     }
 
+    pub fn rect(&self) -> Rect {
+        self.rect
+    }
+
     pub fn show(&mut self, ui: &mut Ui, t: f32, r: Rect) {
         self.rect = ui.rect_to_global(r);
+        if let Some(area) = self.auto_adjust {
+            self.rect.x = self.rect.x.clamp(area.x, area.right() - self.rect.w);
+            self.rect.y = self.rect.y.clamp(area.y, area.bottom() - self.rect.h);
+        }
         self.showing = true;
         self.fader.sub(t);
     }
@@ -120,16 +152,35 @@ impl Popup {
     }
 
     pub fn update(&mut self, t: f32) {
-        self.scroll.update(t);
+        if self.showing {
+            let old_matrix = self.scroll.matrix();
+            let mut transform = Matrix::identity();
+            transform *= Translation2::new(self.rect.x, self.rect.y).to_homogeneous();
+            if let Some(inv) = transform.try_inverse() {
+                self.scroll.set_matrix(Some(inv));
+            }
+            self.scroll.update(t);
+            self.scroll.set_matrix(old_matrix);
+        } else {
+            self.scroll.update(t);
+        }
         self.fader.done(t);
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
+        if self.pending_dismiss {
+            if touch.phase == TouchPhase::Ended {
+                self.dismiss(t);
+                self.pending_dismiss = false;
+            }
+            return true;
+        }
         if self.showing {
             if touch.phase != TouchPhase::Started || self.rect.contains(touch.position) {
                 if self.scroll.touch(touch, t) {
-                    true
-                } else {
+                    return true;
+                }
+                if self.rect.contains(touch.position) {
                     for (id, (_, btn)) in self.options.iter_mut().enumerate() {
                         if btn.touch(touch) {
                             button_hit();
@@ -137,14 +188,17 @@ impl Popup {
                                 self.selected = id;
                                 self.changed = true;
                             }
-                            self.dismiss(t);
+                            if self.auto_dismiss {
+                                self.dismiss(t);
+                            }
                             return true;
                         }
                     }
-                    false
+                    return true;
                 }
+                false
             } else if touch.phase == TouchPhase::Started {
-                self.dismiss(t);
+                self.pending_dismiss = true;
                 true
             } else {
                 false
@@ -237,10 +291,12 @@ impl ChooseButton {
 
     pub fn top_touch(&mut self, touch: &Touch, t: f32) -> bool {
         if self.popup.showing() {
-            self.popup.touch(touch, t);
-            true
+            if self.popup.touch(touch, t) {
+                return true;
+            }
+            self.popup.rect.contains(touch.position)
         } else {
-            false
+            self.popup.fader.transiting()
         }
     }
 

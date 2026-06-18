@@ -7,7 +7,7 @@ use crate::{
     page::{EventPage, Fader, Illustration, SFader},
     uml::{parse_uml, Uml},
 };
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use macroquad::prelude::*;
 use prpr::{
@@ -16,8 +16,9 @@ use prpr::{
     scene::{show_error, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, DRectButton, LoadingParams, RectButton, Scroll, Ui},
+    ui::{button_hit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui},
 };
+use reqwest::StatusCode;
 use serde::Deserialize;
 use std::{any::Any, sync::Arc, time::SystemTime};
 
@@ -60,7 +61,7 @@ pub struct EventScene {
     next_scene: Option<NextScene>,
 
     btn_join: DRectButton,
-    join_task: Option<Task<Result<()>>>,
+    join_task: Option<Task<Result<Option<String>>>>,
 
     scrolled: bool,
     start_time: f32,
@@ -147,6 +148,26 @@ impl EventScene {
         self.join_task.is_some()
     }
 
+    async fn join_task(id: i32) -> Result<Option<String>> {
+        let request = Client::post(format!("/event/{id}/join"), &());
+        let response = request.send().await?;
+        let status = response.status();
+        if !status.is_success() {
+            let text = response.text().await.context("failed to receive text")?;
+            let status_str = status.as_str().to_owned();
+            if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
+                if let Some(detail) = what["error"].as_str() {
+                    if matches!(status, StatusCode::FORBIDDEN | StatusCode::CONFLICT) {
+                        return Ok(Some(detail.to_string()));
+                    }
+                    bail!("request failed ({status_str}): {detail}");
+                }
+            }
+            bail!("request failed ({status_str}): {text}");
+        };
+        Ok(None)
+    }
+
     fn join_or(&mut self, rt: f32) {
         if let Some(status) = &self.status {
             if status.joined {
@@ -157,11 +178,7 @@ impl EventScene {
                     self.side_enter_time = rt;
                 }
             } else {
-                let id = self.event.id;
-                self.join_task = Some(Task::new(async move {
-                    recv_raw(Client::post(format!("/event/{id}/join"), &())).await?;
-                    Ok(())
-                }));
+                self.join_task = Some(Task::new(Self::join_task(self.event.id)));
             }
         }
     }
@@ -323,8 +340,12 @@ impl Scene for EventScene {
                     Err(err) => {
                         show_error(err.context(tl!("join-failed")));
                     }
-                    Ok(_) => {
-                        self.load_status();
+                    Ok(message) => {
+                        if let Some(message) = message {
+                            Dialog::simple(message).show();
+                        } else {
+                            self.load_status();
+                        }
                     }
                 }
                 self.join_task = None;
@@ -440,10 +461,10 @@ impl Scene for EventScene {
                     if Utc::now() > self.event.time_end {
                         draw(tl!("btn-ended"), semi_black(0.4));
                     } else if Utc::now() < self.event.time_start {
-                        draw(tl!("btn-not-started"), Color::from_hex(0xffe3f2fd));
+                        draw(tl!("btn-not-started"), Color::from_hex_rgb(0xe3f2fd));
                     } else {
                         self.btn_join
-                            .render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, Color::from_hex(0xfff57c00)));
+                            .render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, Color::from_hex_rgb(0xf57c00)));
                         let mut text = ui.text(format!("#{}", status.rank.unwrap())).anchor(0., 0.5).no_baseline().size(0.7);
                         let w = text.measure().w;
                         let mut ir = Rect::new(ct.x, ct.y, 0., 0.).feather(r.h / 2. - 0.02);

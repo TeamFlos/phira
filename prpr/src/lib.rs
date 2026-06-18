@@ -20,9 +20,6 @@ pub mod log;
 #[cfg(closed)]
 pub mod inner;
 
-#[cfg(target_os = "ios")]
-pub mod objc;
-
 pub use scene::Main;
 
 pub fn build_conf() -> macroquad::window::Conf {

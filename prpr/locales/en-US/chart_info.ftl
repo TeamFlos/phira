@@ -1,4 +1,3 @@
-
 edit-chart = Edit Chart
 level-displayed = Level
 chart-name = Name
@@ -15,15 +14,18 @@ offset = Offset
 aspect-ratio = Aspect Ratio
 ps = Hint:
 aspect-hint = Aspect ratio should be in the format "width:height" or a real number.
+force-aspect-ratio = Force Aspect Ratio
 dim = Background Brightness
-enable-unlock = Enable Unlock Video
+enable-unlock = Unlock Video
 chart-file = Chart
 music-file = Music
 illu-file = Illustration
-unlock-file = Unlock Video
+unlock-file = Unlock Video File
 tip = Tip
 intro = Description
+how-to-add-collaborator = How to Add Collaborators
 tags = Tags
 tag-exists = Duplicate tag detected.
-
+rpe-170-speed = New Speed Tween
+attach-ui-fix = Attach UI Fix
 illegal-input = Unallowed input.

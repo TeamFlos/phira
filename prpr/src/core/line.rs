@@ -1,8 +1,7 @@
 use super::{chart::ChartSettings, object::CtrlObject, Anim, AnimFloat, BpmList, Matrix, Note, Object, Point, RenderConfig, Resource, Vector};
 use crate::{
-    config::Mods,
     ext::{get_viewport, NotNanExt, SafeTexture},
-    judge::{JudgeStatus, LIMIT_BAD},
+    judge::JudgeStatus,
     ui::Ui,
 };
 use macroquad::prelude::*;
@@ -93,7 +92,8 @@ pub struct JudgeLineCache {
 
 impl JudgeLineCache {
     pub fn new(notes: &mut [Note]) -> Self {
-        notes.sort_by_key(|it| (it.plain(), !it.above, it.speed.not_nan(), ((it.height + it.object.translation.1.now()) * it.speed).not_nan()));
+        notes
+            .sort_by_key(|it| (it.plain(), !it.above, it.speed.not_nan(), ((it.height + it.object.translation.1.now() as f64) * it.speed).not_nan()));
         let mut res = Self {
             update_order: Vec::new(),
             not_plain_count: 0,
@@ -146,6 +146,7 @@ pub struct JudgeLine {
     pub notes: Vec<Note>,
     pub color: Anim<Color>,
     pub parent: Option<usize>,
+    pub rot_with_parent: bool,
     pub z_index: i32,
     /// Whether to show notes below the line, here below is defined in the time axis, which means the note should already be judged
     ///
@@ -157,15 +158,14 @@ pub struct JudgeLine {
 }
 
 impl JudgeLine {
-    pub fn update(&mut self, res: &mut Resource, tr: Matrix) {
+    pub fn update(&mut self, res: &mut Resource, tr: Matrix, parent_rot: f32) {
         // self.object.set_time(res.time); // this is done by chart, chart has to calculate transform for us
-        let rot = self.object.rotation.now();
         self.height.set_time(res.time);
         let line_height = self.height.now();
         let mut ctrl_obj = self.ctrl_obj.borrow_mut();
         self.cache.update_order.retain(|id| {
             let note = &mut self.notes[*id as usize];
-            note.update(res, rot, &tr, &mut ctrl_obj, line_height);
+            note.update(res, parent_rot, &tr, &mut ctrl_obj, line_height as f64);
             !note.dead()
         });
         drop(ctrl_obj);
@@ -208,18 +208,29 @@ impl JudgeLine {
         });
     }
 
+    pub fn fetch_rot(&self, lines: &[JudgeLine]) -> f32 {
+        let mut rot = self.object.rotation.now();
+        if self.rot_with_parent {
+            if let Some(parent) = self.parent {
+                rot += lines[parent].fetch_rot(lines);
+            }
+        }
+        rot
+    }
+
     pub fn fetch_pos(&self, res: &Resource, lines: &[JudgeLine]) -> Vector {
         if let Some(parent) = self.parent {
             let parent = &lines[parent];
-            let mut parent_translation = parent.fetch_pos(res, lines);
-            parent_translation += Rotation2::new(parent.object.rotation.now().to_radians()) * self.object.now_translation(res);
-            return parent_translation;
+            let parent_translation = parent.fetch_pos(res, lines);
+            return parent_translation + Rotation2::new(parent.fetch_rot(lines).to_radians()) * self.object.now_translation(res);
         }
         self.object.now_translation(res)
     }
 
     pub fn now_transform(&self, res: &Resource, lines: &[JudgeLine]) -> Matrix {
-        self.object.now_rotation().append_translation(&self.fetch_pos(res, lines))
+        Rotation2::new(self.fetch_rot(lines).to_radians())
+            .to_homogeneous()
+            .append_translation(&self.fetch_pos(res, lines))
     }
 
     pub fn render(&self, ui: &mut Ui, res: &mut Resource, lines: &[JudgeLine], bpm_list: &mut BpmList, settings: &ChartSettings, id: usize) {
@@ -346,15 +357,11 @@ impl JudgeLine {
             let mut config = RenderConfig {
                 settings,
                 ctrl_obj: &mut self.ctrl_obj.borrow_mut(),
-                line_height: self.height.now(),
-                appear_before: f32::INFINITY,
-                invisible_time: f32::INFINITY,
+                line_height: self.height.now() as f64,
+                appear_before: f64::INFINITY,
                 draw_below: self.show_below,
                 incline_sin: self.incline.now_opt().map(|it| it.to_radians().sin()).unwrap_or_default(),
             };
-            if res.config.has_mod(Mods::FADE_OUT) {
-                config.invisible_time = LIMIT_BAD;
-            }
             if alpha < 0.0 {
                 if !settings.pe_alpha_extension {
                     return;
@@ -368,7 +375,7 @@ impl JudgeLine {
                         config.draw_below = false;
                     }
                     w if (100..1000).contains(&w) => {
-                        config.appear_before = (w as f32 - 100.) / 10.;
+                        config.appear_before = (w as f64 - 100.) / 10.;
                     }
                     w if (1000..2000).contains(&w) => {
                         // TODO unsupported
@@ -391,12 +398,12 @@ impl JudgeLine {
             }
             for index in &self.cache.above_indices {
                 let speed = self.notes[*index].speed;
-                let limit = height_above / speed;
+                let limit = height_above as f64 / speed;
                 for note in self.notes[*index..].iter() {
                     if !note.above || speed != note.speed {
                         break;
                     }
-                    if agg && note.height - config.line_height + note.object.translation.1.now() > limit {
+                    if agg && note.height - config.line_height + note.object.translation.1.now() as f64 > limit {
                         break;
                     }
                     note.render(res, &mut config, bpm_list);
@@ -408,12 +415,12 @@ impl JudgeLine {
                 }
                 for index in &self.cache.below_indices {
                     let speed = self.notes[*index].speed;
-                    let limit = height_below / speed;
+                    let limit = height_below as f64 / speed;
                     for note in self.notes[*index..].iter() {
                         if speed != note.speed {
                             break;
                         }
-                        if agg && note.height - config.line_height + note.object.translation.1.now() > limit {
+                        if agg && note.height - config.line_height + note.object.translation.1.now() as f64 > limit {
                             break;
                         }
                         note.render(res, &mut config, bpm_list);

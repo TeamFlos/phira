@@ -2,7 +2,7 @@ prpr_l10n::tl_file!("ending");
 
 use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
 use crate::{
-    config::Config,
+    config::{Config, Mods},
     core::{BOLD_FONT, PGR_FONT},
     ext::{create_audio_manger, rect_shadow, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
@@ -10,7 +10,7 @@ use crate::{
     scene::show_message,
     task::Task,
     time::TimeManager,
-    ui::{clip_sector, DRectButton, Dialog, MessageHandle, Ui},
+    ui::{button_hit, clip_sector, DRectButton, Dialog, MessageHandle, RectButton, Ui},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -33,6 +33,7 @@ pub struct EndingScene {
     icons: [SafeTexture; 8],
     icon_retry: SafeTexture,
     icon_proceed: SafeTexture,
+    mod_icons: [SafeTexture; 7],
     target: Option<RenderTarget>,
     audio: AudioManager,
     bgm: Music,
@@ -42,7 +43,9 @@ pub struct EndingScene {
     player_name: String,
     player_rks: Option<f32>,
     autoplay: bool,
+    use_keyboard: bool,
     speed: f32,
+    mods: Mods,
     next: u8, // 0 -> none, 1 -> pop, 2 -> exit
     update_state: Option<RecordUpdateState>,
     rated: bool,
@@ -50,12 +53,16 @@ pub struct EndingScene {
     upload_fn: Option<UploadFn>,
     upload_task: Option<(Task<Result<RecordUpdateState>>, MessageHandle)>,
     record_data: Option<Vec<u8>>,
-    record: Option<SimpleRecord>,
+    best_record: Option<SimpleRecord>,
 
     btn_retry: DRectButton,
     btn_proceed: DRectButton,
+    btn_detail: RectButton,
+    detail_mode: bool,
 
     tr_start: f32,
+
+    avg_fps: Option<f32>,
 }
 
 impl EndingScene {
@@ -67,6 +74,7 @@ impl EndingScene {
         icons: [SafeTexture; 8],
         icon_retry: SafeTexture,
         icon_proceed: SafeTexture,
+        mod_icons: [SafeTexture; 7],
         info: ChartInfo,
         result: PlayResult,
         config: &Config,
@@ -75,7 +83,8 @@ impl EndingScene {
         player_rks: Option<f32>,
         historic_best: u32,
         record_data: Option<Vec<u8>>,
-        record: Option<SimpleRecord>,
+        best_record: Option<SimpleRecord>,
+        avg_fps: Option<f32>,
     ) -> Result<Self> {
         let mut audio = create_audio_manger(config)?;
         let bgm = audio.create_music(
@@ -96,6 +105,7 @@ impl EndingScene {
             icons,
             icon_retry,
             icon_proceed,
+            mod_icons,
             target: None,
             audio,
             bgm,
@@ -121,18 +131,24 @@ impl EndingScene {
             player_name: config.player_name.clone(),
             player_rks,
             autoplay: config.autoplay(),
+            use_keyboard: config.use_keyboard,
             speed: config.speed,
+            mods: config.mods,
             next: 0,
 
             upload_fn,
             upload_task,
             record_data,
-            record,
+            best_record,
+            detail_mode: false,
 
             btn_retry: DRectButton::new(),
             btn_proceed: DRectButton::new(),
+            btn_detail: RectButton::new(),
 
             tr_start: f32::NAN,
+
+            avg_fps,
         })
     }
 }
@@ -179,6 +195,11 @@ impl Scene for EndingScene {
                 self.tr_start = t;
                 self.next = 2;
             }
+            return Ok(true);
+        }
+        if self.btn_detail.touch(touch) {
+            button_hit();
+            self.detail_mode = !self.detail_mode;
             return Ok(true);
         }
         Ok(false)
@@ -255,6 +276,15 @@ impl Scene for EndingScene {
             let y = -top + 0.12;
             let br = Rect::new(-1., y, 2., 0.34);
             ui.fill_rect(br, (c, (-1., y), Color { a: 0.1, ..c }, (1., y + 0.3)));
+
+            let r = ui
+                .text(tl!("detail"))
+                .pos(1. - 0.02, br.bottom() + 0.02)
+                .anchor(1., 0.)
+                .size(0.5)
+                .color(if self.detail_mode { semi_white(0.4) } else { WHITE })
+                .draw_using(&BOLD_FONT);
+            self.btn_detail.set(ui, r.feather(0.02));
 
             let res = &self.result;
 
@@ -350,25 +380,50 @@ impl Scene for EndingScene {
             let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
 
             let r = ui.text(tl!("error")).pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
-            ui.text(format!("±{}ms", (res.std * 1000.).round() as i32))
+            let r = ui
+                .text(format!("±{}ms", (res.std * 1000.).round() as i32))
                 .pos(r.right() + 0.02, r.y)
                 .size(s)
                 .color(ct)
                 .draw_using(&BOLD_FONT);
+
+            if let Some(avg_fps) = self.avg_fps {
+                let r = ui.text("|").pos(r.right() + 0.03, r.y).color(cs).size(s).draw();
+                let r = ui.text("AVG FPS").pos(r.right() + 0.03, r.y).color(cl).size(s).draw_using(&BOLD_FONT);
+                ui.text(format!("{:.1}", avg_fps))
+                    .pos(r.right() + 0.02, r.y)
+                    .size(s)
+                    .color(ct)
+                    .draw_using(&BOLD_FONT);
+            }
 
             let mut y = -top + 0.4 + ui.top * 0.3;
             let tp = y;
             let mut x = -0.26 + (1.2 - y) / 1.9 * 0.4;
             let lf = x;
             let s = 0.64;
-            for (title, num) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().zip(res.counts) {
+            for (id, title) in ["PERFECT", "GOOD", "BAD", "MISS"].into_iter().enumerate() {
                 ui.text(title)
                     .pos(x, y)
                     .anchor(1., 0.)
                     .color(semi_white(0.6))
                     .size(s)
                     .draw_using(&BOLD_FONT);
-                let r = ui.text(num.to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT);
+                let r = if self.detail_mode && id != 3 {
+                    let r = ui
+                        .text(format!("-{}", res.early_kind[id]))
+                        .pos(x + 0.03, y)
+                        .size(s)
+                        .color(Color::from_hex_rgb(0x81d4fa))
+                        .draw_using(&BOLD_FONT);
+                    ui.text(format!("+{}", res.late_kind[id]))
+                        .pos(r.right() + 0.01, y)
+                        .size(s)
+                        .color(Color::from_hex_rgb(0xffab91))
+                        .draw_using(&BOLD_FONT)
+                } else {
+                    ui.text(res.counts[id].to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT)
+                };
                 let dy = r.h + 0.03;
                 y += dy;
                 x -= dy / 1.9 * 0.4;
@@ -459,7 +514,7 @@ impl Scene for EndingScene {
             r.x -= r.w;
             r.y -= r.h;
             self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex(0x3f51b5));
+                ui.fill_path(&path, Color::from_hex_rgb(0x3f51b5));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
                 ui.fill_rect(ir, (*self.icon_proceed, ir));
                 ui.text(tl!("proceed"))
@@ -472,7 +527,7 @@ impl Scene for EndingScene {
 
             r.x -= r.w + 0.02;
             self.btn_retry.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex(0x78909c));
+                ui.fill_path(&path, Color::from_hex_rgb(0x78909c));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
                 ui.fill_rect(ir, (*self.icon_retry, ir));
                 ui.text(tl!("retry"))
@@ -488,37 +543,84 @@ impl Scene for EndingScene {
             } else {
                 format!("{:.2}x", self.speed)
             };
-            let text = if self.autoplay {
-                format!("AUTOPLAY {spd}")
-            } else if !self.rated {
-                format!("UNRATED {spd}")
+            let status_text = if !self.rated && !self.autoplay && !self.use_keyboard {
+                if spd.is_empty() {
+                    "UNRATED".to_string()
+                } else {
+                    format!("UNRATED {spd}")
+                }
             } else {
                 spd
             };
-            let text = text.trim();
-            if !text.is_empty() {
-                let ty = br.bottom();
-                let x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
-                let h = 0.04;
-                let mut text = ui
-                    .text(text)
-                    .pos(x + 0.02, ty - h / 2.)
-                    .anchor(0., 0.5)
-                    .no_baseline()
-                    .color(semi_black(0.6))
-                    .size(0.5);
-                let tr = text.measure_using(&BOLD_FONT);
-                let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
-                let mut b = text.ui.builder(WHITE);
-                b.add(-1., tr.y);
-                b.add(r.right(), tr.y);
-                b.add(r.right() - tr.h / 1.9 * 0.4, tr.bottom());
-                b.add(-1., tr.bottom());
-                b.triangle(0, 1, 2);
-                b.triangle(0, 2, 3);
-                b.commit();
+            let status_text = status_text.trim();
+            // mod_icons order: FLIP_X, FADE_OUT, FADE_IN, NIGHTCORE, RAINBOW
+            let active_mod_indices: Vec<usize> = [
+                (Mods::FLIP_X, 0),
+                (Mods::FADE_OUT, 1),
+                (Mods::FADE_IN, 2),
+                (Mods::NIGHTCORE, 3),
+                (Mods::RAINBOW, 4),
+                (Mods::AUTOPLAY, 5),
+                (Mods::NO_SHADER, 6),
+            ]
+            .into_iter()
+            .filter(|(m, _)| self.mods.contains(*m))
+            .map(|(_, idx)| idx)
+            .collect();
+            let ty = br.bottom();
+            let base_x = -0.55 + (1.2 - ty) / 1.9 * 0.4;
+            let skew_factor = 0.4 / 1.9;
+            let has_text = !status_text.is_empty();
+            let has_icons = !active_mod_indices.is_empty();
+            if has_text || has_icons {
+                let text_size = 0.5;
+                let skew_height_ratio = skew_factor;
+                let mut current_x = base_x;
+                let para_h = 0.04;
+                if has_text {
+                    let mut text = ui
+                        .text(status_text)
+                        .pos(current_x + 0.02, ty)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .color(semi_black(0.6))
+                        .size(text_size);
+                    let tr = text.measure_using(&BOLD_FONT);
+                    let r = Rect::new(-1., tr.y, tr.right() + 1.03, tr.h);
+                    let mut b = text.ui.builder(WHITE);
+                    b.add(-1., tr.y);
+                    b.add(r.right(), tr.y);
+                    b.add(r.right() - tr.h * skew_height_ratio, tr.bottom());
+                    b.add(-1., tr.bottom());
+                    b.triangle(0, 1, 2);
+                    b.triangle(0, 2, 3);
+                    b.commit();
 
-                text.draw_using(&BOLD_FONT);
+                    text.draw_using(&BOLD_FONT);
+                    current_x = tr.right() + 0.04;
+                }
+                for &mod_idx in &active_mod_indices {
+                    let icon_size = para_h * 0.9;
+                    let para_w = para_h + 0.02;
+                    let skew_offset = para_h * skew_height_ratio;
+                    let para_left = current_x;
+                    let para_right = current_x + para_w;
+                    let para_top = ty - para_h / 2.;
+                    let para_bottom = ty + para_h / 2.;
+                    let mut b = ui.builder(WHITE);
+                    b.add(para_left + skew_offset, para_top);
+                    b.add(para_right + skew_offset, para_top);
+                    b.add(para_right, para_bottom);
+                    b.add(para_left, para_bottom);
+                    b.triangle(0, 1, 2);
+                    b.triangle(0, 2, 3);
+                    b.commit();
+                    let icon_x = current_x + (para_w - icon_size) / 2. + skew_offset / 2.;
+                    let icon_y = ty - icon_size / 2.;
+                    let icon_rect = Rect::new(icon_x, icon_y, icon_size, icon_size);
+                    ui.fill_rect(icon_rect, (*self.mod_icons[mod_idx], icon_rect, ScaleType::Fit, semi_black(0.6)));
+                    current_x = para_right + 0.02;
+                }
             }
         }
         clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
@@ -536,15 +638,9 @@ impl Scene for EndingScene {
             let w = s * 2. + pad + ui.text(&self.player_name).size(0.6).measure().w.min(mw) + 0.02;
             let r = Rect::new(-0.96, -top + 0.04, w, s * 2.);
             ui.fill_path(&r.feather(0.01).rounded(s + 0.01), semi_black(0.6));
-            ui.fill_rect(Rect::new(r.x, r.y + s + 0.003, r.w + 0.01, 0.).nonuniform_feather(-0.01, 0.002), WHITE);
             ui.avatar(r.x + s, r.y + s, s, t, Ok(Some(self.player.clone())));
             let lf = r.x + s * 2. + pad;
-            ui.text(&self.player_name)
-                .pos(lf, r.y + s - 0.007)
-                .anchor(0., 1.)
-                .max_width(mw)
-                .size(0.6)
-                .draw();
+            ui.text(&self.player_name).pos(lf, r.y + s).anchor(0., 1.).max_width(mw).size(0.6).draw();
             ui.text(if let Some(new_rks) = self.update_state.as_ref().and_then(|it| it.new_rks) {
                 format!("{new_rks:.2}")
             } else if let Some(rks) = &self.player_rks {
@@ -554,7 +650,7 @@ impl Scene for EndingScene {
             })
             .pos(lf, r.y + s + 0.008)
             .size(0.4)
-            .color(semi_white(0.6))
+            .color(semi_white(0.7))
             .draw();
         });
 
@@ -590,7 +686,7 @@ impl Scene for EndingScene {
             0 => NextScene::None,
             1 => NextScene::Pop,
             2 => {
-                if let Some(rec) = &self.record {
+                if let Some(rec) = &self.best_record {
                     NextScene::PopNWithResult(2, Box::new(rec.clone()))
                 } else {
                     NextScene::PopN(2)

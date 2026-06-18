@@ -118,9 +118,14 @@ impl ResPackPage {
                 }
             })
             .collect();
-        save_data()?;
 
-        let index = get_data().respack_id;
+        let respack_id = get_data().respack_id;
+        let index = respack_id.min(items.len().saturating_sub(1));
+        if index != respack_id {
+            data.respack_id = index;
+        }
+
+        save_data()?;
         items[index].load();
         let delete_btn = DRectButton::new().with_delta(-0.004).with_elevation(0.);
         Ok(Self {

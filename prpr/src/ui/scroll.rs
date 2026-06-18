@@ -1,10 +1,18 @@
 use super::{clip_rounded_rect, Ui};
-use crate::core::{Matrix, Point, Vector};
-use macroquad::prelude::{Rect, Touch, TouchPhase, Vec2};
+use crate::{
+    core::{Matrix, Point, Vector},
+    judge::take_wheel,
+};
+use macroquad::{
+    input::mouse_position,
+    prelude::{Rect, Touch, TouchPhase, Vec2},
+    window::screen_height,
+};
 use nalgebra::Translation2;
 use std::collections::VecDeque;
 
 const THRESHOLD: f32 = 0.03;
+const WHEEL_STEP: f32 = 0.1;
 
 pub struct VelocityTracker {
     movements: VecDeque<(f32, Point)>,
@@ -179,12 +187,13 @@ impl Scroller {
         self.touch.map(|it| it.3).unwrap_or_default()
     }
 
-    pub fn update(&mut self, t: f32) {
-        // if !self.frame_touched {
-        // if let Some((id, ..)) = self.touch {
-        // self.touch(id, TouchPhase::Cancelled, 0., 0.);
-        // }
-        // }
+    pub fn update(&mut self, t: f32, extra_scroll: f32) {
+        self.offset += extra_scroll * WHEEL_STEP;
+        if extra_scroll.abs() > 1e-5 {
+            self.speed = 0.;
+            self.goto = None;
+        }
+
         let dt = t - self.last_time;
         self.offset += self.speed * dt;
         const K: f32 = 4.;
@@ -308,7 +317,28 @@ impl Scroll {
     }
 
     pub fn update(&mut self, t: f32) {
-        (if self.horizontal { &mut self.x_scroller } else { &mut self.y_scroller }).update(t)
+        let extra_scroll = if let Some(matrix) = self.matrix {
+            let (mx, my) = mouse_position();
+            let vp = crate::ext::get_viewport();
+            let pt = Point::new(
+                (mx - vp.0 as f32) / vp.2 as f32 * 2. - 1.,
+                ((my - (screen_height() - (vp.1 + vp.3) as f32)) / vp.3 as f32 * 2. - 1.) / (vp.2 as f32 / vp.3 as f32),
+            );
+            let pt = matrix.transform_point(&pt);
+            if pt.x < 0. || pt.y < 0. || pt.x > self.size.0 || pt.y > self.size.1 {
+                0.
+            } else {
+                let (x, y) = take_wheel();
+                if self.horizontal {
+                    -x
+                } else {
+                    -y
+                }
+            }
+        } else {
+            0.
+        };
+        (if self.horizontal { &mut self.x_scroller } else { &mut self.y_scroller }).update(t, extra_scroll)
     }
 
     pub fn contains(&self, touch: &Touch) -> bool {
@@ -329,6 +359,14 @@ impl Scroll {
         };
         self.x_scroller.size((s.0 - self.size.0).max(0.));
         self.y_scroller.size((s.1 - self.size.1).max(0.));
+    }
+
+    pub fn matrix(&self) -> Option<Matrix> {
+        self.matrix
+    }
+
+    pub fn set_matrix(&mut self, matrix: Option<Matrix>) {
+        self.matrix = matrix;
     }
 
     pub fn size(&mut self, size: (f32, f32)) {

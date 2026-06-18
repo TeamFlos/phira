@@ -1,9 +1,17 @@
-
 info-fail = 載入譜面資訊失敗
-invalid-chart = 無效的譜面
-
+invalid-chart = 譜面有誤
 importing = 匯入中…
 import-success = 匯入成功
 import-failed = 匯入失敗
 import-respack-success = 匯入資源包成功
 import-respack-failed = 匯入資源包失敗
+batch-import = 批次匯入
+batch-importing = 批次匯入中 ({ $current }/{ $total })
+batch-import-confirm = 偵測到批次匯入資訊，是否匯入全部 { $count } 個譜面？
+batch-import-success = 成功匯入 { $count } 個譜面。
+batch-import-downloaded-skipped = 已下載而跳過的譜面：{ $charts }
+batch-import-failed = 批次匯入失敗
+batch-import-failed-chart = 批次匯入失敗: { $chart }
+warning = 警告
+warning-new-speed-event = 該譜面使用了 RPE 1.7.0 引入的速度事件緩動。出於相容性考量，Phira 預設將沿用舊行為。如需啟用新特性，請在譜面資訊中勾選「RPE1.7新速度緩動」。
+warning-attach-ui = 該譜面使用了 UI 綁定。Phira 最近的版本引入了 UI 綁定的修復，但可能會導致依賴舊行為的譜面出現問題。如有必要，請在譜面資訊中取消勾選「UI 綁定修復」。

@@ -1,21 +1,22 @@
 prpr_l10n::tl_file!("login");
 
 use crate::{
-    client::{Client, LoginParams, User, UserManager},
+    client::{Client, LoginParams, User, UserManager, API_URL},
     get_data_mut,
     page::Fader,
     save_data,
     scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
+use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
-    ext::{semi_black, semi_white, RectExt},
-    scene::{request_input, request_password, return_input, show_error, show_message, take_input},
+    ext::{open_url, semi_black, semi_white, RectExt},
+    scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Dialog, Ui},
+    ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
 use regex::Regex;
 use std::{borrow::Cow, future::Future, sync::atomic::Ordering};
@@ -51,6 +52,7 @@ pub struct Login {
     btn_to_login: DRectButton,
     btn_reg: DRectButton,
     btn_login: DRectButton,
+    btn_forget_pwd: RectButton,
 
     t_email: String,
     t_pwd: String,
@@ -88,6 +90,7 @@ impl Login {
             btn_to_login: DRectButton::new(),
             btn_reg: DRectButton::new(),
             btn_login: DRectButton::new(),
+            btn_forget_pwd: RectButton::new(),
 
             t_email: String::new(),
             t_pwd: String::new(),
@@ -147,23 +150,23 @@ impl Login {
                 return true;
             }
             if self.input_email.touch(touch, t) {
-                request_input("email", &self.t_email);
+                request_input("email", InputBox::new().default_text(&self.t_email));
                 return true;
             }
             if self.input_pwd.touch(touch, t) {
-                request_password("pwd", &self.t_pwd);
+                request_input("pwd", InputBox::new().default_text(&self.t_pwd).mode(InputMode::Password));
                 return true;
             }
             if self.input_reg_email.touch(touch, t) {
-                request_input("reg_email", &self.t_reg_email);
+                request_input("reg_email", InputBox::new().default_text(&self.t_reg_email));
                 return true;
             }
             if self.input_reg_name.touch(touch, t) {
-                request_input("reg_name", &self.t_reg_name);
+                request_input("reg_name", InputBox::new().default_text(&self.t_reg_name));
                 return true;
             }
             if self.input_reg_pwd.touch(touch, t) {
-                request_password("reg_pwd", &self.t_reg_pwd);
+                request_input("reg_pwd", InputBox::new().default_text(&self.t_reg_pwd).mode(InputMode::Password));
                 return true;
             }
             if self.btn_to_reg.touch(touch, t) || self.btn_to_login.touch(touch, t) {
@@ -196,6 +199,10 @@ impl Login {
                     Ok(Some(Client::get_me().await?))
                 });
                 return true;
+            }
+            if self.btn_forget_pwd.touch(touch) {
+                button_hit();
+                let _ = open_url(&format!("{API_URL}/reset-password"));
             }
             return true;
         }
@@ -283,7 +290,9 @@ impl Login {
             ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
             self.fader.for_sub(|f| {
                 f.render(ui, t, |ui| {
-                    let wr = Ui::dialog_rect();
+                    let mut wr = Ui::dialog_rect();
+                    wr.y -= 0.03;
+                    wr.h += 0.06;
                     ui.fill_path(&wr.rounded(0.01), ui.background());
                     ui.scissor(wr, |ui| {
                         let p = (if self.start_time.is_nan() {
@@ -327,12 +336,23 @@ impl Login {
                             .pos(r.x + 0.006, r.bottom() + 0.032)
                             .size(0.4)
                             .color(semi_white(0.6))
+                            .max_width(wr.w - 0.05)
+                            .multiline()
                             .draw();
                         let pad = 0.037;
                         let mut r = Rect::new(wr.x + pad, r.bottom() + 0.06, wr.w - pad * 2., 0.1);
                         self.input_email.render_input(ui, r, t, &self.t_email, tl!("email"), 0.62);
                         r.y += r.h + 0.04;
                         self.input_pwd.render_input(ui, r, t, "*".repeat(self.t_pwd.len()), tl!("password"), 0.62);
+
+                        let r = ui
+                            .text(tl!("forget-password"))
+                            .pos(r.right() - 0.02, r.y + r.h + 0.02)
+                            .anchor(1., 0.)
+                            .size(0.4)
+                            .color(semi_white(0.6))
+                            .draw();
+                        self.btn_forget_pwd.set(ui, r.feather(0.02));
 
                         let h = 0.09;
                         let pad = 0.05;

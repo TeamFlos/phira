@@ -1,6 +1,9 @@
-prpr_l10n::tl_file!("parser" ptl);
+use anyhow::{bail, Context, Result};
+use macroquad::color::WHITE;
+use std::{cell::RefCell, collections::HashMap};
+use tracing::warn;
 
-use super::{process_lines, RPE_TWEEN_MAP};
+use super::{process_lines, L10N_LOCAL, RPE_TWEEN_MAP};
 use crate::{
     core::{
         Anim, AnimFloat, AnimVector, BpmList, Chart, ChartExtra, ChartSettings, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind,
@@ -9,15 +12,12 @@ use crate::{
     ext::NotNanExt,
     judge::{HitSound, JudgeStatus},
 };
-use anyhow::{bail, Context, Result};
-use std::{cell::RefCell, collections::HashMap};
-use tracing::warn;
 
 trait Take {
     fn take_f32(&mut self) -> Result<f32>;
     fn take_usize(&mut self) -> Result<usize>;
     fn take_tween(&mut self) -> Result<TweenId>;
-    fn take_time(&mut self, r: &mut BpmList) -> Result<f32>;
+    fn take_time(&mut self, r: &mut BpmList) -> Result<f64>;
 }
 
 impl<'a, T: Iterator<Item = &'a str>> Take for T {
@@ -45,20 +45,20 @@ impl<'a, T: Iterator<Item = &'a str>> Take for T {
             .with_context(|| ptl!("expected-tween"))
     }
 
-    fn take_time(&mut self, r: &mut BpmList) -> Result<f32> {
-        self.take_f32().map(|it| r.time_beats(it))
+    fn take_time(&mut self, r: &mut BpmList) -> Result<f64> {
+        self.take_f32().map(|it| r.time_beats(it as f64))
     }
 }
 
 struct PECEvent {
-    start_time: f32,
-    end_time: f32,
+    start_time: f64,
+    end_time: f64,
     end: f32,
     easing: TweenId,
 }
 
 impl PECEvent {
-    pub fn new(start_time: f32, end_time: f32, end: f32, tween: TweenId) -> Self {
+    pub fn new(start_time: f64, end_time: f64, end: f32, tween: TweenId) -> Self {
         Self {
             start_time,
             end_time,
@@ -67,14 +67,14 @@ impl PECEvent {
         }
     }
 
-    pub fn single(time: f32, value: f32) -> Self {
+    pub fn single(time: f64, value: f32) -> Self {
         Self::new(time, time, value, 0)
     }
 }
 
 #[derive(Default)]
 struct PECJudgeLine {
-    speed_events: Vec<(f32, f32)>,
+    speed_events: Vec<(f64, f32)>,
     alpha_events: Vec<PECEvent>,
     move_events: (Vec<PECEvent>, Vec<PECEvent>),
     rotate_events: Vec<PECEvent>,
@@ -84,7 +84,7 @@ struct PECJudgeLine {
 fn sanitize_events(events: &mut [PECEvent], id: usize, desc: &str) {
     events.sort_by_key(|e| (e.end_time.not_nan(), e.start_time.not_nan()));
     let mut last_start = 0.0;
-    let mut last_end = f32::NEG_INFINITY;
+    let mut last_end = f64::NEG_INFINITY;
     for e in events.iter_mut() {
         if e.start_time < last_end {
             warn!(
@@ -119,33 +119,33 @@ fn parse_events(mut events: Vec<PECEvent>, id: usize, desc: &str) -> Result<Anim
     Ok(AnimFloat::new(kfs))
 }
 
-fn parse_speed_events(mut pec: Vec<(f32, f32)>, max_time: f32) -> AnimFloat {
+fn parse_speed_events(mut pec: Vec<(f64, f32)>, max_time: f64) -> AnimFloat {
     if pec[0].0 >= EPS {
         pec.insert(0, (0., 0.));
     }
     let mut kfs = Vec::new();
     let mut height = 0.0;
     let mut last_time = 0.0;
-    let mut last_speed = 0.0;
+    let mut last_speed = 0f32;
     for (time, speed) in pec {
-        height += (time - last_time) * last_speed;
-        kfs.push(Keyframe::new(time, height, 2));
+        height += (time - last_time) * last_speed as f64;
+        kfs.push(Keyframe::new(time, height as f32, 2));
         last_time = time;
         last_speed = speed;
     }
-    kfs.push(Keyframe::new(max_time, height + (max_time - last_time) * last_speed, 0));
+    kfs.push(Keyframe::new(max_time, (height + (max_time - last_time) * last_speed as f64) as f32, 0));
     AnimFloat::new(kfs)
 }
 
-fn parse_judge_line(mut pec: PECJudgeLine, id: usize, max_time: f32) -> Result<JudgeLine> {
+fn parse_judge_line(mut pec: PECJudgeLine, id: usize, max_time: f64) -> Result<JudgeLine> {
     let mut height = parse_speed_events(pec.speed_events, max_time);
     let mut process_notes = |notes: &mut Vec<Note>| {
         for note in notes {
             height.set_time(note.time);
-            note.height = height.now();
+            note.height = height.now() as f64;
             if let NoteKind::Hold { end_time, end_height } = &mut note.kind {
                 height.set_time(*end_time);
-                *end_height = height.now();
+                *end_height = height.now() as f64;
             }
         }
     };
@@ -172,6 +172,7 @@ fn parse_judge_line(mut pec: PECJudgeLine, id: usize, max_time: f32) -> Result<J
         notes: pec.notes,
         color: Anim::default(),
         parent: None,
+        rot_with_parent: false,
         z_index: 0,
         show_below: false,
         attach_ui: None,
@@ -195,7 +196,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
         }
         &mut lines[id]
     }
-    fn ensure_bpm<'a>(r: &'a mut Option<BpmList>, bpm_list: &mut Vec<(f32, f32)>) -> &'a mut BpmList {
+    fn ensure_bpm<'a>(r: &'a mut Option<BpmList>, bpm_list: &mut Vec<(f64, f64)>) -> &'a mut BpmList {
         if r.is_none() {
             *r = Some(BpmList::new(std::mem::take(bpm_list)));
         }
@@ -209,8 +210,8 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
     macro_rules! last_note {
         () => {{
             let Some(last_line) = last_line else {
-                                                        ptl!(bail "no-notes-inserted");
-                                                    };
+                ptl!(bail "no-notes-inserted");
+            };
             lines[last_line].notes.last_mut().unwrap()
         }};
     }
@@ -231,7 +232,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                     if r.is_some() {
                         ptl!(bail "bp-error");
                     }
-                    bpm_list.push((it.take_f32()?, it.take_f32()?));
+                    bpm_list.push((it.take_f32()? as f64, it.take_f32()? as f64));
                 }
                 'n' if cs.len() == 2 && ('1'..='4').contains(&cs[1]) => {
                     let r = bpm!();
@@ -273,25 +274,28 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         multiple_hint: false,
                         fake,
                         judge: JudgeStatus::NotJudged,
+                        color: WHITE,
+                        fx_color: None,
+                        judge_area: 1.,
                     });
                     if it.next() == Some("#") {
-                        last_note!().speed = it.take_f32()?;
+                        last_note!().speed = it.take_f32()? as f64;
                     }
                     if it.next() == Some("&") {
                         let note = last_note!();
                         let size = it.take_f32()?;
-                        if (size - 1.0).abs() >= EPS {
+                        if (size - 1.0).abs() >= EPS as f32 {
                             note.object.scale.0 = AnimFloat::fixed(size);
                         }
                     }
                 }
                 '#' if cs.len() == 1 => {
-                    last_note!().speed = it.take_f32()?;
+                    last_note!().speed = it.take_f32()? as f64;
                 }
                 '&' if cs.len() == 1 => {
                     let note = last_note!();
                     let size = it.take_f32()?;
-                    if (size - 1.0).abs() >= EPS {
+                    if (size - 1.0).abs() >= EPS as f32 {
                         note.object.scale.0 = AnimFloat::fixed(size);
                     }
                 }

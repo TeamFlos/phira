@@ -23,6 +23,7 @@ mod threed;
 mod uml;
 
 use anyhow::Result;
+use core::f64;
 use data::Data;
 use macroquad::prelude::*;
 use prpr::{
@@ -37,14 +38,27 @@ use prpr::{
 };
 use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
 use scene::MainScene;
-use std::sync::{mpsc, Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{mpsc, Mutex},
+};
 use tracing::{error, info};
+
+#[cfg(target_os = "android")]
+use jni::{
+    objects::{JClass, JString},
+    sys::jint,
+    EnvUnowned,
+};
 
 static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
 static AA_TX: Mutex<Option<mpsc::Sender<i32>>> = Mutex::new(None);
 static DATA_PATH: Mutex<Option<String>> = Mutex::new(None);
 static CACHE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static mut DATA: Option<Data> = None;
+
+#[cfg(target_env = "ohos")]
+use napi_derive_ohos::napi;
 
 #[cfg(closed)]
 pub async fn load_res(name: &str) -> Vec<u8> {
@@ -131,6 +145,10 @@ mod dir {
         ensure("data/charts")
     }
 
+    pub fn collections() -> Result<String> {
+        ensure("data/collections")
+    }
+
     pub fn custom_charts() -> Result<String> {
         ensure("data/charts/custom")
     }
@@ -146,6 +164,12 @@ mod dir {
 
 async fn the_main() -> Result<()> {
     log::register();
+    #[cfg(target_env = "ohos")]
+    {
+        *DATA_PATH.lock().unwrap() = Some("/data/storage/el2/base".to_owned());
+        *CACHE_DIR.lock().unwrap() = Some("/data/storage/el2/base/cache".to_owned());
+        prpr::core::DPI_VALUE.store(250, std::sync::atomic::Ordering::Relaxed);
+    };
 
     init_assets();
 
@@ -157,19 +181,11 @@ async fn the_main() -> Result<()> {
     let _guard = rt.enter();
 
     #[cfg(target_os = "ios")]
-    unsafe {
-        use prpr::objc::*;
-        #[allow(improper_ctypes)]
-        extern "C" {
-            pub fn NSSearchPathForDirectoriesInDomains(
-                directory: std::os::raw::c_ulong,
-                domain_mask: std::os::raw::c_ulong,
-                expand_tilde: bool,
-            ) -> *mut NSArray<*mut NSString>;
-        }
-        let directories = NSSearchPathForDirectoriesInDomains(5, 1, true);
-        let first: &mut NSString = msg_send![directories, firstObject];
-        let path = first.as_str().to_owned();
+    {
+        use objc2_foundation::{NSSearchPathDirectory, NSSearchPathDomainMask, NSSearchPathForDirectoriesInDomains};
+
+        let directories = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory::LibraryDirectory, NSSearchPathDomainMask::UserDomainMask, true);
+        let path = directories.firstObject().unwrap().to_string();
         *DATA_PATH.lock().unwrap() = Some(path);
         *CACHE_DIR.lock().unwrap() = Some("Caches".to_owned());
     }
@@ -182,6 +198,7 @@ async fn the_main() -> Result<()> {
     data.init().await?;
     set_data(data);
     sync_data();
+    save_data()?;
 
     let rx = {
         let (tx, rx) = mpsc::channel();
@@ -215,10 +232,24 @@ async fn the_main() -> Result<()> {
     let tm = TimeManager::default();
     let mut fps_time = -1;
 
+    const FPS_BUF_SIZE: usize = 60;
+    let mut fps_times = VecDeque::<f32>::with_capacity(FPS_BUF_SIZE);
+    let mut last_frame_start = f32::NAN;
+    let mut fps_time_sum = 0.;
+
     let mut exit_time = f64::INFINITY;
 
     'app: loop {
         let frame_start = tm.real_time();
+        if !last_frame_start.is_nan() {
+            if fps_times.len() == FPS_BUF_SIZE {
+                fps_time_sum -= fps_times.pop_front().unwrap();
+            }
+            let frame_time = frame_start as f32 - last_frame_start;
+            fps_times.push_back(frame_time);
+            fps_time_sum += frame_time;
+        }
+        last_frame_start = frame_start as f32;
         let res = || -> Result<()> {
             main.update()?;
             main.render(&mut painter)?;
@@ -284,11 +315,12 @@ async fn the_main() -> Result<()> {
         let fps_now = t as i32;
         if fps_now != fps_time {
             fps_time = fps_now;
-            info!("FPS {}", (1. / (t - frame_start)) as u32);
+            if fps_times.len() == FPS_BUF_SIZE {
+                let actual_fps = 1. / (fps_time_sum / FPS_BUF_SIZE as f32);
+                let current_fps = 1. / (t - frame_start);
+                info!("FPS {} (capped at {})", current_fps as u32, actual_fps as u32);
+            }
         }
-
-        #[cfg(target_os = "windows")]
-        macroquad::window::set_fullscreen(get_data().config.fullscreen_mode);
 
         next_frame().await;
     }
@@ -302,9 +334,30 @@ fn show_and_exit(msg: &str) {
         .show();
 }
 
+fn build_global_window_conf() -> Conf {
+    let mut conf = build_conf();
+    conf.window_title = "Phira".to_owned();
+    conf.icon = Some(miniquad::conf::Icon {
+        small: *include_bytes!("../icon/small"),
+        medium: *include_bytes!("../icon/medium"),
+        big: *include_bytes!("../icon/big"),
+    });
+
+    #[cfg(target_os = "windows")]
+    {
+        conf.fullscreen = dir::root()
+            .ok()
+            .and_then(|r| std::fs::read_to_string(std::path::Path::new(&r).join("data.json")).ok())
+            .and_then(|s| serde_json::from_str::<Data>(&s).ok())
+            .is_some_and(|d| d.config.fullscreen_mode);
+    }
+
+    conf
+}
+
 #[no_mangle]
 pub extern "C" fn quad_main() {
-    macroquad::Window::from_config(build_conf(), async {
+    macroquad::Window::from_config(build_global_window_conf(), async {
         if let Err(err) = the_main().await {
             error!(?err, "global error");
         }
@@ -318,20 +371,16 @@ fn on_pause_resume(pause: bool) {
 }
 
 #[cfg(target_os = "android")]
-unsafe fn string_from_java(env: *mut ndk_sys::JNIEnv, s: ndk_sys::jstring) -> String {
-    let get_string_utf_chars = (**env).GetStringUTFChars.unwrap();
-    let release_string_utf_chars = (**env).ReleaseStringUTFChars.unwrap();
-
-    let ptr = (get_string_utf_chars)(env, s, ::std::ptr::null::<ndk_sys::jboolean>() as _);
-    let res = std::ffi::CStr::from_ptr(ptr).to_str().unwrap().to_owned();
-    (release_string_utf_chars)(env, s, ptr);
-
-    res
+#[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: EnvUnowned, _class: JClass) {
+    unsafe {
+        inputbox::backend::Android::initialize_raw(env.as_raw()).unwrap();
+    }
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: EnvUnowned, _class: JClass) {
     anti_addiction_action("leaveGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(true);
@@ -340,7 +389,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_: *mut std::
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: EnvUnowned, _class: JClass) {
     anti_addiction_action("enterGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(false);
@@ -349,40 +398,40 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_: *mut std:
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: EnvUnowned, _class: JClass) {
     // std::process::exit(0);
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDataPath(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
-    *DATA_PATH.lock().unwrap() = Some(string_from_java(env, path));
+pub extern "C" fn Java_quad_1native_QuadNative_setDataPath(_env: EnvUnowned, _class: JClass, path: JString) {
+    *DATA_PATH.lock().unwrap() = Some(path.to_string());
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setTempDir(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, path: ndk_sys::jstring) {
-    let path = string_from_java(env, path);
+pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(_env: EnvUnowned, _class: JClass, path: JString) {
+    let path = path.to_string();
     std::env::set_var("TMPDIR", path.clone());
     *CACHE_DIR.lock().unwrap() = Some(path);
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setDpi(_: *mut std::ffi::c_void, _: *const std::ffi::c_void, dpi: ndk_sys::jint) {
+pub extern "C" fn Java_quad_1native_QuadNative_setDpi(_env: EnvUnowned, _class: JClass, dpi: jint) {
     prpr::core::DPI_VALUE.store(dpi as _, std::sync::atomic::Ordering::SeqCst);
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setChosenFile(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, file: ndk_sys::jstring) {
+pub extern "C" fn Java_quad_1native_QuadNative_setChosenFile(_env: EnvUnowned, _class: JClass, file: JString) {
     use prpr::scene::CHOSEN_FILE;
-    CHOSEN_FILE.lock().unwrap().1 = Some(string_from_java(env, file));
+    CHOSEN_FILE.lock().unwrap().1 = Some(file.to_string());
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImport(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+pub extern "C" fn Java_quad_1native_QuadNative_markImport(_env: EnvUnowned, _class: JClass) {
     use prpr::scene::CHOSEN_FILE;
 
     CHOSEN_FILE.lock().unwrap().0 = Some("_import".to_owned());
@@ -390,7 +439,7 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImport(_: *mut std::ff
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_: *mut std::ffi::c_void, _: *const std::ffi::c_void) {
+pub extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_env: EnvUnowned, _class: JClass) {
     use prpr::scene::CHOSEN_FILE;
 
     CHOSEN_FILE.lock().unwrap().0 = Some("_import_respack".to_owned());
@@ -398,9 +447,9 @@ pub unsafe extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_: *mut 
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_setInputText(env: *mut ndk_sys::JNIEnv, _: *const std::ffi::c_void, text: ndk_sys::jstring) {
+pub extern "C" fn Java_quad_1native_QuadNative_setInputText(_env: EnvUnowned, _class: JClass, text: JString) {
     use prpr::scene::INPUT_TEXT;
-    INPUT_TEXT.lock().unwrap().1 = Some(string_from_java(env, text));
+    INPUT_TEXT.lock().unwrap().1 = Some(text.to_string());
 }
 
 #[cfg(not(all(target_os = "android", feature = "aa")))]
@@ -408,35 +457,52 @@ pub fn anti_addiction_action(_action: &str, _arg: Option<String>) {}
 
 #[cfg(all(target_os = "android", feature = "aa"))]
 pub fn anti_addiction_action(action: &str, arg: Option<String>) {
-    unsafe {
-        let env = miniquad::native::attach_jni_env();
-        let ctx = ndk_context::android_context().context();
-        let class = (**env).GetObjectClass.unwrap()(env, ctx);
-        let method =
-            (**env).GetMethodID.unwrap()(env, class, b"antiAddiction\0".as_ptr() as _, b"(Ljava/lang/String;Ljava/lang/String;)V\0".as_ptr() as _);
-        let action = std::ffi::CString::new(action.to_owned()).unwrap();
-        let arg = arg.map(|it| std::ffi::CString::new(it).unwrap());
-        (**env).CallVoidMethod.unwrap()(
-            env,
-            ctx,
-            method,
-            (**env).NewStringUTF.unwrap()(env, action.as_ptr()),
-            arg.map(|it| (**env).NewStringUTF.unwrap()(env, it.as_ptr()))
-                .unwrap_or_else(|| std::ptr::null_mut()),
-        );
-    }
+    use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
+
+    JavaVM::singleton()
+        .unwrap()
+        .attach_current_thread(|env| -> jni::errors::Result<()> {
+            let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
+            let action = env.new_string(action)?;
+            #[allow(clippy::redundant_closure)]
+            let arg = arg
+                .as_ref()
+                .map(|it| env.new_string(it))
+                .transpose()?
+                .map_or_else(|| JObject::null(), |s| s.into());
+            env.call_method(ctx, jni_str!("antiAddiction"), jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"), &[(&action).into(), (&arg).into()])?;
+            Ok(())
+        })
+        .unwrap();
 }
 
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub unsafe extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(
-    _: *mut std::ffi::c_void,
-    _: *const std::ffi::c_void,
-    #[allow(dead_code)] code: ndk_sys::jint,
-) {
+pub extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(_env: EnvUnowned, _class: JClass, #[allow(dead_code)] code: jint) {
     if cfg!(feature = "aa") {
         if let Some(tx) = AA_TX.lock().unwrap().as_mut() {
             let _ = tx.send(code);
         }
     }
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn set_input_text(text: String) {
+    use prpr::scene::INPUT_TEXT;
+    INPUT_TEXT.lock().unwrap().1 = Some(text);
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn set_chosen_file(file: String) {
+    use prpr::scene::CHOSEN_FILE;
+    CHOSEN_FILE.lock().unwrap().1 = Some(file);
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn mark_auto_import() {
+    use prpr::scene::CHOSEN_FILE;
+    CHOSEN_FILE.lock().unwrap().0 = Some("_import_auto".to_owned());
 }

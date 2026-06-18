@@ -17,9 +17,11 @@
 
 ## 翻译
 
-如果你想将你的语言添加到 Phira，请看 [这里](https://github.com/TeamFlos/phira/pull/201#issuecomment-1783356944)。
+参看 [Weblate](https://hosted.weblate.org/engage/phira/) 页面获取最新的翻译进度。你可以很方便地在那里贡献翻译。
 
-如果你认为当前的翻译有问题，请创建 Issue。
+![翻译进度](https://hosted.weblate.org/widget/phira/svg-badge.svg)
+
+![翻译状态](https://hosted.weblate.org/widget/phira/multi-auto.svg)
 
 ## Star 历史
 

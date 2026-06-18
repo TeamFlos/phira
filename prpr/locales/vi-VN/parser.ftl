@@ -1,7 +1,7 @@
 
 # general
 unknown-note-type = Loại Note không xác định: { $type }
-json-parse-failed = Không thể phân tích JSON
+json-parse-failed = Không thể phân tích Chart JSON này.
 judge-line-location = Tại judge line #{ $jlid }
 
 # rpe
@@ -27,19 +27,19 @@ move-events-parse-failed = Không thể phân tích các sự kiện move
 
 # pec
 unexpected-eol = EOL không mong đợi
-expected-f32 = f32 dự kiến
-expected-usize = usize dự kiến
-expected-tween = tween dự kiến
+expected-f32 = Yêu cầu f32.
+expected-usize = Yêu cầu usize.
+expected-tween = Yêu cầu kiểu tween.
 
-no-notes-inserted = Không có note nào được thêm cả
+no-notes-inserted = Chart hình như không có note nào cả.
 unknown-command = Lệnh không xác định: { $cmd }
 bp-error = Các sự kiện Bpm (bp) phải liền kề và nằm tại phần đầu của tệp
-expected-01 = 0 / 1 dự kiến (note thật / note giả)
+expected-01 = Yêu cầu 0 / 1 (note thật / note giả).
 unexpected-extra = Nội dung bổ sung không mong đợi: { $next }
 line-location = Tại line #{ $lid }
 
 # extra
 shader-load-failed = Không thể nạp shader tại { $path }
-shader-not-found = Không tìm thấy shader cài sẵn { $shader }
+shader-not-found = Không tìm thấy kiểu shader có sẵn: { $shader }
 effect-location = Hiệu ứng tại #{ $id }
 video-load-failed = Không thể đọc video tại { $path }

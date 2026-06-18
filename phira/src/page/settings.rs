@@ -15,21 +15,121 @@ use crate::{
 };
 use anyhow::Result;
 use bytesize::ByteSize;
+use inputbox::InputBox;
 use macroquad::prelude::*;
+use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui},
+    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
+use serde::Deserialize;
 use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
 const STATUS_PAGE: &str = "https://status.phira.cn";
+
+struct NameList(String);
+impl<'de> Deserialize<'de> for NameList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = Vec::<String>::deserialize(deserializer)?;
+        Ok(Self(s.join(", ")))
+    }
+}
+
+#[derive(Deserialize)]
+struct LocalizationListRaw {
+    #[serde(rename = "en-US")]
+    en_us: NameList,
+    #[serde(rename = "fr-FR")]
+    fr_fr: NameList,
+    #[serde(rename = "de-DE")]
+    de_de: NameList,
+    #[serde(rename = "id-ID")]
+    id_id: NameList,
+    #[serde(rename = "ja-JP")]
+    ja_jp: NameList,
+    #[serde(rename = "ko-KR")]
+    ko_kr: NameList,
+    #[serde(rename = "pl-PL")]
+    pl_pl: NameList,
+    #[serde(rename = "pt-BR")]
+    pt_br: NameList,
+    #[serde(rename = "ru-RU")]
+    ru_ru: NameList,
+    #[serde(rename = "th-TH")]
+    th_th: NameList,
+    #[serde(rename = "zh-TW")]
+    zh_tw: NameList,
+    #[serde(rename = "tr-TR")]
+    tr_tr: NameList,
+    #[serde(rename = "vi-VN")]
+    vi_vn: NameList,
+}
+
+struct LocalizationList(String);
+impl<'de> Deserialize<'de> for LocalizationList {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = LocalizationListRaw::deserialize(deserializer)?;
+        Ok(Self(format!(
+            "\
+English (en-US)\n{}\n
+French (fr-FR)\n{}\n
+German (de-DE)\n{}\n
+Indonesian (id-ID)\n{}\n
+Japanese (ja-JP)\n{}\n
+Korean (ko-KR)\n{}\n
+Polish (pl-PL)\n{}\n
+Portuguese (pt-BR)\n{}\n
+Russian (ru-RU)\n{}\n
+Thai (th-TH)\n{}\n
+Traditional Chinese (zh-TW)\n{}\n
+Turkish (tr-TR)\n{}\n
+Vietnamese (vi-VN)\n{}",
+            raw.en_us.0,
+            raw.fr_fr.0,
+            raw.de_de.0,
+            raw.id_id.0,
+            raw.ja_jp.0,
+            raw.ko_kr.0,
+            raw.pl_pl.0,
+            raw.pt_br.0,
+            raw.ru_ru.0,
+            raw.th_th.0,
+            raw.zh_tw.0,
+            raw.tr_tr.0,
+            raw.vi_vn.0
+        )))
+    }
+}
+
+#[derive(Deserialize)]
+struct StaffList {
+    development: NameList,
+    operations: NameList,
+    documentation: NameList,
+    art: NameList,
+    music: NameList,
+    audio: NameList,
+    community: NameList,
+    localization: LocalizationList,
+}
+
+static STAFF_LIST: Lazy<StaffList> = Lazy::new(|| {
+    let data = include_str!("../../staff.yml");
+    serde_yaml::from_str(data).unwrap()
+});
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SettingListType {
@@ -130,14 +230,15 @@ impl Page for SettingsPage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
-        self.scroll.update(t);
-        if match self.tabs.selected() {
+        let changed = match self.tabs.selected() {
             SettingListType::General => self.list_general.update(t)?,
             SettingListType::Audio => self.list_audio.update(t)?,
             SettingListType::Chart => self.list_chart.update(t)?,
             SettingListType::Debug => self.list_debug.update(t)?,
             SettingListType::About => false,
-        } {
+        };
+        self.scroll.update(t);
+        if changed {
             self.save_time = t;
         }
         if t > self.save_time + Self::SAVE_TIME {
@@ -164,7 +265,7 @@ impl Page for SettingsPage {
                         SettingListType::Audio => self.list_audio.render(ui, r, t),
                         SettingListType::Chart => self.list_chart.render(ui, r, t),
                         SettingListType::Debug => self.list_debug.render(ui, r, t),
-                        SettingListType::About => render_settings(ui, r, &self.icon),
+                        SettingListType::About => render_about(ui, r, &self.icon),
                     });
                 });
 
@@ -183,7 +284,7 @@ impl Page for SettingsPage {
     }
 }
 
-fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
+fn render_about(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     r.x = 0.;
     r.y = 0.;
     let ow = r.w;
@@ -194,7 +295,20 @@ fn render_settings(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
     ui.fill_path(&ir.rounded(0.02), (**icon, ir));
 
-    let text = tl!("about-content", "version" => env!("CARGO_PKG_VERSION"));
+    let staff = &*STAFF_LIST;
+    let text = tl!(
+        "about-content",
+        "version" => format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")),
+
+        "development" => &staff.development.0,
+        "operations" => &staff.operations.0,
+        "documentation" => &staff.documentation.0,
+        "art" => &staff.art.0,
+        "music" => &staff.music.0,
+        "audio" => &staff.audio.0,
+        "community" => &staff.community.0,
+        "localization" => &staff.localization.0
+    );
     let (first, text) = text.split_once('\n').unwrap();
     let tr = ui
         .text(first)
@@ -275,7 +389,7 @@ struct GeneralList {
 
     lang_btn: ChooseButton,
 
-    #[cfg(target_os = "windows")]
+    #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
@@ -283,7 +397,9 @@ struct GeneralList {
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
     mp_addr_btn: DRectButton,
+    #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
+    prefer_reduced_motion_btn: DRectButton,
     insecure_btn: DRectButton,
     enable_anys_btn: DRectButton,
     anys_gateway_btn: DRectButton,
@@ -308,7 +424,7 @@ impl GeneralList {
                         .unwrap_or_default(),
                 ),
 
-            #[cfg(target_os = "windows")]
+            #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
@@ -316,7 +432,9 @@ impl GeneralList {
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
             mp_addr_btn: DRectButton::new(),
+            #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
+            prefer_reduced_motion_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
             enable_anys_btn: DRectButton::new(),
             anys_gateway_btn: DRectButton::new(),
@@ -365,9 +483,12 @@ impl GeneralList {
             return Ok(Some(false));
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
         if self.fullscreen_btn.touch(touch, t) {
             config.fullscreen_mode ^= true;
+
+            macroquad::window::set_fullscreen(config.fullscreen_mode);
+
             return Ok(Some(true));
         }
 
@@ -390,11 +511,17 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.mp_addr_btn.touch(touch, t) {
-            request_input("mp_addr", &config.mp_address);
+            request_input("mp_addr", InputBox::new().default_text(&config.mp_address));
             return Ok(Some(true));
         }
+        #[cfg(not(target_env = "ohos"))]
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
+            return Ok(Some(true));
+        }
+        if self.prefer_reduced_motion_btn.touch(touch, t) {
+            data.prefer_reduced_motion ^= true;
+            PREFER_REDUCED_MOTION.store(data.prefer_reduced_motion, Ordering::Relaxed);
             return Ok(Some(true));
         }
         if self.insecure_btn.touch(touch, t) {
@@ -406,7 +533,7 @@ impl GeneralList {
             return Ok(Some(true));
         }
         if self.anys_gateway_btn.touch(touch, t) {
-            request_input("anys_gateway", &data.anys_gateway);
+            request_input("anys_gateway", InputBox::new().default_text(&data.anys_gateway));
             return Ok(Some(true));
         }
         Ok(None)
@@ -472,9 +599,9 @@ impl GeneralList {
             self.lang_btn.render(ui, rr, t);
         }
 
-        #[cfg(target_os = "windows")]
+        #[cfg(all(any(target_os = "windows", target_os = "linux"), not(target_env = "ohos")))]
         item! {
-            render_title(ui, tl!("item-fullscreen"), Some(tl!("item-fullscreen-sub")));
+            render_title(ui, tl!("item-fullscreen"), None);
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
         }
 
@@ -495,6 +622,11 @@ impl GeneralList {
             self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
         }
         item! {
+            render_title(ui, tl!("item-prefer-reduced-motion"), Some(tl!("item-prefer-reduced-motion-sub")));
+            render_switch(ui, rr, t, &mut self.prefer_reduced_motion_btn, data.prefer_reduced_motion);
+        }
+        #[cfg(not(target_env = "ohos"))]
+        item! {
             render_title(ui, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
             render_switch(ui, rr, t, &mut self.lowq_btn, config.sample_count == 1);
         }
@@ -507,7 +639,8 @@ impl GeneralList {
             render_title(ui, tl!("item-clear-cache"), Some(cache_size));
             self.cache_btn.render_text(ui, rr, t, tl!("item-clear-cache-btn"), 0.5, true);
         }
-        h += 0.2;
+        ui.dy(0.04);
+        h += 0.04;
         item! {
             render_title(ui, tl!("item-insecure"), Some(tl!("item-insecure-sub")));
             render_switch(ui, rr, t, &mut self.insecure_btn, data.accept_invalid_cert);
@@ -531,7 +664,10 @@ struct AudioList {
     sfx_slider: Slider,
     bgm_slider: Slider,
     cali_btn: DRectButton,
+    #[cfg(not(target_os = "android"))]
     preferred_sample_rate_btn: DRectButton,
+    #[cfg(target_env = "ohos")]
+    audio_buffer_size_btn: DRectButton,
     cali_task: LocalTask<Result<OffsetPage>>,
     next_page: Option<NextPage>,
 }
@@ -544,7 +680,10 @@ impl AudioList {
             sfx_slider: Slider::new(0.0..2.0, 0.05),
             bgm_slider: Slider::new(0.0..2.0, 0.05),
             cali_btn: DRectButton::new(),
+            #[cfg(not(target_os = "android"))]
             preferred_sample_rate_btn: DRectButton::new(),
+            #[cfg(target_env = "ohos")]
+            audio_buffer_size_btn: DRectButton::new(),
 
             cali_task: None,
             next_page: None,
@@ -579,11 +718,20 @@ impl AudioList {
             self.cali_task = Some(Box::pin(OffsetPage::new()));
             return Ok(Some(false));
         }
+        #[cfg(not(target_os = "android"))]
         if self.preferred_sample_rate_btn.touch(touch, t) {
-            let options = [44100, 48000, 88200, 96000, 192000];
+            let options = [None, Some(44100), Some(48000), Some(88200), Some(96000), Some(192000)];
             let current = config.preferred_sample_rate;
             let selected = options.iter().position(|&r| r == current).unwrap_or(0);
             config.preferred_sample_rate = options[(selected + 1) % options.len()];
+            return Ok(Some(true));
+        }
+        #[cfg(target_env = "ohos")]
+        if self.audio_buffer_size_btn.touch(touch, t) {
+            let options = [128u32, 256u32, 512u32];
+            let current = config.audio_buffer_size.unwrap_or(256);
+            let selected = options.iter().position(|&r| r == current).unwrap_or(1);
+            config.audio_buffer_size = Some(options[(selected + 1) % options.len()]);
             return Ok(Some(true));
         }
         Ok(None)
@@ -638,9 +786,21 @@ impl AudioList {
             render_title(ui, tl!("item-cali"), None);
             self.cali_btn.render_text(ui, rr, t, format!("{:.0}ms", config.offset * 1000.), 0.5, true);
         }
+        #[cfg(not(target_os = "android"))]
         item! {
             render_title(ui, tl!("item-preferred-sample-rate"), None);
-            self.preferred_sample_rate_btn.render_text(ui, rr, t, format!("{} Hz", config.preferred_sample_rate), 0.5, false);
+            let text = if let Some(rate) = config.preferred_sample_rate {
+                format!("{} Hz", rate)
+            } else {
+                tl!("preferred-sample-rate-default").to_string()
+            };
+            self.preferred_sample_rate_btn.render_text(ui, rr, t, text, 0.5, false);
+        }
+        #[cfg(target_env = "ohos")]
+        item! {
+            render_title(ui, tl!("item-audio-buffer-size"), None);
+            let buf_size = config.audio_buffer_size.unwrap_or(256);
+            self.audio_buffer_size_btn.render_text(ui, rr, t, format!("{}", buf_size), 0.5, false);
         }
         (w, h)
     }
@@ -652,9 +812,12 @@ impl AudioList {
 
 struct ChartList {
     show_acc_btn: DRectButton,
+    ap_fc_indicator_btn: DRectButton,
+    show_avg_fps_btn: DRectButton,
     dc_pause_btn: DRectButton,
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
+    use_keyboard_btn: DRectButton,
     speed_slider: Slider,
     size_slider: Slider,
 }
@@ -663,9 +826,12 @@ impl ChartList {
     pub fn new() -> Self {
         Self {
             show_acc_btn: DRectButton::new(),
+            ap_fc_indicator_btn: DRectButton::new(),
+            show_avg_fps_btn: DRectButton::new(),
             dc_pause_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
+            use_keyboard_btn: DRectButton::new(),
             speed_slider: Slider::new(0.5..2., 0.05),
             size_slider: Slider::new(0.8..1.2, 0.005),
         }
@@ -682,6 +848,14 @@ impl ChartList {
             config.show_acc ^= true;
             return Ok(Some(true));
         }
+        if self.ap_fc_indicator_btn.touch(touch, t) {
+            config.ap_fc_indicator ^= true;
+            return Ok(Some(true));
+        }
+        if self.show_avg_fps_btn.touch(touch, t) {
+            config.show_avg_fps ^= true;
+            return Ok(Some(true));
+        }
         if self.dc_pause_btn.touch(touch, t) {
             config.double_click_to_pause ^= true;
             return Ok(Some(true));
@@ -692,6 +866,10 @@ impl ChartList {
         }
         if self.opt_btn.touch(touch, t) {
             config.aggressive ^= true;
+            return Ok(Some(true));
+        }
+        if self.use_keyboard_btn.touch(touch, t) {
+            config.use_keyboard ^= true;
             return Ok(Some(true));
         }
         if let wt @ Some(_) = self.speed_slider.touch(touch, t, &mut config.speed) {
@@ -726,6 +904,14 @@ impl ChartList {
             render_switch(ui, rr, t, &mut self.show_acc_btn, config.show_acc);
         }
         item! {
+            render_title(ui, tl!("item-ap-fc-indicator"), Some(tl!("item-ap-fc-indicator-sub")));
+            render_switch(ui, rr, t, &mut self.ap_fc_indicator_btn, config.ap_fc_indicator);
+        }
+        item! {
+            render_title(ui, tl!("item-show-avg-fps"), Some(tl!("item-show-avg-fps-sub")));
+            render_switch(ui, rr, t, &mut self.show_avg_fps_btn, config.show_avg_fps);
+        }
+        item! {
             render_title(ui, tl!("item-dc-pause"), None);
             render_switch(ui, rr, t, &mut self.dc_pause_btn, config.double_click_to_pause);
         }
@@ -736,6 +922,10 @@ impl ChartList {
         item! {
             render_title(ui, tl!("item-opt"), Some(tl!("item-opt-sub")));
             render_switch(ui, rr, t, &mut self.opt_btn, config.aggressive);
+        }
+        item! {
+            render_title(ui, tl!("item-use-keyboard"), Some(tl!("item-use-keyboard-sub")));
+            render_switch(ui, rr, t, &mut self.use_keyboard_btn, config.use_keyboard);
         }
         item! {
             render_title(ui, tl!("item-speed"), None);

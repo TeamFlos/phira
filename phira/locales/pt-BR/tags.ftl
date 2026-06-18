@@ -1,11 +1,11 @@
 
-filter = Filtrar por tags 
+filter = Filtrar por tags
 edit = Editar tags
 
 invalid-tag = Tag inválida
 
-wanted = Desejado 
-unwanted = Indesejado 
+wanted = Desejado
+unwanted = Indesejado
 
 cancel = Cancelar
 confirm = Confirmar
@@ -18,5 +18,5 @@ plain = Simples
 visual = Visual
 
 filter-me = Enviado por mim
-filter-unreviewed = Não revisado 
+filter-unreviewed = Não revisado
 filter-stabilize = Estabilizar solicitação

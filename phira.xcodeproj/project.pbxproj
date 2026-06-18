@@ -1,0 +1,363 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 63;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1ADD1B4BCB545510451BDB6 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = F93F13E521EE9DDCA65DAACF /* assets */; };
+		EE4BA9C929E02FBB00AFEF83 /* phira-main in CopyFiles */ = {isa = PBXBuildFile; fileRef = EE4BA9C829E02FBB00AFEF83 /* phira-main */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		EEE852872F62F124001C0FF4 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EEE852862F62F124001C0FF4 /* LaunchScreen.storyboard */; };
+		EEE852912F650F6D001C0FF4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EEE852902F650F6D001C0FF4 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		EECA3ABF298EB38200844774 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				EE4BA9C929E02FBB00AFEF83 /* phira-main in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0D0D9CDCD7F802EE7E10A634 /* Phira.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Phira.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE4BA9C829E02FBB00AFEF83 /* phira-main */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = "phira-main"; path = "build/phira-main"; sourceTree = "<group>"; };
+		EEE852862F62F124001C0FF4 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = xcode/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		EEE8528E2F650E61001C0FF4 /* LocalSigning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = LocalSigning.xcconfig; path = xcode/LocalSigning.xcconfig; sourceTree = "<group>"; };
+		EEE8528F2F650E6D001C0FF4 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Shared.xcconfig; path = xcode/Shared.xcconfig; sourceTree = "<group>"; };
+		EEE852902F650F6D001C0FF4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = xcode/Assets.xcassets; sourceTree = "<group>"; };
+		F93F13E521EE9DDCA65DAACF /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		183B84EE73DCF4BDEE1B01E9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0D0D9CDCD7F802EE7E10A634 /* Phira.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6D95DBE77CC7F26D654DB592 = {
+			isa = PBXGroup;
+			children = (
+				EE4BA9C829E02FBB00AFEF83 /* phira-main */,
+				EEE852902F650F6D001C0FF4 /* Assets.xcassets */,
+				EEE852862F62F124001C0FF4 /* LaunchScreen.storyboard */,
+				F93F13E521EE9DDCA65DAACF /* assets */,
+				183B84EE73DCF4BDEE1B01E9 /* Products */,
+				EEE8528E2F650E61001C0FF4 /* LocalSigning.xcconfig */,
+				EEE8528F2F650E6D001C0FF4 /* Shared.xcconfig */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2B547C4212CB6A4F740893B2 /* phira */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 28E9D0CC8845E9CED79F8C4E /* Build configuration list for PBXNativeTarget "phira" */;
+			buildPhases = (
+				CB16FFB5907690F729F5E9AC /* Sources */,
+				EEF3F29C2F5D65EE003D9A5D /* Cargo Build */,
+				BDD5A4BED8F84E9C53DF6832 /* Resources */,
+				EECA3ABF298EB38200844774 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = phira;
+			productName = prpr;
+			productReference = 0D0D9CDCD7F802EE7E10A634 /* Phira.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9C02FF635C4A40FE4F8F7C75 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2630;
+			};
+			buildConfigurationList = 4187627350F391AC1D16A813 /* Build configuration list for PBXProject "phira" */;
+			compatibilityVersion = "Xcode 15.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6D95DBE77CC7F26D654DB592;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2B547C4212CB6A4F740893B2 /* phira */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BDD5A4BED8F84E9C53DF6832 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EEE852872F62F124001C0FF4 /* LaunchScreen.storyboard in Resources */,
+				EEE852912F650F6D001C0FF4 /* Assets.xcassets in Resources */,
+				A1ADD1B4BCB545510451BDB6 /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		EEF3F29C2F5D65EE003D9A5D /* Cargo Build */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Cargo Build";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\n\necho \"PROJECT_DIR=$PROJECT_DIR\"\n\ncd \"$PROJECT_DIR\"\n[ -f \"$HOME/.cargo/env\" ] && source \"$HOME/.cargo/env\"\n\nif [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n  RUST_TARGET=\"aarch64-apple-ios\"\nelif [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ]; then\n  if [ \"${NATIVE_ARCH_ACTUAL:-$ARCHS}\" = \"arm64\" ]; then\n    RUST_TARGET=\"aarch64-apple-ios-sim\"\n  else\n    RUST_TARGET=\"x86_64-apple-ios\"\n  fi\nelse\n  echo \"Unsupported PLATFORM_NAME=$PLATFORM_NAME\"\n  exit 1\nfi\n\nif [ \"$CONFIGURATION\" = \"Release\" ]; then\n  PROFILE_FLAG=\"--release\"\n  PROFILE_DIR=\"release\"\nelse\n  PROFILE_FLAG=\"\"\n  PROFILE_DIR=\"debug\"\nfi\n\nexport CARGO_TARGET_DIR=\"$SRCROOT/target/xcode\"\ncargo build --bin phira-main --target \"$RUST_TARGET\" $PROFILE_FLAG\n\nmkdir -p \"$PROJECT_DIR/build\"\ncp \"$CARGO_TARGET_DIR/$RUST_TARGET/$PROFILE_DIR/phira-main\" \"$SRCROOT/build/phira-main\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CB16FFB5907690F729F5E9AC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2172F94FAE773470E7614467 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EEE8528F2F650E6D001C0FF4 /* Shared.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		AEED00B5C51BFC1A9A20313B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
+				INFOPLIST_FILE = phira.app/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Phira;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music-games";
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.flos.phira;
+				PRODUCT_NAME = Phira;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B1A7190987C1DA82FF9517BD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EEE8528F2F650E6D001C0FF4 /* Shared.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FF0573E4F79084942B3EEA57 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+				);
+				INFOPLIST_FILE = phira.app/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Phira;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music-games";
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.flos.phira;
+				PRODUCT_NAME = Phira;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		28E9D0CC8845E9CED79F8C4E /* Build configuration list for PBXNativeTarget "phira" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FF0573E4F79084942B3EEA57 /* Debug */,
+				AEED00B5C51BFC1A9A20313B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4187627350F391AC1D16A813 /* Build configuration list for PBXProject "phira" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1A7190987C1DA82FF9517BD /* Debug */,
+				2172F94FAE773470E7614467 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9C02FF635C4A40FE4F8F7C75 /* Project object */;
+}

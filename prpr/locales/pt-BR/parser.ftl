@@ -19,19 +19,19 @@ judge-line-location-name = Na linha de jugamento #{ $jlid } ({ $name })
 event-not-contiguous = Os eventos devem ser contíguos
 
 alpha-events-parse-failed = Falha ao analisar eventos alfa
-rotate-events-parse-failed = Falha ao analisar eventos de rotação 
-move-events-parse-failed = Falha ao analisar eventos de movimentação 
+rotate-events-parse-failed = Falha ao analisar eventos de rotação
+move-events-parse-failed = Falha ao analisar eventos de movimentação
 
 # pec
-unexpected-eol = Fim de linha inesperado 
+unexpected-eol = Fim de linha inesperado
 expected-f32 = Esperado f32
-expected-usize = Tamanho de uso esperado 
-expected-tween = Interpolação esperada 
+expected-usize = Tamanho de uso esperado
+expected-tween = Interpolação esperada
 
-no-notes-inserted = Nenhuma nota foi inserida ainda 
+no-notes-inserted = Nenhuma nota foi inserida ainda
 unknown-command = Comando desconhecido : { $cmd }
-bp-error = Os eventos Bpm (bp) devem ser contíguos e no cabeçalho do arquivo 
-expected-01 = Esperado 0/1 (nota real/nota falsa) 
+bp-error = Os eventos Bpm (bp) devem ser contíguos e no cabeçalho do arquivo
+expected-01 = Esperado 0/1 (nota real/nota falsa)
 unexpected-extra = Conteúdo extra inesperado : { $next }
 line-location = Na linha #{ $lid }
 

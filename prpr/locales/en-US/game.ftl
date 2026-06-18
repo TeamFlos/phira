@@ -5,6 +5,7 @@ offset-cancel = Cancel
 offset-reset = Reset
 offset-save = Save
 speed = Speed Multiplier
+game-over = Game Over
 
 ex-time-out-of-range = Make sure time is within bounds.
 ex-invalid-format = Invalid format.

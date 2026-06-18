@@ -30,6 +30,10 @@ item-dhint = 多点タップサポート
 item-dhint-sub = 同時ノーツが強調表示されます
 item-opt = 最適化を優先
 item-opt-sub = パフォーマンスが向上しますが、動作が不安定になる可能性があります
+item-use-keyboard = キーボードを使用
+item-use-keyboard-sub = キーボード入力でプレイできます。有効にするとスコアはアップロードされません。
+item-prefer-reduced-motion = アニメーションを減らす
+item-prefer-reduced-motion-sub = アニメーションと視覚効果を減らします
 item-speed = 速さ
 item-note-size = ノーツの大きさ
 
@@ -39,3 +43,41 @@ item-touch-debug = タッチデバッグモード
 item-touch-debug-sub = タップした点を表示します
 
 load-cali-failed = オーディオの読み込みに失敗しました
+
+about-content =
+  Phira v{ $version }
+
+  PhiraはPhigrosにインスパイアされた非商業のコミュニティ主導のリズムゲームです。
+
+  BiliBiliアカウント: @Phira官方
+  QQ Guild: r48eajexth
+  Discord Server: discord.gg/gqpR3bTSsP
+
+  最新情報を入手し、サポートを受けるためにQQ GuildまたはDiscordサーバーへの参加をお勧めします。
+
+  スタッフリスト（辞書順）
+  開発
+  { $development }
+
+  運営
+  { $operations }
+
+  ドキュメント
+  { $documentation }
+
+  アート
+  { $art }
+
+  音楽
+  { $music }
+
+  オーディオ
+  { $audio }
+
+  コミュニティ管理
+  { $community }
+
+  ローカライズ
+  { $localization }
+
+  その他多くのボランティア譜面レビュアーの皆様に感謝します。完全なリストは https://phira.moe/staff をご覧ください。

@@ -17,3 +17,5 @@ load-record-failed = Failed to load records.
 last-login = Last login: { $time }
 badge-admin = Admin
 badge-sponsor = Sponsor
+
+name-copied = Name copied.

@@ -167,7 +167,11 @@ impl HomePage {
             check_bold_font_update_task: {
                 let cksum = BOLD_FONT_CKSUM.with(|it| it.borrow().clone());
                 Some(Task::new(async move {
-                    let resp = Client::get("/font-bold").query(&[("cksum", cksum)]).send().await?;
+                    let resp = Client::get("/font-bold")
+                        .query(&[("cksum", cksum)])
+                        .query(&[("new_bold_font", "true")])
+                        .send()
+                        .await?;
                     if resp.status() == StatusCode::NOT_MODIFIED {
                         info!("bold font not modified");
                         return Ok(None);
@@ -176,7 +180,7 @@ impl HomePage {
                         let status = resp.status().as_str().to_owned();
                         let text = resp.text().await.context("failed to receive text")?;
                         if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-                            if let Some(detail) = what["detail"].as_str() {
+                            if let Some(detail) = what["error"].as_str() {
                                 bail!("request failed ({status}): {detail}");
                             }
                         }
@@ -250,6 +254,11 @@ impl HomePage {
     }
 
     fn fetch_has_new(&mut self) {
+        if get_data().config.offline_mode || get_data().me.is_none() || get_data().tokens.is_none() {
+            self.has_new_task = None;
+            self.has_new = false;
+            return;
+        }
         let time = get_data().message_check_time.unwrap_or_default();
         self.has_new_task = Some(Task::new(async move {
             #[derive(Deserialize)]
@@ -405,7 +414,7 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_msg.touch(touch, t) {
-                self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new())));
+                self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
                 return Ok(true);
             }
             if self.btn_settings.touch(touch, t) {
@@ -457,8 +466,12 @@ impl Page for HomePage {
         if self.char_last_user_id != current_user {
             let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
             self.char_last_user_id = current_user;
-            self.char_fetch_task =
-                Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
+            if get_data().config.offline_mode || get_data().me.is_none() || get_data().tokens.is_none() {
+                self.char_fetch_task = None;
+            } else {
+                self.char_fetch_task =
+                    Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
+            }
         }
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {

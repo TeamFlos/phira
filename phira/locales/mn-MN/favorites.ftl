@@ -1,0 +1,9 @@
+set-as-default = Анхдагч болгох
+default = Үндсэн
+create = Шинэ хавтас
+name-empty = Нэр хоосон байж болохгүй
+import = Импорт
+imported = Импортлогдов
+already-imported = Айл хэдийн импортлогдсон
+invalid-import = Буруу импорт код
+rename = Шинээр нэрлэх

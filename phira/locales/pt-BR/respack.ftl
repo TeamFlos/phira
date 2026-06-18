@@ -10,5 +10,5 @@ info-content =
   Autor: { $author }
   Descrição: { $desc }
 
-cant-delete-builtin = Não é possível excluir uma skin integrada 
-deleted = Excluído 
+cant-delete-builtin = Não é possível excluir uma skin integrada
+deleted = Excluído

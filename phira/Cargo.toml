@@ -11,6 +11,7 @@ workspace = true
 crate-type = ["lib", "cdylib"]
 
 [features]
+default = ["video"]
 video = ["prpr/video"]
 chat = []
 aa = []
@@ -18,16 +19,18 @@ event_debug = []
 
 [dependencies]
 anyhow = { workspace = true }
-arc-swap = "1.8.1"
+arc-swap = "1.9.0"
 async-trait = { workspace = true }
 base64 = { workspace = true }
 bitflags = { workspace = true }
-bytes = "1.11.0"
+bytes = "1.11.1"
 bytesize = "2.3.1"
 cacache = { version = "13.1.0", default-features = false, features = [
     "tokio-runtime",
 ] }
+cfg-if = "1.0.4"
 chrono = { workspace = true, features = ["serde"] }
+dashmap = "6.1.0"
 futures-util = { workspace = true }
 hex = { workspace = true }
 image = { workspace = true, default-features = false, features = [
@@ -38,6 +41,7 @@ image = { workspace = true, default-features = false, features = [
     "rayon",
     "webp",
 ] }
+inputbox = { workspace = true }
 logos = "0.16.1"
 lru = { workspace = true }
 lyon = { workspace = true }
@@ -69,25 +73,39 @@ tap = "1.0.1"
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
 tracing = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
 walkdir = { workspace = true }
-zip = { workspace = true }
+zip = { workspace = true, features = ["chrono"] }
 zstd = "0.13"
 
+miniquad = { workspace = true }
 phira-mp-client = { workspace = true }
 phira-mp-common = { workspace = true }
+sanitize-filename = "0.6.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-sys = "0.2"
+jni = "0.22.4"
 ndk-context = "0.1"
 sasa = { workspace = true, default-features = false, features = ["oboe"] }
 
-[target.'cfg(not(target_os = "android"))'.dependencies]
+[target.'cfg(target_env = "ohos")'.dependencies]
+sasa = { workspace = true, default-features = false, features = ["ohos"] }
+napi-derive-ohos = { version = "1.1.6" }
+napi-ohos = { version = "1.1.6", default-features = false, features = [
+    "napi8",
+    "async",
+] }
+
+[target.'cfg(not(any(target_os = "android", target_env = "ohos")))'.dependencies]
 sasa = { workspace = true, default-features = true }
 
+[target.'cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))'.dependencies]
+rfd = { workspace = true }
+
 [target.'cfg(target_os = "ios")'.dependencies]
-objc = "*"
-objc-foundation = "*"
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-ui-kit = { workspace = true }
 
 [build-dependencies]
 dotenv-build = "0.1"

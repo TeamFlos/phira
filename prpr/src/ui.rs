@@ -10,6 +10,7 @@ mod dialog;
 pub use dialog::Dialog;
 
 mod scroll;
+use inputbox::{InputBox, InputMode};
 pub use scroll::*;
 
 mod shading;
@@ -27,8 +28,9 @@ use crate::{
     core::{Matrix, Point, Vector},
     ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
-    scene::{request_input_full, return_input, show_error, take_input},
+    scene::{request_input, return_input, show_error, take_input},
 };
+use core::f32;
 use lyon::{
     lyon_tessellation::{
         BuffersBuilder, FillOptions, FillTessellator, FillVertex, FillVertexConstructor, StrokeOptions, StrokeTessellator, StrokeVertex,
@@ -40,7 +42,15 @@ use lyon::{
 use macroquad::prelude::*;
 use miniquad::PassAction;
 use sasa::{AudioManager, PlaySfxParams, Sfx};
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, ops::Range};
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::HashMap,
+    ops::Range,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+pub static PREFER_REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
 
 #[derive(Default, Clone, Copy)]
 pub struct Gravity(u8);
@@ -132,6 +142,16 @@ impl<T: Shading> VertexBuilder<T> {
     }
 }
 
+#[derive(Default)]
+pub struct LongTouchState {
+    start: Option<(Vec2, f32)>,
+}
+impl LongTouchState {
+    pub fn reset(&mut self) {
+        self.start = None;
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct RectButton {
     pts: Option<[Vec2; 4]>,
@@ -203,6 +223,51 @@ impl RectButton {
         }
         false
     }
+
+    pub fn long_touch(&mut self, touch: &Touch, t: f32, state: &mut LongTouchState) -> bool {
+        match touch.phase {
+            TouchPhase::Started => {
+                if self.id == Some(touch.id) {
+                    state.start = Some((touch.position, t));
+                }
+            }
+            TouchPhase::Moved | TouchPhase::Stationary => {
+                if self.id == Some(touch.id) {
+                    if let Some((start_pos, start_time)) = state.start {
+                        if (touch.position - start_pos).length() > 0.02 {
+                            state.reset();
+                        } else if t > start_time + 0.5 {
+                            state.reset();
+                            return true;
+                        }
+                    }
+                }
+            }
+            TouchPhase::Cancelled => {
+                if self.id == Some(touch.id) {
+                    state.reset();
+                }
+            }
+            TouchPhase::Ended => {
+                if self.id.take() == Some(touch.id) {
+                    state.reset();
+                }
+            }
+        }
+        false
+    }
+
+    pub fn update_long_touch(&self, t: f32, state: &mut LongTouchState) -> bool {
+        if self.id.is_some() {
+            if let Some((_, start_time)) = state.start {
+                if t > start_time + 0.5 {
+                    state.reset();
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 #[derive(Clone)]
@@ -238,6 +303,10 @@ impl DRectButton {
         // let r = r.feather((1. - self.progress(t)) * self.delta);
         let ct = r.center();
         let ct = Vector::new(ct.x, ct.y);
+        if PREFER_REDUCED_MOTION.load(Ordering::Relaxed) {
+            f(ui, r.rounded(self.config.radius));
+            return;
+        }
         ui.with(
             Matrix::new_translation(&-ct)
                 .append_scaling(1. - (1. - self.progress(t)) * 0.04)
@@ -341,7 +410,7 @@ impl DRectButton {
     }
 
     pub fn progress(&mut self, t: f32) -> f32 {
-        if self.start_time.as_ref().is_some_and(|it| t > *it + Self::TIME) {
+        if self.start_time.as_ref().is_some_and(|it| t > *it + Self::TIME) || PREFER_REDUCED_MOTION.load(Ordering::Relaxed) {
             self.start_time = None;
         }
         let p = if let Some(time) = &self.start_time {
@@ -349,7 +418,7 @@ impl DRectButton {
         } else {
             1.
         };
-        if self.inner.touching() {
+        if self.last_touching {
             1. - p
         } else {
             p
@@ -367,6 +436,32 @@ impl DRectButton {
             button_hit();
         }
         res
+    }
+
+    pub fn long_touch(&mut self, touch: &Touch, t: f32, state: &mut LongTouchState) -> bool {
+        if self.inner.long_touch(touch, t, state) {
+            self.last_touching = false;
+            self.start_time = Some(t);
+            if self.play_sound {
+                button_hit();
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_long_touch(&mut self, t: f32, state: &mut LongTouchState) -> bool {
+        if self.inner.update_long_touch(t, state) {
+            self.last_touching = false;
+            self.start_time = Some(t);
+            if self.play_sound {
+                button_hit();
+            }
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -504,24 +599,24 @@ thread_local! {
 }
 
 pub struct InputParams<'a> {
-    changed: Option<&'a mut bool>,
-    password: bool,
-    length: f32,
+    pub changed: Option<&'a mut bool>,
+    pub mode: InputMode,
+    pub length: f32,
 }
 
 impl From<()> for InputParams<'_> {
     fn from(_: ()) -> Self {
         Self {
             changed: None,
-            password: false,
+            mode: InputMode::Text,
             length: 0.3,
         }
     }
 }
 
-impl From<bool> for InputParams<'_> {
-    fn from(password: bool) -> Self {
-        Self { password, ..().into() }
+impl From<InputMode> for InputParams<'_> {
+    fn from(mode: InputMode) -> Self {
+        Self { mode, ..().into() }
     }
 }
 
@@ -535,7 +630,7 @@ impl<'a> From<(f32, &'a mut bool)> for InputParams<'a> {
     fn from((length, changed): (f32, &'a mut bool)) -> Self {
         Self {
             changed: Some(changed),
-            password: false,
+            mode: InputMode::Text,
             length,
         }
     }
@@ -859,11 +954,11 @@ impl<'a> Ui<'a> {
     }
 
     pub fn accent(&self) -> Color {
-        Color::from_hex(0xff2196f3)
+        Color::from_hex_rgb(0x2196f3)
     }
 
     pub fn background(&self) -> Color {
-        Color::from_hex(0xff2a323c)
+        Color::from_hex_rgb(0x2a323c)
     }
 
     pub fn button(&mut self, id: &str, rect: Rect, text: impl Into<String>) -> bool {
@@ -897,10 +992,16 @@ impl<'a> Ui<'a> {
             let mut state = state.borrow_mut();
             let entry = state.entry(format!("chkbox#{text}")).or_default();
             let w = 0.08;
-            let s = 0.03;
-            let text = self.text(text).pos(w, 0.).size(0.5).no_baseline().draw();
+            let s = 0.025;
+            let text = self.text(text).pos(w, 0.).size(0.47).no_baseline().draw();
             let r = Rect::new(w / 2. - s, text.center().y - s, s * 2., s * 2.);
-            self.fill_rect(r, if *value { self.accent() } else { WHITE });
+            self.fill_path(
+                &r.rounded(0.01),
+                Color {
+                    a: if entry.is_some() { 0.5 } else { 1. },
+                    ..if *value { WHITE } else { self.background() }
+                },
+            );
             let r = Rect::new(r.x, r.y, text.right() - r.x, (text.bottom() - r.y).max(w));
             if self.clicked(r, entry) {
                 *value ^= true;
@@ -916,12 +1017,12 @@ impl<'a> Ui<'a> {
         let r = self.text(label).anchor(1., 0.).size(0.47).draw();
         let lf = r.x;
         let r = Rect::new(0.02, r.y - 0.01, params.length, r.h + 0.02);
-        if if params.password {
+        if if params.mode == InputMode::Password {
             self.button(&id, r, "*".repeat(value.chars().count()))
         } else {
             self.button(&id, r, value.lines().next().unwrap_or_default())
         } {
-            request_input_full(&id, value, params.password);
+            request_input(&id, InputBox::new().default_text(value.as_str()).mode(params.mode));
         }
         if let Some((its_id, text)) = take_input() {
             if its_id == id {
@@ -1182,7 +1283,7 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
         }
     }
 }
-
+// This function is used to create UI audio manager.
 #[allow(clippy::blocks_in_conditions)]
 fn build_audio() -> AudioManager {
     match {
@@ -1195,7 +1296,16 @@ fn build_audio() -> AudioManager {
                 ..Default::default()
             }))
         }
-        #[cfg(not(target_os = "android"))]
+        #[cfg(target_env = "ohos")]
+        {
+            use sasa::backend::ohos::*;
+            AudioManager::new(OhosBackend::new(OhosSettings {
+                buffer_size: Some(512),
+                sample_rate: Some(48000),
+                channels: 2,
+            }))
+        }
+        #[cfg(not(any(target_os = "android", target_env = "ohos")))]
         {
             use sasa::backend::cpal::*;
             AudioManager::new(CpalBackend::new(CpalSettings::default()))

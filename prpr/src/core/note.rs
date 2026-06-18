@@ -1,18 +1,19 @@
 use super::{chart::ChartSettings, BpmList, CtrlObject, JudgeLine, Matrix, Object, Point, Resource};
 pub use crate::{
-    judge::{HitSound, JudgeStatus},
+    config::Mods,
+    judge::{HitSound, JudgeStatus, LIMIT_BAD},
     parse::RPE_HEIGHT,
 };
 use macroquad::prelude::*;
 
-const HOLD_PARTICLE_INTERVAL: f32 = 0.15;
-const FADEOUT_TIME: f32 = 0.16;
-const BAD_TIME: f32 = 0.5;
+const HOLD_PARTICLE_INTERVAL: f64 = 0.15;
+const FADEOUT_TIME: f64 = 0.16;
+const BAD_TIME: f64 = 0.5;
 
 #[derive(Clone, Debug)]
 pub enum NoteKind {
     Click,
-    Hold { end_time: f32, end_height: f32 },
+    Hold { end_time: f64, end_height: f64 },
     Flick,
     Drag,
 }
@@ -32,9 +33,12 @@ pub struct Note {
     pub object: Object,
     pub kind: NoteKind,
     pub hitsound: HitSound,
-    pub time: f32,
-    pub height: f32,
-    pub speed: f32,
+    pub time: f64,
+    pub height: f64,
+    pub speed: f64,
+    pub color: Color,
+    pub fx_color: Option<Color>,
+    pub judge_area: f32,
 
     /// From the other side of the line
     pub above: bool,
@@ -46,9 +50,8 @@ pub struct Note {
 pub struct RenderConfig<'a> {
     pub settings: &'a ChartSettings,
     pub ctrl_obj: &'a mut CtrlObject,
-    pub line_height: f32,
-    pub appear_before: f32,
-    pub invisible_time: f32,
+    pub line_height: f64,
+    pub appear_before: f64,
     pub draw_below: bool,
     pub incline_sin: f32,
 }
@@ -135,16 +138,18 @@ impl Note {
         // && self.ctrl_obj.is_default()
     }
 
-    pub fn update(&mut self, res: &mut Resource, parent_rot: f32, parent_tr: &Matrix, ctrl_obj: &mut CtrlObject, line_height: f32) {
+    pub fn update(&mut self, res: &mut Resource, parent_rot: f32, parent_tr: &Matrix, ctrl_obj: &mut CtrlObject, line_height: f64) {
         self.object.set_time(res.time);
         if let Some(color) = if let JudgeStatus::Hold(perfect, at, ..) = &mut self.judge {
             if res.time > *at {
-                *at += HOLD_PARTICLE_INTERVAL / res.config.speed;
-                Some(if *perfect {
-                    res.res_pack.info.fx_perfect()
-                } else {
-                    res.res_pack.info.fx_good()
-                })
+                *at += HOLD_PARTICLE_INTERVAL / res.config.speed as f64;
+                Some(self.fx_color.unwrap_or_else(|| {
+                    if *perfect {
+                        res.res_pack.info.fx_perfect()
+                    } else {
+                        res.res_pack.info.fx_good()
+                    }
+                }))
             } else {
                 None
             }
@@ -163,14 +168,18 @@ impl Note {
         // && self.ctrl_obj.dead()
     }
 
-    fn init_ctrl_obj(&self, ctrl_obj: &mut CtrlObject, line_height: f32) {
-        ctrl_obj.set_height((self.height - line_height + self.object.translation.1.now() / self.speed) * RPE_HEIGHT / 2.);
+    fn init_ctrl_obj(&self, ctrl_obj: &mut CtrlObject, line_height: f64) {
+        ctrl_obj.set_height((self.height - line_height + self.object.translation.1.now() as f64 / self.speed) * RPE_HEIGHT as f64 / 2.);
     }
 
     pub fn now_transform(&self, res: &Resource, ctrl_obj: &CtrlObject, base: f32, incline_sin: f32) -> Matrix {
         let incline_val = 1. - incline_sin * (base * res.aspect_ratio + self.object.translation.1.now()) * RPE_HEIGHT / 2. / 360.;
         let mut tr = self.object.now_translation(res);
-        tr.x *= incline_val * ctrl_obj.pos.now_opt().unwrap_or(1.);
+        tr.x *= if matches!(self.kind, NoteKind::Hold { .. }) {
+            1.
+        } else {
+            incline_val * ctrl_obj.pos.now_opt().unwrap_or(1.)
+        };
         tr.y += base;
         let mut scale = self.object.scale.now_with_def(1.0, 1.0);
         scale.x *= ctrl_obj.size.now_opt().unwrap_or(1.0);
@@ -194,9 +203,6 @@ impl Note {
                 return;
             }
         }
-        if config.invisible_time.is_finite() && self.time - config.invisible_time < res.time {
-            return;
-        }
         let scale = (if res.config.double_hint && self.multiple_hint {
             res.res_pack.note_style_mh.click.width() / res.res_pack.note_style.click.width()
         } else {
@@ -204,12 +210,15 @@ impl Note {
         }) * res.note_width;
         let ctrl_obj = &mut config.ctrl_obj;
         self.init_ctrl_obj(ctrl_obj, config.line_height);
-        let mut color = self.object.now_color();
+        let mut color = Color {
+            a: self.object.now_alpha(),
+            ..self.color
+        };
         color.a *= res.alpha * ctrl_obj.alpha.now_opt().unwrap_or(1.);
-        let spd = self.speed * ctrl_obj.y.now_opt().unwrap_or(1.);
+        let spd = self.speed * ctrl_obj.y.now_opt().unwrap_or(1.) as f64;
 
-        let line_height = config.line_height / res.aspect_ratio * spd;
-        let height = self.height / res.aspect_ratio * spd;
+        let line_height = config.line_height / res.aspect_ratio as f64 * spd;
+        let height = self.height / res.aspect_ratio as f64 * spd;
 
         let base = height - line_height;
         let cover_base = if !config.settings.hold_partial_cover {
@@ -217,7 +226,7 @@ impl Note {
         } else {
             match self.kind {
                 NoteKind::Hold { end_time: _, end_height } => {
-                    let end_height = end_height / res.aspect_ratio * spd;
+                    let end_height = end_height / res.aspect_ratio as f64 * spd;
                     end_height - line_height
                 }
                 _ => height - line_height,
@@ -225,7 +234,7 @@ impl Note {
         };
 
         if !config.draw_below
-            && ((res.time - FADEOUT_TIME >= self.time && !matches!(self.kind, NoteKind::Hold { .. }))
+            && (((res.time - FADEOUT_TIME >= self.time || self.fake && res.time >= self.time) && !matches!(self.kind, NoteKind::Hold { .. }))
                 || (self.time > res.time && cover_base <= -0.001))
         {
             return;
@@ -236,12 +245,21 @@ impl Note {
         } else {
             &res.res_pack.note_style
         };
+        let mod_alpha = if res.config.has_mod(Mods::FADE_OUT) {
+            ((self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
+        } else if res.config.has_mod(Mods::FADE_IN) {
+            (1. - (self.time - res.time - LIMIT_BAD) / LIMIT_BAD).clamp(0., 1.)
+        } else {
+            1.
+        };
         let draw = |res: &mut Resource, tex: Texture2D| {
             let mut color = color;
             if !config.draw_below {
-                color.a *= (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
+                let alpha = (self.time - res.time).min(0.) / FADEOUT_TIME + 1.;
+                color.a *= if self.fake && res.time >= self.time { 0. } else { alpha as f32 };
             }
-            res.with_model(self.now_transform(res, ctrl_obj, base, config.incline_sin), |res| {
+            color.a *= mod_alpha as f32;
+            res.with_model(self.now_transform(res, ctrl_obj, base as f32, config.incline_sin), |res| {
                 draw_center(res, tex, order, scale, color);
             });
         };
@@ -263,11 +281,12 @@ impl Note {
                     if res.time >= end_time {
                         return;
                     }
-                    let end_height = end_height / res.aspect_ratio * spd;
+                    let end_height = end_height / res.aspect_ratio as f64 * spd;
+                    color.a *= mod_alpha as f32;
 
                     let h = if self.time <= res.time { line_height } else { height };
-                    let bottom = h - line_height;
-                    let top = end_height - line_height;
+                    let bottom = (h - line_height) as f32;
+                    let top = (end_height - line_height) as f32;
                     let tex = &style.hold;
                     let ratio = style.hold_ratio();
                     // body
@@ -348,7 +367,7 @@ impl Note {
 }
 
 pub struct BadNote {
-    pub time: f32,
+    pub time: f64,
     pub kind: NoteKind,
     pub matrix: Matrix,
 }
@@ -370,7 +389,7 @@ impl BadNote {
                 },
                 self.kind.order(),
                 res.note_width,
-                Color::new(0.423529, 0.262745, 0.262745, (self.time - res.time).max(-1.) / BAD_TIME + 1.),
+                Color::new(0.423529, 0.262745, 0.262745, ((self.time - res.time).max(-1.) / BAD_TIME + 1.) as f32),
             );
         });
         true

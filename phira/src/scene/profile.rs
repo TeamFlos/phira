@@ -50,6 +50,7 @@ pub struct ProfileScene {
     icon_user: SafeTexture,
 
     btn_back: RectButton,
+    btn_name: RectButton,
     btn_open_web: DRectButton,
     btn_logout: DRectButton,
     btn_delete: DRectButton,
@@ -90,6 +91,7 @@ impl ProfileScene {
             icon_user,
 
             btn_back: RectButton::new(),
+            btn_name: RectButton::new(),
             btn_open_web: DRectButton::new(),
             btn_logout: DRectButton::new(),
             btn_delete: DRectButton::new(),
@@ -264,6 +266,13 @@ impl Scene for ProfileScene {
             self.sf.next(t, NextScene::Pop);
             return Ok(true);
         }
+        if self.btn_name.touch(touch) {
+            if let Some(user) = &self.user {
+                unsafe { get_internal_gl() }.quad_context.clipboard_set(&user.name);
+                show_message(tl!("name-copied")).ok();
+            }
+            return Ok(true);
+        }
         if self.btn_open_web.touch(touch, t) {
             open_url(&format!("https://phira.moe/user/{}", self.id))?;
             return Ok(true);
@@ -349,6 +358,14 @@ impl Scene for ProfileScene {
                         .anchor(0.5, 0.)
                         .max_width(mw)
                         .color(user.name_color())
+                        .draw();
+                    self.btn_name.set(ui, r);
+                    let r = ui
+                        .text(format!("#{}", self.id))
+                        .size(0.35)
+                        .pos(cx, r.bottom() + 0.01)
+                        .anchor(0.5, 0.)
+                        .color(semi_white(0.5))
                         .draw();
                     let r = ui
                         .text(format!("RKS {:.2}", user.rks))

@@ -10,7 +10,7 @@ workspace = true
 [lib]
 
 [features]
-default = ["log", "video"]
+default = ["log"]
 video = ["dep:prpr-avc"]
 log = ["dep:tracing-subscriber", "dep:colored"]
 
@@ -41,11 +41,12 @@ image = { workspace = true, default-features = false, features = [
 	"rayon",
 	"webp",
 ] }
+inputbox = { workspace = true }
 intl-memoizer = "0.5.3"
-libc = "0.2.180"
+libc = "0.2.183"
 lru = { workspace = true }
 lyon = { workspace = true }
-miniz_oxide = "0.9.0"
+miniz_oxide = "0.9.1"
 nalgebra = { workspace = true }
 obfstr = "0.4.4"
 once_cell = { workspace = true }
@@ -69,8 +70,9 @@ symphonia = { version = "0.5", features = [
 sys-locale = { workspace = true }
 tempfile = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { version = "0.3.22", optional = true }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"], optional = true }
 unic-langid = { version = "0.9.6", features = ["macros"] }
+uuid = { workspace = true, features = ["v4"] }
 zip = { workspace = true, default-features = false, features = ["deflate"] }
 
 macroquad = { workspace = true, default-features = false }
@@ -78,22 +80,25 @@ miniquad = { workspace = true }
 prpr-avc = { workspace = true, optional = true }
 prpr-l10n = { workspace = true }
 
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+[target.'cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))'.dependencies]
 open = "5.3.3"
-rfd = "0.17.2"
+rfd = { workspace = true }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-block = "0.1.6"
-objc = "*"
-objc_id = "*"
-objc-foundation = "0.1.1"
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-ui-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"] }
+objc2-uniform-type-identifiers = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-sys = "0.2"
+jni = "0.22.4"
 ndk-context = "0.1"
 sasa = { workspace = true, default-features = false, features = ["oboe"] }
 
-[target.'cfg(not(target_os = "android"))'.dependencies]
+[target.'cfg(target_env = "ohos")'.dependencies]
+sasa = { workspace = true, default-features = false, features = ["ohos"] }
+
+[target.'cfg(not(any(target_os = "android", target_env = "ohos")))'.dependencies]
 sasa = { workspace = true, default-features = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

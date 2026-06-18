@@ -1,6 +1,10 @@
-prpr_l10n::tl_file!("parser" ptl);
-
 use super::RPE_TWEEN_MAP;
+use anyhow::{Context, Result};
+use macroquad::prelude::{Color, Vec2};
+use serde::Deserialize;
+use std::{collections::HashMap, rc::Rc};
+
+use super::L10N_LOCAL;
 #[cfg(feature = "video")]
 use crate::core::Video;
 use crate::{
@@ -8,10 +12,6 @@ use crate::{
     ext::ScaleType,
     fs::FileSystem,
 };
-use anyhow::{Context, Result};
-use macroquad::prelude::{Color, Vec2};
-use serde::Deserialize;
-use std::{collections::HashMap, rc::Rc};
 
 // serde is weird...
 fn f32_zero() -> f32 {
@@ -66,7 +66,7 @@ impl<V> ExtAnim<V> {
                         value: e.start.into(),
                         tween: {
                             let tween = RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
-                            if e.easing_left.abs() < EPS && (e.easing_right - 1.0).abs() < EPS {
+                            if e.easing_left.abs() < EPS as f32 && (e.easing_right - 1.0).abs() < EPS as f32 {
                                 StaticTween::get_rc(tween)
                             } else {
                                 Rc::new(ClampedTween::new(tween, e.easing_left..e.easing_right))
@@ -85,13 +85,13 @@ impl<V> ExtAnim<V> {
 #[serde(rename_all = "camelCase")]
 struct ExtBpmItem {
     time: Triple,
-    bpm: f32,
+    bpm: f64,
 }
 
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum BpmForm {
-    Single(f32),
+    Single(f64),
     List(Vec<ExtBpmItem>),
 }
 
@@ -135,6 +135,9 @@ struct ExtVideo {
     alpha: ExtAnim<f32>,
     #[serde(default)]
     dim: ExtAnim<f32>,
+    #[cfg(feature = "video")]
+    #[serde(default)]
+    attach: Option<crate::core::VideoAttach>,
 }
 
 #[derive(Deserialize)]
@@ -190,7 +193,7 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
     let mut videos = Vec::new();
     #[cfg(feature = "video")]
     for video in ext.videos {
-        videos.push(
+        videos.push((
             Video::new(
                 fs.load_file(&video.path)
                     .await
@@ -201,7 +204,8 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
                 video.dim.into(&mut r, Some(0.)),
             )
             .with_context(|| ptl!("video-load-failed", "path" => video.path))?,
-        );
+            video.attach,
+        ));
     }
     #[cfg(not(feature = "video"))]
     if !ext.videos.is_empty() {

@@ -13,17 +13,17 @@ use miniquad::{EventHandler, MouseButton};
 use once_cell::sync::Lazy;
 use sasa::{PlaySfxParams, Sfx};
 use serde::Serialize;
-use std::{cell::RefCell, collections::HashMap, num::FpCategory};
+use std::{cell::RefCell, collections::HashMap, mem, num::FpCategory};
 use tracing::debug;
 
 pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
-pub const LIMIT_PERFECT: f32 = 0.08;
-pub const LIMIT_GOOD: f32 = 0.16;
-pub const LIMIT_BAD: f32 = 0.22;
-pub const UP_TOLERANCE: f32 = 0.05;
-pub const DIST_FACTOR: f32 = 0.2;
+pub const LIMIT_PERFECT: f64 = 0.08;
+pub const LIMIT_GOOD: f64 = 0.16;
+pub const LIMIT_BAD: f64 = 0.22;
+pub const UP_TOLERANCE: f64 = 0.05;
+pub const DIST_FACTOR: f64 = 0.2;
 
-const EARLY_OFFSET: f32 = 0.07;
+const EARLY_OFFSET: f64 = 0.07;
 
 #[derive(Debug, Clone)]
 pub enum HitSound {
@@ -78,20 +78,12 @@ fn get_uptime() -> f64 {
 
 #[cfg(target_os = "ios")]
 fn get_uptime() -> f64 {
-    use crate::objc::*;
-    unsafe {
-        let process_info: ObjcId = msg_send![class!(NSProcessInfo), processInfo];
-        msg_send![process_info, systemUptime]
-    }
+    objc2_foundation::NSProcessInfo::processInfo().systemUptime()
 }
 
 #[cfg(target_os = "windows")]
 fn get_uptime() -> f64 {
-    use std::time::SystemTime;
-    let start = SystemTime::UNIX_EPOCH;
-    let now = SystemTime::now();
-    let duration = now.duration_since(start).expect("Time went backwards");
-    duration.as_secs() as f64 + duration.subsec_nanos() as f64 * 1e-9
+    miniquad::native::windows::get_uptime()
 }
 
 pub struct FlickTracker {
@@ -147,7 +139,7 @@ pub enum JudgeStatus {
     NotJudged,
     PreJudge,
     Judged,
-    Hold(bool, f32, f32, bool, f32), // perfect, at, diff, pre-judge, up-time
+    Hold(bool, f64, f64, bool, f64), // perfect, at, diff, pre-judge, up-time
 }
 
 #[repr(u8)]
@@ -162,12 +154,14 @@ pub enum Judgement {
 #[cfg(not(closed))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
-    diffs: Vec<f32>,
+    diffs: Vec<f64>,
 
     combo: u32,
     max_combo: u32,
     counts: [u32; 4],
     num_of_notes: u32,
+    early_kind: [u32; 4],
+    late_kind: [u32; 4],
 }
 
 #[cfg(not(closed))]
@@ -180,13 +174,20 @@ impl JudgeInner {
             max_combo: 0,
             counts: [0; 4],
             num_of_notes,
+            early_kind: [0; 4],
+            late_kind: [0; 4],
         }
     }
 
-    pub fn commit(&mut self, what: Judgement, diff: f32) {
+    pub fn commit(&mut self, what: Judgement, diff: f64) {
         use Judgement::*;
         if matches!(what, Judgement::Good) {
             self.diffs.push(diff);
+        }
+        if diff < 0. {
+            self.early_kind[what as usize] += 1;
+        } else if diff > 0. {
+            self.late_kind[what as usize] += 1;
         }
         self.counts[what as usize] += 1;
         match what {
@@ -207,6 +208,8 @@ impl JudgeInner {
         self.max_combo = 0;
         self.counts = [0; 4];
         self.diffs.clear();
+        self.early_kind = [0; 4];
+        self.late_kind = [0; 4];
     }
 
     pub fn accuracy(&self) -> f64 {
@@ -242,6 +245,8 @@ impl JudgeInner {
             early,
             late: self.diffs.len() as u32 - early,
             std: 0.,
+            early_kind: self.early_kind,
+            late_kind: self.late_kind,
         }
     }
 
@@ -260,7 +265,7 @@ pub mod inner;
 #[cfg(closed)]
 use inner::*;
 
-type Judgements = Vec<(f32, u32, u32, Result<Judgement, bool>)>;
+type Judgements = Vec<(f64, u32, u32, Result<Judgement, bool>)>;
 
 #[repr(C)]
 pub struct Judge {
@@ -268,7 +273,7 @@ pub struct Judge {
     // LinkedList::drain_filter is unstable...
     pub notes: Vec<(Vec<u32>, usize)>,
     pub trackers: HashMap<u64, FlickTracker>,
-    pub last_time: f32,
+    pub last_time: f64,
 
     key_down_count: u32,
 
@@ -276,9 +281,21 @@ pub struct Judge {
     pub judgements: RefCell<Judgements>,
 }
 
+#[derive(Default)]
+struct TouchStatus {
+    touches: Vec<Touch>,
+    key_delta: i32,
+    keys_down: u32,
+}
+
 static SUBSCRIBER_ID: Lazy<usize> = Lazy::new(register_input_subscriber);
 thread_local! {
-    static TOUCHES: RefCell<(Vec<Touch>, i32, u32)> = RefCell::default();
+    static TOUCHES: RefCell<TouchStatus> = RefCell::default();
+    static WHEEL: RefCell<(f32, f32)> = RefCell::default();
+}
+
+pub fn take_wheel() -> (f32, f32) {
+    WHEEL.with(|it| mem::take(&mut *it.borrow_mut()))
 }
 
 impl Judge {
@@ -311,7 +328,23 @@ impl Judge {
         self.judgements.borrow_mut().clear();
     }
 
-    pub fn commit(&mut self, t: f32, what: Judgement, line_id: u32, note_id: u32, diff: f32) {
+    /// Advance note pointers past notes before time `t`, marking them as judged.
+    /// Used in exercise mode to skip notes before the exercise range start.
+    pub fn advance_to(&mut self, chart: &mut Chart, t: f64) {
+        for (line, (idx, st)) in chart.lines.iter_mut().zip(self.notes.iter_mut()) {
+            while *st < idx.len() {
+                let note = &mut line.notes[idx[*st] as usize];
+                if note.time >= t {
+                    break;
+                }
+                note.judge = JudgeStatus::Judged;
+                *st += 1;
+            }
+        }
+        self.last_time = t;
+    }
+
+    pub fn commit(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64) {
         self.judgements.borrow_mut().push((t, line_id, note_id, Ok(what)));
         self.inner.commit(what, diff);
     }
@@ -332,11 +365,17 @@ impl Judge {
     }
 
     pub(crate) fn on_new_frame() {
-        let mut handler = Handler(Vec::new(), 0, 0);
+        let mut handler = Handler {
+            status: TouchStatus::default(),
+            wheel: (0., 0.),
+        };
         repeat_all_miniquad_input(&mut handler, *SUBSCRIBER_ID);
         handler.finalize();
         TOUCHES.with(|it| {
-            *it.borrow_mut() = (handler.0, handler.1, handler.2);
+            *it.borrow_mut() = handler.status;
+        });
+        WHEEL.with(|it| {
+            *it.borrow_mut() = handler.wheel;
         });
     }
 
@@ -359,7 +398,7 @@ impl Judge {
             let guard = it.borrow();
             let tr = Self::touch_transform(false);
             guard
-                .0
+                .touches
                 .iter()
                 .cloned()
                 .map(|mut it| {
@@ -375,8 +414,8 @@ impl Judge {
             self.auto_play_update(res, chart);
             return;
         }
-        const X_DIFF_MAX: f32 = 0.21 / (16. / 9.) * 2.;
-        let spd = res.config.speed;
+        const X_DIFF_MAX: f64 = 0.21 / (16. / 9.) * 2.;
+        let spd = res.config.speed as f64;
 
         let uptime = get_uptime();
 
@@ -420,17 +459,22 @@ impl Judge {
                 })
                 .collect()
         };
-        let (events, keys_down) = TOUCHES.with(|it| {
+        let (events, keys_down, key_delta) = TOUCHES.with(|it| {
             let guard = it.borrow();
-            (guard.0.clone(), guard.2)
+            let events = guard.touches.clone();
+            if res.config.use_keyboard {
+                (events, guard.keys_down, guard.key_delta)
+            } else {
+                (events, 0, 0)
+            }
         });
-        self.key_down_count = self.key_down_count.saturating_add_signed(TOUCHES.with(|it| it.borrow().1));
+        self.key_down_count = self.key_down_count.saturating_add_signed(key_delta);
         {
             fn to_local(Vec2 { x, y }: Vec2) -> Point {
                 Point::new(x / screen_width() * 2. - 1., y / screen_height() * 2. - 1.)
             }
-            let delta = (t / spd - self.last_time) as f64 / (events.len() + 1) as f64;
-            let mut t = self.last_time as f64;
+            let delta = (t / spd - self.last_time) / (events.len() + 1) as f64;
+            let mut t = self.last_time;
             for Touch {
                 id,
                 phase,
@@ -471,14 +515,14 @@ impl Judge {
                 it.time = if it.time.is_infinite() {
                     f64::NEG_INFINITY
                 } else {
-                    t as f64 - (uptime - it.time) * spd as f64
+                    t - (uptime - it.time) * spd
                 };
                 it
             })
             .collect();
         // pos[line][touch]
         let mut pos = Vec::<Vec<Option<Point>>>::with_capacity(chart.lines.len());
-        for id in 0..pos.capacity() {
+        for id in 0..chart.lines.len() {
             chart.lines[id].object.set_time(t);
             let inv = chart.lines[id].now_transform(res, &chart.lines).try_inverse().unwrap();
             pos.push(
@@ -503,7 +547,7 @@ impl Judge {
             if touch.time.is_infinite() {
                 t
             } else {
-                touch.time as f32
+                touch.time
             }
         };
         let mut judgements = Vec::new();
@@ -536,7 +580,7 @@ impl Judge {
                     let dt = if dt < 0. { (dt + EARLY_OFFSET).min(0.).abs() } else { dt };
                     let x = &mut note.object.translation.0;
                     x.set_time(t);
-                    let dist = (x.now() - pos.x).abs();
+                    let dist = (x.now() - pos.x).abs() as f64 / note.judge_area as f64;
                     if dist > X_DIFF_MAX {
                         continue;
                     }
@@ -581,7 +625,7 @@ impl Judge {
                             NoteKind::Hold { .. } => {
                                 note.hitsound.play(res);
                                 self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
-                                note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f32::INFINITY);
+                                note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f64::INFINITY);
                             }
                             _ => unreachable!(),
                         };
@@ -643,7 +687,7 @@ impl Judge {
                         NoteKind::Hold { .. } => {
                             note.hitsound.play(res);
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
-                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f32::INFINITY);
+                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f64::INFINITY);
                         }
                         _ => unreachable!(),
                     };
@@ -665,7 +709,11 @@ impl Judge {
                         let x = &mut note.object.translation.0;
                         x.set_time(t);
                         let x = x.now();
-                        if self.key_down_count == 0 && !pos.iter().any(|it| it.is_some_and(|it| (it.x - x).abs() <= X_DIFF_MAX)) {
+                        if self.key_down_count == 0
+                            && !pos
+                                .iter()
+                                .any(|it| it.is_some_and(|it| (it.x - x).abs() as f64 / note.judge_area as f64 <= X_DIFF_MAX))
+                        {
                             if t > *up_time + UP_TOLERANCE {
                                 note.judge = JudgeStatus::Judged;
                                 judgements.push((Judgement::Miss, line_id, *id, None));
@@ -673,7 +721,7 @@ impl Judge {
                                 *up_time = t;
                             }
                         } else {
-                            *up_time = f32::INFINITY;
+                            *up_time = f64::INFINITY;
                         }
                         continue;
                     }
@@ -701,7 +749,7 @@ impl Judge {
                 if self.key_down_count != 0
                     || pos.iter().any(|it| {
                         it.is_some_and(|it| {
-                            let dx = (it.x - x).abs();
+                            let dx = (it.x - x).abs() as f64 / note.judge_area as f64;
                             dx <= X_DIFF_MAX && dt <= (LIMIT_BAD - LIMIT_PERFECT * (dx - 0.9).max(0.))
                         })
                     })
@@ -772,11 +820,15 @@ impl Judge {
             }
             if match judgement {
                 Judgement::Perfect => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_perfect()));
+                    res.with_model(line_tr * note.object.now(res), |res| {
+                        res.emit_at_origin(note.rotation(line), note.fx_color.unwrap_or_else(|| res.res_pack.info.fx_perfect()))
+                    });
                     true
                 }
                 Judgement::Good => {
-                    res.with_model(line_tr * note.object.now(res), |res| res.emit_at_origin(note.rotation(line), res.res_pack.info.fx_good()));
+                    res.with_model(line_tr * note.object.now(res), |res| {
+                        res.emit_at_origin(note.rotation(line), note.fx_color.unwrap_or_else(|| res.res_pack.info.fx_good()))
+                    });
                     true
                 }
                 Judgement::Bad => {
@@ -793,7 +845,7 @@ impl Judge {
                                 mat *= note.now_transform(
                                     res,
                                     &line.ctrl_obj.borrow_mut(),
-                                    (note.height - line.height.now()) / res.aspect_ratio * note.speed,
+                                    ((note.height - line.height.now() as f64) / res.aspect_ratio as f64 * note.speed) as f32,
                                     incline_sin,
                                 );
                                 mat
@@ -820,7 +872,7 @@ impl Judge {
 
     fn auto_play_update(&mut self, res: &mut Resource, chart: &mut Chart) {
         let t = res.time;
-        let spd = res.config.speed;
+        let spd = res.config.speed as f64;
         let mut judgements = Vec::new();
         for (line_id, (line, (idx, st))) in chart.lines.iter_mut().zip(self.notes.iter_mut()).enumerate() {
             for id in &idx[*st..] {
@@ -843,7 +895,7 @@ impl Judge {
                 note.judge = if matches!(note.kind, NoteKind::Hold { .. }) {
                     note.hitsound.play(res);
                     self.judgements.borrow_mut().push((t, line_id as _, *id, Err(true)));
-                    JudgeStatus::Hold(true, t, (t - note.time) / spd, false, f32::INFINITY)
+                    JudgeStatus::Hold(true, t, (t - note.time) / spd, false, f64::INFINITY)
                 } else {
                     judgements.push((line_id, *id));
                     JudgeStatus::Judged
@@ -892,11 +944,14 @@ impl Judge {
     }
 }
 
-struct Handler(Vec<Touch>, i32, u32);
+struct Handler {
+    status: TouchStatus,
+    wheel: (f32, f32),
+}
 impl Handler {
     fn finalize(&mut self) {
         if is_mouse_button_down(MouseButton::Left) {
-            self.0.push(Touch {
+            self.status.touches.push(Touch {
                 id: button_to_id(MouseButton::Left),
                 phase: TouchPhase::Moved,
                 position: mouse_position().into(),
@@ -920,7 +975,7 @@ impl EventHandler for Handler {
     fn update(&mut self, _: &mut miniquad::Context) {}
     fn draw(&mut self, _: &mut miniquad::Context) {}
     fn touch_event(&mut self, _: &mut miniquad::Context, phase: miniquad::TouchPhase, id: u64, x: f32, y: f32, time: f64) {
-        self.0.push(Touch {
+        self.status.touches.push(Touch {
             id,
             phase: phase.into(),
             position: vec2(x, y),
@@ -928,8 +983,13 @@ impl EventHandler for Handler {
         });
     }
 
+    fn mouse_wheel_event(&mut self, _ctx: &mut miniquad::Context, x: f32, y: f32) {
+        self.wheel.0 += x;
+        self.wheel.1 += y;
+    }
+
     fn mouse_button_down_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
-        self.0.push(Touch {
+        self.status.touches.push(Touch {
             id: button_to_id(button),
             phase: TouchPhase::Started,
             position: vec2(x, y),
@@ -938,7 +998,7 @@ impl EventHandler for Handler {
     }
 
     fn mouse_button_up_event(&mut self, _ctx: &mut miniquad::Context, button: MouseButton, x: f32, y: f32) {
-        self.0.push(Touch {
+        self.status.touches.push(Touch {
             id: button_to_id(button),
             phase: TouchPhase::Ended,
             position: vec2(x, y),
@@ -948,13 +1008,13 @@ impl EventHandler for Handler {
 
     fn key_down_event(&mut self, _ctx: &mut miniquad::Context, _keycode: KeyCode, _keymods: miniquad::KeyMods, repeat: bool) {
         if !repeat {
-            self.1 += 1;
-            self.2 += 1;
+            self.status.key_delta += 1;
+            self.status.keys_down += 1;
         }
     }
 
     fn key_up_event(&mut self, _ctx: &mut miniquad::Context, _keycode: KeyCode, _keymods: miniquad::KeyMods) {
-        self.1 -= 1;
+        self.status.key_delta -= 1;
     }
 }
 
@@ -968,6 +1028,8 @@ pub struct PlayResult {
     pub early: u32,
     pub late: u32,
     pub std: f32,
+    pub early_kind: [u32; 4],
+    pub late_kind: [u32; 4],
 }
 
 pub fn icon_index(score: u32, full_combo: bool) -> usize {

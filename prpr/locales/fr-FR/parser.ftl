@@ -40,6 +40,6 @@ line-location = À la ligne #{ $lid }
 
 # extra
 shader-load-failed = Impossible de charger le shader depuis { $path }
-shader-not-found = Impossible de trouver le shader { $shader } prédéfini 
+shader-not-found = Impossible de trouver le shader { $shader } prédéfini
 effect-location = Effet #{ $id }
 video-load-failed = Échec du chargement de la vidéo depuis { $path }

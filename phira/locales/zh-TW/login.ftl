@@ -7,6 +7,7 @@ register = 註冊
 email = 電子郵件地址
 username = 使用者名稱
 password = 密碼
+forget-password = 忘記密碼？
 
 name-length-req = 使用者名稱長度應介於 4-20 之間
 name-has-illegal-char = 使用者名稱包含非法字元

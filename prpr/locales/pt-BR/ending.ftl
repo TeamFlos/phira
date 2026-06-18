@@ -9,7 +9,7 @@ accuracy = precisão
 error = Erro
 
 uploading = Enviando resultados…
-uploaded = Enviado 
+uploaded = Enviado
 upload-failed = Falha ao enviar
 upload-cancel = Cancelar envio
 upload-retry = Tentar de novo

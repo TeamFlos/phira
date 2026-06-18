@@ -1,5 +1,5 @@
 
-edit-chart = Chỉnh sửa
+edit-chart = Sửa Chart
 level-displayed = Level
 chart-name = Tên
 author = Charter
@@ -7,20 +7,23 @@ composer = Tác giả bài hát
 illustrator = Minh hoạ
 diff = Độ khó
 preview-time = Nghe trước
-preview-hint = Nên là "START-END"; có thể thêm dấu cách
-invalid-time = Thời gian không hợp lệ
+preview-hint = Sử dụng định dạng "START-END"
+invalid-time = Thông số nghe trước không hợp lệ
 preview-too-short = Thời gian quá ngắn
 preview-too-long = Thời gian quá dài
-offset = Offset(s)
+offset = Offset (s)
 aspect-ratio = Tỉ lệ màn hình
 ps = Ghi chú
 aspect-hint = Tỉ lệ màn hình có thể là số hoặc chữ dạng như "rộng:cao"
-dim = Độ tối nền
+dim = Độ sáng nền
+enable-unlock = Bật video mở màn
+force-aspect-ratio = Đóng khung theo tỉ lệ màn hình
 chart-file = Tệp Chart
 music-file = Tệp nhạc
-illu-file = Minh hoạ
+illu-file = Ảnh minh hoạ
+unlock-file = Video mở màn
 tip = Mẹo
-intro = Giới thiệu
+intro = Mô tả
 tags = Thẻ
 tag-exists = Thẻ đã tồn tại
 

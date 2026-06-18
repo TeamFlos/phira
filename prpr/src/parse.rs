@@ -1,4 +1,5 @@
 //! Chart parsers
+prpr_l10n::tl_file!("parser" ptl);
 
 mod extra;
 pub use extra::parse_extra;
@@ -10,7 +11,13 @@ mod pgr;
 pub use pgr::parse_phigros;
 
 mod rpe;
-pub use rpe::{parse_rpe, RPE_HEIGHT, RPE_WIDTH};
+pub use rpe::{lint, parse_rpe, RPE_HEIGHT, RPE_WIDTH};
+
+#[derive(Debug, Default)]
+pub struct ParseWarnings {
+    pub has_new_speed_events: bool,
+    pub has_attach_ui: bool,
+}
 
 pub(crate) fn process_lines(v: &mut [crate::core::JudgeLine]) {
     use crate::ext::NotNanExt;

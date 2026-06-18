@@ -1,6 +1,7 @@
 
 retry = RETRY
 proceed = PROCEED
+detail = DETAILS
 
 new-best = NEW BEST
 max-combo = MAX COMBO

@@ -12,10 +12,10 @@
 
 pub use macroquad::color::Color;
 
-pub const NOTE_WIDTH_RATIO_BASE: f32 = 0.13175016;
-pub const HEIGHT_RATIO: f32 = 0.83175;
+pub const NOTE_WIDTH_RATIO_BASE: f64 = 0.13175016;
+pub const HEIGHT_RATIO: f64 = 0.83175;
 
-pub const EPS: f32 = 1e-5;
+pub const EPS: f64 = 1e-5;
 
 pub type Point = nalgebra::Point2<f32>;
 pub type Vector = nalgebra::Vector2<f32>;
@@ -50,14 +50,17 @@ mod smooth;
 pub use smooth::Smooth;
 
 mod tween;
-pub use tween::{easing_from, BezierTween, ClampedTween, StaticTween, TweenFunction, TweenId, TweenMajor, TweenMinor, Tweenable, TWEEN_FUNCTIONS};
+pub use tween::{
+    easing_from, BezierTween, ClampedTween, GeneralIntTween, IntClampedTween, IntStaticTween, StaticTween, TweenFunction, TweenId, TweenMajor,
+    TweenMinor, Tweenable, TWEEN_FUNCTIONS,
+};
 
 #[cfg(feature = "video")]
 mod video;
 #[cfg(feature = "video")]
 pub use prpr_avc::demux_audio;
 #[cfg(feature = "video")]
-pub use video::Video;
+pub use video::{Video, VideoAttach};
 
 use crate::ui::TextPainter;
 use std::cell::RefCell;
@@ -68,6 +71,7 @@ thread_local! {
 }
 
 pub fn init_assets() {
+    #[cfg(not(target_env = "ohos"))]
     if let Ok(mut exe) = std::env::current_exe() {
         while exe.pop() {
             if exe.join("assets").exists() {
@@ -76,6 +80,8 @@ pub fn init_assets() {
             }
         }
     }
+    #[cfg(target_env = "ohos")]
+    let _ = std::env::set_current_dir("/data/storage/el1/bundle/entry/resources/resfile/");
     set_pc_assets_folder("assets");
 }
 
@@ -89,8 +95,8 @@ impl Default for Triple {
 }
 
 impl Triple {
-    pub fn beats(&self) -> f32 {
-        self.0 as f32 + self.1 as f32 / self.2 as f32
+    pub fn beats(&self) -> f64 {
+        self.0 as f64 + self.1 as f64 / self.2 as f64
     }
 }
 
@@ -98,7 +104,7 @@ impl Triple {
 pub struct BpmList {
     /// (beats, time, bpm)
     /// time in seconds
-    elements: Vec<(f32, f32, f32)>,
+    elements: Vec<(f64, f64, f64)>,
     /// cursor for searching, value is the index of `elements`
     cursor: usize,
 }
@@ -107,11 +113,11 @@ impl BpmList {
     /// Create a new BpmList from a list of (beats, bpm) pairs
     ///
     /// Basically just calculate the time for each pair(key frame)
-    pub fn new(ranges: Vec<(f32, f32)>) -> Self {
+    pub fn new(ranges: Vec<(f64, f64)>) -> Self {
         let mut elements = Vec::new();
         let mut time = 0.0;
         let mut last_beats = 0.0;
-        let mut last_bpm: Option<f32> = None;
+        let mut last_bpm: Option<f64> = None;
         for (now_beats, bpm) in ranges {
             if let Some(bpm) = last_bpm {
                 time += (now_beats - last_beats) * (60. / bpm);
@@ -124,7 +130,7 @@ impl BpmList {
     }
 
     /// Get the time in seconds for a given beats
-    pub fn time_beats(&mut self, beats: f32) -> f32 {
+    pub fn time_beats(&mut self, beats: f64) -> f64 {
         while let Some(kf) = self.elements.get(self.cursor + 1) {
             if kf.0 > beats {
                 break;
@@ -139,12 +145,12 @@ impl BpmList {
     }
 
     /// Get the time in seconds for a given `i + n / d`
-    pub fn time(&mut self, triple: &Triple) -> f32 {
+    pub fn time(&mut self, triple: &Triple) -> f64 {
         self.time_beats(triple.beats())
     }
 
     /// Get the beat coordinate for a given time in seconds
-    pub fn beat(&mut self, time: f32) -> f32 {
+    pub fn beat(&mut self, time: f64) -> f64 {
         while let Some(kf) = self.elements.get(self.cursor + 1) {
             if kf.1 > time {
                 break;

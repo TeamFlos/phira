@@ -1,23 +1,13 @@
 inner.rs
 
-/.env
-/http-cacache
-/prpr/build.rs
 /target
 /assets/font.ttf
-/assets/charts
-/assets/texture
-/wbindgen
-/dist
-/conf.yml
 /cache
 /data
 /.cargo
 /config.txt
-/assets/char.png
 /assets/background.jpg
 /assets/res
-/test.uml
 /monitor-config.yml
 /.vscode
 
@@ -33,9 +23,8 @@ inner.rs
 /build
 /*.ipa
 /phira.app
-/Assets.xcassets
-/LaunchScreen.storyboard
-/phira.xcodeproj
+/phira.xcodeproj/project.xcworkspace/xcuserdata/
+/xcode/LocalSigning.xcconfig
 /dist
 /project.yml
 /prpr.scent
@@ -46,3 +35,8 @@ inner.rs
 /test
 /log*
 /build_event_debug.sh
+
+
+# OHOS
+
+/phira/dist/

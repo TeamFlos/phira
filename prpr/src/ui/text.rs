@@ -12,7 +12,7 @@ use macroquad::{
     prelude::*,
 };
 use once_cell::sync::Lazy;
-use std::{borrow::Cow, cell::RefCell, collections::HashSet, thread::LocalKey};
+use std::{borrow::Cow, cell::RefCell, thread::LocalKey};
 use tracing::debug;
 
 #[must_use = "DrawText does nothing until you 'draw' it"]
@@ -118,7 +118,7 @@ impl<'a, 's, 'ui> DrawText<'a, 's, 'ui> {
             let mut last = 0;
             let mut last_contain = false;
             for (i, c) in text.char_indices() {
-                let contain = painter.valid_chars.contains(&c);
+                let contain = " \n\t".contains(c) || painter.brush.fonts()[0].glyph_id(c).0 != 0;
                 if last_contain != contain {
                     if last != i {
                         section = section.add_text(
@@ -279,14 +279,10 @@ pub struct TextPainter {
     cache_texture: Texture2D,
     data_buffer: Vec<u8>,
     vertices_buffer: Vec<MyVertex>,
-
-    valid_chars: HashSet<char>,
 }
 
 impl TextPainter {
     pub fn new(font: FontArc, fallback: Option<FontArc>) -> Self {
-        let valid_chars = font.codepoint_ids().map(|it| it.1).chain(" \n\t".chars()).collect();
-
         let mut fonts = vec![font];
         if let Some(fallback) = fallback {
             fonts.push(fallback);
@@ -301,8 +297,6 @@ impl TextPainter {
             cache_texture,
             data_buffer: Vec::new(),
             vertices_buffer: Vec::new(),
-
-            valid_chars,
         }
     }
 

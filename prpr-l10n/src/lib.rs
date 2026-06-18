@@ -23,10 +23,12 @@ langs! {
     "id-ID": "Bahasa Indonesia",
     "ja-JP": "日本語",
     "ko-KR": "한국어",
+    "mn-MN": "Монгол",
     "pl-PL": "Polski",
     "pt-BR": "Português",
     "ru-RU": "Русский",
     "th-TH": "แบบไทย",
+    "tr-TR": "Türkçe",
     "vi-VN": "Tiếng Việt",
     "zh-CN": "简体中文",
     "zh-TW": "繁體中文"

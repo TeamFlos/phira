@@ -1,7 +1,6 @@
 
 load-preview-failed = 加载歌曲预览失败
 load-charts-failed = 加载难度失败
-no-chart-for-download = 该谱面不提供下载
 
 load-chart-failed = 加载谱面失败
 
@@ -47,6 +46,8 @@ edit-overwrite-failed = 覆盖失败
 edit-upload = 上传
 edit-update = 更新
 
+warn = 警告
+cancel-not-saved = 你还没有保存信息，确定要退出吗？
 upload-not-saved = 你还没有保存谱面，确定要继续上传吗？
 upload-login-first = 请先登录
 upload-builtin = 不能上传内置谱面
@@ -75,14 +76,21 @@ info-composer = 曲师
 info-charter = 谱师
 info-difficulty = 难度
 info-desc = 简介
+info-collaborators = 协作者
 info-rating = 评分
 info-type = 种类
 info-tags = 标签
+
+collab-autocomplete-title = 协作者补全
+collab-autocomplete-content = 检测到缺少用户 ID 的协作者：{ $mentions }，是否自动补全？
+collab-autocomplete-failed = 无法解析 "@{ $name }"：用户不存在或有多个匹配。
+collab-autocomplete-done = 协作者已补全
 
 reviewed = 已审核
 unreviewed = 未审核
 
 review-approve = 通过
+review-approve-confirm = 确定通过该谱面吗？该操作无法撤销。
 review-deny = 拒绝
 review-del = 删除在线
 review-approved = 已通过
@@ -101,8 +109,20 @@ mods-autoplay = 自动游玩
 mods-autoplay-sub = 启用后将无法上传成绩
 mods-flip-x = X 轴反转
 mods-flip-x-sub = 在 X 轴上反转谱面
+mods-fade-in = 上隐
+mods-fade-in-sub = 音符在靠近判定线时会显现
 mods-fade-out = 下隐
 mods-fade-out-sub = 音符在靠近判定线时会隐藏
+mods-nightcore = 夜店
+mods-nightcore-sub = 以高倍速游玩谱面
+mods-rainbow = 彩虹
+mods-rainbow-sub = 遇上彩虹，吃定彩虹
+mods-instant-death-ap = 突然死亡（AP）
+mods-instant-death-ap-sub = 非完美判定立即失败
+mods-instant-death-fc = 突然死亡（FC）
+mods-instant-death-fc-sub = 连击中断立即失败
+mods-no-shader = 无着色器
+mods-no-shader-sub = 禁用着色器特效。*启用此 Mod 后无法上传成绩*
 
 rate-failed = 评分失败
 rate-done = 评分成功
@@ -119,6 +139,7 @@ stabilize-requested = 申请 stable 成功
 stabilize-failed = 申请 stable 失败
 stabilize-approve = 通过 special
 stabilize-approve-ranked = 通过 stable
+stabilize-approve-confirm = 确定通过该谱面的评议吗？该操作无法撤销。
 stabilize-comment = Stable 留言
 stabilize-commented = 留言成功
 stabilize-deny = 拒绝 stable
@@ -126,3 +147,10 @@ stabilize-approved = 已通过
 stabilize-approved-passed = 已通过，谱面已 stable
 stabilize-denied = 已拒绝
 stabilize-denied-passed = 已拒绝，谱面已打回
+
+fav-added = 已收藏（长按以选择其他收藏夹）
+
+still-loading = 仍在加载中…
+
+export = 导出
+exporting = 导出中…

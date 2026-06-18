@@ -11,22 +11,31 @@ use super::{
 };
 use crate::{
     charts_view::NEED_UPDATE,
-    client::{basic_client_builder, recv_raw, Chart, Client, Permissions, Ptr, Record, UserManager, CLIENT_TOKEN},
+    client::{
+        basic_client_builder, recv_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, User,
+        UserManager, CLIENT_TOKEN,
+    },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
     icons::Icons,
-    page::{local_illustration, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader},
+    page::{
+        local_illustration, request_export, resolve_export, take_export, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader,
+        FAV_UPDATED,
+    },
     popup::Popup,
     rate::RateDialog,
     save_data,
     tags::TagsDialog,
 };
 use ::rand::{thread_rng, Rng};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Error, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
+use core::f32;
 use futures_util::StreamExt;
+use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
+use once_cell::sync::Lazy;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
@@ -40,13 +49,15 @@ use prpr::{
     judge::{icon_index, Judge},
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, Scene, SimpleRecord, UpdateFn, UploadFn,
+        LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
     },
     task::Task,
     time::TimeManager,
-    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui, UI_AUDIO},
+    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, Ui, UI_AUDIO},
 };
+use regex::Regex;
 use reqwest::Method;
+use sanitize_filename::sanitize;
 use sasa::{AudioClip, Frame, Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -54,16 +65,17 @@ use sha2::{Digest, Sha256};
 use std::{
     any::Any,
     borrow::Cow,
-    collections::{hash_map, HashMap, VecDeque},
+    collections::{hash_map, BTreeMap, HashMap, VecDeque},
     fs::File,
-    io::{Cursor, Write},
+    io::{BufWriter, Cursor, Seek, Write},
     path::Path,
     sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
-        Arc, Mutex, Weak,
+        mpsc, Arc, Mutex, Weak,
     },
     thread_local,
 };
+use tap::Tap;
 use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
@@ -73,14 +85,76 @@ use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 // Things that need to be reloaded for chart info updates
 type LocalTuple = (String, ChartInfo, AudioClip, Illustration);
 
-const FADE_IN_TIME: f32 = 0.3;
-const EDIT_TRANSIT: f32 = 0.32;
-
 static CONFIRM_CKSUM: AtomicBool = AtomicBool::new(false);
 static UPLOAD_NOT_SAVED: AtomicBool = AtomicBool::new(false);
 static CONFIRM_OVERWRITE: AtomicBool = AtomicBool::new(false);
 static CONFIRM_UPLOAD: AtomicBool = AtomicBool::new(false);
+static CONFIRM_AUTOCOMPLETE: AtomicBool = AtomicBool::new(false);
+static SKIP_AUTOCOMPLETE: AtomicBool = AtomicBool::new(false);
 pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
+
+/// Matches any `@name#id (role)` or `@name#id` or `@name (role)` or `@name`.
+/// Parentheses may be ASCII `()` or fullwidth `（）`; whitespace before `(` is optional.
+/// Groups: 1=name, 2=id (optional), 3=role (optional)
+static MENTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s#@(（]+)(?:#(\d+))?(?:\s*[（(]([^)）]+)[)）])?").unwrap());
+
+/// Parse all `@name#id` resolved collaborator mentions and return `(id, role)` pairs.
+fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
+    use std::collections::btree_map::Entry;
+
+    let mut result = BTreeMap::new();
+    for (id, role) in MENTION_RE.captures_iter(intro).filter_map(|cap| {
+        let id: i32 = cap.get(2)?.as_str().parse().ok()?;
+        let role = cap.get(3).map(|m| m.as_str().to_owned());
+        Some((id, role))
+    }) {
+        match result.entry(id) {
+            Entry::Vacant(e) => {
+                e.insert(role);
+            }
+            Entry::Occupied(mut e) => {
+                if e.get().is_none() && role.is_some() {
+                    e.insert(role);
+                }
+            }
+        }
+    }
+    result
+}
+
+/// Find all unresolved `@name` or `@name (role)` mentions (those missing `#id`).
+/// Returns `(start, end, name)` byte-offset pairs into `intro`.
+/// Processing right-to-left preserves earlier offsets during replacement.
+fn find_unresolved_mentions(intro: &str) -> Vec<(usize, usize, String)> {
+    MENTION_RE
+        .captures_iter(intro)
+        .filter_map(|cap| {
+            if cap.get(2).is_some() {
+                // Already has #id — resolved
+                return None;
+            }
+            let m = cap.get(0)?;
+            let name = cap.get(1)?.as_str().to_owned();
+            Some((m.start(), m.end(), name))
+        })
+        .collect()
+}
+
+fn fade_in_time() -> Option<f32> {
+    if get_data().prefer_reduced_motion {
+        None
+    } else {
+        Some(0.3)
+    }
+}
+
+fn edit_transit() -> Option<f32> {
+    if get_data().prefer_reduced_motion {
+        None
+    } else {
+        Some(0.32)
+    }
+}
 
 fn create_music(clip: AudioClip) -> Result<Music> {
     let mut music = UI_AUDIO.with(|it| {
@@ -140,6 +214,7 @@ pub struct Downloading {
     cancel_download_btn: DRectButton,
     status: Arc<Mutex<Cow<'static, str>>>,
     prog: Arc<Mutex<Option<f32>>>,
+    atomicity: Arc<Mutex<()>>,
     task: Task<Result<(LocalChart, LocalTuple)>>,
 }
 
@@ -204,7 +279,7 @@ enum SideContent {
 impl SideContent {
     fn width(&self) -> f32 {
         match self {
-            Self::Edit => 0.84,
+            Self::Edit => 0.9,
             Self::Leaderboard => 0.94,
             Self::Info => 0.75,
             Self::Mods => 0.8,
@@ -286,8 +361,15 @@ pub struct SongScene {
     info_btn: RectButton,
     info_scroll: Scroll,
 
+    fav_btn: RectButton,
+    fav_long_touch: LongTouchState,
+    fav_menu: Popup,
+    fav_menu_options: Vec<Uuid>,
+    need_show_fav_menu: bool,
+
     review_task: Option<Task<Result<String>>>,
     chart_should_delete: Arc<AtomicBool>,
+    should_review_approve: Arc<AtomicBool>,
 
     edit_tags_task: Option<Task<Result<()>>>,
     tags: TagsDialog,
@@ -302,6 +384,8 @@ pub struct SongScene {
 
     stabilize_task: Option<Task<Result<()>>>,
     should_stabilize: Arc<AtomicBool>,
+    should_stabilize_approve: Arc<AtomicBool>,
+    should_stabilize_approve_ranked: Arc<AtomicBool>,
 
     scene_task: LocalTask<Result<NextScene>>,
 
@@ -322,6 +406,16 @@ pub struct SongScene {
     update_cksum_passed: Option<bool>,
     update_cksum_task: Option<Task<Result<bool>>>,
     chart_type: ChartType,
+
+    is_fav: Option<bool>,
+    toggle_fav_task: Option<Task<Result<(Collection, bool)>>>,
+
+    confirm_cancel_edit: Arc<AtomicBool>,
+
+    collaborators: BTreeMap<i32, Option<String>>,
+    autocomplete_task: Option<Task<Result<String>>>,
+
+    export_task: Option<mpsc::Receiver<Result<()>>>,
 }
 
 impl SongScene {
@@ -445,8 +539,15 @@ impl SongScene {
             info_btn: RectButton::new(),
             info_scroll: Scroll::new(),
 
+            fav_btn: RectButton::new(),
+            fav_long_touch: LongTouchState::default(),
+            fav_menu: Popup::new().tap_mut(|it| it.set_auto_dismiss(false)),
+            fav_menu_options: Vec::new(),
+            need_show_fav_menu: false,
+
             review_task: None,
             chart_should_delete: Arc::default(),
+            should_review_approve: Arc::default(),
 
             edit_tags_task: None,
             tags: TagsDialog::new(false),
@@ -474,6 +575,8 @@ impl SongScene {
 
             stabilize_task: None,
             should_stabilize: Arc::default(),
+            should_stabilize_approve: Arc::default(),
+            should_stabilize_approve_ranked: Arc::default(),
 
             scene_task: None,
 
@@ -493,13 +596,23 @@ impl SongScene {
             update_cksum_passed: None,
             update_cksum_task: None,
             chart_type: chart.chart_type,
+
+            is_fav: None,
+            toggle_fav_task: None,
+
+            confirm_cancel_edit: Arc::default(),
+
+            collaborators: BTreeMap::new(),
+            autocomplete_task: None,
+
+            export_task: None,
         }
     }
 
     fn start_download(&mut self) -> Result<()> {
         let chart = self.info.clone();
         let Some(entity) = self.entity.clone() else {
-            show_error(anyhow!(tl!("no-chart-for-download")));
+            show_message(tl!("still-loading")).error();
             return Ok(());
         };
         self.loading_last = 0.;
@@ -512,6 +625,7 @@ impl SongScene {
         let prog_wk = Arc::downgrade(&progress);
         let status = Arc::new(Mutex::new(tl!("dl-status-fetch")));
         let status_shared = Arc::clone(&status);
+        let atomicity = Arc::new(Mutex::new(()));
         Ok(Downloading {
             info: chart.clone(),
             local_path,
@@ -519,6 +633,7 @@ impl SongScene {
             cancel_download_btn: DRectButton::new(),
             prog: progress,
             status: status_shared,
+            atomicity: atomicity.clone(),
             task: Task::new({
                 let path = format!("{}/{}", dir::downloaded_charts()?, Uuid::new_v4());
                 async move {
@@ -583,14 +698,17 @@ impl SongScene {
                     let local_path = format!("download/{}", chart.id.unwrap());
                     let to_path = format!("{}/{local_path}", dir::charts()?);
                     let to_path = Path::new(&to_path);
-                    if to_path.exists() {
-                        if to_path.is_file() {
-                            tokio::fs::remove_file(to_path).await?;
-                        } else {
-                            tokio::fs::remove_dir_all(to_path).await?;
+                    {
+                        let _guard = atomicity.lock().unwrap();
+                        if to_path.exists() {
+                            if to_path.is_file() {
+                                std::fs::remove_file(to_path)?;
+                            } else {
+                                std::fs::remove_dir_all(to_path)?;
+                            }
                         }
+                        std::fs::rename(path, to_path)?;
                     }
-                    tokio::fs::rename(path, to_path).await?;
 
                     let tuple = load_local_tuple(&local_path, BLACK_TEXTURE.clone(), info).await?;
 
@@ -707,6 +825,9 @@ impl SongScene {
         {
             self.menu_options.push("review-del");
         }
+        if self.local_path.as_ref().is_some_and(|it| !it.starts_with(':')) {
+            self.menu_options.push("export");
+        }
         self.menu.set_options(self.menu_options.iter().map(|it| tl!(*it).into_owned()).collect());
     }
 
@@ -745,7 +866,7 @@ impl SongScene {
         #[cfg(closed)]
         let rated = {
             let config = &get_data().config;
-            !config.offline_mode && can_rated && !mods.contains(Mods::AUTOPLAY) && config.speed >= 1.0 - 1e-3
+            !config.offline_mode && can_rated && !mods.intersects(Mods::UNRATED) && !config.use_keyboard && config.speed >= 1.0 - 1e-3
         };
         #[cfg(not(closed))]
         let rated = false;
@@ -800,10 +921,10 @@ impl SongScene {
                                     hash_map::Entry::Occupied(val) => *val.get(),
                                     hash_map::Entry::Vacant(place) => *place.insert(len.try_into().ok()?),
                                 };
-                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it + 1. / 20. >= t) {
+                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it as f64 + 1. / 20. >= t) {
                                     return None;
                                 }
-                                touch_last_update.insert(id, t);
+                                touch_last_update.insert(id, t as f32);
                                 if matches!(it.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
                                     touch_ids.remove(&it.id);
                                     id = !id;
@@ -812,18 +933,21 @@ impl SongScene {
                             })
                             .collect();
                         if !points.is_empty() {
-                            touches.push_back(TouchFrame { time: t, points });
+                            touches.push_back(TouchFrame { time: t as f32, points });
                         }
-                        if last_send_touch_time + 1. < t || touches.len() > 20 {
+                        if last_send_touch_time as f64 + 1. < t || touches.len() > 20 {
                             if touches.is_empty() {
-                                touches.push_back(TouchFrame { time: t, points: Vec::new() });
+                                touches.push_back(TouchFrame {
+                                    time: t as f32,
+                                    points: Vec::new(),
+                                });
                             }
                             let frames = Arc::new(touches.drain(..).collect());
                             client.blocking_send(ClientCommand::Touches { frames }).unwrap();
-                            last_send_touch_time = t;
+                            last_send_touch_time = t as f32;
                         }
                         judges.extend(judge.judgements.borrow_mut().drain(..).map(|it| JudgeEvent {
-                            time: it.0,
+                            time: it.0 as f32,
                             line_id: it.1,
                             note_id: it.2,
                             judgement: {
@@ -839,7 +963,7 @@ impl SongScene {
                                 }
                             },
                         }));
-                        if judges.len() > 10 || judges.front().is_some_and(|it| it.time + 0.6 < t) {
+                        if judges.len() > 10 || judges.front().is_some_and(|it| it.time + 0.6 < t as f32) {
                             let judges = Arc::new(judges.drain(..).collect());
                             client.blocking_send(ClientCommand::Judges { judges }).unwrap();
                         }
@@ -850,6 +974,28 @@ impl SongScene {
             };
             update_fn
         });
+
+        let save_fn: Option<SaveFn> = Some(Box::new({
+            let local_path = local_path.to_string();
+            move |new_rec| -> Result<()> {
+                let rec = get_data_mut()
+                    .charts
+                    .iter_mut()
+                    .find(|it| it.local_path == local_path)
+                    .map(|it| &mut it.record)
+                    .or_else(|| Some(get_data_mut().local_records.entry(local_path.clone()).or_insert(None)))
+                    .unwrap();
+                if let Some(rec) = rec {
+                    if rec.update(&new_rec) {
+                        save_data()?;
+                    }
+                } else {
+                    *rec = Some(new_rec);
+                    save_data()?;
+                }
+                Ok(())
+            }
+        }));
 
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
@@ -922,7 +1068,7 @@ impl SongScene {
                 #[cfg(not(feature = "video"))]
                 {
                     warn!("this build does not support unlock video.");
-                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
@@ -934,12 +1080,12 @@ impl SongScene {
                         save_data()?;
                     }
 
-                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
             } else {
-                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, Some(preload))
+                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
             }
@@ -949,6 +1095,10 @@ impl SongScene {
     fn is_owner(&self) -> bool {
         self.info.id.is_none()
             || (self.info.created.is_some() && self.info.uploader.as_ref().map(|it| it.id) == get_data().me.as_ref().map(|it| it.id))
+    }
+
+    fn hide_side(&mut self, rt: f32) {
+        self.side_enter_time = -rt;
     }
 
     fn side_chart_info(&mut self, ui: &mut Ui, rt: f32) -> Result<()> {
@@ -963,7 +1113,11 @@ impl SongScene {
         let dx = width / if is_owner { 3. } else { 2. };
         let mut r = Rect::new(hpad, ui.top * 2. - h + vpad, dx - hpad * 2., h - vpad * 2.);
         if ui.button("cancel", r, tl!("edit-cancel")) {
-            self.side_enter_time = -rt;
+            if self.info_edit.as_ref().is_some_and(|it| it.updated) {
+                confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
+            } else {
+                self.hide_side(rt);
+            }
         }
         if is_owner {
             r.x += dx;
@@ -1000,7 +1154,7 @@ impl SongScene {
                                 if pos == 1 {
                                     CONFIRM_UPLOAD.store(true, Ordering::SeqCst);
                                 }
-                                false
+                                pos == -2
                             })
                             .show();
                     }
@@ -1009,7 +1163,7 @@ impl SongScene {
         }
         r.x += dx;
         if ui.button("save", r, tl!("edit-save")) {
-            self.save_edit();
+            self.try_save_with_autocomplete();
         }
 
         ui.ensure_touches()
@@ -1114,6 +1268,34 @@ impl SongScene {
                 }
                 dy!(0.14);
             }
+            if !self.collaborators.is_empty() {
+                dy!(ui.text(tl!("info-collaborators")).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
+                for (collab_id, role) in &self.collaborators {
+                    let c = 0.06;
+                    let s = 0.05;
+                    let r = ui.avatar(c, c, s, rt, UserManager::opt_avatar(*collab_id, &self.icons.user));
+                    if let Some((name, color)) = UserManager::name_and_color(*collab_id) {
+                        let name_r = ui
+                            .text(name)
+                            .pos(r.right() + 0.02, r.center().y - if role.is_some() { 0.01 } else { 0. })
+                            .anchor(0., 0.5)
+                            .no_baseline()
+                            .max_width(width - 0.15)
+                            .size(0.5)
+                            .color(color)
+                            .draw();
+                        if let Some(role_text) = role {
+                            ui.text(role_text.as_str())
+                                .pos(r.right() + 0.02, name_r.bottom() + 0.005)
+                                .size(0.35)
+                                .color(semi_white(0.6))
+                                .draw();
+                        }
+                    }
+                    dy!(0.14);
+                }
+            }
+
             let mut item = |title: Cow<'_, str>, content: Cow<'_, str>| {
                 dy!(ui.text(title).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
                 dy!(ui.text(content).pos(pad, 0.).size(0.6).multiline().max_width(mw).draw().h + 0.03);
@@ -1204,7 +1386,7 @@ impl SongScene {
                 let (btn, clicked) = &mut self.mod_btns[index];
                 if *clicked {
                     *clicked = false;
-                    self.mods.toggle(flag);
+                    self.mods.toggle_mod(flag);
                 }
                 let on = self.mods.contains(flag);
                 let oh = rr.h;
@@ -1225,8 +1407,14 @@ impl SongScene {
             };
             item(tl!("mods-autoplay"), Some(tl!("mods-autoplay-sub")), Mods::AUTOPLAY);
             item(tl!("mods-flip-x"), Some(tl!("mods-flip-x-sub")), Mods::FLIP_X);
+            item(tl!("mods-fade-in"), Some(tl!("mods-fade-in-sub")), Mods::FADE_IN);
             item(tl!("mods-fade-out"), Some(tl!("mods-fade-out-sub")), Mods::FADE_OUT);
-            (width, h)
+            item(tl!("mods-nightcore"), Some(tl!("mods-nightcore-sub")), Mods::NIGHTCORE);
+            item(tl!("mods-rainbow"), Some(tl!("mods-rainbow-sub")), Mods::RAINBOW);
+            item(tl!("mods-instant-death-ap"), Some(tl!("mods-instant-death-ap-sub")), Mods::INSTANT_DEATH_AP);
+            item(tl!("mods-instant-death-fc"), Some(tl!("mods-instant-death-fc-sub")), Mods::INSTANT_DEATH_FC);
+            item(tl!("mods-no-shader"), Some(tl!("mods-no-shader-sub")), Mods::NO_SHADER);
+            (width, h + 0.2)
         });
     }
 
@@ -1248,6 +1436,61 @@ impl SongScene {
             }
             let _ = std::fs::remove_file(thumbnail_path(&path)?);
             load_local_tuple(&path, def_illu, info).await
+        }));
+    }
+
+    fn try_save_with_autocomplete(&mut self) {
+        let intro = &self.info_edit.as_ref().unwrap().info.intro;
+        let unresolved = find_unresolved_mentions(intro);
+        if unresolved.is_empty() {
+            self.save_edit();
+        } else {
+            let mentions_list = unresolved
+                .iter()
+                .map(|(start, end, _)| &intro[*start..*end])
+                .collect::<Vec<_>>()
+                .join(", ");
+            let content = tl!("collab-autocomplete-content", "mentions" => mentions_list);
+            Dialog::plain(tl!("collab-autocomplete-title"), content)
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .listener(|_dialog, pos| {
+                    if pos == 1 {
+                        CONFIRM_AUTOCOMPLETE.store(true, Ordering::SeqCst);
+                    } else if pos == 0 {
+                        SKIP_AUTOCOMPLETE.store(true, Ordering::SeqCst);
+                    }
+                    false
+                })
+                .show();
+        }
+    }
+
+    fn start_autocomplete(&mut self) {
+        let intro = self.info_edit.as_ref().unwrap().info.intro.clone();
+        self.autocomplete_task = Some(Task::new(async move {
+            let unresolved = find_unresolved_mentions(&intro);
+            // Resolve each mention (bail on first failure), then apply right-to-left
+            // so earlier byte offsets stay valid.
+            let mut resolved: Vec<(usize, usize, String)> = Vec::new();
+            for (start, end, name) in unresolved {
+                let name_owned = name.clone();
+                let (users, _) = Client::query::<User>().search(name_owned).send().await?;
+                let matched = users.into_iter().find(|u| u.name == name);
+                let Some(user) = matched else {
+                    bail!(tl!("collab-autocomplete-failed", "name" => name));
+                };
+                // Replacement: insert `#id` right after `@name`, keep the rest of
+                // the original match (bracket/role if any).
+                let suffix = &intro[start + 1 + name.len()..end];
+                let new_text = format!("@{}#{}{}", name, user.id, suffix);
+                resolved.push((start, end, new_text));
+            }
+            // Apply right-to-left so replacement lengths don't shift pending offsets.
+            let mut result = intro.into_bytes();
+            for (start, end, new_text) in resolved.into_iter().rev() {
+                result.splice(start..end, new_text.into_bytes());
+            }
+            Ok(String::from_utf8(result).unwrap())
         }));
     }
 
@@ -1275,6 +1518,57 @@ impl SongScene {
 
         Ok(())
     }
+
+    fn to_bare_chart_ref(&self) -> ChartRef {
+        ChartRef::new_bare(self.info.id, self.local_path.as_deref())
+    }
+
+    fn toggle_in(&mut self, uuid: Uuid) {
+        let data = get_data();
+        let col = data.collection_info(&uuid).as_ref().clone();
+        let mut chart_ref = self.to_bare_chart_ref();
+        if self.info.id.is_some() {
+            let Some(entity) = self.entity.clone() else {
+                show_message(tl!("still-loading")).error();
+                return;
+            };
+            chart_ref.info = Some(Box::new(ChartRefChartInfo::from_chart(&entity)));
+        }
+        let add = col.charts.iter().all(|it| it != &chart_ref);
+        match col.update(uuid, &[chart_ref], add) {
+            CollectionUpdate::Unchanged => {}
+            CollectionUpdate::Updated { sync_task, add } => {
+                if let Some(task) = sync_task {
+                    self.toggle_fav_task = Some(task);
+                } else {
+                    self.is_fav = None;
+                    FAV_UPDATED.store(true, Ordering::SeqCst);
+                    if add {
+                        show_message(tl!("fav-added")).duration(1.5).ok();
+                    }
+                }
+            }
+        }
+    }
+
+    /// 构建收藏夹菜单的选项列表。
+    /// 已或包含该谱面的条目会以“\u2713 前缀标记。
+    fn get_fav_menu_options(&mut self) -> Vec<String> {
+        let data = get_data();
+        let mut options = Vec::new();
+        self.fav_menu_options.clear();
+        let chart_ref = self.to_bare_chart_ref();
+        for uuid in data.collection_uuids() {
+            let col = data.collection_info(uuid);
+            if !col.is_owned() {
+                continue;
+            }
+            self.fav_menu_options.push(*uuid);
+            let contains = col.charts.iter().any(|it| it == &chart_ref);
+            options.push(format!("{} {}", if contains { '\u{2713}' } else { ' ' }, col.name));
+        }
+        options
+    }
 }
 
 impl Scene for SongScene {
@@ -1282,11 +1576,15 @@ impl Scene for SongScene {
         let res = match res.downcast::<SimpleRecord>() {
             Err(res) => res,
             Ok(rec) => {
-                self.fade_start = tm.now() as f32 + FADE_IN_TIME;
+                self.fade_start = tm.now() as f32 + fade_in_time().unwrap_or_default();
                 if self.my_rate_score == Some(0) && thread_rng().gen_ratio(2, 5) {
                     self.rate_dialog.enter(tm.real_time() as _);
                 }
-                self.update_record(*rec)?;
+                if let Some(record) = &mut self.record {
+                    record.update(&rec);
+                } else {
+                    self.record = Some(*rec);
+                }
                 self.load_ldb();
                 return Ok(());
             }
@@ -1350,7 +1648,7 @@ impl Scene for SongScene {
     fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
         if self.first_in {
             self.first_in = false;
-            tm.seek_to(-FADE_IN_TIME as _);
+            tm.seek_to(-fade_in_time().unwrap_or_default() as _);
             self.load_ldb();
         }
         if let Some(music) = &mut self.preview {
@@ -1371,15 +1669,18 @@ impl Scene for SongScene {
             || self.rate_task.is_some()
             || self.overwrite_task.is_some()
             || self.update_cksum_task.is_some()
+            || self.toggle_fav_task.is_some()
+            || self.export_task.is_some()
+            || self.autocomplete_task.is_some()
         {
             return Ok(true);
         }
-        if self.downloading.is_some() {
-            if let Some(dl) = &mut self.downloading {
-                if dl.touch(touch, t) {
-                    self.downloading = None;
-                    return Ok(true);
-                }
+        if let Some(dl) = &mut self.downloading {
+            if dl.touch(touch, t) {
+                let atomicity = dl.atomicity.clone();
+                let _guard = atomicity.lock().unwrap();
+                self.downloading = None;
+                return Ok(true);
             }
             return Ok(false);
         }
@@ -1394,8 +1695,12 @@ impl Scene for SongScene {
             self.menu.touch(touch, t);
             return Ok(true);
         }
-        if !self.side_enter_time.is_infinite() {
-            if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + EDIT_TRANSIT {
+        if self.fav_menu.showing() {
+            self.fav_menu.touch(touch, t);
+            return Ok(true);
+        }
+        if self.side_enter_time.is_finite() {
+            if self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + edit_transit().unwrap_or_default() {
                 if touch.position.x < 1. - self.side_content.width() && touch.phase == TouchPhase::Started && self.save_task.is_none() {
                     if matches!(self.side_content, SideContent::Mods) {
                         if let Some(index) = get_data().find_chart_by_path(self.local_path.as_deref().unwrap()) {
@@ -1406,7 +1711,11 @@ impl Scene for SongScene {
                             }
                         }
                     }
-                    self.side_enter_time = -tm.real_time() as _;
+                    if matches!(self.side_content, SideContent::Edit) && self.info_edit.as_ref().is_some_and(|it| it.updated) {
+                        confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
+                    } else {
+                        self.hide_side(rt);
+                    }
                     return Ok(true);
                 }
                 match self.side_content {
@@ -1474,7 +1783,7 @@ impl Scene for SongScene {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(false)));
             return Ok(true);
         }
-        if self.play_btn.touch(touch, t) {
+        if self.scene_task.is_none() && self.next_scene.is_none() && self.play_btn.touch(touch, t) {
             if self.local_path.is_some() {
                 self.launch(GameMode::Normal, false)?;
             } else {
@@ -1485,6 +1794,22 @@ impl Scene for SongScene {
         if !self.menu_options.is_empty() && self.menu_btn.touch(touch) {
             button_hit();
             self.need_show_menu = true;
+            return Ok(true);
+        }
+        if self.fav_btn.touch(touch) {
+            self.fav_long_touch.reset();
+            button_hit();
+            let data = get_data();
+            if let Some(uuid) = data.collection_uuids().iter().find(|uuid| data.collection_info(uuid).is_default) {
+                self.toggle_in(*uuid);
+            }
+            return Ok(true);
+        }
+        if self.fav_btn.long_touch(touch, t, &mut self.fav_long_touch) {
+            button_hit();
+            let options = self.get_fav_menu_options();
+            self.fav_menu.set_options(options);
+            self.need_show_fav_menu = true;
             return Ok(true);
         }
         if let Some(path) = &self.local_path {
@@ -1515,6 +1840,10 @@ impl Scene for SongScene {
             if let Some(uploader) = &self.info.uploader {
                 UserManager::request(uploader.id);
             }
+            self.collaborators = parse_collaborators(&self.info.intro);
+            for id in self.collaborators.keys() {
+                UserManager::request(*id);
+            }
             self.side_content = SideContent::Info;
             self.side_enter_time = tm.real_time() as _;
             return Ok(true);
@@ -1526,6 +1855,13 @@ impl Scene for SongScene {
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         let t = tm.now() as f32;
         self.menu.update(t);
+        self.fav_menu.update(t);
+        if self.fav_btn.update_long_touch(t, &mut self.fav_long_touch) {
+            button_hit();
+            let options = self.get_fav_menu_options();
+            self.fav_menu.set_options(options);
+            self.need_show_fav_menu = true;
+        }
         self.illu.settle(t);
         let rt = tm.real_time() as f32;
         self.tags.update(rt);
@@ -1533,7 +1869,7 @@ impl Scene for SongScene {
         if self.tags.confirmed.take() == Some(true) {
             let mut tags = self.tags.tags.tags().to_vec();
             tags.push(self.tags.division.to_owned());
-            if !self.side_enter_time.is_infinite() && matches!(self.side_content, SideContent::Edit) {
+            if self.side_enter_time.is_finite() && matches!(self.side_content, SideContent::Edit) {
                 let edit = self.info_edit.as_mut().unwrap();
                 edit.info.tags = tags;
                 edit.updated = true;
@@ -1567,8 +1903,32 @@ impl Scene for SongScene {
                 }));
             }
         }
-        if self.side_enter_time < 0. && -tm.real_time() as f32 + EDIT_TRANSIT < self.side_enter_time {
+        if self.side_enter_time < 0. && -tm.real_time() as f32 + edit_transit().unwrap_or_default() < self.side_enter_time {
             self.side_enter_time = f32::INFINITY;
+        }
+        if CONFIRM_AUTOCOMPLETE.fetch_and(false, Ordering::SeqCst) {
+            self.start_autocomplete();
+        }
+        if SKIP_AUTOCOMPLETE.fetch_and(false, Ordering::SeqCst) {
+            self.save_edit();
+        }
+        if let Some(task) = &mut self.autocomplete_task {
+            if let Some(res) = task.take() {
+                self.autocomplete_task = None;
+                match res {
+                    Err(err) => {
+                        show_error(err);
+                    }
+                    Ok(new_intro) => {
+                        if let Some(edit) = self.info_edit.as_mut() {
+                            edit.info.intro = new_intro;
+                            edit.updated = true;
+                        }
+                        show_message(tl!("collab-autocomplete-done")).duration(1.).ok();
+                        self.save_edit();
+                    }
+                }
+            }
         }
         if let Some(task) = &mut self.load_task {
             if let Some(res) = task.take() {
@@ -1697,26 +2057,10 @@ impl Scene for SongScene {
                     self.launch(GameMode::Normal, true)?;
                 }
                 "review-approve" => {
-                    let id = self.info.id.unwrap();
-                    self.review_task = Some(Task::new(async move {
-                        #[derive(Deserialize)]
-                        struct Resp {
-                            passed: bool,
-                        }
-                        let resp: Resp = recv_raw(Client::post(
-                            format!("/chart/{id}/review"),
-                            &json!({
-                                "approve": true
-                            }),
-                        ))
-                        .await?
-                        .json()
-                        .await?;
-                        Ok((if resp.passed { tl!("review-passed") } else { tl!("review-approved") }).into_owned())
-                    }));
+                    confirm_dialog(tl!("warn"), tl!("review-approve-confirm"), Arc::clone(&self.should_review_approve));
                 }
                 "review-deny" => {
-                    request_input("deny-reason", "");
+                    request_input("deny-reason", InputBox::new().mode(InputMode::Multiline));
                 }
                 "review-del" => {
                     confirm_delete(self.chart_should_delete.clone());
@@ -1732,44 +2076,141 @@ impl Scene for SongScene {
                 "stabilize" => {
                     confirm_dialog(tl!("stabilize"), tl!("stabilize-warn"), Arc::clone(&self.should_stabilize));
                 }
-                "stabilize-approve" | "stabilize-approve-ranked" => {
-                    let kind = if option == "stabilize-approve-ranked" { 1 } else { 0 };
-                    let id = self.info.id.unwrap();
-                    self.review_task = Some(Task::new(async move {
-                        let resp: StableR = recv_raw(Client::post(
-                            format!("/chart/{id}/stabilize"),
-                            &json!({
-                                "kind": kind,
-                            }),
-                        ))
-                        .await?
-                        .json()
-                        .await?;
-                        Ok((if resp.status == 0 {
-                            tl!("stabilize-approved")
-                        } else {
-                            tl!("stabilize-approved-passed")
-                        })
-                        .into())
-                    }));
+                "stabilize-approve" => {
+                    confirm_dialog(tl!("warn"), tl!("stabilize-approve-confirm"), Arc::clone(&self.should_stabilize_approve));
+                }
+                "stabilize-approve-ranked" => {
+                    confirm_dialog(tl!("warn"), tl!("stabilize-approve-confirm"), Arc::clone(&self.should_stabilize_approve_ranked));
                 }
                 "stabilize-comment" => {
-                    request_input("stabilize-comment", "");
+                    request_input("stabilize-comment", InputBox::new().mode(InputMode::Multiline));
                 }
                 "stabilize-deny" => {
-                    request_input("stabilize-deny-reason", "");
+                    request_input("stabilize-deny-reason", InputBox::new().mode(InputMode::Multiline));
+                }
+                "export" => {
+                    request_export(format!("{}.zip", sanitize(&self.info.name)));
                 }
                 _ => {}
             }
         }
+        if let Some(config) = take_export() {
+            fn export_inner(path: String, output: File) -> Result<()> {
+                let charts = dir::charts()?;
+                compress_folder(Path::new(&format!("{charts}/{path}")), &mut BufWriter::new(output))?;
+                Ok(())
+            }
+
+            match config {
+                Err(err) => show_error(err.into()),
+                Ok(config) => {
+                    let path = self.local_path.clone().unwrap();
+                    let (tx, rx) = mpsc::sync_channel(1);
+                    std::thread::spawn(move || {
+                        let result = export_inner(path, config.file);
+                        if result.is_err() {
+                            if let Err(err) = (config.deleter)() {
+                                warn!("failed to delete export file: {:?}", err);
+                            }
+                        }
+                        let _ = tx.send(result);
+                    });
+                    self.export_task = Some(rx);
+                }
+            }
+        }
+        if let Some(rx) = &mut self.export_task {
+            match rx.try_recv() {
+                Ok(Err(err)) => {
+                    show_error(err);
+                    self.export_task = None;
+                }
+                Ok(Ok(())) => {
+                    resolve_export();
+                    self.export_task = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    show_error(Error::msg("Export thread panicked"));
+                    self.export_task = None;
+                }
+            }
+        }
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
+        }
+        if self.fav_menu.changed() {
+            let selected = self.fav_menu.selected();
+            self.fav_menu.set_selected(usize::MAX);
+            self.toggle_in(self.fav_menu_options[selected]);
+            let _ = save_data();
+            let options = self.get_fav_menu_options();
+            self.fav_menu.set_options(options);
         }
         if self.chart_should_delete.fetch_and(false, Ordering::Relaxed) {
             let id = self.info.id.unwrap();
             self.review_task = Some(Task::new(async move {
                 recv_raw(Client::delete(format!("/chart/{id}"))).await?;
                 Ok(tl!("review-deleted").into_owned())
+            }));
+        }
+        if self.should_review_approve.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.review_task = Some(Task::new(async move {
+                #[derive(Deserialize)]
+                struct Resp {
+                    passed: bool,
+                }
+                let resp: Resp = recv_raw(Client::post(
+                    format!("/chart/{id}/review"),
+                    &json!({
+                        "approve": true
+                    }),
+                ))
+                .await?
+                .json()
+                .await?;
+                Ok((if resp.passed { tl!("review-passed") } else { tl!("review-approved") }).into_owned())
+            }));
+        }
+        if self.should_stabilize_approve.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.review_task = Some(Task::new(async move {
+                let resp: StableR = recv_raw(Client::post(
+                    format!("/chart/{id}/stabilize"),
+                    &json!({
+                        "kind": 0,
+                    }),
+                ))
+                .await?
+                .json()
+                .await?;
+                Ok((if resp.status == 0 {
+                    tl!("stabilize-approved")
+                } else {
+                    tl!("stabilize-approved-passed")
+                })
+                .into())
+            }));
+        }
+        if self.should_stabilize_approve_ranked.fetch_and(false, Ordering::Relaxed) {
+            let id = self.info.id.unwrap();
+            self.review_task = Some(Task::new(async move {
+                let resp: StableR = recv_raw(Client::post(
+                    format!("/chart/{id}/stabilize"),
+                    &json!({
+                        "kind": 1,
+                    }),
+                ))
+                .await?
+                .json()
+                .await?;
+                Ok((if resp.status == 0 {
+                    tl!("stabilize-approved")
+                } else {
+                    tl!("stabilize-approved-passed")
+                })
+                .into())
             }));
         }
         if self.should_stabilize.fetch_and(false, Ordering::Relaxed) {
@@ -1883,28 +2324,8 @@ impl Scene for SongScene {
             self.upload_task = Some(Task::new(async move {
                 let root = format!("{}/{path}", dir::charts()?);
                 let root = Path::new(&root);
-                let chart_bytes = {
-                    let mut bytes = Vec::new();
-                    let mut zip = ZipWriter::new(Cursor::new(&mut bytes));
-                    let options = SimpleFileOptions::default()
-                        .compression_method(CompressionMethod::Deflated)
-                        .unix_permissions(0o755);
-                    #[allow(deprecated)]
-                    for entry in WalkDir::new(root) {
-                        let entry = entry?;
-                        let path = entry.path();
-                        let name = path.strip_prefix(root)?;
-                        if path.is_file() {
-                            zip.start_file_from_path(name, options)?;
-                            let mut f = File::open(path)?;
-                            std::io::copy(&mut f, &mut zip)?;
-                        } else if !name.as_os_str().is_empty() {
-                            zip.add_directory_from_path(name, options)?;
-                        }
-                    }
-                    zip.finish()?;
-                    bytes
-                };
+                let mut chart_bytes = Vec::new();
+                compress_folder(root, &mut Cursor::new(&mut chart_bytes))?;
                 let file = Client::upload_file("chart.zip", chart_bytes)
                     .await
                     .with_context(|| tl!("upload-chart-failed"))?;
@@ -2055,7 +2476,8 @@ impl Scene for SongScene {
             self.overwrite_task = Some(Task::new(async move {
                 let (dir, id) = gen_custom_dir()?;
                 let to_path = format!("{}/{}/", dir::charts()?, local_path);
-                if let Err(err) = import_chart_to(&dir, id, path).await {
+                let file = File::open(path).context("cannot open file")?;
+                if let Err(err) = import_chart_to(&dir, format!("custom/{id}"), file).await {
                     std::fs::remove_dir_all(dir)?;
                     return Err(err);
                 }
@@ -2162,7 +2584,33 @@ impl Scene for SongScene {
                 self.scene_task = None;
             }
         }
-        if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() {
+        if let Some(task) = &mut self.toggle_fav_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err);
+                    }
+                    Ok((col, added)) => {
+                        let data = get_data();
+                        if let Some(uuid) = data.collection_uuids().iter().find(|it| data.collection_info(it).id == Some(col.id)) {
+                            let uuid = *uuid;
+                            let local = data.collection_info(&uuid);
+                            data.set_collection_info(&uuid, local.merge(&col))?;
+                        }
+                        if added {
+                            show_message(tl!("fav-added")).duration(1.5).ok();
+                        }
+                        FAV_UPDATED.store(true, Ordering::SeqCst);
+                        self.is_fav = None;
+                    }
+                }
+                self.toggle_fav_task = None;
+            }
+        }
+        if self.confirm_cancel_edit.swap(false, Ordering::Relaxed) {
+            self.hide_side(rt);
+        }
+        if self.tr_start.is_nan() && self.background.lock().unwrap().is_some() && !get_data().prefer_reduced_motion {
             self.tr_start = rt;
         }
 
@@ -2179,7 +2627,8 @@ impl Scene for SongScene {
         self.back_btn.set(ui, r);
         ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit));
 
-        ui.alpha::<Result<()>>(((t - self.fade_start) / FADE_IN_TIME).clamp(-1., 0.) + 1., |ui| {
+        let alpha = fade_in_time().map_or(1., |tt| ((t - self.fade_start) / tt).clamp(-1., 0.) + 1.);
+        ui.alpha::<Result<()>>(alpha, |ui| {
             let r = ui
                 .text(&self.info.name)
                 .max_width(0.57 - r.right())
@@ -2278,13 +2727,38 @@ impl Scene for SongScene {
                     self.menu.set_bottom(true);
                     self.menu.set_selected(usize::MAX);
                     let d = 0.28;
-                    self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, 0.5));
+                    let h = self.menu_options.len().min(5) as f32 * 0.1;
+                    self.menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                 }
                 ui.dx(-r.w - 0.03);
                 ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
                 self.info_btn.set(ui, r);
                 ui.dx(-r.w - 0.03);
+
                 if self.local_path.as_ref().is_none_or(|it| !it.starts_with(':')) {
+                    // 收藏按钮 || Favorites button
+                    // TODO cache
+                    let is_fav = if let Some(fav) = self.is_fav {
+                        fav
+                    } else {
+                        let chart_ref = self.to_bare_chart_ref();
+                        let fav = get_data().collections().any(|col| col.charts.iter().any(|it| it == &chart_ref));
+                        self.is_fav = Some(fav);
+                        fav
+                    };
+                    let fav_icon = if is_fav { &self.icons.star } else { &self.icons.star_outline };
+                    ui.fill_rect(r, (**fav_icon, r, ScaleType::Fit));
+                    self.fav_btn.set(ui, r);
+                    if self.need_show_fav_menu {
+                        self.need_show_fav_menu = false;
+                        self.fav_menu.set_bottom(true);
+                        self.fav_menu.set_selected(usize::MAX);
+                        let d = 0.28;
+                        let h = self.fav_menu_options.len().min(5) as f32 * 0.1;
+                        self.fav_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
+                    }
+                    ui.dx(-r.w - 0.03);
+
                     ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, if self.local_path.is_some() { WHITE } else { cc }));
                     self.edit_btn.set(ui, r);
                     ui.dx(-r.w - 0.03);
@@ -2299,7 +2773,7 @@ impl Scene for SongScene {
 
             let rt = tm.real_time() as f32;
             if self.side_enter_time.is_finite() {
-                let p = ((rt - self.side_enter_time.abs()) / EDIT_TRANSIT).min(1.);
+                let p = edit_transit().map_or(1., |t| ((rt - self.side_enter_time.abs()) / t).min(1.));
                 let p = 1. - (1. - p).powi(3);
                 let p = if self.side_enter_time < 0. { 1. - p } else { p };
                 ui.fill_rect(ui.screen_rect(), semi_black(p * 0.6));
@@ -2333,6 +2807,7 @@ impl Scene for SongScene {
         })?;
 
         self.menu.render(ui, t, 1.);
+        self.fav_menu.render(ui, t, 1.);
 
         if self.save_task.is_some() {
             ui.full_loading(tl!("edit-saving"), t);
@@ -2343,7 +2818,16 @@ impl Scene for SongScene {
         if self.review_task.is_some() {
             ui.full_loading(tl!("review-doing"), t);
         }
-        if self.edit_tags_task.is_some() || self.rate_task.is_some() || self.overwrite_task.is_some() || self.update_cksum_task.is_some() {
+        if self.export_task.is_some() {
+            ui.full_loading(tl!("exporting"), t);
+        }
+        if self.edit_tags_task.is_some()
+            || self.rate_task.is_some()
+            || self.overwrite_task.is_some()
+            || self.update_cksum_task.is_some()
+            || self.toggle_fav_task.is_some()
+            || self.autocomplete_task.is_some()
+        {
             ui.full_loading("", t);
         }
         let rt = tm.real_time() as f32;
@@ -2382,4 +2866,31 @@ impl Scene for SongScene {
             NextScene::None
         }
     }
+}
+
+pub fn compress_folder<W: Write + Seek>(src: &Path, dst: &mut W) -> Result<()> {
+    let mut zip = ZipWriter::new(dst);
+    let options = SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+    for entry in WalkDir::new(src) {
+        let entry = entry?;
+        let path = entry.path();
+        let name = path.strip_prefix(src)?;
+        let mod_time = entry
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .map(|t| DateTime::<Utc>::from(t).naive_utc())
+            .unwrap_or_else(|| Utc::now().naive_utc());
+        if path.is_file() {
+            zip.start_file_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
+            let mut f = File::open(path)?;
+            std::io::copy(&mut f, &mut zip)?;
+        } else if !name.as_os_str().is_empty() {
+            zip.add_directory_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
+        }
+    }
+    zip.finish()?;
+    Ok(())
 }
