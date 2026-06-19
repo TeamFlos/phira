@@ -784,7 +784,7 @@ impl SongScene {
                 .charts
                 .iter()
                 .find(|it| it.local_path == *local_path)
-                .is_some_and(|it| it.played_unlock)
+                .is_some_and(|it| it.info.has_unlock && it.played_unlock)
             {
                 self.menu_options.push("unlock");
             }
