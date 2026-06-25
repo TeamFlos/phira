@@ -5845,6 +5845,7 @@ version = "8.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a243cfad17427fc077f529da5a95abe4e94fd2bfdb601611870a6557cc67657"
 dependencies = [
+ "chrono",
  "crc32fast",
  "flate2",
  "indexmap",
