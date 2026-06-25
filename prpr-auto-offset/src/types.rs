@@ -37,7 +37,7 @@ pub struct AlignmentResult {
     pub correlation: f64,
     /// Whether the correlation exceeds the default reliability threshold.
     pub reliable: bool,
-    /// Full correlation curve: (offset_seconds, raw_correlation_score).
+    /// Full correlation curve: (offset_seconds, normalized_correlation_score).
     /// Useful for visualization of the score-vs-offset landscape.
     /// The offset_seconds values are in absolute time, so the search center is at `search_center_sec`.
     pub correlation_curve: Vec<(f64, f32)>,

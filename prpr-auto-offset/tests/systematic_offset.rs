@@ -1,4 +1,4 @@
-use prpr_auto_offset::{estimate_with, AlignConfig, EnergyDiff, NoteGaussian, SpectralFlux, SuperFlux};
+use prpr_auto_offset::{estimate_with, AlignConfig, EnergyDiff, NoteGaussian, Signal, SpectralFlux, SuperFlux};
 
 fn config() -> AlignConfig {
     AlignConfig {
@@ -18,6 +18,51 @@ fn analytic_signal_has_expected_sign() {
 
     eprintln!("analytic: true={true_offset:.3}s estimated={:.3}s corr={:.4}", result.offset, result.correlation);
     assert!((result.offset - true_offset).abs() <= config().sampling_interval_sec);
+}
+
+struct SparseSignal {
+    values: Vec<(f64, f32)>,
+}
+
+impl Signal for SparseSignal {
+    fn samples(&self, ts: &[f64]) -> Vec<f32> {
+        ts.iter()
+            .map(|&t| {
+                self.values
+                    .iter()
+                    .find(|&&(at, _)| (t - at).abs() < 1e-9)
+                    .map(|&(_, value)| value)
+                    .unwrap_or(0.0)
+            })
+            .collect()
+    }
+}
+
+#[test]
+fn normalized_correlation_is_amplitude_scale_invariant() {
+    let config = AlignConfig {
+        search_range_sec: 0.2,
+        sampling_interval_sec: 0.1,
+        search_center_sec: 0.0,
+    };
+    let note = SparseSignal {
+        values: vec![(1.0, 1.0), (1.1, 1.0), (1.2, 1.0)],
+    };
+    let audio = SparseSignal {
+        values: vec![(1.0, 1.0), (1.1, 1.0), (1.2, 1.0)],
+    };
+    let louder_audio = SparseSignal {
+        values: vec![(1.0, 10.0), (1.1, 10.0), (1.2, 10.0)],
+    };
+
+    let result = estimate_with(&audio, &note, 2.0, &config);
+    let louder_result = estimate_with(&louder_audio, &note, 2.0, &config);
+
+    assert_eq!(result.offset, 0.0);
+    assert!((result.correlation - 1.0).abs() < 1e-6);
+    assert_eq!(louder_result.offset, result.offset);
+    assert!((louder_result.correlation - result.correlation).abs() < 1e-6);
+    assert!(result.correlation_curve.iter().all(|&(_, v)| (0.0..=1.0).contains(&v)));
 }
 
 #[test]
