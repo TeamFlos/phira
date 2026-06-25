@@ -4,9 +4,6 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 
-[lints]
-workspace = true
-
 [lib]
 
 [features]
@@ -46,12 +43,18 @@ intl-memoizer = "0.5.3"
 libc = "0.2.183"
 lru = { workspace = true }
 lyon = { workspace = true }
+
+macroquad = { workspace = true, default-features = false }
+miniquad = { workspace = true }
 miniz_oxide = "0.9.1"
 nalgebra = { workspace = true }
 obfstr = "0.4.4"
 once_cell = { workspace = true }
 ordered-float = "5.1.0"
 phf = { version = "0.13.1", features = ["macros"] }
+prpr-auto-offset = { workspace = true }
+prpr-avc = { workspace = true, optional = true }
+prpr-l10n = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -75,14 +78,35 @@ unic-langid = { version = "0.9.6", features = ["macros"] }
 uuid = { workspace = true, features = ["v4"] }
 zip = { workspace = true, default-features = false, features = ["deflate"] }
 
-macroquad = { workspace = true, default-features = false }
-miniquad = { workspace = true }
-prpr-avc = { workspace = true, optional = true }
-prpr-l10n = { workspace = true }
+[target.'cfg(not(any(target_os = "android", target_env = "ohos")))'.dependencies]
+sasa = { workspace = true, default-features = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))'.dependencies]
 open = "5.3.3"
 rfd = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "fs"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "*"
+tokio = { workspace = true }
+wasm-bindgen = "*"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+	"Location",
+	"Performance",
+	"UrlSearchParams",
+	"Window",
+] }
+
+[target.'cfg(target_env = "ohos")'.dependencies]
+sasa = { workspace = true, default-features = false, features = ["ohos"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.22.4"
+ndk-context = "0.1"
+sasa = { workspace = true, default-features = false, features = ["oboe"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = { workspace = true }
@@ -90,34 +114,11 @@ objc2-foundation = { workspace = true }
 objc2-ui-kit = { workspace = true, features = ["objc2-uniform-type-identifiers"] }
 objc2-uniform-type-identifiers = { workspace = true }
 
-[target.'cfg(target_os = "android")'.dependencies]
-jni = "0.22.4"
-ndk-context = "0.1"
-sasa = { workspace = true, default-features = false, features = ["oboe"] }
-
-[target.'cfg(target_env = "ohos")'.dependencies]
-sasa = { workspace = true, default-features = false, features = ["ohos"] }
-
-[target.'cfg(not(any(target_os = "android", target_env = "ohos")))'.dependencies]
-sasa = { workspace = true, default-features = true }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "fs"] }
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-tokio = { workspace = true }
-web-sys = { version = "0.3", features = [
-	"Location",
-	"Performance",
-	"UrlSearchParams",
-	"Window",
-] }
-js-sys = "*"
-wasm-bindgen = "*"
-wasm-bindgen-futures = "0.4"
-
 [build-dependencies]
 walkdir = { workspace = true }
 
 [dev-dependencies]
 walkdir = { workspace = true }
+
+[lints]
+workspace = true

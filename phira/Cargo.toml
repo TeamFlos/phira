@@ -4,9 +4,6 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["lib", "cdylib"]
 
@@ -46,8 +43,12 @@ logos = "0.16.1"
 lru = { workspace = true }
 lyon = { workspace = true }
 macroquad = { workspace = true, default-features = false }
+
+miniquad = { workspace = true }
 nalgebra = { workspace = true }
 once_cell = { workspace = true }
+phira-mp-client = { workspace = true }
+phira-mp-common = { workspace = true }
 pollster = { workspace = true }
 prpr = { workspace = true, features = ["log"], default-features = false }
 prpr-l10n = { workspace = true }
@@ -63,6 +64,7 @@ reqwest = { workspace = true, default-features = false, features = [
     "rustls",
     "query",
 ] }
+sanitize-filename = "0.6.0"
 semver = { version = "1.0.27", features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -78,29 +80,24 @@ walkdir = { workspace = true }
 zip = { workspace = true, features = ["chrono"] }
 zstd = "0.13"
 
-miniquad = { workspace = true }
-phira-mp-client = { workspace = true }
-phira-mp-common = { workspace = true }
-sanitize-filename = "0.6.0"
-
-[target.'cfg(target_os = "android")'.dependencies]
-jni = "0.22.4"
-ndk-context = "0.1"
-sasa = { workspace = true, default-features = false, features = ["oboe"] }
-
-[target.'cfg(target_env = "ohos")'.dependencies]
-sasa = { workspace = true, default-features = false, features = ["ohos"] }
-napi-derive-ohos = { version = "1.1.6" }
-napi-ohos = { version = "1.1.6", default-features = false, features = [
-    "napi8",
-    "async",
-] }
-
 [target.'cfg(not(any(target_os = "android", target_env = "ohos")))'.dependencies]
 sasa = { workspace = true, default-features = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))'.dependencies]
 rfd = { workspace = true }
+
+[target.'cfg(target_env = "ohos")'.dependencies]
+napi-derive-ohos = { version = "1.1.6" }
+napi-ohos = { version = "1.1.6", default-features = false, features = [
+    "napi8",
+    "async",
+] }
+sasa = { workspace = true, default-features = false, features = ["ohos"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.22.4"
+ndk-context = "0.1"
+sasa = { workspace = true, default-features = false, features = ["oboe"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = { workspace = true }
@@ -113,3 +110,6 @@ dotenv-build = "0.1"
 [dev-dependencies]
 fluent = { workspace = true }
 fluent-syntax = { workspace = true }
+
+[lints]
+workspace = true

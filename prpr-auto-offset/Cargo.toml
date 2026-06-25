@@ -1,0 +1,10 @@
+[package]
+name = "prpr-auto-offset"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rayon = "1"
+realfft = "3"
+rustfft = "6.4.1"
