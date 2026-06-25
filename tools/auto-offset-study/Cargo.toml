@@ -1,0 +1,20 @@
+[package]
+name = "prpr-auto-offset-study"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+futures-util = { workspace = true }
+plotters = { version = "0.3.7", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "line_series", "point_series", "ttf"] }
+prpr = { workspace = true }
+prpr-auto-offset = { workspace = true }
+prpr-avc = { workspace = true }
+reqwest = { workspace = true, default-features = false, features = ["json", "stream", "gzip", "rustls", "query"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "fs"] }
+zip = { workspace = true, features = ["deflate"] }
