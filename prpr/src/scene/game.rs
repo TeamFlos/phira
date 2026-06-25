@@ -852,11 +852,12 @@ impl GameScene {
         let clip = self.res.music.clone();
         let pcm: Vec<f32> = clip.frames().iter().map(|f| (f.0 + f.1) / 2.0).collect();
         let sample_rate = clip.sample_rate();
-        // 3. Build config — search centered on chart's own offset
+        // 3. Build config — search centered on the currently applied chart delay
+        let search_center_sec = (self.chart.offset + self.info_offset) as f64;
         let config = AlignConfig {
             search_range_sec: 0.30,
             sampling_interval_sec: 0.005,
-            search_center_sec: self.chart.offset as f64,
+            search_center_sec,
         };
 
         // 4. Create shared result slot
