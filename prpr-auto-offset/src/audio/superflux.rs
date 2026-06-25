@@ -26,6 +26,8 @@ pub struct SuperFlux {
     native: Vec<f32>,
     /// Time step between native samples, in seconds.
     native_dt: f64,
+    /// Timestamp of the first native sample, in seconds.
+    native_t0: f64,
 }
 
 impl SuperFlux {
@@ -39,6 +41,7 @@ impl SuperFlux {
     pub fn new(pcm: &[f32], sample_rate: u32, window_size: usize, hop_size: usize) -> Self {
         assert!(window_size.is_power_of_two());
         let native_dt = hop_size as f64 / sample_rate as f64;
+        let native_t0 = window_size as f64 / sample_rate as f64 / 2.0;
 
         // 1. Clone and high-pass filter
         let mut samples = pcm.to_vec();
@@ -62,7 +65,11 @@ impl SuperFlux {
 
         // Use the declared native_dt (frame_rate may differ slightly due to rounding)
         let _ = frame_rate;
-        Self { native: onset, native_dt }
+        Self {
+            native: onset,
+            native_dt,
+            native_t0,
+        }
     }
 
     /// Access the native onset-strength samples (after adaptive threshold).
@@ -74,6 +81,11 @@ impl SuperFlux {
     pub fn onset_dt(&self) -> f64 {
         self.native_dt
     }
+
+    /// Timestamp of the first native onset sample, in seconds.
+    pub fn onset_t0(&self) -> f64 {
+        self.native_t0
+    }
 }
 
 impl Signal for SuperFlux {
@@ -81,7 +93,7 @@ impl Signal for SuperFlux {
         if ts.is_empty() {
             return vec![];
         }
-        ts.iter().map(|&t| interpolate(&self.native, self.native_dt, t)).collect()
+        ts.iter().map(|&t| interpolate(&self.native, self.native_dt, self.native_t0, t)).collect()
     }
 }
 
@@ -431,11 +443,11 @@ fn adaptive_threshold(onset: &[f32], median_window: f32, multiplier: f32) -> Vec
 // ─── Linear interpolation ───────────────────────────────────────────────
 
 /// Linear interpolation at time `t` (seconds) in a signal sampled every `dt`.
-fn interpolate(data: &[f32], dt: f64, t: f64) -> f32 {
+fn interpolate(data: &[f32], dt: f64, t0: f64, t: f64) -> f32 {
     if data.is_empty() {
         return 0.0;
     }
-    let idx = t / dt;
+    let idx = (t - t0) / dt;
     if idx < 0.0 {
         return data[0];
     }

@@ -9,6 +9,8 @@ pub struct EnergyDiff {
     native: Vec<f32>,
     /// Time step between native samples, in seconds.
     native_dt: f64,
+    /// Timestamp of the first native sample, in seconds.
+    native_t0: f64,
 }
 
 impl EnergyDiff {
@@ -16,9 +18,14 @@ impl EnergyDiff {
         let frame_samples = (frame_ms / 1000.0 * sample_rate as f64).round() as usize;
         let hop_samples = (hop_ms / 1000.0 * sample_rate as f64).round() as usize;
         let native_dt = hop_samples as f64 / sample_rate as f64;
+        let native_t0 = native_dt + frame_samples as f64 / sample_rate as f64 / 2.0;
 
         let native = compute_energy_diff(pcm, frame_samples, hop_samples);
-        Self { native, native_dt }
+        Self {
+            native,
+            native_dt,
+            native_t0,
+        }
     }
 }
 
@@ -27,7 +34,7 @@ impl Signal for EnergyDiff {
         if ts.is_empty() {
             return vec![];
         }
-        ts.iter().map(|&t| interpolate(&self.native, self.native_dt, t)).collect()
+        ts.iter().map(|&t| interpolate(&self.native, self.native_dt, self.native_t0, t)).collect()
     }
 }
 
@@ -53,11 +60,11 @@ fn compute_energy_diff(pcm: &[f32], frame_samples: usize, hop_samples: usize) ->
 }
 
 /// Linear interpolation at time `t` (seconds) in a signal sampled every `dt`.
-fn interpolate(data: &[f32], dt: f64, t: f64) -> f32 {
+fn interpolate(data: &[f32], dt: f64, t0: f64, t: f64) -> f32 {
     if data.is_empty() {
         return 0.0;
     }
-    let idx = t / dt;
+    let idx = (t - t0) / dt;
     if idx < 0.0 {
         return data[0];
     }
