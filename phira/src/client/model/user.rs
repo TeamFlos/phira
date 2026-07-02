@@ -90,6 +90,8 @@ impl Roles {
 pub struct User {
     pub id: i32,
     pub name: String,
+    pub email: Option<String>,
+    pub hykb_uid: Option<i64>,
     pub avatar: Option<File>,
     pub badge: Option<String>,
     pub badges: Vec<String>,

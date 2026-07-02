@@ -486,6 +486,72 @@ pub extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(_env: EnvUn
     }
 }
 
+/// Credentials obtained from the native HYKB (好游快爆) login SDK.
+pub struct HykbCredential {
+    /// SDK result code: 0 on success, otherwise an error / user cancellation.
+    pub code: i32,
+    pub uid: i64,
+    pub nick: String,
+    pub access_token: String,
+}
+
+/// Slot for the pending HYKB login result. The native callback fulfills it.
+static HYKB_TX: Mutex<Option<tokio::sync::oneshot::Sender<HykbCredential>>> = Mutex::new(None);
+
+/// Ask the Android shell to start the HYKB login flow (`MainActivity.hykbLogin`).
+#[cfg(all(target_os = "android", feature = "aa"))]
+fn request_hykb_login() {
+    use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
+
+    JavaVM::singleton()
+        .unwrap()
+        .attach_current_thread(|env| -> jni::errors::Result<()> {
+            let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
+            env.call_method(ctx, jni_str!("hykbLogin"), jni_sig!("()V"), &[])?;
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[cfg(not(all(target_os = "android", feature = "aa")))]
+fn request_hykb_login() {}
+
+/// Trigger the native HYKB login and await its credentials.
+#[allow(unused)]
+pub async fn obtain_hykb_credential() -> Result<HykbCredential> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    *HYKB_TX.lock().unwrap() = Some(tx);
+    request_hykb_login();
+    let cred = rx.await.map_err(|_| anyhow::anyhow!("hykb login cancelled"))?;
+    Ok(cred)
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_hykbLoginCallback(
+    _env: EnvUnowned,
+    _class: JClass,
+    code: jint,
+    uid: jni::sys::jlong,
+    nick: JString,
+    access_token: JString,
+) {
+    let nick = if nick.is_null() { String::new() } else { nick.to_string() };
+    let access_token = if access_token.is_null() {
+        String::new()
+    } else {
+        access_token.to_string()
+    };
+    if let Some(tx) = HYKB_TX.lock().unwrap().take() {
+        let _ = tx.send(HykbCredential {
+            code: code as i32,
+            uid: uid as i64,
+            nick,
+            access_token,
+        });
+    }
+}
+
 #[cfg(target_env = "ohos")]
 #[napi]
 pub fn set_input_text(text: String) {

@@ -3,6 +3,7 @@ prpr_l10n::tl_file!("login");
 use crate::{
     client::{Client, LoginParams, User, UserManager, API_URL},
     get_data_mut,
+    icons::Icons,
     page::Fader,
     save_data,
     scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
@@ -11,6 +12,8 @@ use anyhow::Result;
 use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
+#[cfg(feature = "aa")]
+use prpr::ext::ScaleType;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, semi_black, semi_white, RectExt},
@@ -19,7 +22,31 @@ use prpr::{
     ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
 use regex::Regex;
-use std::{borrow::Cow, future::Future, sync::atomic::Ordering};
+use std::{borrow::Cow, future::Future, sync::atomic::Ordering, sync::Arc};
+
+#[cfg(feature = "aa")]
+use crate::{client::HykbLoginOutcome, obtain_hykb_credential};
+#[cfg(feature = "aa")]
+use anyhow::bail;
+#[cfg(feature = "aa")]
+use std::sync::Mutex;
+
+/// The user's choice in the HYKB "register or claim" dialog.
+#[cfg(feature = "aa")]
+#[derive(Clone, Copy)]
+enum HykbChoice {
+    Register,
+    Claim,
+}
+
+/// Result of the initial HYKB login step.
+#[cfg(feature = "aa")]
+enum HykbStep {
+    /// The HYKB account was already bound; carries the fetched user.
+    LoggedIn(Box<User>),
+    /// The account is new; carries the short-lived token for register/claim.
+    NeedChoice(String),
+}
 
 static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
@@ -39,8 +66,22 @@ fn validate_username(username: &str) -> Option<Cow<'static, str>> {
 }
 
 pub struct Login {
+    #[cfg(feature = "aa")]
+    icons: Arc<Icons>,
+
     fader: Fader,
     show: bool,
+
+    /// The method-choice panel ("email vs HYKB"), shown before the form when
+    /// HYKB is available.
+    #[cfg(feature = "aa")]
+    picker_fader: Fader,
+    #[cfg(feature = "aa")]
+    picker_show: bool,
+    #[cfg(feature = "aa")]
+    btn_method_email: DRectButton,
+    #[cfg(feature = "aa")]
+    btn_method_hykb: DRectButton,
 
     input_email: DRectButton,
     input_pwd: DRectButton,
@@ -65,20 +106,46 @@ pub struct Login {
 
     task: Option<(&'static str, Task<Result<Option<User>>>)>,
     after_accept_tos: Option<NextAction>,
+    /// HYKB login phase 1 (verify uid/token), distinct from `task` which handles
+    /// the register/claim follow-up that resolves to a `User`.
+    #[cfg(feature = "aa")]
+    hykb_task: Option<Task<Result<HykbStep>>>,
+    /// Pending HYKB token awaiting the user's register/claim choice.
+    #[cfg(feature = "aa")]
+    hykb_pending_token: Option<String>,
+    /// Choice written by the register/claim dialog listener.
+    #[cfg(feature = "aa")]
+    hykb_choice: Arc<Mutex<Option<HykbChoice>>>,
 }
 
 enum NextAction {
     Login,
     Register,
+    #[cfg(feature = "aa")]
+    Hykb,
 }
 
 impl Login {
     const TIME: f32 = 0.7;
 
-    pub fn new() -> Self {
+    pub fn new(icons: Arc<Icons>) -> Self {
+        #[cfg(not(feature = "aa"))]
+        let _ = icons;
         Self {
+            #[cfg(feature = "aa")]
+            icons,
+
             fader: Fader::new().with_distance(-0.4).with_time(0.5),
             show: false,
+
+            #[cfg(feature = "aa")]
+            picker_fader: Fader::new().with_distance(-0.4).with_time(0.5),
+            #[cfg(feature = "aa")]
+            picker_show: false,
+            #[cfg(feature = "aa")]
+            btn_method_email: DRectButton::new().with_radius(0.012).with_elevation(0.004),
+            #[cfg(feature = "aa")]
+            btn_method_hykb: DRectButton::new().with_radius(0.012).with_elevation(0.004),
 
             input_email: DRectButton::new().with_delta(-0.002),
             input_pwd: DRectButton::new().with_delta(-0.002),
@@ -103,6 +170,12 @@ impl Login {
 
             task: None,
             after_accept_tos: None,
+            #[cfg(feature = "aa")]
+            hykb_task: None,
+            #[cfg(feature = "aa")]
+            hykb_pending_token: None,
+            #[cfg(feature = "aa")]
+            hykb_choice: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -112,12 +185,37 @@ impl Login {
     }
 
     pub fn enter(&mut self, t: f32) {
+        // With HYKB available, show the method-choice panel before any form;
+        // otherwise go straight to the email form.
+        #[cfg(feature = "aa")]
+        {
+            self.picker_show = true;
+            self.picker_fader.sub(t);
+        }
+        #[cfg(not(feature = "aa"))]
+        self.show_form(t);
+    }
+
+    /// Reveal the email login/register form.
+    fn show_form(&mut self, t: f32) {
         self.fader.sub(t);
+    }
+
+    /// Dismiss the method-choice panel.
+    #[cfg(feature = "aa")]
+    fn dismiss_picker(&mut self, t: f32) {
+        self.picker_show = false;
+        self.picker_fader.back(t);
     }
 
     pub fn dismiss(&mut self, t: f32) {
         self.show = false;
         self.fader.back(t);
+        // Drop any pending claim so a later plain login isn't treated as a claim.
+        #[cfg(feature = "aa")]
+        {
+            self.hykb_pending_token = None;
+        }
     }
 
     fn register(&mut self) -> Option<Cow<'static, str>> {
@@ -140,8 +238,74 @@ impl Login {
         None
     }
 
+    /// Kick off the native HYKB login: obtain credentials, then call `/login/hykb`.
+    #[cfg(feature = "aa")]
+    fn start_hykb_login(&mut self) {
+        self.hykb_task = Some(Task::new(async move {
+            let cred = obtain_hykb_credential().await?;
+            if cred.code != 0 {
+                bail!(tl!("hykb-login-cancelled"));
+            }
+            match Client::login_hykb(cred.uid, &cred.access_token, &cred.nick).await? {
+                HykbLoginOutcome::LoggedIn => Ok(HykbStep::LoggedIn(Box::new(Client::get_me().await?))),
+                HykbLoginOutcome::NeedChoice { hykb_token } => Ok(HykbStep::NeedChoice(hykb_token)),
+            }
+        }));
+    }
+
+    /// Show the "register a new account / claim an existing one" dialog after a
+    /// first-time HYKB login. The chosen action is recorded in `hykb_choice`.
+    #[cfg(feature = "aa")]
+    fn show_hykb_choice(&self) {
+        let choice = Arc::clone(&self.hykb_choice);
+        Dialog::plain(tl!("hykb-choice-title"), tl!("hykb-choice-sub"))
+            .buttons(vec![tl!("hykb-choice-register").to_string(), tl!("hykb-choice-claim").to_string()])
+            .listener(move |_, pos| {
+                match pos {
+                    -1 => {
+                        return true;
+                    }
+                    0 => *choice.lock().unwrap() = Some(HykbChoice::Register),
+                    1 => *choice.lock().unwrap() = Some(HykbChoice::Claim),
+                    _ => {}
+                }
+                false
+            })
+            .show();
+    }
+
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
         if self.fader.transiting() || self.task.is_some() || !self.start_time.is_nan() {
+            return true;
+        }
+        #[cfg(feature = "aa")]
+        if self.hykb_task.is_some() {
+            return true;
+        }
+        // The method-choice panel sits on top of (and gates) the form.
+        #[cfg(feature = "aa")]
+        if self.picker_show {
+            if self.picker_fader.transiting() {
+                return true;
+            }
+            if !Self::picker_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
+                self.dismiss_picker(t);
+                return true;
+            }
+            if self.btn_method_email.touch(touch, t) {
+                self.dismiss_picker(t);
+                self.show_form(t);
+                return true;
+            }
+            if self.btn_method_hykb.touch(touch, t) {
+                self.dismiss_picker(t);
+                if !check_read_tos_and_policy(true, true) {
+                    self.after_accept_tos = Some(NextAction::Hykb);
+                } else {
+                    self.start_hykb_login();
+                }
+                return true;
+            }
             return true;
         }
         if self.show {
@@ -184,20 +348,17 @@ impl Login {
                 return true;
             }
             if self.btn_login.touch(touch, t) {
-                if !check_read_tos_and_policy(true, true) {
+                // A pending HYKB claim already accepted TOS in the picker; only
+                // gate a plain email login on the TOS check.
+                #[cfg(feature = "aa")]
+                let pending_claim = self.hykb_pending_token.is_some();
+                #[cfg(not(feature = "aa"))]
+                let pending_claim = false;
+                if !pending_claim && !check_read_tos_and_policy(true, true) {
                     self.after_accept_tos = Some(NextAction::Login);
                     return true;
                 }
-                let email = self.t_email.clone();
-                let pwd = self.t_pwd.clone();
-                self.start("login", async move {
-                    Client::login(LoginParams::Password {
-                        email: &email,
-                        password: &pwd,
-                    })
-                    .await?;
-                    Ok(Some(Client::get_me().await?))
-                });
+                self.start_login();
                 return true;
             }
             if self.btn_forget_pwd.touch(touch) {
@@ -209,9 +370,44 @@ impl Login {
         false
     }
 
+    /// Submit the email login form. When a HYKB token is pending (the user chose
+    /// to claim an existing account), this claims it with the entered email and
+    /// password instead of a plain password login.
+    fn start_login(&mut self) {
+        #[cfg(feature = "aa")]
+        if let Some(token) = self.hykb_pending_token.clone() {
+            let email = self.t_email.clone();
+            let pwd = self.t_pwd.clone();
+            if !EMAIL_REGEX.is_match(&email) || pwd.is_empty() {
+                show_message(tl!("hykb-claim-need-cred")).error();
+                return;
+            }
+            self.hykb_pending_token = None;
+            self.start("hykb-login", async move {
+                Client::login_hykb_claim(&token, &email, &pwd).await?;
+                Ok(Some(Client::get_me().await?))
+            });
+            return;
+        }
+        let email = self.t_email.clone();
+        let pwd = self.t_pwd.clone();
+        self.start("login", async move {
+            Client::login(LoginParams::Password {
+                email: &email,
+                password: &pwd,
+            })
+            .await?;
+            Ok(Some(Client::get_me().await?))
+        });
+    }
+
     pub fn update(&mut self, t: f32) -> Result<()> {
         if let Some(done) = self.fader.done(t) {
             self.show = !done;
+        }
+        #[cfg(feature = "aa")]
+        if let Some(done) = self.picker_fader.done(t) {
+            self.picker_show = !done;
         }
         dispatch_tos_task();
         if let Some((id, text)) = take_input() {
@@ -233,21 +429,16 @@ impl Login {
         if JUST_ACCEPTED_TOS.fetch_and(false, Ordering::Relaxed) {
             match self.after_accept_tos {
                 Some(NextAction::Login) => {
-                    let email = self.t_email.clone();
-                    let pwd = self.t_pwd.clone();
-                    self.start("login", async move {
-                        Client::login(LoginParams::Password {
-                            email: &email,
-                            password: &pwd,
-                        })
-                        .await?;
-                        Ok(Some(Client::get_me().await?))
-                    });
+                    self.start_login();
                 }
                 Some(NextAction::Register) => {
                     if let Some(error) = self.register() {
                         show_message(error).error();
                     }
+                }
+                #[cfg(feature = "aa")]
+                Some(NextAction::Hykb) => {
+                    self.start_hykb_login();
                 }
                 None => (),
             }
@@ -272,12 +463,64 @@ impl Login {
                             self.t_reg_pwd.clear();
                             self.start_time = t;
                         }
-                        if *action == "login" {
+                        if *action == "login" || *action == "hykb-login" {
                             self.dismiss(t);
                         }
                     }
                 }
                 self.task = None;
+            }
+        }
+        #[cfg(feature = "aa")]
+        self.update_hykb(t)?;
+        Ok(())
+    }
+
+    /// Drive the HYKB login phases: the initial verify task, the register/claim
+    /// choice dialog, and the follow-up that resolves to a logged-in user.
+    #[cfg(feature = "aa")]
+    fn update_hykb(&mut self, t: f32) -> Result<()> {
+        if let Some(task) = &mut self.hykb_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("action-failed", "action" => "hykb-login"))),
+                    Ok(HykbStep::LoggedIn(user)) => {
+                        UserManager::request(user.id);
+                        get_data_mut().me = Some(*user);
+                        save_data()?;
+                        show_message(tl!("action-success", "action" => "hykb-login")).ok();
+                        self.dismiss(t);
+                    }
+                    Ok(HykbStep::NeedChoice(token)) => {
+                        self.hykb_pending_token = Some(token);
+                        self.show_hykb_choice();
+                    }
+                }
+                self.hykb_task = None;
+            }
+        }
+        // The choice dialog records its result here; pick it up and start the
+        // matching follow-up request, reusing `task` so the success path is shared.
+        let choice = self.hykb_choice.lock().unwrap().take();
+        if let Some(choice) = choice {
+            if let Some(token) = self.hykb_pending_token.take() {
+                match choice {
+                    HykbChoice::Register => {
+                        self.start("hykb-login", async move {
+                            Client::login_hykb_register(&token).await?;
+                            Ok(Some(Client::get_me().await?))
+                        });
+                    }
+                    HykbChoice::Claim => {
+                        // Reveal the email form so the user can enter the
+                        // credentials of the account they want to claim. The
+                        // pending token is kept; the login button submits the
+                        // claim while it is set.
+                        self.hykb_pending_token = Some(token);
+                        self.show_form(t);
+                        show_message(tl!("hykb-claim-need-cred")).ok();
+                    }
+                }
             }
         }
         Ok(())
@@ -367,5 +610,76 @@ impl Login {
         if self.task.is_some() {
             ui.full_loading_simple(t);
         }
+        #[cfg(feature = "aa")]
+        self.render_picker(ui, t);
+        #[cfg(feature = "aa")]
+        if self.hykb_task.is_some() {
+            ui.full_loading_simple(t);
+        }
+    }
+
+    /// The bounding rect of the method-choice panel.
+    #[cfg(feature = "aa")]
+    fn picker_rect() -> Rect {
+        let hw = 0.4;
+        let hh = 0.25;
+        Rect::new(-hw, -hh, hw * 2., hh * 2.)
+    }
+
+    /// Render the method-choice panel: a title and two vertical, styled buttons
+    /// (email login and the green HYKB login with its logo).
+    #[cfg(feature = "aa")]
+    fn render_picker(&mut self, ui: &mut Ui, t: f32) {
+        if !self.picker_show && !self.picker_fader.transiting() {
+            return;
+        }
+        self.picker_fader.reset();
+        let p = if self.picker_show { 1. } else { -self.picker_fader.progress(t) };
+        ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
+        self.picker_fader.for_sub(|f| {
+            f.render(ui, t, |ui| {
+                let wr = Self::picker_rect();
+                ui.fill_path(&wr.rounded(0.02), ui.background());
+
+                let pad = 0.045;
+                ui.text(tl!("login-method-title"))
+                    .pos(wr.x + pad, wr.y + 0.037)
+                    .size(1.1)
+                    .draw_using(&BOLD_FONT);
+
+                let bh = 0.13;
+                let gap = 0.028;
+                let bw = wr.w - pad * 2.;
+                // HYKB login — brand green with the popcorn logo.
+                let r = Rect::new(wr.x + pad, wr.bottom() - bh * 2. - gap - 0.05, bw, bh);
+                let green = Color::from_rgba(0x5f, 0xb8, 0x78, 255);
+                self.btn_method_hykb.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, green);
+                    let ir = Rect::new(r.x + 0.03, r.center().y - 0.045, 0.09, 0.09);
+                    ui.fill_rect(ir, (*self.icons.hykb, ir, ScaleType::Fit));
+                    ui.text(tl!("login-method-hykb"))
+                        .pos(ir.right() + 0.03, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.6)
+                        .color(WHITE)
+                        .draw();
+                });
+                // Email login — neutral dark with the envelope icon.
+                let r = Rect::new(wr.x + pad, r.bottom() + gap, bw, bh);
+                self.btn_method_email.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let ir = Rect::new(r.x + 0.03, r.center().y - 0.04, 0.08, 0.08);
+                    ui.fill_rect(ir, (*self.icons.msg, ir, ScaleType::Fit, semi_white(0.9)));
+                    ui.text(tl!("login-method-email"))
+                        .pos(ir.right() + 0.035, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.6)
+                        .color(WHITE)
+                        .draw();
+                });
+            });
+        });
     }
 }

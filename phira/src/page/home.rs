@@ -126,8 +126,9 @@ impl HomePage {
             _ => "none".to_owned(),
         };
 
+        let icons = Arc::new(Icons::new().await?);
         let mut res = Self {
-            icons: Arc::new(Icons::new().await?),
+            icons: Arc::clone(&icons),
 
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
@@ -138,7 +139,7 @@ impl HomePage {
 
             next_page: None,
 
-            login: Login::new(),
+            login: Login::new(icons),
             update_task,
 
             need_back: false,
