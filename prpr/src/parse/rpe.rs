@@ -39,6 +39,10 @@ fn f32_one() -> f32 {
     1.
 }
 
+fn i32_one() -> i32 {
+    1
+}
+
 fn rpe_version_default() -> i32 {
     160
 }
@@ -67,7 +71,7 @@ struct RPEEvent<T = f32> {
     bezier: u8,
     #[serde(default)]
     bezier_points: [f32; 4],
-    #[serde(default)]
+    #[serde(default = "i32_one")]
     easing_type: i32,
     start: T,
     end: T,
@@ -372,7 +376,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
                 if event.easing_type == 0 {
                     push_kf(start_time, end_time, StaticTween::get_rc(2), start_speed);
                 } else if event.easing_type <= 1 {
-                    if start_speed.signum() * end_speed.signum() < 0. {
+                    if start_speed * end_speed < 0. {
                         let x = start_speed / (start_speed - end_speed);
                         let mid = f64::tween(&start_time, &end_time, x);
                         for (start_time, end_time, start, end) in [(start_time, mid, start_speed, 0.), (mid, end_time, 0., end_speed)] {
