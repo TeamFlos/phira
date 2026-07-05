@@ -1306,7 +1306,7 @@ impl Scene for GameScene {
                 GameMode::TweakOffset => NextScene::PopWithResult(Box::new(None::<f32>)),
             }
         } else if let Some(next_scene) = self.next_scene.take() {
-            if !matches!(next_scene, NextScene::None) {
+            if !matches!(next_scene, NextScene::None) && tm.paused() {
                 tm.resume();
             }
             tm.speed = 1.0;
