@@ -30,5 +30,6 @@ hykb-login-cancelled = 已取消好游快爆登录
 
 hykb-transfer = 迁移旧账号
 transfer-prompt = 要迁移的旧账号邮箱
+transfer-requesting = 正在申请迁移
 transfer-email-sent = 确认邮件已发送，请前往邮箱点击链接完成迁移
 transfer-failed = 申请迁移失败

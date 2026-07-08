@@ -30,5 +30,6 @@ hykb-login-cancelled = HYKB login cancelled.
 
 hykb-transfer = Migrate old account
 transfer-prompt = Email of the old account to migrate
+transfer-requesting = Requesting migration...
 transfer-email-sent = Confirmation email sent. Please click the link in your inbox to complete the migration.
 transfer-failed = Failed to request migration.

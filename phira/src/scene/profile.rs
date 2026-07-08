@@ -17,6 +17,8 @@ use inputbox::InputBox;
 use macroquad::prelude::*;
 #[cfg(feature = "aa")]
 use prpr::scene::{request_input, return_input, take_input};
+#[cfg(feature = "aa")]
+use prpr::ui::Dialog;
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
@@ -282,7 +284,7 @@ impl Scene for ProfileScene {
                 match res {
                     Err(err) => show_error(err.context(tl!("transfer-failed"))),
                     Ok(_) => {
-                        show_message(tl!("transfer-email-sent")).ok();
+                        Dialog::plain(tl!("hykb-transfer"), tl!("transfer-email-sent")).show();
                     }
                 }
                 self.transfer_task = None;
@@ -596,6 +598,10 @@ impl Scene for ProfileScene {
 
         if self.avatar_task.is_some() {
             ui.full_loading(tl!("uploading-avatar"), t);
+        }
+        #[cfg(feature = "aa")]
+        if self.transfer_task.is_some() {
+            ui.full_loading(tl!("transfer-requesting"), t);
         }
         Ok(())
     }
