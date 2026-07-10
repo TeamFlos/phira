@@ -5,6 +5,7 @@ prpr_l10n::tl_file!("common" ttl crate::);
 mod inner;
 
 mod anim;
+mod censor;
 mod charts_view;
 mod client;
 mod data;
@@ -199,6 +200,10 @@ async fn the_main() -> Result<()> {
     set_data(data);
     sync_data();
     save_data()?;
+
+    // Warm up the offline banned-word automaton so local edits can check
+    // synchronously. No-op without the `aa` feature.
+    tokio::spawn(censor::preload());
 
     let rx = {
         let (tx, rx) = mpsc::channel();

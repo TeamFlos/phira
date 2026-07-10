@@ -27,3 +27,5 @@ main-character-intro =
 favorites = 收藏庫
 default-fav-folder = 我的最愛
 favorites-online-only = 雲端收藏夾只能收藏線上譜面。本地譜面：{ $charts }
+
+contains-banned-words = 你的輸入包含違禁詞，請檢查後再提交
