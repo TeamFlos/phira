@@ -39,3 +39,4 @@ hykb-choice-sub = This is your first time logging in with this HYKB account. You
 hykb-choice-register = Register a new account
 hykb-choice-claim = Bind an existing account
 hykb-claim-need-cred = Please fill in the email and password of your existing account in the login form first.
+hykb-reg-name-prompt = Enter your username (4-12 characters: letters, digits, underscores and hyphens).

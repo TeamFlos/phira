@@ -44,8 +44,9 @@ enum HykbChoice {
 enum HykbStep {
     /// The HYKB account was already bound; carries the fetched user.
     LoggedIn(Box<User>),
-    /// The account is new; carries the short-lived token for register/claim.
-    NeedChoice(String),
+    /// The account is new; carries the short-lived token for register/claim and
+    /// the HYKB nickname used to prefill the username input.
+    NeedChoice { hykb_token: String, nick: String },
 }
 
 static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
@@ -113,6 +114,12 @@ pub struct Login {
     /// Pending HYKB token awaiting the user's register/claim choice.
     #[cfg(feature = "aa")]
     hykb_pending_token: Option<String>,
+    /// HYKB token kept while the player types the username for their new account.
+    #[cfg(feature = "aa")]
+    hykb_reg_token: Option<String>,
+    /// HYKB nickname, used only to prefill the username input for a new account.
+    #[cfg(feature = "aa")]
+    hykb_nick: Option<String>,
     /// Choice written by the register/claim dialog listener.
     #[cfg(feature = "aa")]
     hykb_choice: Arc<Mutex<Option<HykbChoice>>>,
@@ -175,6 +182,10 @@ impl Login {
             #[cfg(feature = "aa")]
             hykb_pending_token: None,
             #[cfg(feature = "aa")]
+            hykb_reg_token: None,
+            #[cfg(feature = "aa")]
+            hykb_nick: None,
+            #[cfg(feature = "aa")]
             hykb_choice: Arc::new(Mutex::new(None)),
         }
     }
@@ -215,6 +226,8 @@ impl Login {
         #[cfg(feature = "aa")]
         {
             self.hykb_pending_token = None;
+            self.hykb_reg_token = None;
+            self.hykb_nick = None;
         }
     }
 
@@ -246,9 +259,12 @@ impl Login {
             if cred.code != 0 {
                 bail!(tl!("hykb-login-cancelled"));
             }
-            match Client::login_hykb(cred.uid, &cred.access_token, &cred.nick).await? {
+            match Client::login_hykb(cred.uid, &cred.access_token).await? {
                 HykbLoginOutcome::LoggedIn => Ok(HykbStep::LoggedIn(Box::new(Client::get_me().await?))),
-                HykbLoginOutcome::NeedChoice { hykb_token } => Ok(HykbStep::NeedChoice(hykb_token)),
+                HykbLoginOutcome::NeedChoice { hykb_token } => Ok(HykbStep::NeedChoice {
+                    hykb_token,
+                    nick: cred.nick,
+                }),
             }
         }));
     }
@@ -272,6 +288,27 @@ impl Login {
                 false
             })
             .show();
+    }
+
+    /// Validate the username the player chose and create their HYKB-bound account.
+    /// On an invalid name, re-prompt with the entered text so it can be fixed.
+    #[cfg(feature = "aa")]
+    fn submit_hykb_register(&mut self, name: String) {
+        if let Some(error) = validate_username(&name) {
+            show_message(error).error();
+            request_input(
+                "hykb_reg_name",
+                InputBox::new().title(tl!("username")).prompt(tl!("hykb-reg-name-prompt")).default_text(&name),
+            );
+            return;
+        }
+        let Some(token) = self.hykb_reg_token.take() else {
+            return;
+        };
+        self.start("hykb-login", async move {
+            Client::login_hykb_register(&token, &name).await?;
+            Ok(Some(Client::get_me().await?))
+        });
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
@@ -412,6 +449,13 @@ impl Login {
         dispatch_tos_task();
         if let Some((id, text)) = take_input() {
             'tmp: {
+                // The HYKB register username uses a dedicated flow: validate it
+                // and kick off account creation instead of storing into a field.
+                #[cfg(feature = "aa")]
+                if id == "hykb_reg_name" {
+                    self.submit_hykb_register(text);
+                    break 'tmp;
+                }
                 let tmp = match id.as_str() {
                     "email" => &mut self.t_email,
                     "pwd" => &mut self.t_pwd,
@@ -491,8 +535,9 @@ impl Login {
                         show_message(tl!("action-success", "action" => "hykb-login")).ok();
                         self.dismiss(t);
                     }
-                    Ok(HykbStep::NeedChoice(token)) => {
-                        self.hykb_pending_token = Some(token);
+                    Ok(HykbStep::NeedChoice { hykb_token, nick }) => {
+                        self.hykb_pending_token = Some(hykb_token);
+                        self.hykb_nick = Some(nick);
                         self.show_hykb_choice();
                     }
                 }
@@ -506,10 +551,17 @@ impl Login {
             if let Some(token) = self.hykb_pending_token.take() {
                 match choice {
                     HykbChoice::Register => {
-                        self.start("hykb-login", async move {
-                            Client::login_hykb_register(&token).await?;
-                            Ok(Some(Client::get_me().await?))
-                        });
+                        // Let the player choose their own username before creating
+                        // the account, prefilled with their HYKB nickname. The token
+                        // is kept until the name is entered.
+                        self.hykb_reg_token = Some(token);
+                        request_input(
+                            "hykb_reg_name",
+                            InputBox::new()
+                                .title(tl!("username"))
+                                .prompt(tl!("hykb-reg-name-prompt"))
+                                .default_text(self.hykb_nick.clone().unwrap_or_default()),
+                        );
                     }
                     HykbChoice::Claim => {
                         // Reveal the email form so the user can enter the

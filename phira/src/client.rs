@@ -254,16 +254,15 @@ impl Client {
     }
 
     #[cfg(feature = "aa")]
-    /// Entry point for HYKB (好游快爆) login. The verified `(uid, nick, access_token)`
+    /// Entry point for HYKB (好游快爆) login. The verified `(uid, access_token)`
     /// come from the native SDK. Either logs the user straight in (account already
     /// bound) or returns a short-lived `hykb_token` for the register/claim step.
-    pub async fn login_hykb(uid: i64, access_token: &str, nick: &str) -> Result<HykbLoginOutcome> {
+    pub async fn login_hykb(uid: i64, access_token: &str) -> Result<HykbLoginOutcome> {
         let resp: HykbLoginResp = recv_raw(Self::post(
             "/login/hykb",
             &json!({
                 "hykbUid": uid,
                 "accessToken": access_token,
-                "nick": nick,
             }),
         ))
         .await?
@@ -279,12 +278,19 @@ impl Client {
     }
 
     #[cfg(feature = "aa")]
-    /// New player: create a fresh Phira account bound to the pending HYKB identity.
-    pub async fn login_hykb_register(hykb_token: &str) -> Result<()> {
-        let resp: LoginResp = recv_raw(Self::post("/login/hykb/register", &json!({ "hykbToken": hykb_token })))
-            .await?
-            .json()
-            .await?;
+    /// New player: create a fresh Phira account bound to the pending HYKB identity,
+    /// using the username chosen by the player.
+    pub async fn login_hykb_register(hykb_token: &str, username: &str) -> Result<()> {
+        let resp: LoginResp = recv_raw(Self::post(
+            "/login/hykb/register",
+            &json!({
+                "hykbToken": hykb_token,
+                "nick": username,
+            }),
+        ))
+        .await?
+        .json()
+        .await?;
         Self::store_login(resp.id, resp.token, resp.refresh_token).await?;
         Ok(())
     }
