@@ -8,9 +8,9 @@ email = E-Posta Adresi
 username = Kullanıcı Adı
 password = Şifre
 
-name-length-req = Kullanıcı adı uzunluğu 4 ile 20 karakter arasında olmalıdır
+name-length-req = Kullanıcı adı uzunluğu 4 ile 12 karakter arasında olmalıdır
 name-has-illegal-char = Kullanıcı adı geçersiz karakterler içeriyor
-pwd-length-req = Şifre uzunluğu 6 ile 26 karakter arasında olmalıdır
+pwd-length-req = Şifre uzunluğu 8 ile 32 karakter arasında olmalıdır
 illegal-email = Geçersiz E-Posta
 
 action-success = { $action ->

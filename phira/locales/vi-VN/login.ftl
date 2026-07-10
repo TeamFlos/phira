@@ -8,9 +8,9 @@ email = Email
 username = Tên người dùng
 password = Mật khẩu
 
-name-length-req = Tên nên nằm trong khoảng 4-20 ký tự
+name-length-req = Tên nên nằm trong khoảng 4-12 ký tự
 name-has-illegal-char = Tên có ký tự không hợp lệ
-pwd-length-req = Mật khẩu nên nằm trong khoảng 6-26 ký tự
+pwd-length-req = Mật khẩu nên nằm trong khoảng 8-32 ký tự
 illegal-email = Email không hợp lệ
 
 action-success = { $action ->

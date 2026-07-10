@@ -9,9 +9,9 @@ username = 用户名
 password = 密码
 forget-password = 忘记密码
 
-name-length-req = 用户名长度应介于 4-20 之间
+name-length-req = 用户名长度应介于 4-12 之间
 name-has-illegal-char = 用户名包含非法字符
-pwd-length-req = 密码长度应介于 6-26 之间
+pwd-length-req = 密码长度应介于 8-32 之间
 illegal-email = 邮箱不合法
 
 action-success = { $action ->

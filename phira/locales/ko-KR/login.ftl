@@ -8,9 +8,9 @@ email = 이메일 주소
 username = 사용자 이름
 password = 비밀번호
 
-name-length-req = 사용자 이름은 4자에서 20자 사이여야 합니다.
+name-length-req = 사용자 이름은 4자에서 12자 사이여야 합니다.
 name-has-illegal-char = 사용자 이름에 부적절한 문자가 포함되어 있습니다.
-pwd-length-req = 비밀번호는 6자에서 26자 사이여야 합니다.
+pwd-length-req = 비밀번호는 8자에서 32자 사이여야 합니다.
 illegal-email = 부적절한 이메일 주소입니다.
 
 action-success = { $action ->

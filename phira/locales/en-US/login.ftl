@@ -9,9 +9,9 @@ username = Username
 password = Password
 forget-password = Forgot password?
 
-name-length-req = Username length should be between 4 and 20 characters.
+name-length-req = Username length should be between 4 and 12 characters.
 name-has-illegal-char = Username contains unallowed characters.
-pwd-length-req = Password length should be between 6 and 26 characters.
+pwd-length-req = Password length should be between 8 and 32 characters.
 illegal-email = Unallowed email.
 
 action-success = { $action ->
