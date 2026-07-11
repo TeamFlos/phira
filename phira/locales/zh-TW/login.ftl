@@ -34,6 +34,7 @@ hykb-login-cancelled = 已取消好遊快爆登入
 login-method-title = 選擇登入方式
 login-method-email = 郵箱登入
 login-method-hykb = 好遊快爆登入
+login-method-recommended = 推薦
 hykb-choice-title = 綁定好遊快爆賬號
 hykb-choice-sub = 這是你首次使用該好遊快爆賬號登入。你可以註冊一個全新的 Phira 賬號，或用已有的郵箱賬號登入並綁定。
 hykb-choice-register = 註冊新賬號

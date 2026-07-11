@@ -719,12 +719,19 @@ impl Login {
                     ui.fill_path(&path, green);
                     let ir = Rect::new(r.x + 0.03, r.center().y - 0.045, 0.09, 0.09);
                     ui.fill_rect(ir, (*self.icons.hykb, ir, ScaleType::Fit));
-                    ui.text(tl!("login-method-hykb"))
+                    let r = ui.text(tl!("login-method-hykb"))
                         .pos(ir.right() + 0.03, r.center().y)
                         .anchor(0., 0.5)
                         .no_baseline()
                         .size(0.6)
                         .color(WHITE)
+                        .draw();
+                    ui.text(tl!("login-method-recommended"))
+                        .pos(r.right() + 0.02, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.6)
+                        .color(Color::from_hex_rgb(0xffc107))
                         .draw();
                 });
                 // Email login — neutral dark with the envelope icon.
