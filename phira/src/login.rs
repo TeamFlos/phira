@@ -19,7 +19,13 @@ use prpr::{
     ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
 use regex::Regex;
-use std::{borrow::Cow, future::Future, sync::atomic::Ordering};
+use std::{future::Future, sync::atomic::Ordering};
+
+const USERNAME_LEN_MIN: usize = 2;
+const USERNAME_LEN_MAX: usize = 14;
+
+const PWD_LEN_MIN: usize = 8;
+const PWD_LEN_MAX: usize = 32;
 
 static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
@@ -28,12 +34,12 @@ static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
     .unwrap()
 });
 
-fn validate_username(username: &str) -> Option<Cow<'static, str>> {
-    if !(4..=12).contains(&username.chars().count()) {
-        return Some(tl!("name-length-req"));
+fn validate_username(username: &str) -> Option<String> {
+    if !(USERNAME_LEN_MIN..=USERNAME_LEN_MAX).contains(&username.chars().count()) {
+        return Some(tl!("name-length-req", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX));
     }
     if username.chars().any(|it| it != '_' && it != '-' && !it.is_alphanumeric()) {
-        return Some(tl!("name-has-illegal-char"));
+        return Some(tl!("name-has-illegal-char").into_owned());
     }
     None
 }
@@ -120,18 +126,18 @@ impl Login {
         self.fader.back(t);
     }
 
-    fn register(&mut self) -> Option<Cow<'static, str>> {
+    fn register(&mut self) -> Option<String> {
         let email = self.t_reg_email.clone();
         let name = self.t_reg_name.clone();
         let pwd = self.t_reg_pwd.clone();
         if let Some(error) = validate_username(&name) {
-            show_message(error).error();
+            return Some(error);
         }
         if !EMAIL_REGEX.is_match(&email) {
-            return Some(tl!("illegal-email"));
+            return Some(tl!("illegal-email").into_owned());
         }
         if !(8..=32).contains(&pwd.len()) {
-            return Some(tl!("pwd-length-req"));
+            return Some(tl!("pwd-length-req", "min" => PWD_LEN_MIN, "max" => PWD_LEN_MAX));
         }
         self.start("register", async move {
             Client::register(&email, &name, &pwd).await?;

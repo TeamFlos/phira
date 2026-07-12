@@ -8,9 +8,9 @@ email = Email
 username = ชื่อผู้ใช้
 password = รหัสผ่าน
 
-name-length-req = ชื่อควรยาว 4-20 ตัว
+name-length-req = ชื่อควรยาว { $min }-{ $max } ตัว
 name-has-illegal-char = ชื่อผู้ใช้มีตัวที่ไม่อนุญาตให้ใช้
-pwd-length-req = รหัสผ่านควรยาว 6-26 ตัว
+pwd-length-req = รหัสผ่านควรยาว { $min }-{ $max } ตัว
 illegal-email = Illegal email
 
 action-success = { $action ->

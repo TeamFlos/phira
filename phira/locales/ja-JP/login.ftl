@@ -8,9 +8,9 @@ email = メールアドレス
 username = ユーザー名
 password = パスワード
 
-name-length-req = 名前は4〜20字以内にしてください
+name-length-req = 名前は{ $min }〜{ $max }字以内にしてください
 name-has-illegal-char = ユーザー名に不正な文字が含まれています
-pwd-length-req = パスワードは6〜26字以内にしてください
+pwd-length-req = パスワードは{ $min }〜{ $max }字以内にしてください
 illegal-email = 無効なメールアドレスです
 
 action-success = { $action ->

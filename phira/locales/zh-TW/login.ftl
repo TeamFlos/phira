@@ -9,9 +9,9 @@ username = 使用者名稱
 password = 密碼
 forget-password = 忘記密碼？
 
-name-length-req = 使用者名稱長度應介於 4-20 之間
+name-length-req = 使用者名稱長度應介於 { $min }-{ $max } 之間
 name-has-illegal-char = 使用者名稱包含非法字元
-pwd-length-req = 密碼長度應介於 6-26 之間
+pwd-length-req = 密碼長度應介於 { $min }-{ $max } 之間
 illegal-email = 電子郵件地址不合法
 
 action-success = { $action ->

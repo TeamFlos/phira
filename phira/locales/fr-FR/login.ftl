@@ -8,9 +8,9 @@ email = Adresse e-mail
 username = Nom d'utilisateur
 password = Mot de passe
 
-name-length-req = Le nom d'utilisateur doit être compris entre 4 et 20 caractères.
+name-length-req = Le nom d'utilisateur doit être compris entre { $min } et { $max } caractères.
 name-has-illegal-char = Le nom d'utilisateur contient des caractères illégaux.
-pwd-length-req = Le mot de passe doit être compris entre 6 et 26 caractères.
+pwd-length-req = Le mot de passe doit être compris entre { $min } et { $max } caractères.
 illegal-email = E-mail illégal
 
 action-success = { $action ->

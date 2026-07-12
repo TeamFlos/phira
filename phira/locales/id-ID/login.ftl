@@ -8,9 +8,9 @@ email = Email
 username = Username
 password = Password
 
-name-length-req = Panjang username harus di antara 4 and 20 karakter.
+name-length-req = Panjang username harus di antara { $min } dan { $max } karakter.
 name-has-illegal-char = Username mengandung karakter illegal.
-pwd-length-req = Panjang password harus di antara 6 and 26 karakter.
+pwd-length-req = Panjang password harus di antara { $min } dan { $max } karakter.
 illegal-email = Email tidak benar.
 
 action-success = { $action ->
