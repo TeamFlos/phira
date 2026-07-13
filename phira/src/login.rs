@@ -35,6 +35,8 @@ use crate::{client::HykbLoginOutcome, obtain_hykb_credential};
 #[cfg(feature = "aa")]
 use anyhow::bail;
 #[cfg(feature = "aa")]
+use prpr::scene::take_input_cancelled;
+#[cfg(feature = "aa")]
 use std::sync::Mutex;
 
 /// The user's choice in the HYKB "register or claim" dialog.
@@ -43,6 +45,8 @@ use std::sync::Mutex;
 enum HykbChoice {
     Register,
     Claim,
+    /// The player dismissed the dialog without choosing; back out to the picker.
+    Cancel,
 }
 
 /// Result of the initial HYKB login step.
@@ -205,12 +209,16 @@ impl Login {
         // With HYKB available, show the method-choice panel before any form;
         // otherwise go straight to the email form.
         #[cfg(feature = "aa")]
-        {
-            self.picker_show = true;
-            self.picker_fader.sub(t);
-        }
+        self.show_picker(t);
         #[cfg(not(feature = "aa"))]
         self.show_form(t);
+    }
+
+    /// Reveal the method-choice panel ("email vs HYKB").
+    #[cfg(feature = "aa")]
+    fn show_picker(&mut self, t: f32) {
+        self.picker_show = true;
+        self.picker_fader.sub(t);
     }
 
     /// Reveal the email login/register form.
@@ -281,9 +289,8 @@ impl Login {
             .buttons(vec![tl!("hykb-choice-register").to_string(), tl!("hykb-choice-claim").to_string()])
             .listener(move |_, pos| {
                 match pos {
-                    -1 => {
-                        return true;
-                    }
+                    // Outside click / dismiss: treat as backing out to the picker.
+                    -1 => *choice.lock().unwrap() = Some(HykbChoice::Cancel),
                     0 => *choice.lock().unwrap() = Some(HykbChoice::Register),
                     1 => *choice.lock().unwrap() = Some(HykbChoice::Claim),
                     _ => {}
@@ -303,7 +310,7 @@ impl Login {
                 "hykb_reg_name",
                 InputBox::new()
                     .title(tl!("username"))
-                    .prompt(tl!("hykb-reg-name-prompt"))
+                    .prompt(tl!("hykb-reg-name-prompt", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX))
                     .default_text(&name),
             );
             return;
@@ -353,6 +360,17 @@ impl Login {
         }
         if self.show {
             if !Ui::dialog_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
+                // In the HYKB claim flow, backing out of the credential form
+                // returns to the register/claim choice dialog (the previous
+                // level) instead of closing the login entirely. Keep the
+                // pending token so the choice can be made again.
+                #[cfg(feature = "aa")]
+                if self.hykb_pending_token.is_some() {
+                    self.show = false;
+                    self.fader.back(t);
+                    self.show_hykb_choice();
+                    return true;
+                }
                 self.dismiss(t);
                 return true;
             }
@@ -421,8 +439,8 @@ impl Login {
         if let Some(token) = self.hykb_pending_token.clone() {
             let email = self.t_email.clone();
             let pwd = self.t_pwd.clone();
-            if !EMAIL_REGEX.is_match(&email) || pwd.is_empty() {
-                show_message(tl!("hykb-claim-need-cred")).error();
+            if !EMAIL_REGEX.is_match(&email) {
+                show_message(tl!("illegal-email")).error();
                 return;
             }
             self.hykb_pending_token = None;
@@ -474,6 +492,17 @@ impl Login {
                     }
                 };
                 *tmp = text;
+            }
+        }
+        // A cancelled HYKB username entry returns to the register/claim dialog
+        // instead of leaving the player stranded on a blank overlay.
+        #[cfg(feature = "aa")]
+        if let Some(id) = take_input_cancelled() {
+            if id == "hykb_reg_name" {
+                if let Some(token) = self.hykb_reg_token.take() {
+                    self.hykb_pending_token = Some(token);
+                    self.show_hykb_choice();
+                }
             }
         }
         if JUST_ACCEPTED_TOS.fetch_and(false, Ordering::Relaxed) {
@@ -554,9 +583,9 @@ impl Login {
         // matching follow-up request, reusing `task` so the success path is shared.
         let choice = self.hykb_choice.lock().unwrap().take();
         if let Some(choice) = choice {
-            if let Some(token) = self.hykb_pending_token.take() {
-                match choice {
-                    HykbChoice::Register => {
+            match choice {
+                HykbChoice::Register => {
+                    if let Some(token) = self.hykb_pending_token.take() {
                         // Let the player choose their own username before creating
                         // the account, prefilled with their HYKB nickname. The token
                         // is kept until the name is entered.
@@ -565,19 +594,25 @@ impl Login {
                             "hykb_reg_name",
                             InputBox::new()
                                 .title(tl!("username"))
-                                .prompt(tl!("hykb-reg-name-prompt"))
+                                .prompt(tl!("hykb-reg-name-prompt", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX))
                                 .default_text(self.hykb_nick.clone().unwrap_or_default()),
                         );
                     }
-                    HykbChoice::Claim => {
-                        // Reveal the email form so the user can enter the
-                        // credentials of the account they want to claim. The
-                        // pending token is kept; the login button submits the
-                        // claim while it is set.
-                        self.hykb_pending_token = Some(token);
+                }
+                HykbChoice::Claim => {
+                    // Keep the pending token; reveal the email form so the user can
+                    // enter the credentials of the account they want to claim. The
+                    // login button submits the claim while the token is set.
+                    if self.hykb_pending_token.is_some() {
                         self.show_form(t);
-                        show_message(tl!("hykb-claim-need-cred")).ok();
                     }
+                }
+                HykbChoice::Cancel => {
+                    // Backed out of register/claim: drop the pending identity and
+                    // return to the method-choice panel.
+                    self.hykb_pending_token = None;
+                    self.hykb_nick = None;
+                    self.show_picker(t);
                 }
             }
         }

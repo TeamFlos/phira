@@ -42,5 +42,4 @@ hykb-choice-sub =
   若您曾經遊玩過且已擁有 Phira 賬號，請選擇【綁定已有 Phira 賬號】進行綁定操作。
 hykb-choice-register = 建立新的賬號
 hykb-choice-claim = 綁定已有 Phira 賬號
-hykb-claim-need-cred = 請先在登入框中填寫已有賬號的郵箱和密碼
 hykb-reg-name-prompt = 請輸入你的使用者名稱（{ $min }-{ $max } 位）

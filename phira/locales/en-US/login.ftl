@@ -42,5 +42,4 @@ hykb-choice-sub =
   If you've played before and already have a Phira account, choose [Bind an existing Phira account] to link it.
 hykb-choice-register = Create a new account
 hykb-choice-claim = Bind an existing Phira account
-hykb-claim-need-cred = Please fill in the email and password of your existing account in the login form first.
 hykb-reg-name-prompt = Enter your username ({ $min }-{ $max } characters).

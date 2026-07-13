@@ -1701,9 +1701,9 @@ dependencies = [
 
 [[package]]
 name = "inputbox"
-version = "0.1.1"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ff0d04cf163f47698d0ceddb443e82ba90add0ff629f5feb3bd22de3a02508f"
+checksum = "ae982ec93a8ca58fe93e4077fd104ee034941653816762ff9fef9fbfaa278e74"
 dependencies = [
  "block2",
  "cfg-if",
@@ -1723,9 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "inputbox-android"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8c3414fbf0f1460c97fd92b67dc7517a028c59583ac638c31a1bcb46beb7f4a"
+checksum = "9482b5fd20be11d1dc7ef9fa47ab93af716b80e6f609ac68a6b8ac43dc48b626"
 
 [[package]]
 name = "interpolate_name"

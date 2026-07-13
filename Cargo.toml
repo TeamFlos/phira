@@ -29,7 +29,7 @@ fluent-syntax = "0.12.0"
 futures-util = "0.3.32"
 hex = "0.4.3"
 image = { version = "0.25.10", default-features = false }
-inputbox = "0.1.1"
+inputbox = "0.1.3"
 lru = "0.16.3"
 lyon = "1.0.19"
 nalgebra = "0.34.1"
