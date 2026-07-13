@@ -404,7 +404,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: EnvUno
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: EnvUnowned, _class: JClass) {
-    // std::process::exit(0);
+    std::process::exit(0);
 }
 
 #[cfg(target_os = "android")]
