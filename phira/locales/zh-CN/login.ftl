@@ -35,9 +35,12 @@ login-method-title = 选择登录方式
 login-method-email = 邮箱登录
 login-method-hykb = 好游快爆登录
 login-method-recommended = 推荐
-hykb-choice-title = 绑定好游快爆账号
-hykb-choice-sub = 这是你首次使用该好游快爆账号登录。你可以注册一个全新的 Phira 账号，或用已有的邮箱账号登录并绑定。
-hykb-choice-register = 注册新账号
-hykb-choice-claim = 绑定已有账号
+hykb-choice-title = 欢迎来到 Phira
+hykb-choice-sub = 
+  这是你首次使用快爆账号进行登录。
+  若您是第一次游玩，请选择【创建新的账号】进行游戏。
+  若您曾经游玩过且已拥有Phira账号，请选择【绑定已有Phira账号】进行绑定操作。
+hykb-choice-register = 创建新的账号
+hykb-choice-claim = 绑定已有Phira账号
 hykb-claim-need-cred = 请先在登录框中填写已有账号的邮箱和密码
-hykb-reg-name-prompt = 请输入你的用户名（4-12 位，可含字母、数字、下划线和连字符）
+hykb-reg-name-prompt = 请输入你的用户名（{ $min }-{ $max } 位）

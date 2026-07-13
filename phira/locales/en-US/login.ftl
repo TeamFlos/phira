@@ -35,9 +35,12 @@ login-method-title = Choose login method
 login-method-email = Log in with email
 login-method-hykb = Log in with HYKB
 login-method-recommended = Recommended
-hykb-choice-title = Bind your HYKB account
-hykb-choice-sub = This is your first time logging in with this HYKB account. You can register a brand-new Phira account, or log in with an existing email account and bind it.
-hykb-choice-register = Register a new account
-hykb-choice-claim = Bind an existing account
+hykb-choice-title = Welcome to Phira
+hykb-choice-sub =
+  This is your first time logging in with your HYKB account.
+  If this is your first time playing, choose [Create a new account] to start.
+  If you've played before and already have a Phira account, choose [Bind an existing Phira account] to link it.
+hykb-choice-register = Create a new account
+hykb-choice-claim = Bind an existing Phira account
 hykb-claim-need-cred = Please fill in the email and password of your existing account in the login form first.
-hykb-reg-name-prompt = Enter your username (4-12 characters: letters, digits, underscores and hyphens).
+hykb-reg-name-prompt = Enter your username ({ $min }-{ $max } characters).

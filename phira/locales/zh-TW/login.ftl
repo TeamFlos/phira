@@ -35,9 +35,12 @@ login-method-title = 選擇登入方式
 login-method-email = 郵箱登入
 login-method-hykb = 好遊快爆登入
 login-method-recommended = 推薦
-hykb-choice-title = 綁定好遊快爆賬號
-hykb-choice-sub = 這是你首次使用該好遊快爆賬號登入。你可以註冊一個全新的 Phira 賬號，或用已有的郵箱賬號登入並綁定。
-hykb-choice-register = 註冊新賬號
-hykb-choice-claim = 綁定已有賬號
+hykb-choice-title = 歡迎來到 Phira
+hykb-choice-sub =
+  這是你首次使用快爆賬號進行登入。
+  若您是第一次遊玩，請選擇【建立新的賬號】進行遊戲。
+  若您曾經遊玩過且已擁有 Phira 賬號，請選擇【綁定已有 Phira 賬號】進行綁定操作。
+hykb-choice-register = 建立新的賬號
+hykb-choice-claim = 綁定已有 Phira 賬號
 hykb-claim-need-cred = 請先在登入框中填寫已有賬號的郵箱和密碼
-hykb-reg-name-prompt = 請輸入你的使用者名稱（4-12 位，可含字母、數字、底線和連字號）
+hykb-reg-name-prompt = 請輸入你的使用者名稱（{ $min }-{ $max } 位）
