@@ -33,6 +33,9 @@ pub struct Icons {
     pub plus: SafeTexture,
     pub select: SafeTexture,
 
+    #[cfg(feature = "aa")]
+    pub hykb: SafeTexture,
+
     pub r#abstract: SafeTexture,
 }
 
@@ -67,6 +70,9 @@ impl Icons {
             cloud_check: load_texture("cloud_check.png").await?.into(),
             plus: load_texture("plus.png").await?.into(),
             select: load_texture("select.png").await?.into(),
+
+            #[cfg(feature = "aa")]
+            hykb: load_texture("hykb.png").await?.into(),
 
             r#abstract: load_texture("abstract.jpg").await?.into(),
         })

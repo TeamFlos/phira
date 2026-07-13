@@ -705,6 +705,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52560adf09603e58c9a7ee1fe1dcb95a16927b17c127f0ac02d6e768a0e25bc1"
 
 [[package]]
+name = "daachorse"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99251f238b74cd219a86fe6ea9328308ebb223fcbb5b8eb5aa400b847a41dded"
+
+[[package]]
 name = "dashmap"
 version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3139,6 +3145,7 @@ dependencies = [
  "cacache",
  "cfg-if",
  "chrono",
+ "daachorse",
  "dashmap 6.1.0",
  "dotenv-build",
  "fluent",
@@ -3157,6 +3164,7 @@ dependencies = [
  "napi-derive-ohos",
  "napi-ohos",
  "ndk-context",
+ "obfstr",
  "objc2",
  "objc2-foundation",
  "objc2-ui-kit",

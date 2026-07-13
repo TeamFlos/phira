@@ -967,6 +967,8 @@ impl Page for LibraryPage {
                 if text.is_empty() {
                     use crate::page::favorites::{tl as ftl, L10N_LOCAL};
                     show_message(ftl!("name-empty")).error();
+                } else if let Err(err) = crate::censor::check_text(&text) {
+                    show_message(err.to_string()).error();
                 } else {
                     let charts_view = &mut self.tabs.selected_mut().view;
                     if let Some(mut selected) = charts_view.multi_select.clone() {

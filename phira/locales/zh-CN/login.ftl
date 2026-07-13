@@ -17,12 +17,27 @@ illegal-email = 邮箱不合法
 action-success = { $action ->
   [login] 登录成功
   [register] 注册成功
+  [hykb-login] 好游快爆登录成功
   *[other] _
 }
 action-failed = { $action ->
   [login] 登录失败
   [register] 注册失败
+  [hykb-login] 好游快爆登录失败
   *[other] _
 }
 
 email-sent = 验证信息已发送到邮箱，请验证后登录
+
+hykb-login = 好游快爆登录
+hykb-login-cancelled = 已取消好游快爆登录
+login-method-title = 选择登录方式
+login-method-email = 邮箱登录
+login-method-hykb = 好游快爆登录
+login-method-recommended = 推荐
+hykb-choice-title = 绑定好游快爆账号
+hykb-choice-sub = 这是你首次使用该好游快爆账号登录。你可以注册一个全新的 Phira 账号，或用已有的邮箱账号登录并绑定。
+hykb-choice-register = 注册新账号
+hykb-choice-claim = 绑定已有账号
+hykb-claim-need-cred = 请先在登录框中填写已有账号的邮箱和密码
+hykb-reg-name-prompt = 请输入你的用户名（4-12 位，可含字母、数字、下划线和连字符）

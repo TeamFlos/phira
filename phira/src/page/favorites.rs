@@ -644,6 +644,8 @@ impl Page for FavoritesPage {
                     let name = text.trim().to_string();
                     if name.is_empty() {
                         show_message(tl!("name-empty")).error();
+                    } else if let Err(err) = crate::censor::check_text(&name) {
+                        show_message(err.to_string()).error();
                     } else {
                         get_data_mut().push_collection(LocalCollection::new(name))?;
                         let _ = save_data();
@@ -655,6 +657,8 @@ impl Page for FavoritesPage {
                     let new_name = text.trim().to_string();
                     if new_name.is_empty() {
                         show_message(tl!("name-empty")).error();
+                    } else if let Err(err) = crate::censor::check_text(&new_name) {
+                        show_message(err.to_string()).error();
                     } else if let Some(index) = self.active_folder {
                         let data = get_data();
                         let uuid = data.collection_uuids()[index];
@@ -674,7 +678,9 @@ impl Page for FavoritesPage {
                 }
                 "fav_description" => {
                     let new_description = text.trim().to_string();
-                    if let Some(index) = self.active_folder {
+                    if let Err(err) = crate::censor::check_text(&new_description) {
+                        show_message(err.to_string()).error();
+                    } else if let Some(index) = self.active_folder {
                         let data = get_data();
                         let uuid = data.collection_uuids()[index];
                         let col = data.collection_info(&uuid);

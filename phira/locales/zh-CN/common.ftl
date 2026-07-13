@@ -37,3 +37,5 @@ main-character-intro =
 favorites = 收藏夹
 default-fav-folder = 默认收藏夹
 favorites-online-only = 在线收藏夹仅能收藏在线谱面。本地谱面：{ $charts }
+
+contains-banned-words = 你的输入包含违禁词，请检查后再提交
