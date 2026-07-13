@@ -100,7 +100,7 @@ pub struct HomePage {
     char_scroll: Scroll,
     char_edit_btn: RectButton,
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     beian_btn: RectButton,
 }
 
@@ -211,7 +211,7 @@ impl HomePage {
             char_scroll: Scroll::new().use_clip(ClipType::Clip),
             char_edit_btn: RectButton::new(),
 
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             beian_btn: RectButton::new(),
         };
         res.load_char_illu();
@@ -435,7 +435,7 @@ impl Page for HomePage {
             }
             return Ok(true);
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.beian_btn.touch(touch) {
             let _ = open_url("https://beian.miit.gov.cn/#/home");
             return Ok(true);
@@ -779,7 +779,7 @@ impl Page for HomePage {
                     .draw();
             }
 
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             {
                 let r = ui.screen_rect();
                 let r = ui

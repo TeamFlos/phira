@@ -230,7 +230,7 @@ pub fn check_text(text: &str) -> Result<()> {
 /// data isn't safety-critical on its own, and anything later uploaded is still
 /// caught by server-side moderation.
 pub fn check_texts<'a>(texts: impl IntoIterator<Item = &'a str>) -> Result<()> {
-    if !cfg!(feature = "aa") {
+    if !cfg!(feature = "hykb") {
         return Ok(());
     }
     let Some(manager) = INSTANCE.get() else {

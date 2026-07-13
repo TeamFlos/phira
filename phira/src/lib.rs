@@ -457,10 +457,10 @@ pub extern "C" fn Java_quad_1native_QuadNative_setInputText(_env: EnvUnowned, _c
     INPUT_TEXT.lock().unwrap().1 = Some(text.to_string());
 }
 
-#[cfg(not(all(target_os = "android", feature = "aa")))]
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
 pub fn anti_addiction_action(_action: &str, _arg: Option<String>) {}
 
-#[cfg(all(target_os = "android", feature = "aa"))]
+#[cfg(all(target_os = "android", feature = "hykb"))]
 pub fn anti_addiction_action(action: &str, arg: Option<String>) {
     use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
 
@@ -484,7 +484,7 @@ pub fn anti_addiction_action(action: &str, arg: Option<String>) {
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(_env: EnvUnowned, _class: JClass, #[allow(dead_code)] code: jint) {
-    if cfg!(feature = "aa") {
+    if cfg!(feature = "hykb") {
         if let Some(tx) = AA_TX.lock().unwrap().as_mut() {
             let _ = tx.send(code);
         }
@@ -504,7 +504,7 @@ pub struct HykbCredential {
 static HYKB_TX: Mutex<Option<tokio::sync::oneshot::Sender<HykbCredential>>> = Mutex::new(None);
 
 /// Ask the Android shell to start the HYKB login flow (`MainActivity.hykbLogin`).
-#[cfg(all(target_os = "android", feature = "aa"))]
+#[cfg(all(target_os = "android", feature = "hykb"))]
 fn request_hykb_login() {
     use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
 
@@ -518,7 +518,7 @@ fn request_hykb_login() {
         .unwrap();
 }
 
-#[cfg(not(all(target_os = "android", feature = "aa")))]
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
 fn request_hykb_login() {}
 
 /// Trigger the native HYKB login and await its credentials.

@@ -14,7 +14,7 @@ crate-type = ["lib", "cdylib"]
 default = ["video"]
 video = ["prpr/video"]
 chat = []
-aa = []
+hykb = []
 event_debug = []
 
 [dependencies]

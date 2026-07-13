@@ -94,7 +94,7 @@ pub enum LoginParams<'a> {
 }
 
 /// A freshly minted token pair returned by every login endpoint.
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LoginResp {
@@ -104,7 +104,7 @@ struct LoginResp {
 }
 
 /// Response of `POST /login/hykb`: either an immediate login or a pending choice.
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 #[derive(Deserialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 enum HykbLoginResp {
@@ -118,7 +118,7 @@ enum HykbLoginResp {
 }
 
 /// Outcome of a HYKB login attempt surfaced to the UI.
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 pub enum HykbLoginOutcome {
     /// The HYKB account was already bound; the user is now logged in.
     LoggedIn,
@@ -253,7 +253,7 @@ impl Client {
         Ok(())
     }
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     /// Entry point for HYKB (好游快爆) login. The verified `(uid, access_token)`
     /// come from the native SDK. Either logs the user straight in (account already
     /// bound) or returns a short-lived `hykb_token` for the register/claim step.
@@ -277,7 +277,7 @@ impl Client {
         }
     }
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     /// New player: create a fresh Phira account bound to the pending HYKB identity,
     /// using the username chosen by the player.
     pub async fn login_hykb_register(hykb_token: &str, username: &str) -> Result<()> {
@@ -295,7 +295,7 @@ impl Client {
         Ok(())
     }
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     /// Legacy migration: bind the pending HYKB identity to an existing email account
     /// after verifying its email + password.
     pub async fn login_hykb_claim(hykb_token: &str, email: &str, password: &str) -> Result<()> {
@@ -314,7 +314,7 @@ impl Client {
         Ok(())
     }
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     /// Bind a HYKB account to the currently logged-in account.
     pub async fn bind_hykb(uid: i64, access_token: &str) -> Result<()> {
         recv_raw(Self::post(
@@ -328,14 +328,14 @@ impl Client {
         Ok(())
     }
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     /// Unbind the HYKB account from the current account.
     pub async fn unbind_hykb() -> Result<()> {
         recv_raw(Self::post("/me/unbind-hykb", &())).await?;
         Ok(())
     }
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     /// Request transferring the current HYKB-only account onto an existing email
     /// account. Sends a confirmation email to `email`; the move happens only once
     /// the user clicks the link. Returns Ok even when the email is unregistered

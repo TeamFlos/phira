@@ -12,7 +12,7 @@ use anyhow::Result;
 use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use prpr::ext::ScaleType;
 use prpr::{
     core::BOLD_FONT,
@@ -30,17 +30,17 @@ const USERNAME_LEN_MAX: usize = 14;
 const PWD_LEN_MIN: usize = 8;
 const PWD_LEN_MAX: usize = 32;
 
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use crate::{client::HykbLoginOutcome, obtain_hykb_credential};
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use anyhow::bail;
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use prpr::scene::take_input_cancelled;
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use std::sync::Mutex;
 
 /// The user's choice in the HYKB "register or claim" dialog.
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 #[derive(Clone, Copy)]
 enum HykbChoice {
     Register,
@@ -50,7 +50,7 @@ enum HykbChoice {
 }
 
 /// Result of the initial HYKB login step.
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 enum HykbStep {
     /// The HYKB account was already bound; carries the fetched user.
     LoggedIn(Box<User>),
@@ -77,7 +77,7 @@ fn validate_username(username: &str) -> Option<String> {
 }
 
 pub struct Login {
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     icons: Arc<Icons>,
 
     fader: Fader,
@@ -85,13 +85,13 @@ pub struct Login {
 
     /// The method-choice panel ("email vs HYKB"), shown before the form when
     /// HYKB is available.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     picker_fader: Fader,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     picker_show: bool,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     btn_method_email: DRectButton,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     btn_method_hykb: DRectButton,
 
     input_email: DRectButton,
@@ -119,26 +119,26 @@ pub struct Login {
     after_accept_tos: Option<NextAction>,
     /// HYKB login phase 1 (verify uid/token), distinct from `task` which handles
     /// the register/claim follow-up that resolves to a `User`.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     hykb_task: Option<Task<Result<HykbStep>>>,
     /// Pending HYKB token awaiting the user's register/claim choice.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     hykb_pending_token: Option<String>,
     /// HYKB token kept while the player types the username for their new account.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     hykb_reg_token: Option<String>,
     /// HYKB nickname, used only to prefill the username input for a new account.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     hykb_nick: Option<String>,
     /// Choice written by the register/claim dialog listener.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     hykb_choice: Arc<Mutex<Option<HykbChoice>>>,
 }
 
 enum NextAction {
     Login,
     Register,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     Hykb,
 }
 
@@ -146,22 +146,22 @@ impl Login {
     const TIME: f32 = 0.7;
 
     pub fn new(icons: Arc<Icons>) -> Self {
-        #[cfg(not(feature = "aa"))]
+        #[cfg(not(feature = "hykb"))]
         let _ = icons;
         Self {
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             icons,
 
             fader: Fader::new().with_distance(-0.4).with_time(0.5),
             show: false,
 
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             picker_fader: Fader::new().with_distance(-0.4).with_time(0.5),
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             picker_show: false,
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             btn_method_email: DRectButton::new().with_radius(0.012).with_elevation(0.004),
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             btn_method_hykb: DRectButton::new().with_radius(0.012).with_elevation(0.004),
 
             input_email: DRectButton::new().with_delta(-0.002),
@@ -187,15 +187,15 @@ impl Login {
 
             task: None,
             after_accept_tos: None,
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             hykb_task: None,
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             hykb_pending_token: None,
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             hykb_reg_token: None,
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             hykb_nick: None,
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             hykb_choice: Arc::new(Mutex::new(None)),
         }
     }
@@ -208,14 +208,14 @@ impl Login {
     pub fn enter(&mut self, t: f32) {
         // With HYKB available, show the method-choice panel before any form;
         // otherwise go straight to the email form.
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         self.show_picker(t);
-        #[cfg(not(feature = "aa"))]
+        #[cfg(not(feature = "hykb"))]
         self.show_form(t);
     }
 
     /// Reveal the method-choice panel ("email vs HYKB").
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn show_picker(&mut self, t: f32) {
         self.picker_show = true;
         self.picker_fader.sub(t);
@@ -227,7 +227,7 @@ impl Login {
     }
 
     /// Dismiss the method-choice panel.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn dismiss_picker(&mut self, t: f32) {
         self.picker_show = false;
         self.picker_fader.back(t);
@@ -237,7 +237,7 @@ impl Login {
         self.show = false;
         self.fader.back(t);
         // Drop any pending claim so a later plain login isn't treated as a claim.
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         {
             self.hykb_pending_token = None;
             self.hykb_reg_token = None;
@@ -266,7 +266,7 @@ impl Login {
     }
 
     /// Kick off the native HYKB login: obtain credentials, then call `/login/hykb`.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn start_hykb_login(&mut self) {
         self.hykb_task = Some(Task::new(async move {
             let cred = obtain_hykb_credential().await?;
@@ -282,7 +282,7 @@ impl Login {
 
     /// Show the "register a new account / claim an existing one" dialog after a
     /// first-time HYKB login. The chosen action is recorded in `hykb_choice`.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn show_hykb_choice(&self) {
         let choice = Arc::clone(&self.hykb_choice);
         Dialog::plain(tl!("hykb-choice-title"), tl!("hykb-choice-sub"))
@@ -302,7 +302,7 @@ impl Login {
 
     /// Validate the username the player chose and create their HYKB-bound account.
     /// On an invalid name, re-prompt with the entered text so it can be fixed.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn submit_hykb_register(&mut self, name: String) {
         if let Some(error) = validate_username(&name) {
             show_message(error).error();
@@ -328,12 +328,12 @@ impl Login {
         if self.fader.transiting() || self.task.is_some() || !self.start_time.is_nan() {
             return true;
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.hykb_task.is_some() {
             return true;
         }
         // The method-choice panel sits on top of (and gates) the form.
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.picker_show {
             if self.picker_fader.transiting() {
                 return true;
@@ -364,7 +364,7 @@ impl Login {
                 // returns to the register/claim choice dialog (the previous
                 // level) instead of closing the login entirely. Keep the
                 // pending token so the choice can be made again.
-                #[cfg(feature = "aa")]
+                #[cfg(feature = "hykb")]
                 if self.hykb_pending_token.is_some() {
                     self.show = false;
                     self.fader.back(t);
@@ -411,9 +411,9 @@ impl Login {
             if self.btn_login.touch(touch, t) {
                 // A pending HYKB claim already accepted TOS in the picker; only
                 // gate a plain email login on the TOS check.
-                #[cfg(feature = "aa")]
+                #[cfg(feature = "hykb")]
                 let pending_claim = self.hykb_pending_token.is_some();
-                #[cfg(not(feature = "aa"))]
+                #[cfg(not(feature = "hykb"))]
                 let pending_claim = false;
                 if !pending_claim && !check_read_tos_and_policy(true, true) {
                     self.after_accept_tos = Some(NextAction::Login);
@@ -435,7 +435,7 @@ impl Login {
     /// to claim an existing account), this claims it with the entered email and
     /// password instead of a plain password login.
     fn start_login(&mut self) {
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if let Some(token) = self.hykb_pending_token.clone() {
             let email = self.t_email.clone();
             let pwd = self.t_pwd.clone();
@@ -466,7 +466,7 @@ impl Login {
         if let Some(done) = self.fader.done(t) {
             self.show = !done;
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if let Some(done) = self.picker_fader.done(t) {
             self.picker_show = !done;
         }
@@ -475,7 +475,7 @@ impl Login {
             'tmp: {
                 // The HYKB register username uses a dedicated flow: validate it
                 // and kick off account creation instead of storing into a field.
-                #[cfg(feature = "aa")]
+                #[cfg(feature = "hykb")]
                 if id == "hykb_reg_name" {
                     self.submit_hykb_register(text);
                     break 'tmp;
@@ -496,7 +496,7 @@ impl Login {
         }
         // A cancelled HYKB username entry returns to the register/claim dialog
         // instead of leaving the player stranded on a blank overlay.
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if let Some(id) = take_input_cancelled() {
             if id == "hykb_reg_name" {
                 if let Some(token) = self.hykb_reg_token.take() {
@@ -515,7 +515,7 @@ impl Login {
                         show_message(error).error();
                     }
                 }
-                #[cfg(feature = "aa")]
+                #[cfg(feature = "hykb")]
                 Some(NextAction::Hykb) => {
                     self.start_hykb_login();
                 }
@@ -550,14 +550,14 @@ impl Login {
                 self.task = None;
             }
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         self.update_hykb(t)?;
         Ok(())
     }
 
     /// Drive the HYKB login phases: the initial verify task, the register/claim
     /// choice dialog, and the follow-up that resolves to a logged-in user.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn update_hykb(&mut self, t: f32) -> Result<()> {
         if let Some(task) = &mut self.hykb_task {
             if let Some(res) = task.take() {
@@ -694,12 +694,12 @@ impl Login {
                         let pad = 0.05;
                         // Under the anti-addiction build, self-service email
                         // registration is disabled: only offer login.
-                        #[cfg(feature = "aa")]
+                        #[cfg(feature = "hykb")]
                         {
                             let r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, wr.w - pad * 2., h);
                             self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
                         }
-                        #[cfg(not(feature = "aa"))]
+                        #[cfg(not(feature = "hykb"))]
                         {
                             let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
                             self.btn_to_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
@@ -713,16 +713,16 @@ impl Login {
         if self.task.is_some() {
             ui.full_loading_simple(t);
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         self.render_picker(ui, t);
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.hykb_task.is_some() {
             ui.full_loading_simple(t);
         }
     }
 
     /// The bounding rect of the method-choice panel.
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn picker_rect() -> Rect {
         let hw = 0.4;
         let hh = 0.25;
@@ -731,7 +731,7 @@ impl Login {
 
     /// Render the method-choice panel: a title and two vertical, styled buttons
     /// (email login and the green HYKB login with its logo).
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     fn render_picker(&mut self, ui: &mut Ui, t: f32) {
         if !self.picker_show && !self.picker_fader.transiting() {
             return;

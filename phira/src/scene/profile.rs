@@ -1,6 +1,6 @@
 prpr_l10n::tl_file!("profile");
 
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use super::confirm_dialog;
 use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
@@ -12,12 +12,12 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::Local;
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use inputbox::InputBox;
 use macroquad::prelude::*;
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use prpr::scene::{request_input, return_input, take_input};
-#[cfg(feature = "aa")]
+#[cfg(feature = "hykb")]
 use prpr::ui::Dialog;
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
@@ -58,15 +58,15 @@ pub struct ProfileScene {
     btn_open_web: DRectButton,
     btn_logout: DRectButton,
     btn_delete: DRectButton,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     btn_hykb: DRectButton,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     hykb_task: Option<Task<Result<()>>>,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     should_unbind_hykb: Arc<AtomicBool>,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     btn_transfer: DRectButton,
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     transfer_task: Option<Task<Result<()>>>,
 
     load_task: Option<Task<Result<Arc<User>>>>,
@@ -109,15 +109,15 @@ impl ProfileScene {
             btn_open_web: DRectButton::new(),
             btn_logout: DRectButton::new(),
             btn_delete: DRectButton::new(),
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             btn_hykb: DRectButton::new(),
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             hykb_task: None,
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             should_unbind_hykb: Arc::default(),
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             btn_transfer: DRectButton::new(),
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             transfer_task: None,
 
             load_task,
@@ -245,7 +245,7 @@ impl Scene for ProfileScene {
             }
         }
 
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if let Some(task) = &mut self.hykb_task {
             if let Some(res) = task.take() {
                 let bound = get_data().me.as_ref().and_then(|it| it.hykb_uid).is_some();
@@ -263,7 +263,7 @@ impl Scene for ProfileScene {
             }
         }
 
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if let Some((id, text)) = take_input() {
             if id == "transfer-email" {
                 let email = text.trim().to_owned();
@@ -278,7 +278,7 @@ impl Scene for ProfileScene {
             }
         }
 
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if let Some(task) = &mut self.transfer_task {
             if let Some(res) = task.take() {
                 match res {
@@ -311,7 +311,7 @@ impl Scene for ProfileScene {
             }));
         }
 
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.hykb_task.is_none() && self.should_unbind_hykb.fetch_and(false, Ordering::Relaxed) {
             self.hykb_task = Some(Task::new(async move {
                 Client::unbind_hykb().await?;
@@ -372,7 +372,7 @@ impl Scene for ProfileScene {
             confirm_delete(Arc::clone(&self.should_delete));
             return Ok(true);
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.hykb_task.is_none() && self.btn_hykb.touch(touch, t) {
             let bound = get_data().me.as_ref().and_then(|it| it.hykb_uid).is_some();
             if bound {
@@ -392,7 +392,7 @@ impl Scene for ProfileScene {
             }
             return Ok(true);
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.transfer_task.is_none() && self.btn_transfer.touch(touch, t) {
             request_input("transfer-email", InputBox::new().title(tl!("hykb-transfer")).prompt(tl!("transfer-prompt")));
             return Ok(true);
@@ -510,7 +510,7 @@ impl Scene for ProfileScene {
                         self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                         r.y += r.h + 0.02;
                         self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
-                        #[cfg(feature = "aa")]
+                        #[cfg(feature = "hykb")]
                         {
                             let me = get_data().me.as_ref();
                             let bound = me.and_then(|it| it.hykb_uid).is_some();
@@ -599,7 +599,7 @@ impl Scene for ProfileScene {
         if self.avatar_task.is_some() {
             ui.full_loading(tl!("uploading-avatar"), t);
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.transfer_task.is_some() {
             ui.full_loading(tl!("transfer-requesting"), t);
         }
