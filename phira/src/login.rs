@@ -500,7 +500,10 @@ impl Login {
                 show_message(tl!("illegal-email")).error();
                 return;
             }
-            self.hykb_pending_token = None;
+            // Keep the pending token: on success `dismiss` clears it, but on a
+            // failed claim it must survive so backing out returns to the
+            // register/claim dialog (and a retry still claims) rather than
+            // dropping all the way back to the method picker.
             self.start("hykb-login", async move {
                 Client::login_hykb_claim(&token, &email, &pwd).await?;
                 Ok(Some(Client::get_me().await?))
