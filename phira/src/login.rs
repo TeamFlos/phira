@@ -967,8 +967,7 @@ impl Login {
                 let h = 0.09;
                 let bpad = 0.05;
                 let r = Rect::new(wr.x + bpad, wr.bottom() - h - 0.04, wr.w - bpad * 2., h);
-                self.btn_hykb_name_confirm
-                    .render_text(ui, r, t, tl!("hykb-reg-name-confirm"), 0.66, true);
+                self.btn_hykb_name_confirm.render_text(ui, r, t, tl!("hykb-reg-name-confirm"), 0.66, true);
             });
         });
     }

@@ -134,9 +134,7 @@ impl Dialog {
         }
         if self.text_btn.touch(touch) {
             if let Some(mut listener) = self.listener.take() {
-                if !listener(self, -2) {
-                    exit = true;
-                }
+                listener(self, -2);
                 self.listener = Some(listener);
             }
         }
