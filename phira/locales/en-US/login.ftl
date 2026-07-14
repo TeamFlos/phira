@@ -38,8 +38,8 @@ login-method-recommended = Recommended
 hykb-choice-title = Welcome to Phira
 hykb-choice-sub =
   This is your first time logging in with your HYKB account.
-  If this is your first time playing, choose [Create a new account] to start.
+  If this is your first time playing, choose [Create new player data] to start.
   If you've played before and already have a Phira account, choose [Bind an existing Phira account] to link it.
-hykb-choice-register = Create a new account
+hykb-choice-register = Create new player data
 hykb-choice-claim = Bind an existing Phira account
 hykb-reg-name-prompt = Enter your username ({ $min }-{ $max } characters).

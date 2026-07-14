@@ -38,8 +38,8 @@ login-method-recommended = 推薦
 hykb-choice-title = 歡迎來到 Phira
 hykb-choice-sub =
   這是你首次使用快爆賬號進行登入。
-  若您是第一次遊玩，請選擇【建立新的賬號】進行遊戲。
+  若您是第一次遊玩，請選擇【建立新的玩家資料】進行遊戲。
   若您曾經遊玩過且已擁有 Phira 賬號，請選擇【綁定已有 Phira 賬號】進行綁定操作。
-hykb-choice-register = 建立新的賬號
+hykb-choice-register = 建立新的玩家資料
 hykb-choice-claim = 綁定已有 Phira 賬號
 hykb-reg-name-prompt = 請輸入你的使用者名稱（{ $min }-{ $max } 位）
