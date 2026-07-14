@@ -83,6 +83,12 @@ pub struct Login {
     fader: Fader,
     show: bool,
 
+    /// In HYKB builds an account is mandatory: while set, the panel is kept
+    /// open and cannot be dismissed by tapping outside — only a successful
+    /// login clears it.
+    #[cfg(feature = "hykb")]
+    forced: bool,
+
     /// The method-choice panel ("email vs HYKB"), shown before the form when
     /// HYKB is available.
     #[cfg(feature = "hykb")]
@@ -156,6 +162,9 @@ impl Login {
             show: false,
 
             #[cfg(feature = "hykb")]
+            forced: false,
+
+            #[cfg(feature = "hykb")]
             picker_fader: Fader::new().with_distance(-0.4).with_time(0.5),
             #[cfg(feature = "hykb")]
             picker_show: false,
@@ -214,6 +223,36 @@ impl Login {
         self.show_form(t);
     }
 
+    /// Whether any part of the login flow is currently on screen or in flight
+    /// (the picker, the form, a running task, or an in-between HYKB step such as
+    /// the register/claim choice dialog or the username input). Used to keep
+    /// `force()` from re-showing the picker over a sub-flow.
+    #[cfg(feature = "hykb")]
+    fn is_active(&self) -> bool {
+        self.show
+            || self.picker_show
+            || self.fader.transiting()
+            || self.picker_fader.transiting()
+            || self.task.is_some()
+            || self.hykb_task.is_some()
+            || self.hykb_pending_token.is_some()
+            || self.hykb_reg_token.is_some()
+            || !self.start_time.is_nan()
+    }
+
+    /// Force the login flow open and keep it non-dismissible until the player
+    /// logs in. HYKB builds call this whenever the home page is shown while
+    /// signed out (fresh launch, or after a manual logout). It is a no-op while
+    /// the flow is already active, so it can safely be polled every frame.
+    #[cfg(feature = "hykb")]
+    pub fn force(&mut self, t: f32) {
+        if self.is_active() {
+            return;
+        }
+        self.forced = true;
+        self.enter(t);
+    }
+
     /// Reveal the method-choice panel ("email vs HYKB").
     #[cfg(feature = "hykb")]
     fn show_picker(&mut self, t: f32) {
@@ -239,6 +278,7 @@ impl Login {
         // Drop any pending claim so a later plain login isn't treated as a claim.
         #[cfg(feature = "hykb")]
         {
+            self.forced = false;
             self.hykb_pending_token = None;
             self.hykb_reg_token = None;
             self.hykb_nick = None;
@@ -339,7 +379,10 @@ impl Login {
                 return true;
             }
             if !Self::picker_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
-                self.dismiss_picker(t);
+                // When login is mandatory, swallow the touch but keep the panel.
+                if !self.forced {
+                    self.dismiss_picker(t);
+                }
                 return true;
             }
             if self.btn_method_email.touch(touch, t) {
@@ -348,10 +391,14 @@ impl Login {
                 return true;
             }
             if self.btn_method_hykb.touch(touch, t) {
-                self.dismiss_picker(t);
                 if !check_read_tos_and_policy(true, true) {
+                    // Keep the picker up behind the TOS dialog: if the player
+                    // denies (which never fires JUST_ACCEPTED_TOS), they simply
+                    // stay on the picker rather than being stranded on a blank,
+                    // forced home. The picker is dismissed once TOS is accepted.
                     self.after_accept_tos = Some(NextAction::Hykb);
                 } else {
+                    self.dismiss_picker(t);
                     self.start_hykb_login();
                 }
                 return true;
@@ -369,6 +416,16 @@ impl Login {
                     self.show = false;
                     self.fader.back(t);
                     self.show_hykb_choice();
+                    return true;
+                }
+                // When login is mandatory, the flow can't be dismissed, but the
+                // player may still back out of the email form to the method
+                // picker (rather than being stranded on the form).
+                #[cfg(feature = "hykb")]
+                if self.forced {
+                    self.show = false;
+                    self.fader.back(t);
+                    self.show_picker(t);
                     return true;
                 }
                 self.dismiss(t);
@@ -517,6 +574,9 @@ impl Login {
                 }
                 #[cfg(feature = "hykb")]
                 Some(NextAction::Hykb) => {
+                    // The picker was kept visible through the TOS gate; drop it
+                    // now that the player accepted and we're proceeding.
+                    self.dismiss_picker(t);
                     self.start_hykb_login();
                 }
                 None => (),

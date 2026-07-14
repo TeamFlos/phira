@@ -457,6 +457,13 @@ impl Page for HomePage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+        // HYKB builds require an account: while signed out, keep the login panel
+        // forced open. Polling here (rather than only on entry) also covers the
+        // player manually logging out and popping back to the home page.
+        #[cfg(feature = "hykb")]
+        if get_data().me.is_none() {
+            self.login.force(t);
+        }
         self.login.update(t)?;
         let current_user = Some(get_data().me.as_ref().map_or(-1, |it| it.id));
         self.char_scroll.update(t);
