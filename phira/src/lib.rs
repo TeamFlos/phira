@@ -512,7 +512,7 @@ fn request_hykb_login() {
         .unwrap()
         .attach_current_thread(|env| -> jni::errors::Result<()> {
             let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
-            env.call_method(ctx, jni_str!("hykbLogin"), jni_sig!("()V"), &[])?;
+            env.call_method(ctx, jni_str!("hykbSwitchAccount"), jni_sig!("()V"), &[])?;
             Ok(())
         })
         .unwrap();
