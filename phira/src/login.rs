@@ -139,6 +139,20 @@ pub struct Login {
     /// Choice written by the register/claim dialog listener.
     #[cfg(feature = "hykb")]
     hykb_choice: Arc<Mutex<Option<HykbChoice>>>,
+
+    /// The in-app "choose your username" panel shown for a new HYKB account,
+    /// in place of popping the native InputBox directly. The InputBox only
+    /// appears when the player taps the input slot inside this panel.
+    #[cfg(feature = "hykb")]
+    reg_name_fader: Fader,
+    #[cfg(feature = "hykb")]
+    reg_name_show: bool,
+    #[cfg(feature = "hykb")]
+    input_hykb_name: DRectButton,
+    #[cfg(feature = "hykb")]
+    btn_hykb_name_confirm: DRectButton,
+    #[cfg(feature = "hykb")]
+    t_hykb_name: String,
 }
 
 enum NextAction {
@@ -206,6 +220,17 @@ impl Login {
             hykb_nick: None,
             #[cfg(feature = "hykb")]
             hykb_choice: Arc::new(Mutex::new(None)),
+
+            #[cfg(feature = "hykb")]
+            reg_name_fader: Fader::new().with_distance(-0.4).with_time(0.5),
+            #[cfg(feature = "hykb")]
+            reg_name_show: false,
+            #[cfg(feature = "hykb")]
+            input_hykb_name: DRectButton::new().with_delta(-0.002),
+            #[cfg(feature = "hykb")]
+            btn_hykb_name_confirm: DRectButton::new().with_radius(0.012).with_elevation(0.004),
+            #[cfg(feature = "hykb")]
+            t_hykb_name: String::new(),
         }
     }
 
@@ -233,6 +258,8 @@ impl Login {
             || self.picker_show
             || self.fader.transiting()
             || self.picker_fader.transiting()
+            || self.reg_name_show
+            || self.reg_name_fader.transiting()
             || self.task.is_some()
             || self.hykb_task.is_some()
             || self.hykb_pending_token.is_some()
@@ -282,6 +309,8 @@ impl Login {
             self.hykb_pending_token = None;
             self.hykb_reg_token = None;
             self.hykb_nick = None;
+            self.reg_name_show = false;
+            self.t_hykb_name.clear();
         }
     }
 
@@ -340,19 +369,27 @@ impl Login {
             .show();
     }
 
+    /// Reveal the in-app "choose your username" panel for a new HYKB account.
+    #[cfg(feature = "hykb")]
+    fn show_reg_name(&mut self, t: f32) {
+        self.reg_name_show = true;
+        self.reg_name_fader.sub(t);
+    }
+
+    /// Dismiss the username panel.
+    #[cfg(feature = "hykb")]
+    fn dismiss_reg_name(&mut self, t: f32) {
+        self.reg_name_show = false;
+        self.reg_name_fader.back(t);
+    }
+
     /// Validate the username the player chose and create their HYKB-bound account.
-    /// On an invalid name, re-prompt with the entered text so it can be fixed.
+    /// Called from the username panel's confirm button; the panel stays visible on
+    /// an invalid name so it can be fixed.
     #[cfg(feature = "hykb")]
     fn submit_hykb_register(&mut self, name: String) {
         if let Some(error) = validate_username(&name) {
             show_message(error).error();
-            request_input(
-                "hykb_reg_name",
-                InputBox::new()
-                    .title(tl!("username"))
-                    .prompt(tl!("hykb-reg-name-prompt", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX))
-                    .default_text(&name),
-            );
             return;
         }
         let Some(token) = self.hykb_reg_token.take() else {
@@ -370,6 +407,43 @@ impl Login {
         }
         #[cfg(feature = "hykb")]
         if self.hykb_task.is_some() {
+            return true;
+        }
+        // The "choose your username" panel for a new HYKB account.
+        #[cfg(feature = "hykb")]
+        if self.reg_name_show {
+            if self.reg_name_fader.transiting() {
+                return true;
+            }
+            if !Self::reg_name_rect().contains(touch.position) && touch.phase == TouchPhase::Started {
+                // Backing out returns to the register/claim choice dialog (the
+                // previous level), keeping the token so the choice can be remade.
+                self.dismiss_reg_name(t);
+                if let Some(token) = self.hykb_reg_token.take() {
+                    self.hykb_pending_token = Some(token);
+                    self.show_hykb_choice();
+                }
+                return true;
+            }
+            if self.input_hykb_name.touch(touch, t) {
+                request_input(
+                    "hykb_reg_name",
+                    InputBox::new()
+                        .title(tl!("username"))
+                        .prompt(tl!("hykb-reg-name-prompt", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX))
+                        .default_text(&self.t_hykb_name),
+                );
+                return true;
+            }
+            if self.btn_hykb_name_confirm.touch(touch, t) {
+                if let Some(error) = validate_username(&self.t_hykb_name) {
+                    show_message(error).error();
+                } else {
+                    self.dismiss_reg_name(t);
+                    self.submit_hykb_register(self.t_hykb_name.clone());
+                }
+                return true;
+            }
             return true;
         }
         // The method-choice panel sits on top of (and gates) the form.
@@ -530,14 +604,18 @@ impl Login {
         if let Some(done) = self.picker_fader.done(t) {
             self.picker_show = !done;
         }
+        #[cfg(feature = "hykb")]
+        if let Some(done) = self.reg_name_fader.done(t) {
+            self.reg_name_show = !done;
+        }
         dispatch_tos_task();
         if let Some((id, text)) = take_input() {
             'tmp: {
-                // The HYKB register username uses a dedicated flow: validate it
-                // and kick off account creation instead of storing into a field.
+                // The HYKB register username feeds the in-app panel's input slot
+                // rather than being stored into one of the email-form fields.
                 #[cfg(feature = "hykb")]
                 if id == "hykb_reg_name" {
-                    self.submit_hykb_register(text);
+                    self.t_hykb_name = text;
                     break 'tmp;
                 }
                 let tmp = match id.as_str() {
@@ -554,16 +632,11 @@ impl Login {
                 *tmp = text;
             }
         }
-        // A cancelled HYKB username entry returns to the register/claim dialog
-        // instead of leaving the player stranded on a blank overlay.
+        // Cancelling the username InputBox simply returns to the in-app username
+        // panel (still shown); consume the event so it doesn't leak to others.
         #[cfg(feature = "hykb")]
         if let Some(id) = take_input_cancelled() {
-            if id == "hykb_reg_name" {
-                if let Some(token) = self.hykb_reg_token.take() {
-                    self.hykb_pending_token = Some(token);
-                    self.show_hykb_choice();
-                }
-            }
+            let _ = id;
         }
         if JUST_ACCEPTED_TOS.fetch_and(false, Ordering::Relaxed) {
             match self.after_accept_tos {
@@ -650,16 +723,11 @@ impl Login {
                 HykbChoice::Register => {
                     if let Some(token) = self.hykb_pending_token.take() {
                         // Let the player choose their own username before creating
-                        // the account, prefilled with their HYKB nickname. The token
-                        // is kept until the name is entered.
+                        // the account via the in-app panel (prefilled with their
+                        // HYKB nickname). The token is kept until the name is submitted.
                         self.hykb_reg_token = Some(token);
-                        request_input(
-                            "hykb_reg_name",
-                            InputBox::new()
-                                .title(tl!("username"))
-                                .prompt(tl!("hykb-reg-name-prompt", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX))
-                                .default_text(self.hykb_nick.clone().unwrap_or_default()),
-                        );
+                        self.t_hykb_name = self.hykb_nick.clone().unwrap_or_default();
+                        self.show_reg_name(t);
                     }
                 }
                 HykbChoice::Claim => {
@@ -779,6 +847,8 @@ impl Login {
         #[cfg(feature = "hykb")]
         self.render_picker(ui, t);
         #[cfg(feature = "hykb")]
+        self.render_reg_name(ui, t);
+        #[cfg(feature = "hykb")]
         if self.hykb_task.is_some() {
             ui.full_loading_simple(t);
         }
@@ -853,6 +923,52 @@ impl Login {
                         .color(WHITE)
                         .draw();
                 });
+            });
+        });
+    }
+
+    /// The bounding rect of the "choose your username" panel.
+    #[cfg(feature = "hykb")]
+    fn reg_name_rect() -> Rect {
+        let hw = 0.4;
+        let hh = 0.24;
+        Rect::new(-hw, -hh, hw * 2., hh * 2.)
+    }
+
+    /// Render the "choose your username" panel: a title, a hint line, a tappable
+    /// input slot (which opens the native InputBox) and a confirm button.
+    #[cfg(feature = "hykb")]
+    fn render_reg_name(&mut self, ui: &mut Ui, t: f32) {
+        if !self.reg_name_show && !self.reg_name_fader.transiting() {
+            return;
+        }
+        self.reg_name_fader.reset();
+        let p = if self.reg_name_show { 1. } else { -self.reg_name_fader.progress(t) };
+        ui.fill_rect(ui.screen_rect(), semi_black(p * 0.7));
+        self.reg_name_fader.for_sub(|f| {
+            f.render(ui, t, |ui| {
+                let wr = Self::reg_name_rect();
+                ui.fill_path(&wr.rounded(0.02), ui.background());
+
+                let pad = 0.045;
+                let r = ui.text(tl!("username")).pos(wr.x + pad, wr.y + 0.037).size(1.1).draw_using(&BOLD_FONT);
+                let r = ui
+                    .text(tl!("hykb-reg-name-prompt", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX))
+                    .pos(wr.x + pad + 0.006, r.bottom() + 0.028)
+                    .size(0.4)
+                    .color(semi_white(0.6))
+                    .max_width(wr.w - pad * 2.)
+                    .multiline()
+                    .draw();
+
+                let r = Rect::new(wr.x + pad, r.bottom() + 0.04, wr.w - pad * 2., 0.1);
+                self.input_hykb_name.render_input(ui, r, t, &self.t_hykb_name, tl!("username"), 0.62);
+
+                let h = 0.09;
+                let bpad = 0.05;
+                let r = Rect::new(wr.x + bpad, wr.bottom() - h - 0.04, wr.w - bpad * 2., h);
+                self.btn_hykb_name_confirm
+                    .render_text(ui, r, t, tl!("hykb-reg-name-confirm"), 0.66, true);
             });
         });
     }

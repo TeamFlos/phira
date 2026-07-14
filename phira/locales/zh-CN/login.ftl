@@ -43,3 +43,4 @@ hykb-choice-sub =
 hykb-choice-register = 创建新的玩家数据
 hykb-choice-claim = 绑定已有Phira账号
 hykb-reg-name-prompt = 请输入你的用户名（{ $min }-{ $max } 位）
+hykb-reg-name-confirm = 确认

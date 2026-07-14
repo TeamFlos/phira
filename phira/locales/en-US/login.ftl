@@ -43,3 +43,4 @@ hykb-choice-sub =
 hykb-choice-register = Create new player data
 hykb-choice-claim = Bind an existing Phira account
 hykb-reg-name-prompt = Enter your username ({ $min }-{ $max } characters).
+hykb-reg-name-confirm = Confirm

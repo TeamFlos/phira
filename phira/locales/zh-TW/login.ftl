@@ -43,3 +43,4 @@ hykb-choice-sub =
 hykb-choice-register = 建立新的玩家資料
 hykb-choice-claim = 綁定已有 Phira 賬號
 hykb-reg-name-prompt = 請輸入你的使用者名稱（{ $min }-{ $max } 位）
+hykb-reg-name-confirm = 確認
