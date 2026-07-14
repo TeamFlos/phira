@@ -1185,7 +1185,7 @@ impl Page for FavoritesPage {
                                 ..Default::default()
                             },
                         );
-                    } else {
+                    } else if get_data().collection_by_index(index).id.is_some() {
                         let icon = if self.liked { &self.icons.heart } else { &self.icons.heart_outline };
                         ui.fill_rect(r, (**icon, r, ScaleType::Fit, if self.liked { ORANGE } else { WHITE }));
                         self.like_btn.set(ui, r);
