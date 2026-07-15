@@ -616,6 +616,10 @@ impl Scene for ProfileScene {
             ui.full_loading(tl!("uploading-avatar"), t);
         }
         #[cfg(feature = "hykb")]
+        if self.hykb_task.is_some() {
+            ui.full_loading(tl!("hykb-processing"), t);
+        }
+        #[cfg(feature = "hykb")]
         if self.transfer_task.is_some() {
             ui.full_loading(tl!("transfer-requesting"), t);
         }
