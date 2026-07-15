@@ -6,7 +6,7 @@ use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
     anti_addiction_action,
     client::{recv_raw, Client, Record, User, UserManager},
-    get_data, get_data_mut,
+    get_data, get_data_mut, hykb_logout,
     page::{Fader, Illustration, SFader},
     save_data, sync_data,
 };
@@ -360,6 +360,7 @@ impl Scene for ProfileScene {
         }
         if self.btn_logout.touch(touch, t) {
             anti_addiction_action("exit", None);
+            hykb_logout();
             get_data_mut().me = None;
             get_data_mut().tokens = None;
             let _ = save_data();

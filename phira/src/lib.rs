@@ -224,6 +224,9 @@ async fn the_main() -> Result<()> {
 
     if let Some(me) = &get_data().me {
         anti_addiction_action("startup", Some(format!("phira-{}", me.id)));
+        // Let the native HYKB SDK enter its logged-in state for the restored
+        // session without popping the account picker.
+        hykb_login();
     }
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
@@ -503,23 +506,52 @@ pub struct HykbCredential {
 /// Slot for the pending HYKB login result. The native callback fulfills it.
 static HYKB_TX: Mutex<Option<tokio::sync::oneshot::Sender<HykbCredential>>> = Mutex::new(None);
 
-/// Ask the Android shell to start the HYKB login flow (`MainActivity.hykbLogin`).
+/// Call a no-arg `void` method on the Android host activity (the HYKB shell).
 #[cfg(all(target_os = "android", feature = "hykb"))]
-fn request_hykb_login() {
-    use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
+fn call_activity_void(method: &'static jni::strings::JNIStr) {
+    use jni::{jni_sig, objects::JObject, vm::JavaVM};
 
     JavaVM::singleton()
         .unwrap()
         .attach_current_thread(|env| -> jni::errors::Result<()> {
             let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
-            env.call_method(ctx, jni_str!("hykbSwitchAccount"), jni_sig!("()V"), &[])?;
+            env.call_method(ctx, method, jni_sig!("()V"), &[])?;
             Ok(())
         })
         .unwrap();
 }
 
+/// Ask the Android shell to pop the HYKB account picker (`MainActivity.hykbSwitchAccount`).
+/// Used by the explicit login / switch-account flow.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+fn request_hykb_login() {
+    call_activity_void(jni::jni_str!("hykbSwitchAccount"));
+}
+
 #[cfg(not(all(target_os = "android", feature = "hykb")))]
 fn request_hykb_login() {}
+
+/// Tell the native HYKB SDK the player is already signed in, without popping the
+/// account picker (`MainActivity.hykbLogin`). Fire-and-forget: any credentials the
+/// SDK reports back are ignored, since the Phira session is already restored from
+/// saved data. Called once at startup when saved login data is present.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+pub fn hykb_login() {
+    call_activity_void(jni::jni_str!("hykbLogin"));
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+pub fn hykb_login() {}
+
+/// Tell the native HYKB SDK to sign out (`MainActivity.hykbLogout`). Called when the
+/// player logs out from their profile.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+pub fn hykb_logout() {
+    call_activity_void(jni::jni_str!("hykbLogout"));
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+pub fn hykb_logout() {}
 
 /// Trigger the native HYKB login and await its credentials.
 #[allow(unused)]
