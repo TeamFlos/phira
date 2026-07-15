@@ -257,6 +257,17 @@ impl Scene for ProfileScene {
                         Client::clear_cache::<User>(self.id)?;
                         UserManager::clear_cache(self.id)?;
                         UserManager::request(self.id);
+                        // On a HYKB build an unbound account can no longer stay
+                        // logged in, so unbinding logs the player out and returns
+                        // to the main scene.
+                        if !bound {
+                            hykb_logout();
+                            get_data_mut().me = None;
+                            get_data_mut().tokens = None;
+                            save_data()?;
+                            sync_data();
+                            self.sf.next(t, NextScene::Pop);
+                        }
                     }
                 }
                 self.hykb_task = None;
@@ -315,7 +326,11 @@ impl Scene for ProfileScene {
         if self.hykb_task.is_none() && self.should_unbind_hykb.fetch_and(false, Ordering::Relaxed) {
             self.hykb_task = Some(Task::new(async move {
                 Client::unbind_hykb().await?;
-                let me = Client::get_me().await?;
+                // Use the unchecked fetch: the account is now unbound, which the
+                // guarded get_me would reject. The success handler logs out and
+                // returns to the main scene, so this just refreshes the state that
+                // decides the bind/unbind branch there.
+                let me = Client::get_me_unchecked().await?;
                 get_data_mut().me = Some(me);
                 save_data()?;
                 Ok(())
