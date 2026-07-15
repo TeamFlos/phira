@@ -11,7 +11,7 @@ use super::{
 use crate::{
     bin::BinaryReader,
     config::{Config, Mods},
-    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, PGR_FONT},
+    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, NoteKind, Point, Resource, UIElement, Vector, PGR_FONT},
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
@@ -26,7 +26,7 @@ use concat_string::concat_string;
 use inputbox::InputBox;
 use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
-use prpr_auto_offset::{estimate_with, AlignConfig, AlignmentResult, NoteGaussian, SuperFlux};
+use prpr_auto_offset::{estimate_with, AlignConfig, AlignmentResult, AutoOffsetNoteKind, NoteEvent, PreprocessedNoteGaussian, SuperFlux};
 use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -130,16 +130,26 @@ enum OffsetAnalysisState {
     Done(AlignmentResult),
 }
 
-/// Extract non-fake note hit times from the chart, sorted and filtered to t >= 0.
-fn extract_note_times(chart: &Chart) -> Vec<f64> {
-    let mut times: Vec<f64> = chart
+/// Extract non-fake note hit events from the chart, sorted and filtered to t >= 0.
+fn extract_note_events(chart: &Chart) -> Vec<NoteEvent> {
+    let mut notes: Vec<NoteEvent> = chart
         .lines
         .iter()
-        .flat_map(|line| line.notes.iter().map(|note| note.time))
-        .filter(|&t| t >= 0.0)
+        .flat_map(|line| line.notes.iter())
+        .filter(|note| !note.fake && note.time >= 0.0)
+        .map(|note| NoteEvent::new(note.time, auto_offset_note_kind(&note.kind)))
         .collect();
-    times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    times
+    notes.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+    notes
+}
+
+fn auto_offset_note_kind(kind: &NoteKind) -> AutoOffsetNoteKind {
+    match kind {
+        NoteKind::Click => AutoOffsetNoteKind::Tap,
+        NoteKind::Hold { .. } => AutoOffsetNoteKind::Hold,
+        NoteKind::Flick => AutoOffsetNoteKind::Flick,
+        NoteKind::Drag => AutoOffsetNoteKind::Slide,
+    }
 }
 
 pub struct GameScene {
@@ -845,8 +855,8 @@ impl GameScene {
     fn start_analysis(&mut self) {
         use std::thread;
 
-        // 1. Extract note times
-        let note_times = extract_note_times(&self.chart);
+        // 1. Extract note events
+        let note_events = extract_note_events(&self.chart);
 
         // 2. Extract PCM from AudioClip (stereo -> mono)
         let clip = self.res.music.clone();
@@ -867,7 +877,7 @@ impl GameScene {
         // 5. Spawn background thread
         let _handle = thread::spawn(move || {
             let superflux = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
-            let note = NoteGaussian::new(note_times, 0.02);
+            let note = PreprocessedNoteGaussian::new(note_events, 0.02);
             let duration = pcm.len() as f64 / sample_rate as f64;
             let result = estimate_with(&superflux, &note, duration, &config);
             if let Ok(mut guard) = result_slot.lock() {
