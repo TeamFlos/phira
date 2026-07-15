@@ -613,7 +613,7 @@ async fn enrich_public_chart_metadata(cli: &Cli, rows: &mut [StudyRow]) {
         let request = || client.get(format!("{API_URL}/chart/multi-get")).query(&[("ids", ids_str.clone())]);
         match send_with_retries(request, cli.retries)
             .await
-            .and_then(|response| response.error_for_status().map_err(Into::into))
+            .and_then(|response| response.error_for_status())
         {
             Ok(response) => match response.json::<Vec<PublicChartMetadata>>().await {
                 Ok(items) => {
@@ -698,8 +698,8 @@ fn solve_3x3(mut a: [[f64; 3]; 3], mut b: [f64; 3]) -> Option<[f64; 3]> {
         b.swap(col, pivot);
 
         let denom = a[col][col];
-        for j in col..3 {
-            a[col][j] /= denom;
+        for value in a[col].iter_mut().skip(col) {
+            *value /= denom;
         }
         b[col] /= denom;
 
@@ -708,8 +708,9 @@ fn solve_3x3(mut a: [[f64; 3]; 3], mut b: [f64; 3]) -> Option<[f64; 3]> {
                 continue;
             }
             let factor = a[row][col];
-            for j in col..3 {
-                a[row][j] -= factor * a[col][j];
+            let pivot_row = a[col];
+            for (value, &pivot_value) in a[row].iter_mut().zip(pivot_row.iter()).skip(col) {
+                *value -= factor * pivot_value;
             }
             b[row] -= factor * b[col];
         }
@@ -828,9 +829,9 @@ async fn load_chart_timing(fs: &mut dyn FileSystem, info: &ChartInfo) -> Result<
 
 async fn load_chart(fs: &mut dyn FileSystem, info: &ChartInfo, bytes: &[u8], format: ChartFormat) -> Result<Chart> {
     match format {
-        ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(&bytes), fs, Default::default(), info.use_rpe_170_speed.unwrap_or_default()).await,
-        ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(&bytes), Default::default()),
-        ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(&bytes), Default::default()),
+        ChartFormat::Rpe => parse_rpe(&String::from_utf8_lossy(bytes), fs, Default::default(), info.use_rpe_170_speed.unwrap_or_default()).await,
+        ChartFormat::Pgr => parse_phigros(&String::from_utf8_lossy(bytes), Default::default()),
+        ChartFormat::Pec => parse_pec(&String::from_utf8_lossy(bytes), Default::default()),
         ChartFormat::Pbc => bail!("pbc charts are not supported by this study tool"),
     }
 }
@@ -1777,6 +1778,7 @@ fn range_line(values: &[f64]) -> Vec<f64> {
     vec![min, max]
 }
 
+#[allow(clippy::too_many_arguments)]
 fn normalized_scatter_trace(
     name: &str,
     x: &[f64],
