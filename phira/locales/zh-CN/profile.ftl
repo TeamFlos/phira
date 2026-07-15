@@ -26,7 +26,6 @@ hykb-unbind-confirm = 确定要解绑好游快爆账号吗？
 hykb-bind-success = 已绑定好游快爆账号
 hykb-unbind-success = 已解绑好游快爆账号
 hykb-action-failed = 操作失败
-hykb-processing = 正在处理
 hykb-login-cancelled = 已取消好游快爆登录
 
 hykb-transfer = 迁移旧账号

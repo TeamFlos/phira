@@ -1317,7 +1317,7 @@ impl Page for FavoritesPage {
         self.cloud_menu.render(ui, t, 1.);
 
         if self.has_task() {
-            ui.full_loading("", t);
+            ui.full_loading_simple(t);
         }
 
         Ok(())

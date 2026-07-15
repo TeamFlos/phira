@@ -26,7 +26,6 @@ hykb-unbind-confirm = Are you sure you want to unbind your HYKB account?
 hykb-bind-success = HYKB account bound.
 hykb-unbind-success = HYKB account unbound.
 hykb-action-failed = Operation failed.
-hykb-processing = Processing...
 hykb-login-cancelled = HYKB login cancelled.
 
 hykb-transfer = Migrate old account

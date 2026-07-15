@@ -26,7 +26,6 @@ hykb-unbind-confirm = 確定要解綁好遊快爆賬號嗎？
 hykb-bind-success = 已綁定好遊快爆賬號
 hykb-unbind-success = 已解綁好遊快爆賬號
 hykb-action-failed = 操作失敗
-hykb-processing = 正在處理
 hykb-login-cancelled = 已取消好遊快爆登入
 
 hykb-transfer = 遷移舊賬號

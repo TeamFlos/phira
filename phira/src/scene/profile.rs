@@ -617,7 +617,7 @@ impl Scene for ProfileScene {
         }
         #[cfg(feature = "hykb")]
         if self.hykb_task.is_some() {
-            ui.full_loading(tl!("hykb-processing"), t);
+            ui.full_loading_simple(t);
         }
         #[cfg(feature = "hykb")]
         if self.transfer_task.is_some() {

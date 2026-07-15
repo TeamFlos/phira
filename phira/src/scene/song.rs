@@ -2844,7 +2844,7 @@ impl Scene for SongScene {
             || self.toggle_fav_task.is_some()
             || self.autocomplete_task.is_some()
         {
-            ui.full_loading("", t);
+            ui.full_loading_simple(t);
         }
         let rt = tm.real_time() as f32;
         self.tags.render(ui, rt);
