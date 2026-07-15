@@ -346,6 +346,25 @@ impl Client {
     }
 
     pub async fn get_me() -> Result<User> {
+        let user: User = Self::get_me_unchecked().await?;
+        // In HYKB builds an account must stay bound to a HYKB account. If the
+        // server ever reports an unbound account, force a logout instead of
+        // letting the player continue in an invalid state.
+        #[cfg(feature = "hykb")]
+        if user.hykb_uid.is_none() {
+            get_data_mut().me = None;
+            get_data_mut().tokens = None;
+            save_data()?;
+            crate::sync_data();
+            bail!("{}", crate::ttl!("hykb-not-bound-logout"));
+        }
+        Ok(user)
+    }
+
+    /// Fetch `/me` without the HYKB binding guard. Used by the email-login flow,
+    /// which handles an unbound account by offering to bind HYKB rather than
+    /// forcing a logout.
+    pub async fn get_me_unchecked() -> Result<User> {
         Ok(recv_raw(Self::get("/me")).await?.json().await?)
     }
 

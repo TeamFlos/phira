@@ -139,6 +139,11 @@ pub struct Login {
     /// Choice written by the register/claim dialog listener.
     #[cfg(feature = "hykb")]
     hykb_choice: Arc<Mutex<Option<HykbChoice>>>,
+    /// Choice written by the "bind HYKB to continue" dialog shown after an email
+    /// login to an account not yet bound to HYKB: `Some(true)` = bind now,
+    /// `Some(false)` = cancel (and log the half-finished session back out).
+    #[cfg(feature = "hykb")]
+    email_bind_choice: Arc<Mutex<Option<bool>>>,
 
     /// The in-app "choose your username" panel shown for a new HYKB account,
     /// in place of popping the native InputBox directly. The InputBox only
@@ -220,6 +225,8 @@ impl Login {
             hykb_nick: None,
             #[cfg(feature = "hykb")]
             hykb_choice: Arc::new(Mutex::new(None)),
+            #[cfg(feature = "hykb")]
+            email_bind_choice: Arc::new(Mutex::new(None)),
 
             #[cfg(feature = "hykb")]
             reg_name_fader: Fader::new().with_distance(-0.4).with_time(0.5),
@@ -362,6 +369,26 @@ impl Login {
                     -1 => *choice.lock().unwrap() = Some(HykbChoice::Cancel),
                     0 => *choice.lock().unwrap() = Some(HykbChoice::Register),
                     1 => *choice.lock().unwrap() = Some(HykbChoice::Claim),
+                    _ => {}
+                }
+                false
+            })
+            .show();
+    }
+
+    /// Show the "this account isn't bound to HYKB yet" dialog after an email
+    /// login, offering to bind HYKB (or cancel). The choice is recorded in
+    /// `email_bind_choice` and acted on in `update_hykb`.
+    #[cfg(feature = "hykb")]
+    fn show_email_bind(&self) {
+        let choice = Arc::clone(&self.email_bind_choice);
+        Dialog::plain(tl!("hykb-bind-required-title"), tl!("hykb-bind-required"))
+            .buttons(vec![tl!("hykb-bind-required-cancel").to_string(), tl!("hykb-bind-required-confirm").to_string()])
+            .listener(move |_, pos| {
+                match pos {
+                    // Cancel button or outside click: back out and log out.
+                    0 | -1 => *choice.lock().unwrap() = Some(false),
+                    1 => *choice.lock().unwrap() = Some(true),
                     _ => {}
                 }
                 false
@@ -592,7 +619,13 @@ impl Login {
                 password: &pwd,
             })
             .await?;
-            Ok(Some(Client::get_me().await?))
+            // Fetch without the HYKB guard: an unbound account is handled by the
+            // "bind HYKB to continue" dialog rather than an immediate logout.
+            #[cfg(feature = "hykb")]
+            let me = Client::get_me_unchecked().await?;
+            #[cfg(not(feature = "hykb"))]
+            let me = Client::get_me().await?;
+            Ok(Some(me))
         });
     }
 
@@ -659,32 +692,56 @@ impl Login {
             }
             self.after_accept_tos = None;
         }
+        #[cfg(feature = "hykb")]
+        let mut email_needs_bind = false;
         if let Some((action, task)) = &mut self.task {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => show_error(err.context(tl!("action-failed", "action" => *action))),
                     Ok(user) => {
-                        if let Some(user) = user {
-                            UserManager::request(user.id);
-                            get_data_mut().me = Some(user);
-                            save_data()?;
-                        }
-                        self.t_pwd.clear();
-                        show_message(tl!("action-success", "action" => *action)).ok();
-                        if *action == "register" {
-                            Dialog::simple(tl!("email-sent")).show();
-                            self.t_reg_email.clear();
-                            self.t_reg_name.clear();
-                            self.t_reg_pwd.clear();
-                            self.start_time = t;
-                        }
-                        if *action == "login" || *action == "hykb-login" {
-                            self.dismiss(t);
+                        // In HYKB builds a plain email login is only permitted for
+                        // accounts already bound to a HYKB account; others are sent
+                        // through the "bind HYKB to continue" dialog below.
+                        #[cfg(feature = "hykb")]
+                        let needs_bind = *action == "login" && user.as_ref().is_some_and(|u| u.hykb_uid.is_none());
+                        #[cfg(not(feature = "hykb"))]
+                        let needs_bind = false;
+                        if needs_bind {
+                            self.t_pwd.clear();
+                            #[cfg(feature = "hykb")]
+                            {
+                                email_needs_bind = true;
+                            }
+                        } else {
+                            if let Some(user) = user {
+                                UserManager::request(user.id);
+                                get_data_mut().me = Some(user);
+                                save_data()?;
+                            }
+                            self.t_pwd.clear();
+                            show_message(tl!("action-success", "action" => *action)).ok();
+                            if *action == "register" {
+                                Dialog::simple(tl!("email-sent")).show();
+                                self.t_reg_email.clear();
+                                self.t_reg_name.clear();
+                                self.t_reg_pwd.clear();
+                                self.start_time = t;
+                            }
+                            if *action == "login" || *action == "hykb-login" {
+                                self.dismiss(t);
+                            }
                         }
                     }
                 }
                 self.task = None;
             }
+        }
+        // The email login resolved to an account not yet bound to HYKB: prompt the
+        // player to bind it (deferred to here so it doesn't overlap the `self.task`
+        // borrow above).
+        #[cfg(feature = "hykb")]
+        if email_needs_bind {
+            self.show_email_bind();
         }
         #[cfg(feature = "hykb")]
         self.update_hykb(t)?;
@@ -695,6 +752,35 @@ impl Login {
     /// choice dialog, and the follow-up that resolves to a logged-in user.
     #[cfg(feature = "hykb")]
     fn update_hykb(&mut self, t: f32) -> Result<()> {
+        // The "bind HYKB to continue" dialog (shown after an email login to an
+        // unbound account) recorded the player's decision.
+        let email_bind = self.email_bind_choice.lock().unwrap().take();
+        if let Some(bind) = email_bind {
+            if bind {
+                // Bind the freshly-authenticated session to a HYKB account, then
+                // finish as a normal login. Reuse the "hykb-login" action so the
+                // success path (set user, dismiss) is shared.
+                self.start("hykb-login", async move {
+                    let cred = obtain_hykb_credential().await?;
+                    if cred.code != 0 {
+                        bail!(tl!("hykb-login-cancelled"));
+                    }
+                    Client::bind_hykb(cred.uid, &cred.access_token).await?;
+                    Ok(Some(Client::get_me().await?))
+                });
+            } else {
+                // Cancelled: the email login already obtained tokens, so drop them
+                // and return to the method picker rather than leaving an unbound,
+                // half-logged-in session.
+                get_data_mut().me = None;
+                get_data_mut().tokens = None;
+                save_data()?;
+                crate::sync_data();
+                self.show = false;
+                self.fader.back(t);
+                self.show_picker(t);
+            }
+        }
         if let Some(task) = &mut self.hykb_task {
             if let Some(res) = task.take() {
                 match res {

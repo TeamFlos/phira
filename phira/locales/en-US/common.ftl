@@ -36,3 +36,5 @@ default-fav-folder = Favorites
 favorites-online-only = Only online charts can be added to online favorites. Local charts: { $charts }
 
 contains-banned-words = Your input contains banned words. Please check and submit again.
+
+hykb-not-bound-logout = Your account is not bound to a HYKB account; you have been logged out.
