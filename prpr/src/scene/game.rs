@@ -885,6 +885,10 @@ impl GameScene {
         // wasm32: no threading support; analysis not available on web
     }
 
+    fn offset_graph_score_top(result: &AlignmentResult) -> f32 {
+        result.correlation_curve.iter().map(|&(_, s)| s).fold(0.0, f32::max).max(0.25)
+    }
+
     fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rect, result: &AlignmentResult) {
         use lyon::math::point;
 
@@ -897,9 +901,7 @@ impl GameScene {
         let min_o = curve.first().map(|&(o, _)| o).unwrap_or(0.0);
         let max_o = curve.last().map(|&(o, _)| o).unwrap_or(0.0);
         let o_range = (max_o - min_o).max(1e-6);
-        let min_s = curve.iter().map(|&(_, s)| s).fold(f32::INFINITY, f32::min);
-        let max_s = curve.iter().map(|&(_, s)| s).fold(f32::NEG_INFINITY, f32::max);
-        let s_range = (max_s - min_s).max(1e-6);
+        let s_top = Self::offset_graph_score_top(result);
 
         // Background — fill full width
         ui.fill_rect(rect, Color::new(0.0, 0.0, 0.0, 0.3));
@@ -907,6 +909,19 @@ impl GameScene {
         // Use full width, only pad vertically
         let v_pad = 0.08;
         let inner = Rect::new(rect.x, rect.y + rect.h * v_pad, rect.w, rect.h * (1.0 - 2.0 * v_pad));
+        let line_w = rect.w * 0.003;
+
+        for value in [0.2_f32, 0.6_f32] {
+            if value > s_top {
+                continue;
+            }
+            let y = inner.y + (1.0 - value / s_top) * inner.h;
+            let mut mb = lyon::path::Path::builder();
+            mb.begin(point(inner.x, y));
+            mb.line_to(point(inner.x + inner.w, y));
+            mb.end(false);
+            ui.stroke_path(&mb.build(), line_w, Color::new(1.0, 0.82, 0.32, 0.26));
+        }
 
         // Correlation curve — limit path points to stay within geometry budget.
         // lyon stroke tessellation generates 30-60 vertices per segment; with
@@ -918,7 +933,7 @@ impl GameScene {
         for i in (0..curve.len()).step_by(step) {
             let (o, s) = curve[i];
             let x = inner.x + ((o - min_o) / o_range) as f32 * inner.w;
-            let y = inner.y + (1.0 - (s - min_s) / s_range) * inner.h;
+            let y = inner.y + (1.0 - (s / s_top).clamp(0.0, 1.0)) * inner.h;
             if first {
                 path_builder.begin(point(x, y));
                 first = false;
@@ -927,12 +942,7 @@ impl GameScene {
             }
         }
         path_builder.end(false);
-        let line_w = rect.w * 0.003;
-        ui.stroke_path(
-            &path_builder.build(),
-            line_w,
-            Color::new(0.6, 0.6, 0.6, 0.6), // gray, a=0.6
-        );
+        ui.stroke_path(&path_builder.build(), line_w, Color::new(0.6, 0.6, 0.6, 0.6));
 
         let marker_line_w = line_w * 1.5;
 
@@ -1033,6 +1043,23 @@ impl GameScene {
                         .color(Color::new(0.0, 1.0, 0.0, 0.7))
                         .no_baseline()
                         .draw();
+                    let s_top = Self::offset_graph_score_top(result);
+                    let v_pad = 0.08;
+                    let inner_y = graph_rect.h * v_pad;
+                    let inner_h = graph_rect.h * (1.0 - 2.0 * v_pad);
+                    for (value, label) in [(0.2_f32, "0.2"), (0.6_f32, "0.6")] {
+                        if value > s_top {
+                            continue;
+                        }
+                        let y = inner_y + (1.0 - value / s_top) * inner_h;
+                        ui.text(label)
+                            .pos(0.01, y + inner_h * 0.015)
+                            .anchor(0.0, 0.0)
+                            .size(0.22)
+                            .color(Color::new(1.0, 0.82, 0.32, 0.62))
+                            .no_baseline()
+                            .draw();
+                    }
                     if !self.scroll_centered && !result.correlation_curve.is_empty() {
                         let curve = &result.correlation_curve;
                         let min_o = curve.first().map(|&(o, _)| o).unwrap_or(0.0);
