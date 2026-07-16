@@ -33,8 +33,6 @@ const PWD_LEN_MAX: usize = 32;
 #[cfg(feature = "hykb")]
 use crate::{client::HykbLoginOutcome, obtain_hykb_credential};
 #[cfg(feature = "hykb")]
-use anyhow::bail;
-#[cfg(feature = "hykb")]
 use prpr::scene::take_input_cancelled;
 #[cfg(feature = "hykb")]
 use std::sync::Mutex;
@@ -345,10 +343,7 @@ impl Login {
     #[cfg(feature = "hykb")]
     fn start_hykb_login(&mut self) {
         self.hykb_task = Some(Task::new(async move {
-            let cred = obtain_hykb_credential().await?;
-            if cred.code != 0 {
-                bail!(tl!("hykb-login-cancelled"));
-            }
+            let cred = obtain_hykb_credential().await?.ok_or_err()?;
             match Client::login_hykb(cred.uid, &cred.access_token).await? {
                 HykbLoginOutcome::LoggedIn => Ok(HykbStep::LoggedIn(Box::new(Client::get_me().await?))),
                 HykbLoginOutcome::NeedChoice { hykb_token } => Ok(HykbStep::NeedChoice { hykb_token, nick: cred.nick }),
@@ -761,10 +756,7 @@ impl Login {
                 // finish as a normal login. Reuse the "hykb-login" action so the
                 // success path (set user, dismiss) is shared.
                 self.start("hykb-login", async move {
-                    let cred = obtain_hykb_credential().await?;
-                    if cred.code != 0 {
-                        bail!(tl!("hykb-login-cancelled"));
-                    }
+                    let cred = obtain_hykb_credential().await?.ok_or_err()?;
                     Client::bind_hykb(cred.uid, &cred.access_token).await?;
                     Ok(Some(Client::get_me().await?))
                 });

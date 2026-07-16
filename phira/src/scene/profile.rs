@@ -395,10 +395,7 @@ impl Scene for ProfileScene {
                 confirm_dialog(tl!("hykb-unbind").into_owned(), tl!("hykb-unbind-confirm").into_owned(), Arc::clone(&self.should_unbind_hykb));
             } else {
                 self.hykb_task = Some(Task::new(async move {
-                    let cred = crate::obtain_hykb_credential().await?;
-                    if cred.code != 0 {
-                        anyhow::bail!(tl!("hykb-login-cancelled"));
-                    }
+                    let cred = crate::obtain_hykb_credential().await?.ok_or_err()?;
                     Client::bind_hykb(cred.uid, &cred.access_token).await?;
                     let me = Client::get_me().await?;
                     get_data_mut().me = Some(me);

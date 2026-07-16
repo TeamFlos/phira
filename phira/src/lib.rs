@@ -503,6 +503,20 @@ pub struct HykbCredential {
     pub access_token: String,
 }
 
+impl HykbCredential {
+    /// Map the SDK result code to an error, or yield the credential on success.
+    /// Centralizes the code → user-facing message translation shared by every
+    /// HYKB login/bind entry point.
+    #[cfg(feature = "hykb")]
+    pub fn ok_or_err(self) -> Result<Self> {
+        if self.code == 0 {
+            Ok(self)
+        } else {
+            anyhow::bail!("{}", crate::ttl!("hykb-login-cancelled"))
+        }
+    }
+}
+
 /// Slot for the pending HYKB login result. The native callback fulfills it.
 static HYKB_TX: Mutex<Option<tokio::sync::oneshot::Sender<HykbCredential>>> = Mutex::new(None);
 
