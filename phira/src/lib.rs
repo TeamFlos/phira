@@ -224,9 +224,8 @@ async fn the_main() -> Result<()> {
 
     if let Some(me) = &get_data().me {
         anti_addiction_action("startup", Some(format!("phira-{}", me.id)));
-        // Let the native HYKB SDK enter its logged-in state for the restored
-        // session without popping the account picker.
-        hykb_login();
+        // The native HYKB SDK is (re)entered and verified against the restored
+        // session by the blocking startup check in `HomePage`, not here.
     }
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
@@ -545,17 +544,17 @@ fn request_hykb_login() {
 #[cfg(not(all(target_os = "android", feature = "hykb")))]
 fn request_hykb_login() {}
 
-/// Tell the native HYKB SDK the player is already signed in, without popping the
-/// account picker (`MainActivity.hykbLogin`). Fire-and-forget: any credentials the
-/// SDK reports back are ignored, since the Phira session is already restored from
-/// saved data. Called once at startup when saved login data is present.
+/// Ask the Android shell to sign in using the cached HYKB account without
+/// popping the picker (`MainActivity.hykbLogin`). The credentials the SDK
+/// reports flow back through `HYKB_TX`, so the caller can verify them against
+/// the restored Phira session. Used by the silent startup restore.
 #[cfg(all(target_os = "android", feature = "hykb"))]
-pub fn hykb_login() {
+fn request_hykb_login_silent() {
     call_activity_void(jni::jni_str!("hykbLogin"));
 }
 
 #[cfg(not(all(target_os = "android", feature = "hykb")))]
-pub fn hykb_login() {}
+fn request_hykb_login_silent() {}
 
 /// Tell the native HYKB SDK to sign out (`MainActivity.hykbLogout`). Called when the
 /// player logs out from their profile.
@@ -573,6 +572,18 @@ pub async fn obtain_hykb_credential() -> Result<HykbCredential> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     *HYKB_TX.lock().unwrap() = Some(tx);
     request_hykb_login();
+    let cred = rx.await.map_err(|_| anyhow::anyhow!("hykb login cancelled"))?;
+    Ok(cred)
+}
+
+/// Silently restore the HYKB session from the cached account and await its
+/// credentials. Unlike [`obtain_hykb_credential`], this does not pop the account
+/// picker; used by the blocking startup check to verify the restored session.
+#[allow(unused)]
+pub async fn obtain_hykb_credential_silent() -> Result<HykbCredential> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    *HYKB_TX.lock().unwrap() = Some(tx);
+    request_hykb_login_silent();
     let cred = rx.await.map_err(|_| anyhow::anyhow!("hykb login cancelled"))?;
     Ok(cred)
 }

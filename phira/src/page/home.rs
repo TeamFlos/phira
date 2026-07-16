@@ -115,7 +115,24 @@ impl HomePage {
                     token: &get_data().tokens.as_ref().unwrap().1,
                 })
                 .await?;
-                Client::get_me().await
+                let me = Client::get_me().await?;
+                // On HYKB builds the restored session must match the account the
+                // native SDK is signed into. `get_me` already guaranteed a bound
+                // account (`hykb_uid` is Some); silently restore the SDK session
+                // and reject a uid mismatch by logging out of both.
+                #[cfg(feature = "hykb")]
+                {
+                    let cred = crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+                    if me.hykb_uid != Some(cred.uid) {
+                        crate::hykb_logout();
+                        get_data_mut().me = None;
+                        get_data_mut().tokens = None;
+                        save_data()?;
+                        sync_data();
+                        bail!("{}", crate::ttl!("hykb-uid-mismatch"));
+                    }
+                }
+                Ok(me)
             }))
         } else {
             None
@@ -382,6 +399,12 @@ impl Page for HomePage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         if self.sf.transiting() {
+            return Ok(true);
+        }
+        // The HYKB startup check (refresh + verify SDK session) is blocking: keep
+        // the home page inert until it resolves.
+        #[cfg(feature = "hykb")]
+        if self.update_task.is_some() {
             return Ok(true);
         }
         let t = s.t;
@@ -800,6 +823,11 @@ impl Page for HomePage {
         });
 
         self.login.render(ui, t);
+        // Cover the home page with a blocking loader during the HYKB startup check.
+        #[cfg(feature = "hykb")]
+        if self.update_task.is_some() {
+            ui.full_loading_simple(t);
+        }
         self.sf.render(ui, t);
 
         Ok(())
