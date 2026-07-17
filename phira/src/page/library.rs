@@ -494,7 +494,7 @@ fn present_export_picker(path: String) {
             // SAFETY: The signature is correct.
             #[unsafe(method(documentPicker:didPickDocumentsAtURLs:))]
             fn did_pick_documents_at_urls(&self, _controller: &UIDocumentPickerViewController, _urls: &NSArray<NSURL>) {
-                show_message(tl!("multi-exported")).ok();
+                show_message(tl!("exported")).ok();
             }
         }
     }
