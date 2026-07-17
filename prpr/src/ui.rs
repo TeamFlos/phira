@@ -173,6 +173,10 @@ impl RectButton {
         self.id.is_some()
     }
 
+    pub fn cancel(&mut self) {
+        self.id = None;
+    }
+
     pub fn contains(&self, pos: Vec2) -> bool {
         if let Some([a, b, c, d]) = self.pts {
             let abp = (b - a).perp_dot(pos - a);
