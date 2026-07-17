@@ -9,6 +9,8 @@ use crate::{
     scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
+#[cfg(feature = "hykb")]
+use anyhow::bail;
 use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
@@ -620,6 +622,25 @@ impl Login {
             let me = Client::get_me_unchecked().await?;
             #[cfg(not(feature = "hykb"))]
             let me = Client::get_me().await?;
+            // An account already bound to a HYKB uid must still be re-verified
+            // against the native SDK's currently signed-in account (same check
+            // as the app-restart session restore in `page/home.rs`). Without
+            // this, logging in by email into an account carrying a stale or
+            // foreign `hykb_uid` binding would skip the real-name/age gate
+            // entirely, since only `start_hykb_login`/session restore actually
+            // invoke the SDK's login UI.
+            #[cfg(feature = "hykb")]
+            if me.hykb_uid.is_some() {
+                let cred = crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+                if me.hykb_uid != Some(cred.uid) {
+                    crate::hykb_logout();
+                    get_data_mut().me = None;
+                    get_data_mut().tokens = None;
+                    save_data()?;
+                    crate::sync_data();
+                    bail!("{}", crate::ttl!("hykb-uid-mismatch"));
+                }
+            }
             Ok(Some(me))
         });
     }
