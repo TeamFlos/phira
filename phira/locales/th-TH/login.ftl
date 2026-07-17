@@ -5,7 +5,6 @@ register = สมัคร
 email = Email
 username = ชื่อผู้ใช้
 password = รหัสผ่าน
-
 name-length-req = ชื่อควรยาว { $min }-{ $max } ตัว
 name-has-illegal-char = ชื่อผู้ใช้มีตัวที่ไม่อนุญาตให้ใช้
 pwd-length-req = รหัสผ่านควรยาว { $min }-{ $max } ตัว
