@@ -241,6 +241,20 @@ async fn the_main() -> Result<()> {
             fps_time_sum += frame_time;
         }
         last_frame_start = frame_start as f32;
+        // The SDK switched HYKB accounts underneath us (see `hykbLoginCallback`).
+        // If the freshly signed-in uid no longer matches the account the in-game
+        // session is bound to, drop the session so `HomePage` forces a re-login
+        // as the new account. The SDK is left alone (already on the new account),
+        // so this only clears local tokens — no `hykb_logout` re-entry.
+        #[cfg(feature = "hykb")]
+        if let Some(uid) = HYKB_SWITCH_UID.lock().unwrap().take() {
+            if get_data().me.as_ref().and_then(|it| it.hykb_uid) != Some(uid) && get_data().me.is_some() {
+                get_data_mut().me = None;
+                get_data_mut().tokens = None;
+                let _ = save_data();
+                sync_data();
+            }
+        }
         let res = || -> Result<()> {
             main.update()?;
             main.render(&mut painter)?;
@@ -428,6 +442,13 @@ impl HykbCredential {
 /// Slot for the pending HYKB login result. The native callback fulfills it.
 static HYKB_TX: Mutex<Option<tokio::sync::oneshot::Sender<HykbCredential>>> = Mutex::new(None);
 
+/// uid the SDK reported switching to via an async, request-less `code == 0`
+/// callback (the player picked "switch account" from the SDK's own dialog).
+/// The native callback thread only records it here; the teardown itself runs on
+/// the game thread in `the_main` to avoid racing the unsynchronized `DATA`.
+#[cfg(feature = "hykb")]
+static HYKB_SWITCH_UID: Mutex<Option<i64>> = Mutex::new(None);
+
 /// Call a no-arg `void` method on the Android host activity (the HYKB shell).
 #[cfg(all(target_os = "android", feature = "hykb"))]
 fn call_activity_void(method: &'static jni::strings::JNIStr) {
@@ -539,6 +560,17 @@ pub extern "C" fn Java_quad_1native_QuadNative_hykbLoginCallback(
         // Other async codes (e.g. 2008 "continue playing") are handled inside
         // the SDK and need no response here.
         std::process::exit(0);
+    } else if code == 0 {
+        // A request-less success: the SDK switched accounts on its own (the
+        // player chose "switch account" from a dialog it raised after login,
+        // e.g. the real-name / anti-addiction gate). The in-game session still
+        // belongs to the previous account, so record the new uid; the game
+        // thread compares it against the current session and tears it down on a
+        // mismatch. Done off the JNI thread because `DATA` is unsynchronized.
+        #[cfg(feature = "hykb")]
+        {
+            *HYKB_SWITCH_UID.lock().unwrap() = Some(uid as i64);
+        }
     }
 }
 
