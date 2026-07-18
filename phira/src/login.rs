@@ -8,9 +8,9 @@ use crate::{
     save_data,
     scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
-use anyhow::Result;
 #[cfg(feature = "hykb")]
 use anyhow::bail;
+use anyhow::Result;
 use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
@@ -380,7 +380,10 @@ impl Login {
     fn show_email_bind(&self) {
         let choice = Arc::clone(&self.email_bind_choice);
         Dialog::plain(tl!("hykb-bind-required-title"), tl!("hykb-bind-required"))
-            .buttons(vec![tl!("hykb-bind-required-cancel").to_string(), tl!("hykb-bind-required-confirm").to_string()])
+            .buttons(vec![
+                tl!("hykb-bind-required-cancel").to_string(),
+                tl!("hykb-bind-required-confirm").to_string(),
+            ])
             .listener(move |_, pos| {
                 match pos {
                     // Cancel button or outside click: back out and log out.
