@@ -4,7 +4,6 @@ prpr_l10n::tl_file!("profile");
 use super::confirm_dialog;
 use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
-    anti_addiction_action,
     client::{recv_raw, Client, Record, User, UserManager},
     get_data, get_data_mut, hykb_logout,
     page::{Fader, Illustration, SFader},
@@ -374,7 +373,6 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_logout.touch(touch, t) {
-            anti_addiction_action("exit", None);
             hykb_logout();
             get_data_mut().me = None;
             get_data_mut().tokens = None;

@@ -4,7 +4,7 @@ mod model;
 pub use model::*;
 use tracing::debug;
 
-use crate::{anti_addiction_action, get_data, get_data_mut, save_data};
+use crate::{get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
@@ -243,10 +243,11 @@ impl Client {
     }
 
     /// Persist a freshly minted token pair and wire it into the HTTP client.
-    /// Shared by every login entry point (password, refresh, HYKB).
-    async fn store_login(id: i32, token: String, refresh_token: String) -> Result<()> {
-        anti_addiction_action("startup", Some(format!("phira-{id}")));
-
+    /// Shared by every login entry point (password, refresh, HYKB). `_id` is
+    /// kept in the signature so callers can pass the account id even though it
+    /// is no longer needed here (the native anti-addiction bridge that used it
+    /// is gone).
+    async fn store_login(_id: i32, token: String, refresh_token: String) -> Result<()> {
         set_access_token(&token).await?;
         get_data_mut().tokens = Some((token, refresh_token));
         save_data()?;

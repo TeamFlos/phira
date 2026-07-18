@@ -24,7 +24,6 @@ mod threed;
 mod uml;
 
 use anyhow::Result;
-use core::f64;
 use data::Data;
 use macroquad::prelude::*;
 use prpr::{
@@ -32,7 +31,7 @@ use prpr::{
     core::{init_assets, PGR_FONT},
     ext::SafeTexture,
     log,
-    scene::{show_error, show_message},
+    scene::show_error,
     time::TimeManager,
     ui::{FontArc, TextPainter},
     Main,
@@ -53,7 +52,6 @@ use jni::{
 };
 
 static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
-static AA_TX: Mutex<Option<mpsc::Sender<i32>>> = Mutex::new(None);
 static DATA_PATH: Mutex<Option<String>> = Mutex::new(None);
 static CACHE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static mut DATA: Option<Data> = None;
@@ -211,22 +209,10 @@ async fn the_main() -> Result<()> {
         rx
     };
 
-    let aa_rx = {
-        let (tx, rx) = mpsc::channel();
-        *AA_TX.lock().unwrap() = Some(tx);
-        rx
-    };
-
     unsafe { get_internal_gl() }
         .quad_context
         .display_mut()
         .set_pause_resume_listener(on_pause_resume);
-
-    if let Some(me) = &get_data().me {
-        anti_addiction_action("startup", Some(format!("phira-{}", me.id)));
-        // The native HYKB SDK is (re)entered and verified against the restored
-        // session by the blocking startup check in `HomePage`, not here.
-    }
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
     PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font, None)));
@@ -243,8 +229,6 @@ async fn the_main() -> Result<()> {
     let mut fps_times = VecDeque::<f32>::with_capacity(FPS_BUF_SIZE);
     let mut last_frame_start = f32::NAN;
     let mut fps_time_sum = 0.;
-
-    let mut exit_time = f64::INFINITY;
 
     'app: loop {
         let frame_start = tm.real_time();
@@ -277,47 +261,7 @@ async fn the_main() -> Result<()> {
             break 'app;
         }
 
-        if let Ok(code) = aa_rx.try_recv() {
-            info!("anti addiction callback: {code}");
-            match code {
-                // login success
-                500 => {
-                    anti_addiction_action("enterGame", None);
-                }
-                // switch account
-                1001 => {
-                    anti_addiction_action("exit", None);
-                    get_data_mut().me = None;
-                    get_data_mut().tokens = None;
-                    let _ = save_data();
-                    sync_data();
-                    use crate::login::L10N_LOCAL;
-                    show_message(crate::login::tl!("logged-out")).ok();
-                }
-                // period restrict
-                1030 => {
-                    show_and_exit("你当前为未成年账号，已被纳入防沉迷系统。根据国家相关规定，周五、周六、周日及法定节假日 20 点 - 21 点之外为健康保护时段。当前时间段无法游玩，请合理安排时间。");
-                    exit_time = frame_start;
-                }
-                // duration limit
-                1050 => {
-                    show_and_exit("你当前为未成年账号，已被纳入防沉迷系统。根据国家相关规定，周五、周六、周日及法定节假日 20 点 - 21 点之外为健康保护时段。你已达时间限制，无法继续游戏。");
-                    exit_time = frame_start;
-                }
-                // stopped
-                9002 => {
-                    show_and_exit("必须实名认证方可进行游戏。");
-                    exit_time = frame_start;
-                }
-                _ => {}
-            }
-        }
-
         let t = tm.real_time();
-
-        if t > exit_time + 5. {
-            break;
-        }
 
         let fps_now = t as i32;
         if fps_now != fps_time {
@@ -332,13 +276,6 @@ async fn the_main() -> Result<()> {
         next_frame().await;
     }
     Ok(())
-}
-
-fn show_and_exit(msg: &str) {
-    prpr::ui::Dialog::simple(msg)
-        .buttons(vec!["确定".to_owned()])
-        .listener(|_, _| std::process::exit(0))
-        .show();
 }
 
 fn build_global_window_conf() -> Conf {
@@ -388,7 +325,6 @@ pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: EnvUno
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: EnvUnowned, _class: JClass) {
-    anti_addiction_action("leaveGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(true);
     }
@@ -397,7 +333,6 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: EnvUnow
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: EnvUnowned, _class: JClass) {
-    anti_addiction_action("enterGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(false);
     }
@@ -459,40 +394,6 @@ pub extern "C" fn Java_quad_1native_QuadNative_setInputText(_env: EnvUnowned, _c
     INPUT_TEXT.lock().unwrap().1 = Some(text.to_string());
 }
 
-#[cfg(not(all(target_os = "android", feature = "hykb")))]
-pub fn anti_addiction_action(_action: &str, _arg: Option<String>) {}
-
-#[cfg(all(target_os = "android", feature = "hykb"))]
-pub fn anti_addiction_action(action: &str, arg: Option<String>) {
-    use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
-
-    JavaVM::singleton()
-        .unwrap()
-        .attach_current_thread(|env| -> jni::errors::Result<()> {
-            let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
-            let action = env.new_string(action)?;
-            #[allow(clippy::redundant_closure)]
-            let arg = arg
-                .as_ref()
-                .map(|it| env.new_string(it))
-                .transpose()?
-                .map_or_else(|| JObject::null(), |s| s.into());
-            env.call_method(ctx, jni_str!("antiAddiction"), jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"), &[(&action).into(), (&arg).into()])?;
-            Ok(())
-        })
-        .unwrap();
-}
-
-#[cfg(target_os = "android")]
-#[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(_env: EnvUnowned, _class: JClass, #[allow(dead_code)] code: jint) {
-    if cfg!(feature = "hykb") {
-        if let Some(tx) = AA_TX.lock().unwrap().as_mut() {
-            let _ = tx.send(code);
-        }
-    }
-}
-
 /// Credentials obtained from the native HYKB (好游快爆) login SDK.
 pub struct HykbCredential {
     /// SDK result code: 0 on success, otherwise an error / user cancellation.
@@ -511,6 +412,14 @@ impl HykbCredential {
         if self.code == 0 {
             Ok(self)
         } else {
+            // A non-zero code is any failure the HYKB SDK reports: 2001 auth
+            // failed, 2002 login failed, 2003 cancelled, 2004 exception, 2005
+            // developer-requested exit / account logout. A HYKB build mandates a
+            // valid, matching HYKB session, so every one of these must tear the
+            // in-game session down — otherwise cancelling the HYKB prompt during
+            // a silent re-verify would leave the player signed in and bypass the
+            // gate entirely.
+            force_logout();
             anyhow::bail!("{}", crate::ttl!("hykb-login-cancelled"))
         }
     }
@@ -566,6 +475,18 @@ pub fn hykb_logout() {
 #[cfg(not(all(target_os = "android", feature = "hykb")))]
 pub fn hykb_logout() {}
 
+/// Tear down the local session: sign out of the native HYKB SDK, clear the
+/// stored account and tokens, then re-sync. Shared by every path that must
+/// reject a login — a failed/cancelled HYKB verification, a uid mismatch, or
+/// the player logging out from their profile.
+pub fn force_logout() {
+    hykb_logout();
+    get_data_mut().me = None;
+    get_data_mut().tokens = None;
+    let _ = save_data();
+    sync_data();
+}
+
 /// Trigger the native HYKB login and await its credentials.
 #[allow(unused)]
 pub async fn obtain_hykb_credential() -> Result<HykbCredential> {
@@ -611,6 +532,13 @@ pub extern "C" fn Java_quad_1native_QuadNative_hykbLoginCallback(
             nick,
             access_token,
         });
+    } else if code == 2005 {
+        // No login is in flight, so this is the SDK's asynchronous
+        // anti-addiction "exit game" action: the player hit a play-time limit
+        // and chose to quit from the SDK's own dialog. Honor it by exiting.
+        // Other async codes (e.g. 2008 "continue playing") are handled inside
+        // the SDK and need no response here.
+        std::process::exit(0);
     }
 }
 
