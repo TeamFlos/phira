@@ -14,7 +14,7 @@ resolver = "2"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(closed)'] }
 
 [workspace.package]
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 license = "GPL-3.0-only"
 
