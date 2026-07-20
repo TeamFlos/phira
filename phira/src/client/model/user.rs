@@ -95,6 +95,8 @@ pub struct User {
     pub avatar: Option<File>,
     pub badge: Option<String>,
     pub badges: Vec<String>,
+    #[serde(rename = "badgeNames")]
+    pub badge_names: HashMap<String, String>,
     pub language: String,
     pub bio: Option<String>,
     pub exp: i64,

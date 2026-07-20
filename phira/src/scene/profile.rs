@@ -192,7 +192,9 @@ impl Scene for ProfileScene {
                             match badge.as_str() {
                                 "admin" => self.user_badges.push(tl!("badge-admin").into_owned()),
                                 "sponsor" => self.user_badges.push(tl!("badge-sponsor").into_owned()),
-                                _ => {}
+                                _ => self
+                                    .user_badges
+                                    .push(res.badge_names.get(badge).cloned().unwrap_or_else(|| badge.clone())),
                             }
                         }
                         self.user = Some(res);
