@@ -41,6 +41,7 @@ impl OffsetPage {
         let cali = audio.create_music(
             AudioClip::new(load_file("cali.ogg").await?)?,
             MusicParams {
+                amplifier: get_data().config.volume_music,
                 loop_mix_time: 0.,
                 ..Default::default()
             },
@@ -179,7 +180,9 @@ impl Page for OffsetPage {
                 if self.cali_last {
                     let g = ui.to_global(ct);
                     self.emitter.emit_at(vec2(g.0, g.1), 0., self.color);
-                    let _ = self.cali_hit.play(PlaySfxParams::default());
+                    let _ = self.cali_hit.play(PlaySfxParams {
+                        amplifier: config.volume_sfx,
+                    });
                 }
                 self.cali_last = false;
             }

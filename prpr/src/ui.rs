@@ -47,10 +47,11 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     ops::Range,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, Ordering},
 };
 
 pub static PREFER_REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
+pub static UI_SFX_VOLUME: AtomicU32 = AtomicU32::new(1.0f32.to_bits());
 
 #[derive(Default, Clone, Copy)]
 pub struct Gravity(u8);
@@ -1348,7 +1349,9 @@ thread_local! {
 pub fn button_hit() {
     UI_BTN_HITSOUND.with(|it| {
         if let Some(sfx) = it.borrow_mut().as_mut() {
-            let _ = sfx.play(PlaySfxParams::default());
+            let _ = sfx.play(PlaySfxParams {
+                amplifier: f32::from_bits(UI_SFX_VOLUME.load(Ordering::Relaxed)),
+            });
         }
     });
 }
@@ -1356,7 +1359,9 @@ pub fn button_hit() {
 pub fn button_hit_large() {
     UI_BTN_HITSOUND_LARGE.with(|it| {
         if let Some(sfx) = it.borrow_mut().as_mut() {
-            let _ = sfx.play(PlaySfxParams::default());
+            let _ = sfx.play(PlaySfxParams {
+                amplifier: f32::from_bits(UI_SFX_VOLUME.load(Ordering::Relaxed)),
+            });
         }
     });
 }
@@ -1364,7 +1369,9 @@ pub fn button_hit_large() {
 pub fn list_switch() {
     UI_SWITCH_SOUND.with(|it| {
         if let Some(sfx) = it.borrow_mut().as_mut() {
-            let _ = sfx.play(PlaySfxParams::default());
+            let _ = sfx.play(PlaySfxParams {
+                amplifier: f32::from_bits(UI_SFX_VOLUME.load(Ordering::Relaxed)),
+            });
         }
     });
 }
