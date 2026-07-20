@@ -279,7 +279,7 @@ impl MPPanel {
             if self.user_list_scroll.touch(touch, t) {
                 return true;
             }
-            if touch.phase == TouchPhase::Ended {
+            if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
                 self.user_list_p.goto(0., t, USER_LIST_TRANSIT);
             }
             return true;
@@ -405,7 +405,9 @@ impl MPPanel {
             self.msgs_dirty_from = 0;
         }
         self.msg_scroll.update(t);
-        self.user_list_scroll.update(t);
+        if self.user_list_p.now(t) > 1e-4 {
+            self.user_list_scroll.update(t);
+        }
         if let Some(client) = &self.client {
             self.msgs.extend(client.blocking_take_messages().into_iter().map(|msg| {
                 use phira_mp_common::Message as M;
@@ -810,7 +812,7 @@ impl MPPanel {
                                     .draw();
                             }
                         }
-                        (width, rn as f32 * (h + pad) - pad)
+                        (width, (rn as f32 * (h + pad) - pad).max(0.))
                     });
                 });
             });
