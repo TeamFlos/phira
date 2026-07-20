@@ -7,7 +7,8 @@
 ## Download
 
 - [GitHub Release](https://github.com/TeamFlos/phira/releases): For Android, Windows and Linux
-- [616.sb mirror](https://616.sb/#phira): Android only
+- [Phira Download Hub](https://phira.dmocken.top/): For Android, Windows, HarmonyOS and Linux
+- ~~[616.sb mirror](https://616.sb/#phira): Android only~~(The security certificate for this website has expired.)
 - [App Store](https://apps.apple.com/us/app/phira/id6447435864): For iOS
 - ~~[.ipa Release](https://github.com/F-Unction/phira_ipa/releases): For iOS~~
 
