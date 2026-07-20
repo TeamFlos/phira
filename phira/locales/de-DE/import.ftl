@@ -1,9 +1,17 @@
-
-info-fail = Fehler beim Laden von Informationen.
-invalid-chart = Ungültiges Level.
-
-importing = Importieren...
-import-success = Importierung erfolgreich.
-import-failed = Importierung fehlgeschlagen.
-import-respack-success = Importierung erfolgreich.
-import-respack-failed = Fehler beim Importieren des Skins.
+info-fail = Fehler beim Laden von Informationen
+invalid-chart = Ungültiges Level
+importing = Importieren
+import-success = Importierung erfolgreich
+import-failed = Importierung fehlgeschlagen
+import-respack-success = Ressourcenpaket erfolgreich importiert
+import-respack-failed = Das Ressourcenpaket konnte nicht importiert werden
+batch-import = Massenimport
+batch-importing = Massenimport ({ $current }/{ $total })
+batch-import-confirm = Massenimport von Daten erkannt. Alle { $count } Level importieren?
+batch-import-success = { $count } Level erfolgreich importiert.
+batch-import-downloaded-skipped = Level wurden übersprungen, da sie bereits heruntergeladen waren: { $charts }
+batch-import-failed = Massenimport fehlgeschlagen
+batch-import-failed-chart = Massenimport fehlgeschlagen: { $chart }
+warning = Achtung
+warning-new-speed-event = Dieses Chart verwendet das mit RPE 1.7.0 eingeführte Easing für Geschwindigkeitsereignisse. Aus Kompatibilitätsgründen ist die Unterstützung für dieses Ereignis in Phira nicht standardmäßig aktiviert. Um sie zu nutzen, aktiviere bitte die Option „New Speed Easing“ in den Chart-Informationen.
+warning-attach-ui = Dieses Chart verwendet UI-Binding. Neuere Versionen von Phira haben eine Korrektur für das UI-Binding eingeführt; dies kann jedoch bei Charts, die auf dem alten Verhalten basieren, zu Problemen führen. Deaktiviere bei Bedarf bitte die Option „UI binding fix“ in den Chart-Informationen.
