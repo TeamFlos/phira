@@ -157,7 +157,7 @@ fn create_music(clip: AudioClip) -> Result<Music> {
         it.borrow_mut().create_music(
             clip,
             MusicParams {
-                amplifier: 0.7,
+                amplifier: get_data().config.volume_music,
                 loop_mix_time: 0.,
                 ..Default::default()
             },
