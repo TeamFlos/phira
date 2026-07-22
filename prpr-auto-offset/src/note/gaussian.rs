@@ -1,10 +1,11 @@
 use crate::Signal;
 
-/// A signal constructed from discrete note events by placing a Gaussian kernel
-/// at each note time.
+/// A diagnostic note signal constructed by placing a Gaussian kernel at each
+/// note time.
 ///
-/// `template(t) = Σ exp(-0.5 * ((t - tᵢ) / σ)²)` — an analytic function that
-/// can be sampled at arbitrary timestamps.
+/// Prefer [`PreprocessedNoteGaussian`](crate::PreprocessedNoteGaussian) for
+/// offset suggestions because it uses note kinds and suppresses drag-run
+/// artifacts.
 pub struct NoteGaussian {
     times: Vec<f64>,
     sigma: f64,
@@ -12,6 +13,8 @@ pub struct NoteGaussian {
 
 impl NoteGaussian {
     pub fn new(times: Vec<f64>, sigma: f64) -> Self {
+        assert!(sigma.is_finite(), "sigma must be finite");
+        assert!(sigma > 0.0, "sigma must be positive");
         Self { times, sigma }
     }
 }

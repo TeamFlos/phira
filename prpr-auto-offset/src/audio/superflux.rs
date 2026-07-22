@@ -2,6 +2,9 @@ use crate::Signal;
 
 /// SuperFlux onset detection signal.
 ///
+/// Recommended audio frontend for chart offset estimation. In hit-sound
+/// synthesis tests it showed much lower timing bias than plain spectral flux.
+///
 /// Computes a percussion-onset novelty curve using the SuperFlux algorithm
 /// from:
 /// "Maximum Filter Vibrato Suppression for Onset Detection"
@@ -38,7 +41,10 @@ impl SuperFlux {
     /// * `window_size` - STFT window size in samples (default: 2048).
     /// * `hop_size` - STFT hop size in samples (default: 1024).
     pub fn new(pcm: &[f32], sample_rate: u32, window_size: usize, hop_size: usize) -> Self {
-        assert!(window_size.is_power_of_two());
+        assert!(sample_rate > 0, "sample_rate must be positive");
+        assert!(window_size.is_power_of_two(), "window_size must be a power of two");
+        assert!(window_size > 0, "window_size must be positive");
+        assert!(hop_size > 0, "hop_size must be positive");
         let native_dt = hop_size as f64 / sample_rate as f64;
         let native_t0 = window_size as f64 / sample_rate as f64 / 2.0;
 
@@ -95,6 +101,10 @@ impl Signal for SuperFlux {
 // ─── High-pass filter (50 Hz) ──────────────────────────────────────────
 
 fn highpass_50hz(samples: &mut [f32], sample_rate: u32) {
+    if samples.is_empty() {
+        return;
+    }
+
     // 1st-order Butterworth: y[n] = alpha*y[n-1] + alpha*(x[n] - x[n-1])
     // Remove DC offset first, then initialize state to avoid transient
     let dc = samples.iter().take((sample_rate as usize / 10).min(samples.len())).sum::<f32>() / (sample_rate as f32 / 10.0).min(samples.len() as f32);
@@ -170,6 +180,11 @@ impl Filterbank {
     /// * `fmax` - Maximum frequency in Hz (default: 17000, capped at Nyquist).
     /// * `equal` - If true, normalize each triangular filter to have area 1.
     pub fn new(sample_rate: u32, window_size: usize, bands_per_octave: usize, fmin: f32, fmax: f32, equal: bool) -> Self {
+        assert!(sample_rate > 0, "sample_rate must be positive");
+        assert!(window_size > 0, "window_size must be positive");
+        assert!(bands_per_octave > 0, "bands_per_octave must be positive");
+        assert!(fmin.is_finite() && fmin > 0.0, "fmin must be finite and positive");
+        assert!(fmax.is_finite() && fmax > fmin, "fmax must be finite and greater than fmin");
         let n_fft_bins = window_size / 2;
         let fmax = fmax.min(sample_rate as f32 / 2.0);
 
@@ -240,6 +255,13 @@ pub fn compute_spectrogram(
     mul: f32,
     add: f32,
 ) -> (Vec<Vec<f32>>, f32) {
+    assert!(sample_rate > 0, "sample_rate must be positive");
+    assert!(window_size.is_power_of_two(), "window_size must be a power of two");
+    assert!(window_size > 0, "window_size must be positive");
+    assert!(hop_size > 0, "hop_size must be positive");
+    assert!(mul.is_finite(), "mul must be finite");
+    assert!(add.is_finite(), "add must be finite");
+
     use rayon::prelude::*;
     use realfft::RealFftPlanner;
     use std::sync::Arc;

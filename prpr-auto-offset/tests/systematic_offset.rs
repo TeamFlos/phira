@@ -237,10 +237,7 @@ fn measure_audio_frontend_bias_on_synthesized_hit_sounds() {
     let mut cases: Vec<(&str, Vec<&[f32]>)> = sounds.iter().map(|(name, pcm, _)| (*name, vec![pcm.as_slice()])).collect();
     cases.push(("mixed", sounds.iter().map(|(_, pcm, _)| pcm.as_slice()).collect()));
 
-    let frontends = [
-        Frontend::Spectral,
-        Frontend::SuperFlux,
-    ];
+    let frontends = [Frontend::Spectral, Frontend::SuperFlux];
     for (name, layers) in cases {
         let max_layer_len = layers.iter().map(|layer| layer.len()).max().unwrap();
         let spacing = max_layer_len as f64 / sample_rate as f64 + 0.5;

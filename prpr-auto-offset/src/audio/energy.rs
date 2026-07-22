@@ -2,6 +2,9 @@ use crate::Signal;
 
 /// Energy-difference novelty signal.
 ///
+/// Diagnostic frontend. It is simple and useful as a sanity check, but is less
+/// selective than SuperFlux for dense music.
+///
 /// Computes the positive first-order difference of short-time RMS energy.
 /// No thresholding — every frame gets a value.
 pub struct EnergyDiff {
@@ -15,6 +18,9 @@ pub struct EnergyDiff {
 
 impl EnergyDiff {
     pub fn new(pcm: &[f32], sample_rate: u32, frame_ms: f64, hop_ms: f64) -> Self {
+        assert!(sample_rate > 0, "sample_rate must be positive");
+        assert!(frame_ms.is_finite() && frame_ms > 0.0, "frame_ms must be finite and positive");
+        assert!(hop_ms.is_finite() && hop_ms > 0.0, "hop_ms must be finite and positive");
         let frame_samples = (frame_ms / 1000.0 * sample_rate as f64).round() as usize;
         let hop_samples = (hop_ms / 1000.0 * sample_rate as f64).round() as usize;
         let native_dt = hop_samples as f64 / sample_rate as f64;

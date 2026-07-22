@@ -3,6 +3,9 @@ use rustfft::{num_complex::Complex32, FftPlanner};
 
 /// Spectral-flux novelty signal computed via STFT.
 ///
+/// Diagnostic frontend, not recommended for final offset suggestions. On game
+/// hit sounds, the novelty peak tends to occur after the physical onset.
+///
 /// For each STFT frame, computes the sum of positive magnitude-spectrum
 /// differences from the previous frame. The result is a dense time series
 /// with one value per STFT frame.
@@ -17,7 +20,10 @@ pub struct SpectralFlux {
 
 impl SpectralFlux {
     pub fn new(pcm: &[f32], sample_rate: u32, fft_size: usize, hop_size: usize) -> Self {
-        assert!(fft_size.is_power_of_two());
+        assert!(sample_rate > 0, "sample_rate must be positive");
+        assert!(fft_size.is_power_of_two(), "fft_size must be a power of two");
+        assert!(fft_size > 0, "fft_size must be positive");
+        assert!(hop_size > 0, "hop_size must be positive");
         let native_dt = hop_size as f64 / sample_rate as f64;
         let native_t0 = fft_size as f64 / sample_rate as f64 / 2.0;
         let native = compute_spectral_flux(pcm, fft_size, hop_size);

@@ -148,7 +148,7 @@ fn auto_offset_note_kind(kind: &NoteKind) -> AutoOffsetNoteKind {
         NoteKind::Click => AutoOffsetNoteKind::Tap,
         NoteKind::Hold { .. } => AutoOffsetNoteKind::Hold,
         NoteKind::Flick => AutoOffsetNoteKind::Flick,
-        NoteKind::Drag => AutoOffsetNoteKind::Slide,
+        NoteKind::Drag => AutoOffsetNoteKind::Drag,
     }
 }
 

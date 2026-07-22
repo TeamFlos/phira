@@ -1,12 +1,33 @@
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use prpr::{
+    core::{Chart, NoteKind},
     fs::{fs_from_file, load_info},
     parse::{parse_pec, parse_phigros, parse_rpe},
 };
-use prpr_auto_offset::{AlignConfig, AlignmentResult, EnergyDiff, NoteGaussian, SpectralFlux, SuperFlux};
+use prpr_auto_offset::{
+    AlignConfig, AlignmentResult, AutoOffsetNoteKind, EnergyDiff, NoteEvent, NoteGaussian, PreprocessedNoteGaussian, SpectralFlux, SuperFlux,
+};
 use std::io::Write;
 use std::path::PathBuf;
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum AudioMethod {
+    /// Recommended. Lowest measured timing bias on game hit sounds.
+    Superflux,
+    /// Diagnostic only. Plain spectral flux tends to report late peaks.
+    Spectral,
+    /// Diagnostic only. Simple RMS-energy onset, less robust for music.
+    Energy,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum NoteMethod {
+    /// Recommended. Uses note kinds, caps dense chords, and downweights drag runs.
+    PreprocessedGaussian,
+    /// Diagnostic only. Ignores note kinds and uses every note equally.
+    Gaussian,
+}
 
 #[derive(Parser)]
 #[command(name = "prpr-auto-offset")]
@@ -23,13 +44,13 @@ struct Cli {
     #[arg(short = 'w', long)]
     wide: bool,
 
-    /// Audio novelty method: superflux, spectral, or energy
-    #[arg(long, default_value = "spectral")]
-    audio_method: String,
+    /// Audio novelty method
+    #[arg(long, value_enum, default_value_t = AudioMethod::Superflux)]
+    audio_method: AudioMethod,
 
-    /// Note signal method: gaussian
-    #[arg(long, default_value = "gaussian")]
-    note_method: String,
+    /// Note signal method
+    #[arg(long, value_enum, default_value_t = NoteMethod::PreprocessedGaussian)]
+    note_method: NoteMethod,
 
     /// Sampling interval for the cross-correlation grid, in seconds
     #[arg(short, long, default_value = "0.005")]
@@ -44,15 +65,28 @@ struct Cli {
     verbose: bool,
 }
 
-fn extract_note_times(chart: &prpr::core::Chart) -> Vec<f64> {
-    let mut times: Vec<f64> = chart
+fn auto_offset_note_kind(kind: &NoteKind) -> AutoOffsetNoteKind {
+    match kind {
+        NoteKind::Click => AutoOffsetNoteKind::Tap,
+        NoteKind::Hold { .. } => AutoOffsetNoteKind::Hold,
+        NoteKind::Flick => AutoOffsetNoteKind::Flick,
+        NoteKind::Drag => AutoOffsetNoteKind::Drag,
+    }
+}
+
+fn extract_note_events(chart: &Chart) -> Vec<NoteEvent> {
+    let mut notes: Vec<NoteEvent> = chart
         .lines
         .iter()
-        .flat_map(|line| line.notes.iter().map(|note| note.time))
-        .filter(|&t| t >= 0.0)
+        .flat_map(|line| {
+            line.notes
+                .iter()
+                .filter(|note| !note.fake && note.time >= 0.0)
+                .map(|note| NoteEvent::new(note.time, auto_offset_note_kind(&note.kind)))
+        })
         .collect();
-    times.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    times
+    notes.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+    notes
 }
 
 fn print_result(result: &AlignmentResult, verbose: bool) {
@@ -70,8 +104,8 @@ async fn run(
     chart_path: &PathBuf,
     search_range: f64,
     wide: bool,
-    audio_method: &str,
-    note_method: &str,
+    audio_method: AudioMethod,
+    note_method: NoteMethod,
     sampling_interval: f64,
     blur_sigma: f64,
     verbose: bool,
@@ -112,11 +146,11 @@ async fn run(
         Some(other) => anyhow::bail!("unsupported chart format: {other}"),
     };
 
-    // 4. Extract note times
-    let note_times = extract_note_times(&chart);
+    // 4. Extract note events
+    let note_events = extract_note_events(&chart);
     if verbose {
         println!("Chart: {} — {} by {}", info.name, info.level, info.charter);
-        println!("  Notes: {}, Chart offset: {:.0}ms", note_times.len(), info.offset * 1000.0);
+        println!("  Notes: {}, Chart offset: {:.0}ms", note_events.len(), info.offset * 1000.0);
     }
 
     // 5. Extract and decode audio
@@ -163,43 +197,65 @@ async fn run(
     }
 
     // 7. Select methods and run
-    let result = match (audio_method, note_method) {
-        ("superflux", "gaussian") => {
-            if verbose {
-                println!("  Audio method: superflux");
-                println!("  Note method: gaussian (sigma={}ms)", blur_sigma * 1000.0);
-            }
-            let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
-            let note = NoteGaussian::new(note_times, blur_sigma);
-            prpr_auto_offset::estimate_with(&audio, &note, duration, &config)
-        }
-        ("spectral", "gaussian") => {
-            if verbose {
-                println!("  Audio method: spectral flux");
-                println!("  Note method: gaussian (sigma={}ms)", blur_sigma * 1000.0);
-            }
-            let audio = SpectralFlux::new(&pcm, sample_rate, 1024, 512);
-            let note = NoteGaussian::new(note_times, blur_sigma);
-            prpr_auto_offset::estimate_with(&audio, &note, duration, &config)
-        }
-        ("energy", "gaussian") => {
-            if verbose {
-                println!("  Audio method: energy diff");
-                println!("  Note method: gaussian (sigma={}ms)", blur_sigma * 1000.0);
-            }
-            let audio = EnergyDiff::new(&pcm, sample_rate, 10.0, 5.0);
-            let note = NoteGaussian::new(note_times, blur_sigma);
-            prpr_auto_offset::estimate_with(&audio, &note, duration, &config)
-        }
-        _ => anyhow::bail!("unsupported combination: audio={audio_method} + note={note_method}"),
-    };
+    if verbose {
+        println!("  Audio method: {}", audio_method_description(audio_method));
+        println!("  Note method: {} (sigma={}ms)", note_method_description(note_method), blur_sigma * 1000.0);
+    }
 
+    let result = match audio_method {
+        AudioMethod::Superflux => {
+            let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
+            estimate_with_note_method(&audio, &note_events, note_method, blur_sigma, duration, &config)
+        }
+        AudioMethod::Spectral => {
+            let audio = SpectralFlux::new(&pcm, sample_rate, 1024, 512);
+            estimate_with_note_method(&audio, &note_events, note_method, blur_sigma, duration, &config)
+        }
+        AudioMethod::Energy => {
+            let audio = EnergyDiff::new(&pcm, sample_rate, 10.0, 5.0);
+            estimate_with_note_method(&audio, &note_events, note_method, blur_sigma, duration, &config)
+        }
+    };
     print_result(&result, verbose);
     Ok(())
 }
 
+fn audio_method_description(method: AudioMethod) -> &'static str {
+    match method {
+        AudioMethod::Superflux => "superflux (recommended; lowest measured hit-sound timing bias)",
+        AudioMethod::Spectral => "spectral flux (diagnostic; tends to report late peaks)",
+        AudioMethod::Energy => "energy diff (diagnostic; simple and less robust for music)",
+    }
+}
+
+fn note_method_description(method: NoteMethod) -> &'static str {
+    match method {
+        NoteMethod::PreprocessedGaussian => "preprocessed gaussian (recommended; uses note kinds)",
+        NoteMethod::Gaussian => "gaussian (diagnostic; ignores note kinds)",
+    }
+}
+
+fn estimate_with_note_method<A: prpr_auto_offset::Signal>(
+    audio: &A,
+    note_events: &[NoteEvent],
+    note_method: NoteMethod,
+    blur_sigma: f64,
+    duration: f64,
+    config: &AlignConfig,
+) -> AlignmentResult {
+    match note_method {
+        NoteMethod::PreprocessedGaussian => {
+            let note = PreprocessedNoteGaussian::new(note_events.to_vec(), blur_sigma);
+            prpr_auto_offset::estimate_with(audio, &note, duration, config)
+        }
+        NoteMethod::Gaussian => {
+            let note = NoteGaussian::new(note_events.iter().map(|note| note.time).collect(), blur_sigma);
+            prpr_auto_offset::estimate_with(audio, &note, duration, config)
+        }
+    }
+}
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    run(&cli.chart, cli.range, cli.wide, &cli.audio_method, &cli.note_method, cli.interval, cli.blur_sigma, cli.verbose).await
+    run(&cli.chart, cli.range, cli.wide, cli.audio_method, cli.note_method, cli.interval, cli.blur_sigma, cli.verbose).await
 }
