@@ -230,6 +230,8 @@ async fn the_main() -> Result<()> {
     let mut last_frame_start = f32::NAN;
     let mut fps_time_sum = 0.;
 
+    let mut paused = false;
+
     'app: loop {
         let frame_start = tm.real_time();
         if !last_frame_start.is_nan() {
@@ -256,14 +258,22 @@ async fn the_main() -> Result<()> {
             }
         }
         let res = || -> Result<()> {
-            main.update()?;
-            main.render(&mut painter)?;
-            if let Ok(paused) = rx.try_recv() {
-                if paused {
+            let signal = if paused {
+                rx.recv_timeout(std::time::Duration::from_secs(1)).ok()
+            } else {
+                rx.try_recv().ok()
+            };
+            if let Some(msg) = signal {
+                paused = msg;
+                if msg {
                     main.pause()?;
                 } else {
                     main.resume()?;
                 }
+            }
+            if !paused {
+                main.update()?;
+                main.render(&mut painter)?;
             }
             Ok(())
         }();
@@ -287,6 +297,8 @@ async fn the_main() -> Result<()> {
             }
         }
 
+        // While backgrounded the scene is paused; the blocking `recv_timeout`
+        // above already parks this thread, so nothing extra is needed here.
         next_frame().await;
     }
     Ok(())
