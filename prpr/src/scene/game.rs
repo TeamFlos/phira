@@ -11,7 +11,7 @@ use super::{
 use crate::{
     bin::BinaryReader,
     config::{Config, Mods},
-    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, NoteKind, Point, Resource, UIElement, Vector, PGR_FONT},
+    core::{copy_fbo, BadNote, Chart, ChartExtra, Effect, Point, Resource, UIElement, Vector, PGR_FONT},
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
@@ -19,14 +19,12 @@ use crate::{
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
-    ui::{RectButton, Scroll, TextPainter, Ui},
+    ui::{OffsetAnalysisPanel, OffsetPanelAction, OffsetPanelLabels, RectButton, TextPainter, Ui},
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
 use inputbox::InputBox;
-use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
-use prpr_auto_offset::{estimate_with, AlignConfig, AlignmentResult, AutoOffsetNoteKind, NoteEvent, PreprocessedNoteGaussian, SuperFlux};
 use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -38,7 +36,7 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 use tracing::{debug, warn};
@@ -53,11 +51,6 @@ use inner::*;
 
 const WAIT_TIME: f64 = 0.5;
 const AFTER_TIME: f64 = 0.7;
-
-/// Ratio of graph content width to viewport width.
-/// The visible viewport shows `o_range / GRAPH_CONTENT_RATIO` seconds of offset data.
-/// E.g. with search_range=0.30s (o_range≈0.60s) and ratio=3.0, viewport ≈ 200ms.
-const GRAPH_CONTENT_RATIO: f32 = 2.0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,38 +113,6 @@ enum State {
     Ending,
 }
 
-#[derive(Clone)]
-enum OffsetAnalysisState {
-    /// No analysis started; show prompt text.
-    Idle,
-    /// Background thread is running; show "Analyzing...".
-    Computing,
-    /// Analysis complete with result.
-    Done(AlignmentResult),
-}
-
-/// Extract non-fake note hit events from the chart, sorted and filtered to t >= 0.
-fn extract_note_events(chart: &Chart) -> Vec<NoteEvent> {
-    let mut notes: Vec<NoteEvent> = chart
-        .lines
-        .iter()
-        .flat_map(|line| line.notes.iter())
-        .filter(|note| !note.fake && note.time >= 0.0)
-        .map(|note| NoteEvent::new(note.time, auto_offset_note_kind(&note.kind)))
-        .collect();
-    notes.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
-    notes
-}
-
-fn auto_offset_note_kind(kind: &NoteKind) -> AutoOffsetNoteKind {
-    match kind {
-        NoteKind::Click => AutoOffsetNoteKind::Tap,
-        NoteKind::Hold { .. } => AutoOffsetNoteKind::Hold,
-        NoteKind::Flick => AutoOffsetNoteKind::Flick,
-        NoteKind::Drag => AutoOffsetNoteKind::Drag,
-    }
-}
-
 pub struct GameScene {
     should_exit: bool,
     next_scene: Option<NextScene>,
@@ -166,11 +127,7 @@ pub struct GameScene {
     chart_format: ChartFormat,
     info_offset: f32,
     effects: Vec<Effect>,
-    analysis_state: OffsetAnalysisState,
-    analysis_requested: bool,
-    analysis_handle: Option<Arc<Mutex<Option<AlignmentResult>>>>,
-    scroll: Scroll,
-    scroll_centered: bool,
+    offset_analysis: OffsetAnalysisPanel,
 
     first_in: bool,
     exercise_range: Range<f64>,
@@ -363,11 +320,7 @@ impl GameScene {
             effects,
             info_offset,
 
-            analysis_state: OffsetAnalysisState::Idle,
-            analysis_requested: false,
-            analysis_handle: None,
-            scroll: Scroll::new().horizontal(),
-            scroll_centered: false,
+            offset_analysis: OffsetAnalysisPanel::new(),
 
             first_in: false,
             exercise_range,
@@ -851,283 +804,22 @@ impl GameScene {
         self.chart.offset + self.res.config.offset + self.info_offset
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    fn start_analysis(&mut self) {
-        use std::thread;
-
-        // 1. Extract note events
-        let note_events = extract_note_events(&self.chart);
-
-        // 2. Extract PCM from AudioClip (stereo -> mono)
-        let clip = self.res.music.clone();
-        let pcm: Vec<f32> = clip.frames().iter().map(|f| (f.0 + f.1) / 2.0).collect();
-        let sample_rate = clip.sample_rate();
-        // 3. Build config — search centered on the currently applied chart delay
-        let search_center_sec = (self.chart.offset + self.info_offset) as f64;
-        let config = AlignConfig {
-            search_range_sec: 0.30,
-            sampling_interval_sec: 0.005,
-            search_center_sec,
-        };
-
-        // 4. Create shared result slot
-        let result_slot: Arc<Mutex<Option<AlignmentResult>>> = Arc::new(Mutex::new(None));
-        self.analysis_handle = Some(result_slot.clone());
-
-        // 5. Spawn background thread
-        let _handle = thread::spawn(move || {
-            let superflux = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
-            let note = PreprocessedNoteGaussian::new(note_events, 0.02);
-            let duration = pcm.len() as f64 / sample_rate as f64;
-            let result = estimate_with(&superflux, &note, duration, &config);
-            if let Ok(mut guard) = result_slot.lock() {
-                *guard = Some(result);
-            }
-        });
-
-        // 6. Transition state
-        self.analysis_state = OffsetAnalysisState::Computing;
-        self.scroll_centered = false;
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn start_analysis(&mut self) {
-        // wasm32: no threading support; analysis not available on web
-    }
-
-    fn offset_graph_score_top(result: &AlignmentResult) -> f32 {
-        result.correlation_curve.iter().map(|&(_, s)| s).fold(0.0, f32::max).max(0.25)
-    }
-
-    fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rect, result: &AlignmentResult) {
-        use lyon::math::point;
-
-        let curve = &result.correlation_curve;
-        if curve.is_empty() {
-            return;
-        }
-
-        // Map data ranges
-        let min_o = curve.first().map(|&(o, _)| o).unwrap_or(0.0);
-        let max_o = curve.last().map(|&(o, _)| o).unwrap_or(0.0);
-        let o_range = (max_o - min_o).max(1e-6);
-        let s_top = Self::offset_graph_score_top(result);
-
-        // Background — fill full width
-        ui.fill_rect(rect, Color::new(0.0, 0.0, 0.0, 0.3));
-
-        // Use full width, only pad vertically
-        let v_pad = 0.08;
-        let inner = Rect::new(rect.x, rect.y + rect.h * v_pad, rect.w, rect.h * (1.0 - 2.0 * v_pad));
-        let line_w = rect.w * 0.003;
-
-        for value in [0.2_f32, 0.6_f32] {
-            if value > s_top {
-                continue;
-            }
-            let y = inner.y + (1.0 - value / s_top) * inner.h;
-            let mut mb = lyon::path::Path::builder();
-            mb.begin(point(inner.x, y));
-            mb.line_to(point(inner.x + inner.w, y));
-            mb.end(false);
-            ui.stroke_path(&mb.build(), line_w, Color::new(1.0, 0.82, 0.32, 0.26));
-        }
-
-        // Correlation curve — limit path points to stay within geometry budget.
-        // lyon stroke tessellation generates 30-60 vertices per segment; with
-        // other UI elements, ~70 path points keeps total well under the drawcall cap.
-        let max_pts = 70usize;
-        let step = ((curve.len() as f64) / (max_pts as f64)).ceil() as usize;
-        let mut path_builder = lyon::path::Path::builder();
-        let mut first = true;
-        for i in (0..curve.len()).step_by(step) {
-            let (o, s) = curve[i];
-            let x = inner.x + ((o - min_o) / o_range) as f32 * inner.w;
-            let y = inner.y + (1.0 - (s / s_top).clamp(0.0, 1.0)) * inner.h;
-            if first {
-                path_builder.begin(point(x, y));
-                first = false;
-            } else {
-                path_builder.line_to(point(x, y));
-            }
-        }
-        path_builder.end(false);
-        ui.stroke_path(&path_builder.build(), line_w, Color::new(0.6, 0.6, 0.6, 0.6));
-
-        let marker_line_w = line_w * 1.5;
-
-        // Orange vertical line: chart author offset (without audio latency compensation)
-        let orig_o = chart_offset as f64;
-        if orig_o >= min_o && orig_o <= max_o {
-            let ox = inner.x + ((orig_o - min_o) / o_range) as f32 * inner.w;
-            let mut mb = lyon::path::Path::builder();
-            mb.begin(point(ox, inner.y));
-            mb.line_to(point(ox, inner.y + inner.h));
-            mb.end(false);
-            ui.stroke_path(&mb.build(), marker_line_w, Color::new(1.0, 0.5, 0.0, 0.5));
-        }
-
-        // Green vertical line: recommended total offset
-        let best_o = result.offset;
-        if best_o >= min_o && best_o <= max_o {
-            let bx = inner.x + ((best_o - min_o) / o_range) as f32 * inner.w;
-            let mut mb = lyon::path::Path::builder();
-            mb.begin(point(bx, inner.y));
-            mb.line_to(point(bx, inner.y + inner.h));
-            mb.end(false);
-            ui.stroke_path(&mb.build(), marker_line_w, Color::new(0.0, 1.0, 0.0, 0.5));
-        }
-
-        // Blue vertical line: current chart delay (without audio latency compensation)
-        let cur_o = (chart_offset + info_offset) as f64;
-        if cur_o >= min_o && cur_o <= max_o {
-            let cx = inner.x + ((cur_o - min_o) / o_range) as f32 * inner.w;
-            let mut mb = lyon::path::Path::builder();
-            mb.begin(point(cx, inner.y));
-            mb.line_to(point(cx, inner.y + inner.h));
-            mb.end(false);
-            ui.stroke_path(&mb.build(), marker_line_w, Color::new(0.0, 0.5, 1.0, 0.5));
-        }
-    }
-
     fn tweak_offset(&mut self, ui: &mut Ui, ita: bool) {
-        ui.scope(|ui| {
-            let width = 0.55;
-            let height = 0.4;
-            ui.dx(1. - width - 0.02);
-            ui.dy(ui.top - height - 0.02);
-            ui.fill_rect(Rect::new(0., 0., width, height), GRAY);
-            ui.dy(0.02);
-            let r = ui
-                .text(tl!("adjust-offset"))
-                .pos(width / 2. - 0.03, 0.)
-                .anchor(1.0, 0.)
-                .size(0.7)
-                .no_baseline()
-                .draw();
-            if ui.button("auto-offset", Rect::new(width / 2. + 0.03, r.top(), r.w, r.h), tl!("auto-offset-btn"))
-                && !matches!(self.analysis_state, OffsetAnalysisState::Computing)
-            {
-                self.analysis_requested = true;
-            }
-            ui.dy(0.04 + r.h / 2.);
-            // Graph area
-            let graph_rect = Rect::new(0., 0., width, 0.17 - r.h / 2.);
-            match self.analysis_state.clone() {
-                OffsetAnalysisState::Idle => {
-                    ui.dy(graph_rect.h / 2. - 0.03);
-                    ui.text(tl!("analysis-prompt"))
-                        .pos(width / 2., 0.)
-                        .anchor(0.5, 0.5)
-                        .size(0.5)
-                        .no_baseline()
-                        .draw();
-                    ui.dy(graph_rect.h / 2. + 0.03);
-                }
-                OffsetAnalysisState::Computing => {
-                    ui.dy(graph_rect.h / 2. - 0.03);
-                    ui.text(tl!("analysis-computing"))
-                        .pos(width / 2., 0.)
-                        .anchor(0.5, 0.5)
-                        .size(0.5)
-                        .no_baseline()
-                        .draw();
-                    ui.dy(graph_rect.h / 2. + 0.03);
-                }
-                OffsetAnalysisState::Done(ref result) => {
-                    self.scroll.size((width, graph_rect.h));
-                    let chart_offset = self.chart.offset;
-                    let info_offset = self.info_offset;
-                    self.scroll.render(ui, |ui| {
-                        let content_width = width * GRAPH_CONTENT_RATIO;
-                        let expanded_rect = Rect::new(0., 0., content_width, graph_rect.h);
-                        Self::draw_offset_graph(chart_offset, info_offset, ui, expanded_rect, result);
-                        (content_width, graph_rect.h)
-                    });
-                    // Correction text pinned to viewport top-right
-                    let correction_ms = ((result.offset - chart_offset as f64) * 1000.0).round() as i32;
-                    ui.text(format!("{correction_ms:+}ms"))
-                        .pos(width - 0.01, 0.)
-                        .anchor(1.0, 0.0)
-                        .size(0.35)
-                        .color(Color::new(0.0, 1.0, 0.0, 0.7))
-                        .no_baseline()
-                        .draw();
-                    let s_top = Self::offset_graph_score_top(result);
-                    let v_pad = 0.08;
-                    let inner_y = graph_rect.h * v_pad;
-                    let inner_h = graph_rect.h * (1.0 - 2.0 * v_pad);
-                    for (value, label) in [(0.2_f32, "0.2"), (0.6_f32, "0.6")] {
-                        if value > s_top {
-                            continue;
-                        }
-                        let y = inner_y + (1.0 - value / s_top) * inner_h;
-                        ui.text(label)
-                            .pos(0.01, y + inner_h * 0.015)
-                            .anchor(0.0, 0.0)
-                            .size(0.22)
-                            .color(Color::new(1.0, 0.82, 0.32, 0.62))
-                            .no_baseline()
-                            .draw();
-                    }
-                    if !self.scroll_centered && !result.correlation_curve.is_empty() {
-                        let curve = &result.correlation_curve;
-                        let min_o = curve.first().map(|&(o, _)| o).unwrap_or(0.0);
-                        let max_o = curve.last().map(|&(o, _)| o).unwrap_or(0.0);
-                        let o_range = (max_o - min_o).max(1e-6);
-                        let content_width = width * GRAPH_CONTENT_RATIO;
-                        let green_x = ((result.offset - min_o) / o_range) as f32 * content_width;
-                        self.scroll.x_scroller.offset = (green_x - width / 2.0).clamp(0.0, content_width - width);
-                        self.scroll_centered = true;
-                    }
-                    ui.dy(graph_rect.h);
-                }
-            }
-            ui.dy(0.02);
-            let r = ui
-                .text(format!("{}ms", (self.info_offset * 1000.).round() as i32))
-                .pos(width / 2., 0.)
-                .anchor(0.5, 0.)
-                .size(0.6)
-                .no_baseline()
-                .draw();
-            let d = 0.14;
-            if ui.button("lg_sub", Rect::new(d, r.center().y, 0., 0.).feather(0.026), "-") && ita {
-                self.info_offset -= 0.05;
-            }
-            if ui.button("lg_add", Rect::new(width - d, r.center().y, 0., 0.).feather(0.026), "+") && ita {
-                self.info_offset += 0.05;
-            }
-            let d = 0.08;
-            if ui.button("sm_sub", Rect::new(d, r.center().y, 0., 0.).feather(0.022), "-") && ita {
-                self.info_offset -= 0.005;
-            }
-            if ui.button("sm_add", Rect::new(width - d, r.center().y, 0., 0.).feather(0.022), "+") && ita {
-                self.info_offset += 0.005;
-            }
-            let d = 0.03;
-            if ui.button("ti_sub", Rect::new(d, r.center().y, 0., 0.).feather(0.017), "-") && ita {
-                self.info_offset -= 0.001;
-            }
-            if ui.button("ti_add", Rect::new(width - d, r.center().y, 0., 0.).feather(0.017), "+") && ita {
-                self.info_offset += 0.001;
-            }
-            ui.dy(0.07);
-            let pad = 0.02;
-            let spacing = 0.01;
-            let mut r = Rect::new(pad, 0., (width - pad * 2. - spacing * 2.) / 3., 0.06);
-            if ui.button("cancel", r, tl!("offset-cancel")) {
-                self.next_scene = Some(NextScene::PopWithResult(Box::new(None::<f32>)));
-            }
-            r.x += r.w + spacing;
-            if ui.button("reset", r, tl!("offset-reset")) {
-                self.info_offset = 0.;
-            }
-            r.x += r.w + spacing;
-            if ui.button("save", r, tl!("offset-save")) {
-                self.next_scene = Some(NextScene::PopWithResult(Box::new(Some(self.info_offset))));
-            }
-        });
+        let labels = OffsetPanelLabels {
+            adjust_offset: tl!("adjust-offset"),
+            auto_offset: tl!("auto-offset-btn"),
+            analysis_prompt: tl!("analysis-prompt"),
+            analysis_computing: tl!("analysis-computing"),
+            cancel: tl!("offset-cancel"),
+            reset: tl!("offset-reset"),
+            save: tl!("offset-save"),
+        };
+        match self.offset_analysis.render(ui, &self.chart, &mut self.info_offset, ita, &labels) {
+            Some(OffsetPanelAction::Cancel) => self.next_scene = Some(NextScene::PopWithResult(Box::new(None::<f32>))),
+            Some(OffsetPanelAction::Reset) => self.info_offset = 0.,
+            Some(OffsetPanelAction::Save(offset)) => self.next_scene = Some(NextScene::PopWithResult(Box::new(Some(offset)))),
+            None => {}
+        }
     }
     pub fn get_avg_fps(&self) -> Option<f32> {
         if self.fps_frame_count > 0 && self.fps_total_time > 0.0 {
@@ -1173,23 +865,9 @@ impl Scene for GameScene {
     }
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
-        // Trigger auto-offset analysis if button was clicked in tweak_offset panel
-        if self.analysis_requested {
-            self.analysis_requested = false;
-            self.start_analysis();
-        }
-        // Check if background analysis completed
-        let handle = self.analysis_handle.clone();
-        if let Some(handle) = handle {
-            if let Ok(mut guard) = handle.try_lock() {
-                if let Some(result) = guard.take() {
-                    self.analysis_state = OffsetAnalysisState::Done(result);
-                    self.analysis_handle = None;
-                }
-            }
-        }
+        self.offset_analysis
+            .update(&self.chart, &self.res, self.info_offset, tm.real_time() as f32);
 
-        self.scroll.update(tm.real_time() as f32);
         self.res.audio.recover_if_needed()?;
         if matches!(self.state, State::Playing) {
             tm.update(self.music.position());
@@ -1442,7 +1120,7 @@ impl Scene for GameScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         if self.mode == GameMode::TweakOffset {
-            self.scroll.touch(touch, tm.real_time() as f32);
+            self.offset_analysis.touch(touch, tm.real_time() as f32);
         }
         if self.mode == GameMode::Exercise && tm.paused() {
             let touch = Touch {
