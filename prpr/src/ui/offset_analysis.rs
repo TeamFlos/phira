@@ -141,7 +141,7 @@ impl OffsetAnalysisPanel {
 
             ui.dy(0.04 + r.h / 2.);
             let graph_rect = Rect::new(0., 0., width, 0.17 - r.h / 2.);
-            self.render_graph_area(ui, chart, *info_offset, graph_rect, &labels);
+            self.render_graph_area(ui, chart, *info_offset, graph_rect, labels);
 
             ui.dy(0.02);
             let r = ui

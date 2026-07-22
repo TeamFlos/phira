@@ -149,6 +149,23 @@ fn assert_bias_within(measurements: &[(Frontend, BiasMeasurement)], true_offset:
     }
 }
 
+fn assert_frontend_bias_within(measurements: &[(Frontend, BiasMeasurement)], true_offset: f64) {
+    for (frontend, measurement) in measurements {
+        let tolerance = match frontend {
+            Frontend::Energy => 0.005,
+            Frontend::Spectral => 0.040,
+            Frontend::SuperFlux => 0.005,
+        };
+        assert!(
+            (measurement.offset - true_offset).abs() <= tolerance + 1e-9,
+            "{} bias exceeded tolerance: true={true_offset:+.3}s estimated={:+.3}s tolerance={:.0}ms",
+            frontend.label(),
+            measurement.offset,
+            tolerance * 1000.0
+        );
+    }
+}
+
 fn synthetic_click_kernel(sample_rate: u32) -> Vec<f32> {
     let burst_len = (0.030 * sample_rate as f64).round() as usize;
     let attack_len = (0.001 * sample_rate as f64).round().max(1.0) as usize;
@@ -237,7 +254,7 @@ fn measure_audio_frontend_bias_on_synthesized_hit_sounds() {
     let mut cases: Vec<(&str, Vec<&[f32]>)> = sounds.iter().map(|(name, pcm, _)| (*name, vec![pcm.as_slice()])).collect();
     cases.push(("mixed", sounds.iter().map(|(_, pcm, _)| pcm.as_slice()).collect()));
 
-    let frontends = [Frontend::Spectral, Frontend::SuperFlux];
+    let frontends = [Frontend::Energy, Frontend::Spectral, Frontend::SuperFlux];
     for (name, layers) in cases {
         let max_layer_len = layers.iter().map(|layer| layer.len()).max().unwrap();
         let spacing = max_layer_len as f64 / sample_rate as f64 + 0.5;
@@ -246,7 +263,8 @@ fn measure_audio_frontend_bias_on_synthesized_hit_sounds() {
         for true_offset in [-0.123, 0.0, 0.157] {
             let pcm = synth_layered_pcm(sample_rate, duration, &note_times, true_offset, &layers);
             assert_layers_are_sample_accurate(&pcm, sample_rate, &note_times, true_offset, &layers);
-            run_frontends(name, &frontends, &pcm, sample_rate, duration, &note_times, true_offset);
+            let measurements = run_frontends(name, &frontends, &pcm, sample_rate, duration, &note_times, true_offset);
+            assert_frontend_bias_within(&measurements, true_offset);
         }
     }
 }
