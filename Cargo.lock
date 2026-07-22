@@ -3819,6 +3819,7 @@ dependencies = [
 name = "prpr-auto-offset"
 version = "0.7.1"
 dependencies = [
+ "prpr-avc",
  "rayon",
  "realfft",
  "rustfft",

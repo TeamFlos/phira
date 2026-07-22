@@ -28,7 +28,7 @@ pub struct NotePreprocessConfig {
     pub max_slide_interval_sec: f64,
     pub equal_interval_tolerance_sec: f64,
     pub time_epsilon_sec: f64,
-    pub slide_weight: f32
+    pub slide_weight: f32,
 }
 
 impl Default for NotePreprocessConfig {
@@ -40,7 +40,7 @@ impl Default for NotePreprocessConfig {
             max_slide_interval_sec: 0.12,
             equal_interval_tolerance_sec: 0.008,
             time_epsilon_sec: 1e-4,
-            slide_weight: 0.8
+            slide_weight: 0.8,
         }
     }
 }

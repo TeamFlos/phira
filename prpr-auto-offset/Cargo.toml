@@ -8,3 +8,7 @@ license.workspace = true
 rayon = "1"
 realfft = "3"
 rustfft = "6.4.1"
+
+[dev-dependencies]
+prpr-avc = { workspace = true }
+

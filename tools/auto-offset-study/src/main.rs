@@ -61,6 +61,10 @@ struct Cli {
     #[arg(long, default_value_t = 0.02)]
     blur_sigma: f64,
 
+    /// Temporal SuperFlux differencing window in STFT frames.
+    #[arg(long, default_value_t = 3)]
+    superflux_diff_frames: usize,
+
     /// Recompute rows even if results.csv already contains a chart id.
     #[arg(long)]
     recompute: bool,
@@ -180,6 +184,9 @@ struct StudyRow {
     preprocessed_normalized_peak: Option<f64>,
     preprocessed_uncorrected_raw_peak: Option<f64>,
     preprocessed_uncorrected_normalized_peak: Option<f64>,
+    chart_format: String,
+    chart_file_ext: String,
+    source_group: String,
 }
 
 fn csv_escape(value: &str) -> String {
@@ -192,12 +199,12 @@ fn csv_escape(value: &str) -> String {
 
 impl StudyRow {
     fn header() -> &'static str {
-        "chart_id,chart_name,notes,duration_sec,search_center_sec,suggested_offset_sec,lag_sec,raw_peak,note_energy,audio_energy,normalized_peak,uncorrected_raw_peak,uncorrected_normalized_peak,fitted_log_raw_peak,log_raw_residual,empirical_peak_ratio,uncorrected_log_raw_residual,uncorrected_empirical_peak_ratio,chart_reviewed,chart_stable,chart_ranked,chart_stable_request,player_rating,player_rating_score,reliable,slide_ratio,preprocessed_suggested_offset_sec,preprocessed_lag_sec,preprocessed_raw_peak,preprocessed_normalized_peak,preprocessed_uncorrected_raw_peak,preprocessed_uncorrected_normalized_peak"
+        "chart_id,chart_name,notes,duration_sec,search_center_sec,suggested_offset_sec,lag_sec,raw_peak,note_energy,audio_energy,normalized_peak,uncorrected_raw_peak,uncorrected_normalized_peak,fitted_log_raw_peak,log_raw_residual,empirical_peak_ratio,uncorrected_log_raw_residual,uncorrected_empirical_peak_ratio,chart_reviewed,chart_stable,chart_ranked,chart_stable_request,player_rating,player_rating_score,reliable,slide_ratio,preprocessed_suggested_offset_sec,preprocessed_lag_sec,preprocessed_raw_peak,preprocessed_normalized_peak,preprocessed_uncorrected_raw_peak,preprocessed_uncorrected_normalized_peak,chart_format,chart_file_ext,source_group"
     }
 
     fn to_csv(&self) -> String {
         format!(
-            "{},{},{},{:.6},{:.6},{:.6},{:.6},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{:.6},{:.6},{:.6},{:.6},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{:.9},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             self.chart_id,
             csv_escape(&self.chart_name),
             self.notes,
@@ -229,7 +236,10 @@ impl StudyRow {
             csv_optional_f64(self.preprocessed_raw_peak),
             csv_optional_f64(self.preprocessed_normalized_peak),
             csv_optional_f64(self.preprocessed_uncorrected_raw_peak),
-            csv_optional_f64(self.preprocessed_uncorrected_normalized_peak)
+            csv_optional_f64(self.preprocessed_uncorrected_normalized_peak),
+            csv_escape(&self.chart_format),
+            csv_escape(&self.chart_file_ext),
+            csv_escape(&self.source_group)
         )
     }
 
@@ -249,6 +259,29 @@ impl StudyRow {
         self.preprocessed_normalized_peak = Some(score.normalized_peak);
         self.preprocessed_uncorrected_raw_peak = Some(score.uncorrected_raw_peak);
         self.preprocessed_uncorrected_normalized_peak = Some(score.uncorrected_normalized_peak);
+    }
+
+    fn apply_chart_source(&mut self, source: ChartSource) {
+        self.chart_format = source.chart_format;
+        self.chart_file_ext = source.chart_file_ext;
+        self.source_group = source.source_group;
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ChartSource {
+    chart_format: String,
+    chart_file_ext: String,
+    source_group: String,
+}
+
+impl ChartSource {
+    fn unknown() -> Self {
+        Self {
+            chart_format: "unknown".to_owned(),
+            chart_file_ext: "unknown".to_owned(),
+            source_group: "unknown".to_owned(),
+        }
     }
 }
 
@@ -343,6 +376,7 @@ async fn main() -> Result<()> {
 
     ensure_samples(&cli).await?;
     let mut rows = analyze_samples(&cli).await?;
+    backfill_chart_sources(&cli, &mut rows);
     enrich_public_chart_metadata(&cli, &mut rows).await;
     backfill_slide_ratios(&cli, &mut rows).await;
     backfill_preprocessed_scores(&cli, &mut rows).await;
@@ -595,7 +629,7 @@ fn read_existing_csv(path: &Path) -> Result<Vec<StudyRow>> {
     let mut rows = Vec::new();
     for line in text.lines().skip(1) {
         let cols = split_csv_line(line);
-        if cols.len() != 19 && cols.len() != 25 && cols.len() != 26 && cols.len() != 32 {
+        if cols.len() != 19 && cols.len() != 25 && cols.len() != 26 && cols.len() != 32 && cols.len() != 35 {
             continue;
         }
         let has_metadata = cols.len() >= 25;
@@ -632,9 +666,44 @@ fn read_existing_csv(path: &Path) -> Result<Vec<StudyRow>> {
             preprocessed_normalized_peak: if cols.len() >= 32 { parse_optional_f64(cols.get(29))? } else { None },
             preprocessed_uncorrected_raw_peak: if cols.len() >= 32 { parse_optional_f64(cols.get(30))? } else { None },
             preprocessed_uncorrected_normalized_peak: if cols.len() >= 32 { parse_optional_f64(cols.get(31))? } else { None },
+            chart_format: if cols.len() >= 35 && !cols[32].is_empty() {
+                cols[32].clone()
+            } else {
+                "unknown".to_owned()
+            },
+            chart_file_ext: if cols.len() >= 35 && !cols[33].is_empty() {
+                cols[33].clone()
+            } else {
+                "unknown".to_owned()
+            },
+            source_group: if cols.len() >= 35 && !cols[34].is_empty() {
+                cols[34].clone()
+            } else {
+                "unknown".to_owned()
+            },
         });
     }
     Ok(rows)
+}
+
+fn backfill_chart_sources(cli: &Cli, rows: &mut [StudyRow]) {
+    let charts_dir = cli.root.join("charts");
+    let mut filled = 0;
+    for row in rows {
+        if row.source_group != "unknown" && row.chart_format != "unknown" && row.chart_file_ext != "unknown" {
+            continue;
+        }
+        match load_chart_source(&charts_dir.join(row.chart_id.to_string())) {
+            Ok(source) => {
+                row.apply_chart_source(source);
+                filled += 1;
+            }
+            Err(err) => eprintln!("skip source {}: {err:#}", row.chart_id),
+        }
+    }
+    if filled > 0 {
+        println!("chart sources: backfilled {filled} rows from cached charts");
+    }
 }
 
 fn parse_optional_bool(value: Option<&String>) -> Option<bool> {
@@ -651,6 +720,64 @@ fn parse_optional_f32(value: Option<&String>) -> Result<Option<f32>> {
 
 fn parse_optional_f64(value: Option<&String>) -> Result<Option<f64>> {
     value.map_or(Ok(None), |value| if value.is_empty() { Ok(None) } else { Ok(Some(value.parse()?)) })
+}
+
+fn load_chart_source(dir: &Path) -> Result<ChartSource> {
+    let info_path = dir.join("info.yml");
+    let info: ChartInfo = serde_yaml::from_reader(File::open(&info_path).with_context(|| format!("failed to open {}", info_path.display()))?)?;
+    let chart_file_ext = Path::new(&info.chart)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(normalize_source_part)
+        .filter(|ext| !ext.is_empty())
+        .unwrap_or_else(|| "unknown".to_owned());
+    let chart_format = match &info.format {
+        Some(format) => chart_format_label(format),
+        None => fs::read(dir.join(&info.chart))
+            .map(|bytes| chart_format_label(&infer_chart_format(&info, &bytes)))
+            .unwrap_or_else(|_| infer_source_from_chart_path(&info.chart)),
+    };
+    let source_group = if chart_format != "unknown" {
+        chart_format.clone()
+    } else if chart_file_ext != "unknown" {
+        chart_file_ext.clone()
+    } else {
+        "unknown".to_owned()
+    };
+    Ok(ChartSource {
+        chart_format,
+        chart_file_ext,
+        source_group,
+    })
+}
+
+fn chart_format_label(format: &ChartFormat) -> String {
+    match format {
+        ChartFormat::Rpe => "rpe",
+        ChartFormat::Pec => "pec",
+        ChartFormat::Pgr => "pgr",
+        ChartFormat::Pbc => "pbc",
+    }
+    .to_owned()
+}
+
+fn infer_source_from_chart_path(chart: &str) -> String {
+    match Path::new(chart)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(normalize_source_part)
+        .as_deref()
+    {
+        Some("pec") => "pec".to_owned(),
+        Some("pbc") => "pbc".to_owned(),
+        Some("json") => "json".to_owned(),
+        Some(ext) if !ext.is_empty() => ext.to_owned(),
+        _ => "unknown".to_owned(),
+    }
+}
+
+fn normalize_source_part(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
 }
 
 async fn backfill_slide_ratios(cli: &Cli, rows: &mut [StudyRow]) {
@@ -899,7 +1026,7 @@ async fn analyze_chart(id: i32, dir: &Path, cli: &Cli) -> Result<StudyRow> {
     let sample_rate = clip.sample_rate();
     let duration = pcm.len() as f64 / sample_rate as f64;
 
-    let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
+    let audio = SuperFlux::new_with_diff_frames(&pcm, sample_rate, 2048, 1024, cli.superflux_diff_frames);
     let note = NoteGaussian::new(note_stats.times(), cli.blur_sigma);
     let preprocessed_note = PreprocessedNoteGaussian::new(note_stats.events.clone(), cli.blur_sigma);
     let search_center = chart_offset + info.offset as f64;
@@ -919,6 +1046,7 @@ async fn analyze_chart(id: i32, dir: &Path, cli: &Cli) -> Result<StudyRow> {
         uncorrected_raw_peak: preprocessed_stats.uncorrected_raw_peak,
         uncorrected_normalized_peak: preprocessed_stats.uncorrected_normalized_peak,
     };
+    let source = load_chart_source(dir).unwrap_or_else(|_| ChartSource::unknown());
     Ok(StudyRow {
         chart_id: id,
         chart_name: info.name,
@@ -952,6 +1080,9 @@ async fn analyze_chart(id: i32, dir: &Path, cli: &Cli) -> Result<StudyRow> {
         preprocessed_normalized_peak: Some(preprocessed_score.normalized_peak),
         preprocessed_uncorrected_raw_peak: Some(preprocessed_score.uncorrected_raw_peak),
         preprocessed_uncorrected_normalized_peak: Some(preprocessed_score.uncorrected_normalized_peak),
+        chart_format: source.chart_format,
+        chart_file_ext: source.chart_file_ext,
+        source_group: source.source_group,
     })
 }
 
@@ -969,7 +1100,7 @@ async fn analyze_preprocessed_chart(_id: i32, dir: &Path, cli: &Cli) -> Result<P
     let sample_rate = clip.sample_rate();
     let duration = pcm.len() as f64 / sample_rate as f64;
 
-    let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
+    let audio = SuperFlux::new_with_diff_frames(&pcm, sample_rate, 2048, 1024, cli.superflux_diff_frames);
     let note = PreprocessedNoteGaussian::new(note_stats.events, cli.blur_sigma);
     let search_center = chart_offset + info.offset as f64;
     let config = AlignConfig {

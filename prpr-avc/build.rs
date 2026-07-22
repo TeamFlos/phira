@@ -6,5 +6,8 @@ fn main() {
     let libs_path = libs_path.display();
     println!("cargo:rustc-link-search={libs_path}");
     println!("cargo:rustc-link-lib=z");
+    if std::env::var("CARGO_CFG_WINDOWS").is_ok() {
+        println!("cargo:rustc-link-lib=bcrypt");
+    }
     println!("cargo:rerun-if-changed={libs_path}");
 }

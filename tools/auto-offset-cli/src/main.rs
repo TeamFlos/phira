@@ -104,11 +104,11 @@ async fn run(
 
     let source = String::from_utf8_lossy(&chart_bytes);
     let chart = match format {
-        Some("rpe") | None => parse_rpe(&source, &mut *fs, extra, info.use_rpe_170_speed.unwrap_or_default())
+        Some("rpe") => parse_rpe(&source, &mut *fs, extra, info.use_rpe_170_speed.unwrap_or_default())
             .await
             .context("failed to parse RPE chart")?,
         Some("pec") => parse_pec(&source, extra).context("failed to parse PEC chart")?,
-        Some("pgr") => parse_phigros(&source, extra).context("failed to parse PGR chart")?,
+        Some("pgr") | None => parse_phigros(&source, extra).context("failed to parse PGR chart")?,
         Some(other) => anyhow::bail!("unsupported chart format: {other}"),
     };
 

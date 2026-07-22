@@ -39,6 +39,11 @@ impl SuperFlux {
     /// * `window_size` - STFT window size in samples (default: 2048).
     /// * `hop_size` - STFT hop size in samples (default: 1024).
     pub fn new(pcm: &[f32], sample_rate: u32, window_size: usize, hop_size: usize) -> Self {
+        Self::new_with_diff_frames(pcm, sample_rate, window_size, hop_size, 1)
+    }
+
+    /// Build the SuperFlux onset signal with an explicit temporal differencing window.
+    pub fn new_with_diff_frames(pcm: &[f32], sample_rate: u32, window_size: usize, hop_size: usize, diff_frames: usize) -> Self {
         assert!(window_size.is_power_of_two());
         let native_dt = hop_size as f64 / sample_rate as f64;
         let native_t0 = window_size as f64 / sample_rate as f64 / 2.0;
@@ -57,8 +62,8 @@ impl SuperFlux {
         whiten_spectrogram(&mut spec_frames, (frame_rate * 1.0) as usize);
 
         // 5. SuperFlux: frequency-direction max filter + temporal diff
-        //    diff_frames=3, max_bins=3 (matching paper defaults)
-        let onset = compute_superflux(&spec_frames, 3, 3);
+        //    max_bins=3 matches the reference implementation default.
+        let onset = compute_superflux(&spec_frames, diff_frames, 3);
 
         // 6. Adaptive threshold
         let onset = adaptive_threshold(&onset, frame_rate * 2.0, 0.5);
