@@ -14,7 +14,7 @@ crate-type = ["lib", "cdylib"]
 default = ["video"]
 video = ["prpr/video"]
 chat = []
-aa = []
+hykb = []
 event_debug = []
 
 [dependencies]
@@ -47,6 +47,7 @@ lru = { workspace = true }
 lyon = { workspace = true }
 macroquad = { workspace = true, default-features = false }
 nalgebra = { workspace = true }
+obfstr = "0.4.4"
 once_cell = { workspace = true }
 pollster = { workspace = true }
 prpr = { workspace = true, features = ["log"], default-features = false }
@@ -82,6 +83,7 @@ miniquad = { workspace = true }
 phira-mp-client = { workspace = true }
 phira-mp-common = { workspace = true }
 sanitize-filename = "0.6.0"
+daachorse = "3.0.2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.22.4"

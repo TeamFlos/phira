@@ -1417,6 +1417,26 @@ impl SongScene {
     fn save_edit(&mut self) {
         let Some(edit) = &self.info_edit else { unreachable!() };
         let info = edit.info.clone();
+        // Offline moderation of locally-edited chart metadata. Cloud uploads are
+        // checked server-side, but this text is written to the local info.yml.
+        {
+            let mut texts = vec![
+                info.name.as_str(),
+                info.level.as_str(),
+                info.charter.as_str(),
+                info.composer.as_str(),
+                info.illustrator.as_str(),
+                info.intro.as_str(),
+            ];
+            if let Some(tip) = &info.tip {
+                texts.push(tip.as_str());
+            }
+            texts.extend(info.tags.iter().map(String::as_str));
+            if let Err(err) = crate::censor::check_texts(texts) {
+                show_message(err.to_string()).error();
+                return;
+            }
+        }
         let path = self.local_path.clone().unwrap();
         let edit = edit.clone();
         let is_owner = self.is_owner();
@@ -2824,7 +2844,7 @@ impl Scene for SongScene {
             || self.toggle_fav_task.is_some()
             || self.autocomplete_task.is_some()
         {
-            ui.full_loading("", t);
+            ui.full_loading_simple(t);
         }
         let rt = tm.real_time() as f32;
         self.tags.render(ui, rt);

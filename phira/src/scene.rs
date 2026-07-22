@@ -68,6 +68,9 @@ type LoadTosTask = Task<Result<Option<(String, String)>>>;
 pub static LOAD_TOS_TASK: Lazy<Mutex<Option<LoadTosTask>>> = Lazy::new(Mutex::default);
 pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 pub static JUST_LOADED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
+/// Set once the policy has been verified against the server this session and
+/// found unchanged, so a still-accepted policy isn't re-fetched or re-prompted.
+pub static TOS_VERIFIED: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -140,8 +143,16 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
     if get_data().terms_modified.is_some() && !strict {
         return true;
     }
+    // Verified against the server this session and still accepted: don't prompt.
+    if get_data().terms_modified.is_some() && TOS_VERIFIED.load(Ordering::Relaxed) {
+        return true;
+    }
     match TERMS.get() {
         Some(Some((terms, modified))) => {
+            // The player already accepted exactly this version — don't re-prompt.
+            if get_data().terms_modified.as_deref() == Some(modified.as_str()) {
+                return true;
+            }
             let content = ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str();
             let lines = content.split('\n').collect::<Vec<_>>();
             let pages = lines.chunks(50).map(|it| it.join("\n")).collect::<Vec<_>>();
@@ -206,7 +217,7 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
             if !strict {
                 warn!("loading data to read because `check_..` was called, this would result a delay and shouldn't happen");
             }
-            load_tos_and_policy(strict, true);
+            load_tos_and_policy(true);
         }
     }
     false
@@ -216,31 +227,40 @@ pub fn dispatch_tos_task() -> Option<bool> {
     let mut tos_task = LOAD_TOS_TASK.lock().unwrap();
     if let Some(task) = &mut *tos_task {
         if let Some(result) = task.take() {
+            *tos_task = None;
+            drop(tos_task);
             match result {
-                Ok(res) => {
-                    if res.is_some() {
-                        info!("terms and policy loaded");
-                        get_data_mut().terms_modified = None;
-                        let _ = save_data();
-                        let _ = TERMS.set(res);
+                Ok(Some(res)) => {
+                    // New or changed policy: cache it and require (re-)acceptance.
+                    info!("terms and policy loaded");
+                    get_data_mut().terms_modified = None;
+                    let _ = save_data();
+                    let _ = TERMS.set(Some(res));
+                }
+                Ok(None) => {
+                    // Not modified: whatever the player accepted before is still
+                    // current. Mark the session verified so we neither refetch nor
+                    // prompt, and resume anything waiting on the TOS gate.
+                    info!("terms and policy unchanged");
+                    if get_data().terms_modified.is_some() {
+                        TOS_VERIFIED.store(true, Ordering::Relaxed);
+                        JUST_ACCEPTED_TOS.store(true, Ordering::Relaxed);
+                        return Some(true);
                     }
-                    // don't load None into it,
-                    // or it can't be updated when `strict` is true.
                 }
                 Err(e) => {
                     show_error(e.context(ttl!("fetch-tos-policy-failed")));
-                    *tos_task = None;
                     return Some(false);
                 }
             }
-            *tos_task = None;
+            return None;
         }
     }
     drop(tos_task);
     None
 }
 /// use the return value to add a loading screen
-pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
+pub fn load_tos_and_policy(show_loading: bool) {
     if TERMS.get().is_some() {
         return;
     }
@@ -249,11 +269,10 @@ pub fn load_tos_and_policy(strict: bool, show_loading: bool) {
         let modified = get_data().terms_modified.clone();
         let loading = show_loading.then(|| FullLoadingView::begin_text(ttl!("loading_tos_policy")));
         *guard = Some(Task::new(async move {
-            let mut modified = modified.as_deref();
-            if strict {
-                modified = None
-            }
-            let ret = Client::fetch_terms(modified).await.context("failed to fetch terms");
+            // Always send If-Modified-Since so an unchanged, already-accepted
+            // policy comes back as "not modified" (304) and we can skip the
+            // prompt instead of re-fetching the full terms every time.
+            let ret = Client::fetch_terms(modified.as_deref()).await.context("failed to fetch terms");
             drop(loading);
             JUST_LOADED_TOS.store(true, Ordering::Relaxed);
             ret

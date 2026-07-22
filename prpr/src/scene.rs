@@ -149,6 +149,10 @@ pub fn show_message(msg: impl Into<String>) -> MessageBuilder {
 }
 
 pub static INPUT_TEXT: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
+/// Holds the id of the last input request the user cancelled (clicked Cancel or
+/// dismissed the dialog). Consumed via [`take_input_cancelled`]; distinct from
+/// [`INPUT_TEXT`] so callers can distinguish "cancelled" from "no input yet".
+pub static INPUT_CANCELLED: Mutex<Option<String>> = Mutex::new(None);
 #[cfg(not(target_arch = "wasm32"))]
 pub static CHOSEN_FILE: Mutex<(Option<String>, Option<String>)> = Mutex::new((None, None));
 
@@ -157,7 +161,12 @@ fn show_inputbox(config: InputBox, backend: &dyn Backend) {
         Ok(Some(text)) => {
             INPUT_TEXT.lock().unwrap().1 = Some(text);
         }
-        Ok(None) => {}
+        Ok(None) => {
+            // User cancelled; report it under the pending request's id so the
+            // caller can react (e.g. return to the previous screen).
+            let id = INPUT_TEXT.lock().unwrap().0.clone();
+            *INPUT_CANCELLED.lock().unwrap() = id;
+        }
         Err(err) => {
             warn!(?err, "failed to get input");
         }
@@ -170,6 +179,7 @@ fn show_inputbox(config: InputBox, backend: &dyn Backend) {
 #[inline]
 pub fn request_input(id: impl Into<String>, mut config: InputBox) {
     *INPUT_TEXT.lock().unwrap() = (Some(id.into()), None);
+    *INPUT_CANCELLED.lock().unwrap() = None;
     if config.title.is_none() {
         config = config.title(ttl!("input"));
     }
@@ -188,6 +198,11 @@ pub fn request_input(id: impl Into<String>, mut config: InputBox) {
 pub fn take_input() -> Option<(String, String)> {
     let mut w = INPUT_TEXT.lock().unwrap();
     w.0.clone().zip(std::mem::take(&mut w.1))
+}
+
+/// Returns the id of a cancelled input request once, clearing it.
+pub fn take_input_cancelled() -> Option<String> {
+    INPUT_CANCELLED.lock().unwrap().take()
 }
 
 pub fn return_input(id: String, text: String) {

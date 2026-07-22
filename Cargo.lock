@@ -705,6 +705,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52560adf09603e58c9a7ee1fe1dcb95a16927b17c127f0ac02d6e768a0e25bc1"
 
 [[package]]
+name = "daachorse"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99251f238b74cd219a86fe6ea9328308ebb223fcbb5b8eb5aa400b847a41dded"
+
+[[package]]
 name = "dashmap"
 version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1695,9 +1701,9 @@ dependencies = [
 
 [[package]]
 name = "inputbox"
-version = "0.1.1"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ff0d04cf163f47698d0ceddb443e82ba90add0ff629f5feb3bd22de3a02508f"
+checksum = "d9fc705c2f1cd76fe9211b8926c9741b095466911f56a189a269b414b52f8035"
 dependencies = [
  "block2",
  "cfg-if",
@@ -1717,9 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "inputbox-android"
-version = "0.1.1"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8c3414fbf0f1460c97fd92b67dc7517a028c59583ac638c31a1bcb46beb7f4a"
+checksum = "0d448abcdc72ced6968cd6fe112acbab565f74d5acb44e274d8fbccfbe76143b"
 
 [[package]]
 name = "interpolate_name"
@@ -3127,7 +3133,7 @@ dependencies = [
 
 [[package]]
 name = "phira"
-version = "0.7.1"
+version = "0.8.1"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -3139,6 +3145,7 @@ dependencies = [
  "cacache",
  "cfg-if",
  "chrono",
+ "daachorse",
  "dashmap 6.1.0",
  "dotenv-build",
  "fluent",
@@ -3157,6 +3164,7 @@ dependencies = [
  "napi-derive-ohos",
  "napi-ohos",
  "ndk-context",
+ "obfstr",
  "objc2",
  "objc2-foundation",
  "objc2-ui-kit",
@@ -3190,7 +3198,7 @@ dependencies = [
 
 [[package]]
 name = "phira-main"
-version = "0.7.1"
+version = "0.8.1"
 dependencies = [
  "phira",
 ]
@@ -3391,7 +3399,7 @@ dependencies = [
 
 [[package]]
 name = "prpr"
-version = "0.7.1"
+version = "0.8.1"
 dependencies = [
  "anyhow",
  "async-trait",

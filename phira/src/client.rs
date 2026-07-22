@@ -4,7 +4,7 @@ mod model;
 pub use model::*;
 use tracing::debug;
 
-use crate::{anti_addiction_action, get_data, get_data_mut, save_data};
+use crate::{get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
@@ -91,6 +91,39 @@ pub enum LoginParams<'a> {
         #[serde(rename = "refreshToken")]
         token: &'a str,
     },
+}
+
+/// A freshly minted token pair returned by every login endpoint.
+#[cfg(feature = "hykb")]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LoginResp {
+    id: i32,
+    token: String,
+    refresh_token: String,
+}
+
+/// Response of `POST /login/hykb`: either an immediate login or a pending choice.
+#[cfg(feature = "hykb")]
+#[derive(Deserialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+enum HykbLoginResp {
+    Ok {
+        #[serde(flatten)]
+        login: LoginResp,
+    },
+    NeedChoice {
+        hykb_token: String,
+    },
+}
+
+/// Outcome of a HYKB login attempt surfaced to the UI.
+#[cfg(feature = "hykb")]
+pub enum HykbLoginOutcome {
+    /// The HYKB account was already bound; the user is now logged in.
+    LoggedIn,
+    /// First time we see this HYKB account; the user must register or claim.
+    NeedChoice { hykb_token: String },
 }
 
 impl Client {
@@ -205,15 +238,134 @@ impl Client {
         }
         let resp: Resp = recv_raw(Self::post("/login", &params)).await?.json().await?;
 
-        anti_addiction_action("startup", Some(format!("phira-{}", resp.id)));
+        Self::store_login(resp.id, resp.token, resp.refresh_token).await?;
+        Ok(())
+    }
 
-        set_access_token(&resp.token).await?;
-        get_data_mut().tokens = Some((resp.token, resp.refresh_token));
+    /// Persist a freshly minted token pair and wire it into the HTTP client.
+    /// Shared by every login entry point (password, refresh, HYKB). `_id` is
+    /// kept in the signature so callers can pass the account id even though it
+    /// is no longer needed here (the native anti-addiction bridge that used it
+    /// is gone).
+    async fn store_login(_id: i32, token: String, refresh_token: String) -> Result<()> {
+        set_access_token(&token).await?;
+        get_data_mut().tokens = Some((token, refresh_token));
         save_data()?;
         Ok(())
     }
 
+    #[cfg(feature = "hykb")]
+    /// Entry point for HYKB (好游快爆) login. The verified `(uid, access_token)`
+    /// come from the native SDK. Either logs the user straight in (account already
+    /// bound) or returns a short-lived `hykb_token` for the register/claim step.
+    pub async fn login_hykb(uid: i64, access_token: &str) -> Result<HykbLoginOutcome> {
+        let resp: HykbLoginResp = recv_raw(Self::post(
+            "/login/hykb",
+            &json!({
+                "hykbUid": uid,
+                "accessToken": access_token,
+            }),
+        ))
+        .await?
+        .json()
+        .await?;
+        match resp {
+            HykbLoginResp::Ok { login } => {
+                Self::store_login(login.id, login.token, login.refresh_token).await?;
+                Ok(HykbLoginOutcome::LoggedIn)
+            }
+            HykbLoginResp::NeedChoice { hykb_token } => Ok(HykbLoginOutcome::NeedChoice { hykb_token }),
+        }
+    }
+
+    #[cfg(feature = "hykb")]
+    /// New player: create a fresh Phira account bound to the pending HYKB identity,
+    /// using the username chosen by the player.
+    pub async fn login_hykb_register(hykb_token: &str, username: &str) -> Result<()> {
+        let resp: LoginResp = recv_raw(Self::post(
+            "/login/hykb/register",
+            &json!({
+                "hykbToken": hykb_token,
+                "nick": username,
+            }),
+        ))
+        .await?
+        .json()
+        .await?;
+        Self::store_login(resp.id, resp.token, resp.refresh_token).await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "hykb")]
+    /// Legacy migration: bind the pending HYKB identity to an existing email account
+    /// after verifying its email + password.
+    pub async fn login_hykb_claim(hykb_token: &str, email: &str, password: &str) -> Result<()> {
+        let resp: LoginResp = recv_raw(Self::post(
+            "/login/hykb/claim",
+            &json!({
+                "hykbToken": hykb_token,
+                "email": email,
+                "password": password,
+            }),
+        ))
+        .await?
+        .json()
+        .await?;
+        Self::store_login(resp.id, resp.token, resp.refresh_token).await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "hykb")]
+    /// Bind a HYKB account to the currently logged-in account.
+    pub async fn bind_hykb(uid: i64, access_token: &str) -> Result<()> {
+        recv_raw(Self::post(
+            "/me/bind-hykb",
+            &json!({
+                "hykbUid": uid,
+                "accessToken": access_token,
+            }),
+        ))
+        .await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "hykb")]
+    /// Unbind the HYKB account from the current account.
+    pub async fn unbind_hykb() -> Result<()> {
+        recv_raw(Self::post("/me/unbind-hykb", &())).await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "hykb")]
+    /// Request transferring the current HYKB-only account onto an existing email
+    /// account. Sends a confirmation email to `email`; the move happens only once
+    /// the user clicks the link. Returns Ok even when the email is unregistered
+    /// (the server intentionally does not reveal whether it exists).
+    pub async fn transfer_request(email: &str) -> Result<()> {
+        recv_raw(Self::post("/me/transfer-request", &json!({ "email": email }))).await?;
+        Ok(())
+    }
+
     pub async fn get_me() -> Result<User> {
+        let user: User = Self::get_me_unchecked().await?;
+        // In HYKB builds an account must stay bound to a HYKB account. If the
+        // server ever reports an unbound account, force a logout instead of
+        // letting the player continue in an invalid state.
+        #[cfg(feature = "hykb")]
+        if user.hykb_uid.is_none() {
+            get_data_mut().me = None;
+            get_data_mut().tokens = None;
+            save_data()?;
+            crate::sync_data();
+            bail!("{}", crate::ttl!("hykb-not-bound-logout"));
+        }
+        Ok(user)
+    }
+
+    /// Fetch `/me` without the HYKB binding guard. Used by the email-login flow,
+    /// which handles an unbound account by offering to bind HYKB rather than
+    /// forcing a logout.
+    pub async fn get_me_unchecked() -> Result<User> {
         Ok(recv_raw(Self::get("/me")).await?.json().await?)
     }
 

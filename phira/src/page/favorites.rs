@@ -644,6 +644,8 @@ impl Page for FavoritesPage {
                     let name = text.trim().to_string();
                     if name.is_empty() {
                         show_message(tl!("name-empty")).error();
+                    } else if let Err(err) = crate::censor::check_text(&name) {
+                        show_message(err.to_string()).error();
                     } else {
                         get_data_mut().push_collection(LocalCollection::new(name))?;
                         let _ = save_data();
@@ -655,6 +657,8 @@ impl Page for FavoritesPage {
                     let new_name = text.trim().to_string();
                     if new_name.is_empty() {
                         show_message(tl!("name-empty")).error();
+                    } else if let Err(err) = crate::censor::check_text(&new_name) {
+                        show_message(err.to_string()).error();
                     } else if let Some(index) = self.active_folder {
                         let data = get_data();
                         let uuid = data.collection_uuids()[index];
@@ -674,7 +678,9 @@ impl Page for FavoritesPage {
                 }
                 "fav_description" => {
                     let new_description = text.trim().to_string();
-                    if let Some(index) = self.active_folder {
+                    if let Err(err) = crate::censor::check_text(&new_description) {
+                        show_message(err.to_string()).error();
+                    } else if let Some(index) = self.active_folder {
                         let data = get_data();
                         let uuid = data.collection_uuids()[index];
                         let col = data.collection_info(&uuid);
@@ -1179,7 +1185,7 @@ impl Page for FavoritesPage {
                                 ..Default::default()
                             },
                         );
-                    } else {
+                    } else if get_data().collection_by_index(index).id.is_some() {
                         let icon = if self.liked { &self.icons.heart } else { &self.icons.heart_outline };
                         ui.fill_rect(r, (**icon, r, ScaleType::Fit, if self.liked { ORANGE } else { WHITE }));
                         self.like_btn.set(ui, r);
@@ -1311,7 +1317,7 @@ impl Page for FavoritesPage {
         self.cloud_menu.render(ui, t, 1.);
 
         if self.has_task() {
-            ui.full_loading("", t);
+            ui.full_loading_simple(t);
         }
 
         Ok(())

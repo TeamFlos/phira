@@ -37,3 +37,9 @@ main-character-intro =
 favorites = 收藏夹
 default-fav-folder = 默认收藏夹
 favorites-online-only = 在线收藏夹仅能收藏在线谱面。本地谱面：{ $charts }
+
+contains-banned-words = 你的输入包含违禁词，请检查后再提交
+
+hykb-not-bound-logout = 你的账号未绑定好游快爆，已退出登录
+hykb-uid-mismatch = 当前登录的好游快爆账号与此 Phira 账号不一致，已退出登录
+hykb-login-cancelled = 已取消好游快爆登录

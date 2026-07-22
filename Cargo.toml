@@ -14,7 +14,7 @@ resolver = "2"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(closed)'] }
 
 [workspace.package]
-version = "0.7.1"
+version = "0.8.1"
 edition = "2021"
 license = "GPL-3.0-only"
 
@@ -29,7 +29,7 @@ fluent-syntax = "0.12.0"
 futures-util = "0.3.32"
 hex = "0.4.3"
 image = { version = "0.25.10", default-features = false }
-inputbox = "0.1.1"
+inputbox = "0.1.4"
 lru = "0.16.3"
 lyon = "1.0.19"
 nalgebra = "0.34.1"
