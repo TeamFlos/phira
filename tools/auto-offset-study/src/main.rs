@@ -8,7 +8,7 @@ use prpr::{
     info::{ChartFormat, ChartInfo},
     parse::{parse_pec, parse_phigros, parse_rpe},
 };
-use prpr_auto_offset::{AlignConfig, AutoOffsetNoteKind, NoteEvent, NoteGaussian, PreprocessedNoteGaussian, Signal, SuperFlux};
+use prpr_auto_offset::{AlignConfig, AutoOffsetNoteKind, NoteEvent, PreprocessedNoteGaussian, Signal, SuperFlux};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -173,7 +173,7 @@ struct StudyRow {
     player_rating: Option<f32>,
     player_rating_score: Option<f32>,
     reliable: bool,
-    slide_ratio: Option<f64>,
+    drag_ratio: Option<f64>,
     preprocessed_suggested_offset_sec: Option<f64>,
     preprocessed_lag_sec: Option<f64>,
     preprocessed_raw_peak: Option<f64>,
@@ -195,7 +195,7 @@ fn csv_escape(value: &str) -> String {
 
 impl StudyRow {
     fn header() -> &'static str {
-        "chart_id,chart_name,notes,duration_sec,search_center_sec,suggested_offset_sec,lag_sec,raw_peak,note_energy,audio_energy,normalized_peak,uncorrected_raw_peak,uncorrected_normalized_peak,fitted_log_raw_peak,log_raw_residual,empirical_peak_ratio,uncorrected_log_raw_residual,uncorrected_empirical_peak_ratio,chart_reviewed,chart_stable,chart_ranked,chart_stable_request,player_rating,player_rating_score,reliable,slide_ratio,preprocessed_suggested_offset_sec,preprocessed_lag_sec,preprocessed_raw_peak,preprocessed_normalized_peak,preprocessed_uncorrected_raw_peak,preprocessed_uncorrected_normalized_peak,chart_format,chart_file_ext,source_group"
+        "chart_id,chart_name,notes,duration_sec,search_center_sec,suggested_offset_sec,lag_sec,raw_peak,note_energy,audio_energy,normalized_peak,uncorrected_raw_peak,uncorrected_normalized_peak,fitted_log_raw_peak,log_raw_residual,empirical_peak_ratio,uncorrected_log_raw_residual,uncorrected_empirical_peak_ratio,chart_reviewed,chart_stable,chart_ranked,chart_stable_request,player_rating,player_rating_score,reliable,drag_ratio,preprocessed_suggested_offset_sec,preprocessed_lag_sec,preprocessed_raw_peak,preprocessed_normalized_peak,preprocessed_uncorrected_raw_peak,preprocessed_uncorrected_normalized_peak,chart_format,chart_file_ext,source_group"
     }
 
     fn to_csv(&self) -> String {
@@ -226,7 +226,7 @@ impl StudyRow {
             csv_optional_f32(self.player_rating),
             csv_optional_f32(self.player_rating_score),
             self.reliable,
-            csv_optional_f64(self.slide_ratio),
+            csv_optional_f64(self.drag_ratio),
             csv_optional_f64(self.preprocessed_suggested_offset_sec),
             csv_optional_f64(self.preprocessed_lag_sec),
             csv_optional_f64(self.preprocessed_raw_peak),
@@ -374,7 +374,7 @@ async fn main() -> Result<()> {
     let mut rows = analyze_samples(&cli).await?;
     backfill_chart_sources(&cli, &mut rows);
     enrich_public_chart_metadata(&cli, &mut rows).await;
-    backfill_slide_ratios(&cli, &mut rows).await;
+    backfill_drag_ratios(&cli, &mut rows).await;
     backfill_preprocessed_scores(&cli, &mut rows).await;
     let plane = fit_log_peak_plane(&rows)?;
     apply_plane_scores(&mut rows, plane);
@@ -655,7 +655,7 @@ fn read_existing_csv(path: &Path) -> Result<Vec<StudyRow>> {
             player_rating: if has_metadata { parse_optional_f32(cols.get(22))? } else { None },
             player_rating_score: if has_metadata { parse_optional_f32(cols.get(23))? } else { None },
             reliable: if has_metadata { cols[24].parse()? } else { cols[18].parse()? },
-            slide_ratio: if cols.len() >= 26 { parse_optional_f64(cols.get(25))? } else { None },
+            drag_ratio: if cols.len() >= 26 { parse_optional_f64(cols.get(25))? } else { None },
             preprocessed_suggested_offset_sec: if cols.len() >= 32 { parse_optional_f64(cols.get(26))? } else { None },
             preprocessed_lag_sec: if cols.len() >= 32 { parse_optional_f64(cols.get(27))? } else { None },
             preprocessed_raw_peak: if cols.len() >= 32 { parse_optional_f64(cols.get(28))? } else { None },
@@ -776,23 +776,23 @@ fn normalize_source_part(value: &str) -> String {
     value.trim().to_ascii_lowercase()
 }
 
-async fn backfill_slide_ratios(cli: &Cli, rows: &mut [StudyRow]) {
+async fn backfill_drag_ratios(cli: &Cli, rows: &mut [StudyRow]) {
     let charts_dir = cli.root.join("charts");
     let mut filled = 0;
     for row in rows {
-        if row.slide_ratio.is_some() {
+        if row.drag_ratio.is_some() {
             continue;
         }
         match load_chart_note_stats(&charts_dir.join(row.chart_id.to_string())).await {
             Ok(stats) => {
-                row.slide_ratio = Some(stats.slide_ratio());
+                row.drag_ratio = Some(stats.drag_ratio());
                 filled += 1;
             }
-            Err(err) => eprintln!("skip slide ratio {}: {err:#}", row.chart_id),
+            Err(err) => eprintln!("skip drag ratio {}: {err:#}", row.chart_id),
         }
     }
     if filled > 0 {
-        println!("slide ratios: backfilled {filled} rows from cached charts");
+        println!("drag ratios: backfilled {filled} rows from cached charts");
     }
 }
 
@@ -1023,8 +1023,7 @@ async fn analyze_chart(id: i32, dir: &Path, cli: &Cli) -> Result<StudyRow> {
     let duration = pcm.len() as f64 / sample_rate as f64;
 
     let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
-    let note = NoteGaussian::new(note_stats.times(), cli.blur_sigma);
-    let preprocessed_note = PreprocessedNoteGaussian::new(note_stats.events.clone(), cli.blur_sigma);
+    let note = PreprocessedNoteGaussian::new(note_stats.events.clone(), cli.blur_sigma);
     let search_center = chart_offset + info.offset as f64;
     let config = AlignConfig {
         search_range_sec: cli.range,
@@ -1033,14 +1032,13 @@ async fn analyze_chart(id: i32, dir: &Path, cli: &Cli) -> Result<StudyRow> {
     };
 
     let stats = estimate_energy_stats(&audio, &note, duration, &config);
-    let preprocessed_stats = estimate_energy_stats(&audio, &preprocessed_note, duration, &config);
     let preprocessed_score = PreprocessedScore {
-        suggested_offset_sec: preprocessed_stats.offset,
-        lag_sec: preprocessed_stats.offset - search_center,
-        raw_peak: preprocessed_stats.raw_peak,
-        normalized_peak: preprocessed_stats.normalized_peak,
-        uncorrected_raw_peak: preprocessed_stats.uncorrected_raw_peak,
-        uncorrected_normalized_peak: preprocessed_stats.uncorrected_normalized_peak,
+        suggested_offset_sec: stats.offset,
+        lag_sec: stats.offset - search_center,
+        raw_peak: stats.raw_peak,
+        normalized_peak: stats.normalized_peak,
+        uncorrected_raw_peak: stats.uncorrected_raw_peak,
+        uncorrected_normalized_peak: stats.uncorrected_normalized_peak,
     };
     let source = load_chart_source(dir).unwrap_or_else(|_| ChartSource::unknown());
     Ok(StudyRow {
@@ -1068,8 +1066,8 @@ async fn analyze_chart(id: i32, dir: &Path, cli: &Cli) -> Result<StudyRow> {
         chart_stable_request: None,
         player_rating: None,
         player_rating_score: None,
-        reliable: stats.normalized_peak > 0.05,
-        slide_ratio: Some(note_stats.slide_ratio()),
+        reliable: stats.normalized_peak > 0.2,
+        drag_ratio: Some(note_stats.drag_ratio()),
         preprocessed_suggested_offset_sec: Some(preprocessed_score.suggested_offset_sec),
         preprocessed_lag_sec: Some(preprocessed_score.lag_sec),
         preprocessed_raw_peak: Some(preprocessed_score.raw_peak),
@@ -1144,19 +1142,15 @@ async fn load_chart_note_stats(dir: &Path) -> Result<NoteStats> {
 #[derive(Debug, Clone)]
 struct NoteStats {
     events: Vec<NoteEvent>,
-    slides: usize,
+    drags: usize,
 }
 
 impl NoteStats {
-    fn times(&self) -> Vec<f64> {
-        self.events.iter().map(|event| event.time).collect()
-    }
-
-    fn slide_ratio(&self) -> f64 {
+    fn drag_ratio(&self) -> f64 {
         if self.events.is_empty() {
             0.0
         } else {
-            self.slides as f64 / self.events.len() as f64
+            self.drags as f64 / self.events.len() as f64
         }
     }
 }
@@ -1173,15 +1167,15 @@ fn parse_rpe_timing(source: &str) -> Result<(f64, NoteStats)> {
         .filter(|event| event.time >= 0.0)
         .collect();
     events.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
-    let slides = events.iter().filter(|event| event.kind == AutoOffsetNoteKind::Slide).count();
-    Ok((rpe.meta.offset as f64 / 1000.0, NoteStats { events, slides }))
+    let drags = events.iter().filter(|event| event.kind == AutoOffsetNoteKind::Drag).count();
+    Ok((rpe.meta.offset as f64 / 1000.0, NoteStats { events, drags }))
 }
 
 fn rpe_note_kind(kind: u8) -> AutoOffsetNoteKind {
     match kind {
         2 => AutoOffsetNoteKind::Hold,
         3 => AutoOffsetNoteKind::Flick,
-        4 => AutoOffsetNoteKind::Slide,
+        4 => AutoOffsetNoteKind::Drag,
         _ => AutoOffsetNoteKind::Tap,
     }
 }
@@ -1214,8 +1208,8 @@ fn extract_note_stats(chart: &Chart) -> NoteStats {
         .filter(|event| event.time >= 0.0)
         .collect();
     events.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
-    let slides = events.iter().filter(|event| event.kind == AutoOffsetNoteKind::Slide).count();
-    NoteStats { events, slides }
+    let drags = events.iter().filter(|event| event.kind == AutoOffsetNoteKind::Drag).count();
+    NoteStats { events, drags }
 }
 
 fn auto_offset_note_kind(kind: &NoteKind) -> AutoOffsetNoteKind {
@@ -1223,7 +1217,7 @@ fn auto_offset_note_kind(kind: &NoteKind) -> AutoOffsetNoteKind {
         NoteKind::Click => AutoOffsetNoteKind::Tap,
         NoteKind::Hold { .. } => AutoOffsetNoteKind::Hold,
         NoteKind::Flick => AutoOffsetNoteKind::Flick,
-        NoteKind::Drag => AutoOffsetNoteKind::Slide,
+        NoteKind::Drag => AutoOffsetNoteKind::Drag,
     }
 }
 
@@ -1505,7 +1499,7 @@ struct OffsetScorePoints {
     x: Vec<f64>,
     y: Vec<f64>,
     lag_ms: Vec<f64>,
-    slide_ratio: Vec<f64>,
+    drag_ratio: Vec<f64>,
     text: Vec<String>,
 }
 
@@ -1513,7 +1507,7 @@ fn offset_score_points(rows: &[StudyRow], stable: bool) -> OffsetScorePoints {
     let mut x = Vec::new();
     let mut y = Vec::new();
     let mut lag_ms = Vec::new();
-    let mut slide_ratio = Vec::new();
+    let mut drag_ratio = Vec::new();
     let mut text = Vec::new();
     for row in rows {
         if row.chart_stable != Some(stable) {
@@ -1522,14 +1516,14 @@ fn offset_score_points(rows: &[StudyRow], stable: bool) -> OffsetScorePoints {
         x.push(row.uncorrected_log_raw_residual);
         y.push(row.log_raw_residual);
         lag_ms.push(row.lag_sec.abs() * 1000.0);
-        slide_ratio.push(row.slide_ratio.unwrap_or(0.0));
+        drag_ratio.push(row.drag_ratio.unwrap_or(0.0));
         text.push(format!("#{} {}<br>status: {}<br>lag: {:+.0}ms", row.chart_id, row.chart_name, chart_status_label(row), row.lag_sec * 1000.0));
     }
     OffsetScorePoints {
         x,
         y,
         lag_ms,
-        slide_ratio,
+        drag_ratio,
         text,
     }
 }
@@ -1585,7 +1579,7 @@ fn theoretical_norm_points(rows: &[StudyRow], stable: bool) -> OffsetScorePoints
     let mut x = Vec::new();
     let mut y = Vec::new();
     let mut lag_ms = Vec::new();
-    let mut slide_ratio = Vec::new();
+    let mut drag_ratio = Vec::new();
     let mut text = Vec::new();
     for row in rows {
         if row.chart_stable != Some(stable) {
@@ -1594,10 +1588,10 @@ fn theoretical_norm_points(rows: &[StudyRow], stable: bool) -> OffsetScorePoints
         x.push(row.uncorrected_normalized_peak);
         y.push(row.normalized_peak);
         lag_ms.push(row.lag_sec.abs() * 1000.0);
-        let ratio = row.slide_ratio.unwrap_or(0.0);
-        slide_ratio.push(ratio);
+        let ratio = row.drag_ratio.unwrap_or(0.0);
+        drag_ratio.push(ratio);
         text.push(format!(
-            "#{} {}<br>status: {}<br>lag: {:+.0}ms<br>slide ratio: {:.1}%",
+            "#{} {}<br>status: {}<br>lag: {:+.0}ms<br>drag ratio: {:.1}%",
             row.chart_id,
             row.chart_name,
             chart_status_label(row),
@@ -1609,17 +1603,17 @@ fn theoretical_norm_points(rows: &[StudyRow], stable: bool) -> OffsetScorePoints
         x,
         y,
         lag_ms,
-        slide_ratio,
+        drag_ratio,
         text,
     }
 }
 
 fn norm_relation_trace(points: &OffsetScorePoints, name: &str, xaxis: &str, yaxis: &str, showscale: bool) -> Result<String> {
     Ok(format!(
-        "{{ type: 'scatter', mode: 'markers', name: '{name}', x: {x}, y: {y}, marker: {{ size: 7, color: {color}, colorscale: 'YlOrRd', cmin: 0, cmax: 1, showscale: {showscale}, colorbar: {{ title: 'slide ratio' }}, opacity: 0.78 }}, text: {text}, xaxis: '{xaxis}', yaxis: '{yaxis}', hovertemplate: '%{{text}}<br>uncorrected norm: %{{x:.4f}}<br>corrected norm: %{{y:.4f}}<extra></extra>' }}",
+        "{{ type: 'scatter', mode: 'markers', name: '{name}', x: {x}, y: {y}, marker: {{ size: 7, color: {color}, colorscale: 'YlOrRd', cmin: 0, cmax: 1, showscale: {showscale}, colorbar: {{ title: 'drag ratio' }}, opacity: 0.78 }}, text: {text}, xaxis: '{xaxis}', yaxis: '{yaxis}', hovertemplate: '%{{text}}<br>uncorrected norm: %{{x:.4f}}<br>corrected norm: %{{y:.4f}}<extra></extra>' }}",
         x = serde_json::to_string(&points.x)?,
         y = serde_json::to_string(&points.y)?,
-        color = serde_json::to_string(&points.slide_ratio)?,
+        color = serde_json::to_string(&points.drag_ratio)?,
         text = serde_json::to_string(&points.text)?,
         showscale = if showscale { "true" } else { "false" },
     ))
@@ -1765,13 +1759,13 @@ fn write_theoretical_norm_score_distribution_html(path: &Path, rows: &[StudyRow]
 </body>
 </html>
 "#,
-        stable_corrected_hist = slide_colored_histogram_trace_range(&stable_corrected, "x", "y", 0.0, 1.0, bin_size, true)?,
+        stable_corrected_hist = drag_colored_histogram_trace_range(&stable_corrected, "x", "y", 0.0, 1.0, bin_size, true)?,
         stable_corrected_curve = normal_curve_trace(&stable_corrected, &curve_x, "x", "y", "#122b55", bin_size)?,
-        stable_uncorrected_hist = slide_colored_histogram_trace_range(&stable_uncorrected, "x2", "y2", 0.0, 1.0, bin_size, false)?,
+        stable_uncorrected_hist = drag_colored_histogram_trace_range(&stable_uncorrected, "x2", "y2", 0.0, 1.0, bin_size, false)?,
         stable_uncorrected_curve = normal_curve_trace(&stable_uncorrected, &curve_x, "x2", "y2", "#122b55", bin_size)?,
-        unstable_corrected_hist = slide_colored_histogram_trace_range(&unstable_corrected, "x3", "y3", 0.0, 1.0, bin_size, false)?,
+        unstable_corrected_hist = drag_colored_histogram_trace_range(&unstable_corrected, "x3", "y3", 0.0, 1.0, bin_size, false)?,
         unstable_corrected_curve = normal_curve_trace(&unstable_corrected, &curve_x, "x3", "y3", "#5d1f18", bin_size)?,
-        unstable_uncorrected_hist = slide_colored_histogram_trace_range(&unstable_uncorrected, "x4", "y4", 0.0, 1.0, bin_size, false)?,
+        unstable_uncorrected_hist = drag_colored_histogram_trace_range(&unstable_uncorrected, "x4", "y4", 0.0, 1.0, bin_size, false)?,
         unstable_uncorrected_curve = normal_curve_trace(&unstable_uncorrected, &curve_x, "x4", "y4", "#5d1f18", bin_size)?,
         title = serde_json::to_string(&title)?,
     );
@@ -1842,13 +1836,13 @@ fn write_preprocessed_theoretical_norm_score_distribution_html(path: &Path, rows
 </body>
 </html>
 "#,
-        stable_corrected_hist = slide_colored_histogram_trace_range(&stable_corrected, "x", "y", 0.0, 1.0, bin_size, true)?,
+        stable_corrected_hist = drag_colored_histogram_trace_range(&stable_corrected, "x", "y", 0.0, 1.0, bin_size, true)?,
         stable_corrected_curve = normal_curve_trace(&stable_corrected, &curve_x, "x", "y", "#122b55", bin_size)?,
-        stable_uncorrected_hist = slide_colored_histogram_trace_range(&stable_uncorrected, "x2", "y2", 0.0, 1.0, bin_size, false)?,
+        stable_uncorrected_hist = drag_colored_histogram_trace_range(&stable_uncorrected, "x2", "y2", 0.0, 1.0, bin_size, false)?,
         stable_uncorrected_curve = normal_curve_trace(&stable_uncorrected, &curve_x, "x2", "y2", "#122b55", bin_size)?,
-        unstable_corrected_hist = slide_colored_histogram_trace_range(&unstable_corrected, "x3", "y3", 0.0, 1.0, bin_size, false)?,
+        unstable_corrected_hist = drag_colored_histogram_trace_range(&unstable_corrected, "x3", "y3", 0.0, 1.0, bin_size, false)?,
         unstable_corrected_curve = normal_curve_trace(&unstable_corrected, &curve_x, "x3", "y3", "#5d1f18", bin_size)?,
-        unstable_uncorrected_hist = slide_colored_histogram_trace_range(&unstable_uncorrected, "x4", "y4", 0.0, 1.0, bin_size, false)?,
+        unstable_uncorrected_hist = drag_colored_histogram_trace_range(&unstable_uncorrected, "x4", "y4", 0.0, 1.0, bin_size, false)?,
         unstable_uncorrected_curve = normal_curve_trace(&unstable_uncorrected, &curve_x, "x4", "y4", "#5d1f18", bin_size)?,
         title = serde_json::to_string(&title)?,
     );
@@ -1858,7 +1852,7 @@ fn write_preprocessed_theoretical_norm_score_distribution_html(path: &Path, rows
 
 struct ScoreDistribution {
     values: Vec<f64>,
-    slide_ratios: Vec<f64>,
+    drag_ratios: Vec<f64>,
     mean: f64,
     std_dev: f64,
 }
@@ -1873,7 +1867,7 @@ fn score_distribution(rows: &[StudyRow], stable: bool, corrected: bool) -> Score
             } else {
                 row.uncorrected_log_raw_residual
             };
-            value.is_finite().then_some((value, row.slide_ratio.unwrap_or(0.0)))
+            value.is_finite().then_some((value, row.drag_ratio.unwrap_or(0.0)))
         })
         .collect();
     distribution_from_pairs(pairs)
@@ -1889,7 +1883,7 @@ fn theoretical_norm_distribution(rows: &[StudyRow], stable: bool, corrected: boo
             } else {
                 row.uncorrected_normalized_peak
             };
-            value.is_finite().then_some((value, row.slide_ratio.unwrap_or(0.0)))
+            value.is_finite().then_some((value, row.drag_ratio.unwrap_or(0.0)))
         })
         .collect();
     distribution_from_pairs(pairs)
@@ -1905,14 +1899,14 @@ fn preprocessed_theoretical_norm_distribution(rows: &[StudyRow], stable: bool, c
             } else {
                 row.preprocessed_uncorrected_normalized_peak
             }?;
-            value.is_finite().then_some((value, row.slide_ratio.unwrap_or(0.0)))
+            value.is_finite().then_some((value, row.drag_ratio.unwrap_or(0.0)))
         })
         .collect();
     distribution_from_pairs(pairs)
 }
 
 fn distribution_from_pairs(pairs: Vec<(f64, f64)>) -> ScoreDistribution {
-    let (values, slide_ratios): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
+    let (values, drag_ratios): (Vec<_>, Vec<_>) = pairs.into_iter().unzip();
     let mean = if values.is_empty() {
         0.0
     } else {
@@ -1925,7 +1919,7 @@ fn distribution_from_pairs(pairs: Vec<(f64, f64)>) -> ScoreDistribution {
     };
     ScoreDistribution {
         values,
-        slide_ratios,
+        drag_ratios,
         mean,
         std_dev: variance.sqrt(),
     }
@@ -1942,7 +1936,7 @@ fn histogram_trace_range(dist: &ScoreDistribution, xaxis: &str, yaxis: &str, col
     ))
 }
 
-fn slide_colored_histogram_trace_range(
+fn drag_colored_histogram_trace_range(
     dist: &ScoreDistribution,
     xaxis: &str,
     yaxis: &str,
@@ -1953,8 +1947,8 @@ fn slide_colored_histogram_trace_range(
 ) -> Result<String> {
     let bins = ((end - start) / bin_size).ceil().max(0.0) as usize;
     let mut counts = vec![0usize; bins];
-    let mut slide_sums = vec![0.0; bins];
-    for (&value, &slide_ratio) in dist.values.iter().zip(&dist.slide_ratios) {
+    let mut drag_sums = vec![0.0; bins];
+    for (&value, &drag_ratio) in dist.values.iter().zip(&dist.drag_ratios) {
         if value < start || value > end {
             continue;
         }
@@ -1963,24 +1957,24 @@ fn slide_colored_histogram_trace_range(
             index = bins.saturating_sub(1);
         }
         counts[index] += 1;
-        slide_sums[index] += slide_ratio;
+        drag_sums[index] += drag_ratio;
     }
 
     let x: Vec<f64> = (0..bins).map(|index| start + (index as f64 + 0.5) * bin_size).collect();
     let y: Vec<usize> = counts.clone();
     let color: Vec<f64> = counts
         .iter()
-        .zip(slide_sums)
+        .zip(drag_sums)
         .map(|(&count, sum)| if count == 0 { 0.0 } else { sum / count as f64 })
         .collect();
     let text: Vec<String> = counts
         .iter()
         .zip(&color)
-        .map(|(&count, &avg_slide)| format!("count: {count}<br>avg slide ratio: {:.1}%", avg_slide * 100.0))
+        .map(|(&count, &avg_drag)| format!("count: {count}<br>avg drag ratio: {:.1}%", avg_drag * 100.0))
         .collect();
 
     Ok(format!(
-        "{{ type: 'bar', x: {x}, y: {y}, width: {bin_size}, xaxis: '{xaxis}', yaxis: '{yaxis}', marker: {{ color: {color}, colorscale: 'YlOrRd', cmin: 0, cmax: 1, showscale: {showscale}, colorbar: {{ title: 'avg slide ratio' }}, opacity: 0.72 }}, text: {text}, hovertemplate: 'score bin center: %{{x:.3f}}<br>%{{text}}<extra></extra>' }}",
+        "{{ type: 'bar', x: {x}, y: {y}, width: {bin_size}, xaxis: '{xaxis}', yaxis: '{yaxis}', marker: {{ color: {color}, colorscale: 'YlOrRd', cmin: 0, cmax: 1, showscale: {showscale}, colorbar: {{ title: 'avg drag ratio' }}, opacity: 0.72 }}, text: {text}, hovertemplate: 'score bin center: %{{x:.3f}}<br>%{{text}}<extra></extra>' }}",
         x = serde_json::to_string(&x)?,
         y = serde_json::to_string(&y)?,
         color = serde_json::to_string(&color)?,
