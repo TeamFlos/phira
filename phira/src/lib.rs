@@ -275,6 +275,7 @@ async fn the_main() -> Result<()> {
                 main.update()?;
                 main.render(&mut painter)?;
             }
+            prpr::ext::flush_pending_texture_deletions();
             Ok(())
         }();
         if let Err(err) = res {

@@ -91,6 +91,7 @@ async fn the_main() -> Result<()> {
             main.render(&mut painter)?;
             Ok(())
         }();
+        prpr::ext::flush_pending_texture_deletions();
         if let Err(err) = res {
             warn!("uncaught error: {err:?}");
             show_error(err);
