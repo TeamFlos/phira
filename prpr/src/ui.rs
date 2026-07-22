@@ -46,7 +46,7 @@ use std::{
     borrow::Cow,
     cell::RefCell,
     collections::HashMap,
-    ops::Range,
+    ops::{Deref, DerefMut, Range},
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -1287,9 +1287,51 @@ impl<'a> From<(Option<f32>, &'a mut f32)> for LoadingParams<'a> {
         }
     }
 }
+pub struct SafeAudio(pub Option<AudioManager>);
+
+impl Deref for SafeAudio {
+    type Target = AudioManager;
+    fn deref(&self) -> &AudioManager {
+        self.0.as_ref().expect("SafeAudio is already dropped")
+    }
+}
+
+impl DerefMut for SafeAudio {
+    fn deref_mut(&mut self) -> &mut AudioManager {
+        self.0.as_mut().expect("SafeAudio is already dropped")
+    }
+}
+
+impl Drop for SafeAudio {
+    fn drop(&mut self) {
+        if let Some(inner) = self.0.take() {
+            let prev_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                drop(inner);
+            }));
+            std::panic::set_hook(prev_hook);
+            if result.is_err() {
+                // cleanup_audio() was not called before process exit;
+                // the audio backend thread may have already terminated.
+                // Nothing we can do — just let the OS reclaim resources.
+            }
+        }
+    }
+}
+
+/// Drop the UI audio manager explicitly, before thread-local destructors run.
+/// Must be called before the process exits to avoid panicking in cpal's WASAPI
+/// stream drop, which tries to join an already-terminated audio thread.
+pub fn cleanup_audio() {
+    UI_AUDIO.with(|it| {
+        it.borrow_mut().0.take();
+    });
+}
+
 // This function is used to create UI audio manager.
 #[allow(clippy::blocks_in_conditions)]
-fn build_audio() -> AudioManager {
+fn build_audio() -> SafeAudio {
     match {
         #[cfg(target_os = "android")]
         {
@@ -1315,10 +1357,10 @@ fn build_audio() -> AudioManager {
             AudioManager::new(CpalBackend::new(CpalSettings::default()))
         }
     } {
-        Ok(manager) => manager,
+        Ok(manager) => SafeAudio(Some(manager)),
         Err(e) => {
             show_error(e.context(ttl!("audio-backend-init-failed")));
-            AudioManager::new(DummyBackend).expect("Failed to create dummy audio backend, this should not happen")
+            SafeAudio(Some(AudioManager::new(DummyBackend).expect("Failed to create dummy audio backend, this should not happen")))
         }
     }
 }
@@ -1339,7 +1381,7 @@ impl sasa::backend::Backend for DummyBackend {
 }
 
 thread_local! {
-    pub static UI_AUDIO: RefCell<AudioManager> = RefCell::new(build_audio());
+    pub static UI_AUDIO: RefCell<SafeAudio> = RefCell::new(build_audio());
     pub static UI_BTN_HITSOUND_LARGE: RefCell<Option<Sfx>> = const { RefCell::new(None) };
     pub static UI_BTN_HITSOUND: RefCell<Option<Sfx>> = const { RefCell::new(None) };
     pub static UI_SWITCH_SOUND: RefCell<Option<Sfx>> = const { RefCell::new(None) };

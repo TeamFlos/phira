@@ -33,7 +33,7 @@ use prpr::{
     log,
     scene::show_error,
     time::TimeManager,
-    ui::{FontArc, TextPainter},
+    ui::{cleanup_audio, FontArc, TextPainter},
     Main,
 };
 use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
@@ -332,6 +332,7 @@ pub extern "C" fn quad_main() {
             error!(?err, "global error");
         }
     });
+    cleanup_audio();
 }
 
 fn on_pause_resume(pause: bool) {
