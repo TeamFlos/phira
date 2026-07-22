@@ -72,7 +72,7 @@ fn normalized_correlation_is_amplitude_scale_invariant() {
 enum Frontend {
     Energy,
     Spectral,
-    SuperFlux { diff_frames: usize },
+    SuperFlux,
 }
 
 impl Frontend {
@@ -80,7 +80,7 @@ impl Frontend {
         match self {
             Self::Energy => "energy".to_owned(),
             Self::Spectral => "spectral".to_owned(),
-            Self::SuperFlux { diff_frames } => format!("super-{diff_frames}"),
+            Self::SuperFlux => "superflux".to_owned(),
         }
     }
 
@@ -95,8 +95,8 @@ impl Frontend {
                 let audio = SpectralFlux::new(pcm, sample_rate, 1024, 512);
                 estimate_with(&audio, &note, duration, &config())
             }
-            Self::SuperFlux { diff_frames } => {
-                let audio = SuperFlux::new_with_diff_frames(pcm, sample_rate, 2048, 1024, diff_frames);
+            Self::SuperFlux => {
+                let audio = SuperFlux::new(pcm, sample_rate, 2048, 1024);
                 estimate_with(&audio, &note, duration, &config())
             }
         };
@@ -141,7 +141,7 @@ fn run_frontends(
 fn assert_bias_within(measurements: &[(Frontend, BiasMeasurement)], true_offset: f64, tolerance: f64) {
     for (frontend, measurement) in measurements {
         assert!(
-            (measurement.offset - true_offset).abs() <= tolerance,
+            (measurement.offset - true_offset).abs() <= tolerance + 1e-9,
             "{} bias exceeded tolerance: true={true_offset:+.3}s estimated={:+.3}s",
             frontend.label(),
             measurement.offset
@@ -210,7 +210,7 @@ fn measure_audio_frontend_bias_on_synthetic_clicks() {
     assert_eq!(click[0], 0.0, "the synthetic half-sine starts exactly at the onset sample");
     assert!(click[1].abs() > 0.0, "the first post-onset sample must contain the synthetic click");
 
-    let frontends = [Frontend::Energy, Frontend::Spectral, Frontend::SuperFlux { diff_frames: 3 }];
+    let frontends = [Frontend::Energy, Frontend::Spectral, Frontend::SuperFlux];
     for true_offset in [-0.157, 0.0, 0.123, 0.278] {
         let pcm = synth_layered_pcm(sample_rate, duration, &note_times, true_offset, &[&click]);
         assert_layers_are_sample_accurate(&pcm, sample_rate, &note_times, true_offset, &[&click]);
@@ -239,8 +239,7 @@ fn measure_audio_frontend_bias_on_synthesized_hit_sounds() {
 
     let frontends = [
         Frontend::Spectral,
-        Frontend::SuperFlux { diff_frames: 1 },
-        Frontend::SuperFlux { diff_frames: 3 },
+        Frontend::SuperFlux,
     ];
     for (name, layers) in cases {
         let max_layer_len = layers.iter().map(|layer| layer.len()).max().unwrap();

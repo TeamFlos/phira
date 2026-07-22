@@ -13,14 +13,13 @@ use crate::Signal;
 ///
 /// Processing steps:
 ///   1. High-pass filter (50 Hz) to remove sub-bass rumble
-///   2. Log-scale triangular filterbank (24 bands/octave, 30 Hz – 17 kHz)
-///   3. Magnitude spectrogram → filterbank → log10 scaling
+///   2. Log-scale triangular filterbank (24 bands/octave, 30 Hz - 17 kHz)
+///   3. Magnitude spectrogram -> filterbank -> log10 scaling
 ///   4. Per-band spectral whitening (subtract local running mean)
 ///   5. Frequency-direction maximum filter (vibrato suppression) + temporal difference
-///   6. Adaptive threshold via running median
 ///
-/// The result is a dense time series with one onset-strength value per STFT
-/// frame, suitable for cross-correlation with note event signals.
+/// The alignment path keeps these steps fixed so experiments do not depend on
+/// extra normalization knobs.
 pub struct SuperFlux {
     /// Native onset-strength samples at the STFT hop rate.
     native: Vec<f32>,
@@ -39,36 +38,27 @@ impl SuperFlux {
     /// * `window_size` - STFT window size in samples (default: 2048).
     /// * `hop_size` - STFT hop size in samples (default: 1024).
     pub fn new(pcm: &[f32], sample_rate: u32, window_size: usize, hop_size: usize) -> Self {
-        Self::new_with_diff_frames(pcm, sample_rate, window_size, hop_size, 1)
-    }
-
-    /// Build the SuperFlux onset signal with an explicit temporal differencing window.
-    pub fn new_with_diff_frames(pcm: &[f32], sample_rate: u32, window_size: usize, hop_size: usize, diff_frames: usize) -> Self {
         assert!(window_size.is_power_of_two());
         let native_dt = hop_size as f64 / sample_rate as f64;
         let native_t0 = window_size as f64 / sample_rate as f64 / 2.0;
 
-        // 1. Clone and high-pass filter
         let mut samples = pcm.to_vec();
         highpass_50hz(&mut samples, sample_rate);
 
-        // 2. Log-scale filterbank (24 bands/octave, 30Hz–17kHz, matching paper)
+        // Log-scale filterbank (24 bands/octave, 30Hz–17kHz, matching the reference setup).
         let filterbank = Filterbank::new(sample_rate, window_size, 24, 30.0, 17000.0, false);
 
-        // 3. Spectrogram: |STFT| → filterbank → log10 (matching paper)
+        // Spectrogram: |STFT| → filterbank → log10.
         let (mut spec_frames, frame_rate) = compute_spectrogram(&samples, sample_rate, window_size, hop_size, &filterbank, 1.0, 1.0);
 
-        // 4. Spectral whitening (1-second window)
         whiten_spectrogram(&mut spec_frames, (frame_rate * 1.0) as usize);
 
-        // 5. SuperFlux: frequency-direction max filter + temporal diff
-        //    max_bins=3 matches the reference implementation default.
-        let onset = compute_superflux(&spec_frames, diff_frames, 3);
+        // SuperFlux: frequency-direction max filter + temporal diff.
+        // max_bins=3 matches the reference implementation default.
+        // A one-frame temporal difference minimizes alignment bias in experiments.
+        let onset = compute_superflux(&spec_frames, 3);
 
-        // 6. Adaptive threshold
-        let onset = adaptive_threshold(&onset, frame_rate * 2.0, 0.5);
-
-        // Use the declared native_dt (frame_rate may differ slightly due to rounding)
+        // Use the declared native_dt (frame_rate may differ slightly due to rounding).
         let _ = frame_rate;
         Self {
             native: onset,
@@ -77,7 +67,7 @@ impl SuperFlux {
         }
     }
 
-    /// Access the native onset-strength samples (after adaptive threshold).
+    /// Access the native onset-strength samples.
     pub fn onset_samples(&self) -> &[f32] {
         &self.native
     }
@@ -339,12 +329,9 @@ fn whiten_spectrogram(frames: &mut [Vec<f32>], window_frames: usize) {
 ///   1. Apply a maximum filter of width `max_bins` in the **frequency** direction
 ///      on the spectrogram to suppress vibrato (the key contribution).
 ///   2. For each frame `t` and band `b`:
-///      `diff(t,b) = max(0, X[t][b] - max_filtered(X)[t-diff_frames][b])`
+///      `diff(t,b) = max(0, X[t][b] - max_filtered(X)[t-1][b])`
 ///   3. Sum across all bands: `onset(t) = Σ_b diff(t,b)`
-///
-/// Robust-normalized by the 99th percentile (skipping the first ~1 s to avoid
-/// HP filter transient).
-fn compute_superflux(spec_frames: &[Vec<f32>], diff_frames: usize, max_bins: usize) -> Vec<f32> {
+fn compute_superflux(spec_frames: &[Vec<f32>], max_bins: usize) -> Vec<f32> {
     let n_frames = spec_frames.len();
     if n_frames == 0 {
         return vec![];
@@ -353,7 +340,7 @@ fn compute_superflux(spec_frames: &[Vec<f32>], diff_frames: usize, max_bins: usi
 
     let mut onset = vec![0.0f32; n_frames];
 
-    if n_frames <= diff_frames {
+    if n_frames <= 1 {
         return onset;
     }
 
@@ -373,11 +360,11 @@ fn compute_superflux(spec_frames: &[Vec<f32>], diff_frames: usize, max_bins: usi
         })
         .collect();
 
-    // Step 2: Temporal difference — current raw spec vs. max-filtered previous frame.
-    for t in diff_frames..n_frames {
+    // Step 2: Temporal difference - current raw spec vs. max-filtered previous frame.
+    for t in 1..n_frames {
         let mut flux = 0.0f32;
         for b in 0..n_bands {
-            let diff = spec_frames[t][b] - max_spec[t - diff_frames][b];
+            let diff = spec_frames[t][b] - max_spec[t - 1][b];
             if diff > 0.0 {
                 flux += diff;
             }
@@ -385,67 +372,10 @@ fn compute_superflux(spec_frames: &[Vec<f32>], diff_frames: usize, max_bins: usi
         onset[t] = flux;
     }
 
-    // Robust normalize: skip first ~1s (HP filter transient), use 99th pct
-    let skip_frames = 40.min(onset.len() / 4);
-    if skip_frames < onset.len() {
-        let mut sorted: Vec<f32> = onset[skip_frames..].iter().cloned().filter(|&v| v > 0.0).collect();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let p99 = if sorted.is_empty() {
-            0.0
-        } else {
-            sorted[(sorted.len() as f32 * 0.99) as usize]
-        };
-        if p99 > 0.0 {
-            for v in &mut onset {
-                *v /= p99;
-            }
-        }
-    }
-
     onset
 }
 
-// ─── Adaptive threshold ─────────────────────────────────────────────────
-
-/// Running median-based threshold with IQR multiplier.
-///
-/// For each frame, computes `max(0, onset[t] - (median + multiplier * IQR))`
-/// over a local window, then re-normalizes by the 99th percentile.
-fn adaptive_threshold(onset: &[f32], median_window: f32, multiplier: f32) -> Vec<f32> {
-    let n = onset.len();
-    let half = (median_window / 2.0).round() as usize;
-    let mut thresholded = vec![0.0f32; n];
-
-    for t in 0..n {
-        let lo = t.saturating_sub(half);
-        let hi = (t + half).min(n - 1);
-        let count = hi - lo + 1;
-        let mut window_vals: Vec<f32> = onset[lo..=hi].to_vec();
-        window_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let median = window_vals[count / 2];
-        // IQR-based threshold
-        let iqr = window_vals[3 * count / 4] - median;
-        let threshold = median + multiplier * iqr;
-        thresholded[t] = (onset[t] - threshold).max(0.0);
-    }
-
-    // Robust re-normalize: skip first ~1s, use 99th percentile
-    let skip = 40.min(thresholded.len() / 4);
-    if skip < thresholded.len() {
-        let mut vals: Vec<f32> = thresholded[skip..].iter().cloned().filter(|&v| v > 0.0).collect();
-        vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let p99 = vals.get((vals.len() as f32 * 0.99) as usize).copied().unwrap_or(0.0);
-        if p99 > 0.0 {
-            for v in &mut thresholded {
-                *v /= p99;
-            }
-        }
-    }
-
-    thresholded
-}
-
-// ─── Linear interpolation ───────────────────────────────────────────────
+// --- Linear interpolation --- ───────────────────────────────────────────────
 
 /// Linear interpolation at time `t` (seconds) in a signal sampled every `dt`.
 fn interpolate(data: &[f32], dt: f64, t0: f64, t: f64) -> f32 {

@@ -61,10 +61,6 @@ struct Cli {
     #[arg(long, default_value_t = 0.02)]
     blur_sigma: f64,
 
-    /// Temporal SuperFlux differencing window in STFT frames.
-    #[arg(long, default_value_t = 3)]
-    superflux_diff_frames: usize,
-
     /// Recompute rows even if results.csv already contains a chart id.
     #[arg(long)]
     recompute: bool,
@@ -1026,7 +1022,7 @@ async fn analyze_chart(id: i32, dir: &Path, cli: &Cli) -> Result<StudyRow> {
     let sample_rate = clip.sample_rate();
     let duration = pcm.len() as f64 / sample_rate as f64;
 
-    let audio = SuperFlux::new_with_diff_frames(&pcm, sample_rate, 2048, 1024, cli.superflux_diff_frames);
+    let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
     let note = NoteGaussian::new(note_stats.times(), cli.blur_sigma);
     let preprocessed_note = PreprocessedNoteGaussian::new(note_stats.events.clone(), cli.blur_sigma);
     let search_center = chart_offset + info.offset as f64;
@@ -1100,7 +1096,7 @@ async fn analyze_preprocessed_chart(_id: i32, dir: &Path, cli: &Cli) -> Result<P
     let sample_rate = clip.sample_rate();
     let duration = pcm.len() as f64 / sample_rate as f64;
 
-    let audio = SuperFlux::new_with_diff_frames(&pcm, sample_rate, 2048, 1024, cli.superflux_diff_frames);
+    let audio = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
     let note = PreprocessedNoteGaussian::new(note_stats.events, cli.blur_sigma);
     let search_center = chart_offset + info.offset as f64;
     let config = AlignConfig {
