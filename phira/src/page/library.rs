@@ -395,7 +395,9 @@ impl LibraryPage {
                     }
                 }))
             } else {
-                charts.push(ChartDisplayItem::new(None, None));
+                if cfg!(closed) {
+                    charts.push(ChartDisplayItem::new(None, None));
+                }
                 charts.extend(
                     charts_local
                         .iter()
@@ -853,7 +855,7 @@ impl Page for LibraryPage {
                 self.load_online();
             }
         }
-        if self.tabs.selected_mut().view.clicked_special {
+        if cfg!(closed) && self.tabs.selected_mut().view.clicked_special {
             let icons = Arc::clone(&self.icons);
             self.next_page_task = Some(Box::pin(async move { Ok(NextPage::Overlay(Box::new(CollectionPage::new(icons).await?))) }));
             self.tabs.selected_mut().view.clicked_special = false;
