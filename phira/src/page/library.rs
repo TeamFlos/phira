@@ -393,7 +393,11 @@ impl LibraryPage {
                         warn!("No info found for chart ref {it:?}");
                         None
                     }
-                }))
+                }));
+                self.current_order.apply(&mut charts, |it| it.chart.as_ref().unwrap());
+                if self.order_rev {
+                    charts.reverse();
+                }
             } else {
                 charts.push(ChartDisplayItem::new(None, None));
                 charts.extend(
