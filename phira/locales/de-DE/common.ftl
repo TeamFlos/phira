@@ -29,5 +29,4 @@ default-fav-folder = Standard-Favoriten
 favorites-online-only = Nur Online-Charts können in Online-Favoriten gespeichert werden. Lokale Charts: { $charts }
 contains-banned-words = Die Eingabe enthält unzulässige Wörter; bitte überprüfe dies nochmal und versuche es erneut
 hykb-not-bound-logout = Das Konto ist nicht mit einem 3839-Games-Konto verknüpft; Du wurdest abgemeldet
-hykb-uid-mismatch = Das aktuell angemeldete 3839-Games-Konto stimmt nicht mit diesem Phira–Konto überein; Du wurdest abgemeldet
 hykb-login-cancelled = Anmeldung bei 3839 Games abgebrochen

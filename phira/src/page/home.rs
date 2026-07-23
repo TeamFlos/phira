@@ -116,22 +116,13 @@ impl HomePage {
                 })
                 .await?;
                 let me = Client::get_me().await?;
-                // On HYKB builds the restored session must match the account the
-                // native SDK is signed into. `get_me` already guaranteed a bound
-                // account (`hykb_uid` is Some); silently restore the SDK session
-                // and reject a uid mismatch by logging out of both.
+                // On HYKB builds a restored session still requires the native SDK
+                // to be signed in: silently restore the SDK session and tear the
+                // in-game session down if that login fails/cancels (`ok_or_err`).
+                // The signed-in HYKB account no longer has to match the restored
+                // Phira account — any successful HYKB login is accepted.
                 #[cfg(feature = "hykb")]
-                {
-                    let cred = crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
-                    if me.hykb_uid != Some(cred.uid) {
-                        crate::hykb_logout();
-                        get_data_mut().me = None;
-                        get_data_mut().tokens = None;
-                        save_data()?;
-                        sync_data();
-                        bail!("{}", crate::ttl!("hykb-uid-mismatch"));
-                    }
-                }
+                crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
                 Ok(me)
             }))
         } else {
