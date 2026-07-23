@@ -37,6 +37,6 @@ favorites-online-only = Only online charts can be added to online favorites. Loc
 
 contains-banned-words = Your input contains banned words. Please check and submit again.
 
-hykb-not-bound-logout = Your account is not bound to a HYKB account; you have been logged out.
-hykb-uid-mismatch = The signed-in HYKB account does not match this Phira account; you have been logged out.
-hykb-login-cancelled = HYKB login cancelled.
+hykb-not-bound-logout = Your account is not bound to a 3839 Games account; you have been logged out.
+hykb-uid-mismatch = The signed-in 3839 Games account does not match this Phira account; you have been logged out.
+hykb-login-cancelled = 3839 Games login cancelled.

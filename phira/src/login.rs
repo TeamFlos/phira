@@ -380,10 +380,7 @@ impl Login {
     fn show_email_bind(&self) {
         let choice = Arc::clone(&self.email_bind_choice);
         Dialog::plain(tl!("hykb-bind-required-title"), tl!("hykb-bind-required"))
-            .buttons(vec![
-                tl!("hykb-bind-required-cancel").to_string(),
-                tl!("hykb-bind-required-confirm").to_string(),
-            ])
+            .buttons(vec![crate::ttl!("cancel").into_owned(), tl!("hykb-bind-required-confirm").into_owned()])
             .listener(move |_, pos| {
                 match pos {
                     // Cancel button or outside click: back out and log out.
@@ -995,8 +992,7 @@ impl Login {
                     ui.fill_path(&path, green);
                     let ir = Rect::new(r.x + 0.03, r.center().y - 0.045, 0.09, 0.09);
                     ui.fill_rect(ir, (*self.icons.hykb, ir, ScaleType::Fit));
-                    ui
-                        .text(tl!("login-method-hykb"))
+                    ui.text(tl!("login-method-hykb"))
                         .pos(ir.right() + 0.03, r.center().y - 0.016)
                         .anchor(0., 0.5)
                         .no_baseline()

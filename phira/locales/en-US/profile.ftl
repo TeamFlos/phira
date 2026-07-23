@@ -20,13 +20,13 @@ badge-sponsor = Sponsor
 
 name-copied = Name copied.
 
-hykb-bind = Bind HYKB
-hykb-unbind = Unbind HYKB
-hykb-unbind-confirm = Are you sure you want to unbind your HYKB account?
-hykb-bind-success = HYKB account bound.
-hykb-unbind-success = HYKB account unbound.
+hykb-bind = Bind 3839 Games
+hykb-unbind = Unbind 3839 Games
+hykb-unbind-confirm = Are you sure you want to unbind your 3839 Games account?
+hykb-bind-success = 3839 Games account bound.
+hykb-unbind-success = 3839 Games account unbound.
 hykb-action-failed = Operation failed.
-hykb-login-cancelled = HYKB login cancelled.
+hykb-login-cancelled = 3839 Games login cancelled.
 
 hykb-transfer = Migrate old account
 transfer-prompt = Email of the old account to migrate

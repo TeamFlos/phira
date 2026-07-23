@@ -25,7 +25,6 @@ action-failed =
        *[other] _
     }
 email-sent = 驗證信已發送至您的電子郵件地址，請前往驗證後登入。
-hykb-login = 好遊快爆登入
 hykb-login-cancelled = 已取消好遊快爆登入
 login-method-title = 選擇登入方式
 login-method-email = 郵箱登入
@@ -45,4 +44,3 @@ hykb-other-login-not-bound = 該帳號未綁定好遊快爆，無法登入
 hykb-bind-required-title = 需要綁定好遊快爆
 hykb-bind-required = 該帳號尚未綁定好遊快爆，需要綁定後才能登入遊戲。
 hykb-bind-required-confirm = 綁定好遊快爆
-hykb-bind-required-cancel = 取消
