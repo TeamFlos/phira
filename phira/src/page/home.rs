@@ -116,13 +116,19 @@ impl HomePage {
                 })
                 .await?;
                 let me = Client::get_me().await?;
-                // On HYKB builds a restored session still requires the native SDK
-                // to be signed in: silently restore the SDK session and tear the
-                // in-game session down if that login fails/cancels (`ok_or_err`).
-                // The signed-in HYKB account no longer has to match the restored
-                // Phira account — any successful HYKB login is accepted.
+                // On HYKB builds a restored session still requires anti-addiction
+                // coverage. A bound account restores the native SDK session
+                // silently and tears the in-game session down if that login
+                // fails/cancels (`ok_or_err`); the signed-in HYKB account no
+                // longer has to match the restored Phira account — any successful
+                // HYKB login is accepted. An unbound account instead goes through
+                // the SDK's own real-name dialog (fire-and-forget).
                 #[cfg(feature = "hykb")]
-                crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+                if me.hykb_uid.is_some() {
+                    crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+                } else {
+                    crate::hykb_check_anti();
+                }
                 Ok(me)
             }))
         } else {

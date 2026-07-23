@@ -495,6 +495,21 @@ pub fn hykb_logout() {
 #[cfg(not(all(target_os = "android", feature = "hykb")))]
 pub fn hykb_logout() {}
 
+/// Invoke the SDK's anti-addiction check (`MainActivity.hykbCheckAnti` →
+/// `HykbLogin.checkAnti`). The SDK pops its own real-name verification dialog;
+/// tapping "去认证" launches the HYKB login UI, and the SDK enforces play-time
+/// limits itself from then on. Used for accounts not bound to a HYKB account,
+/// where no SDK login is mandated. Fire-and-forget: outcomes arrive through
+/// the usual `hykbLoginCallback` channel (2005 exit / 2008 dismiss / a login
+/// success with no pending request is ignored).
+#[cfg(all(target_os = "android", feature = "hykb"))]
+pub fn hykb_check_anti() {
+    call_activity_void(jni::jni_str!("hykbCheckAnti"));
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+pub fn hykb_check_anti() {}
+
 /// Tear down the local session: sign out of the native HYKB SDK, clear the
 /// stored account and tokens, then re-sync. Shared by every path that must
 /// reject a login — a failed/cancelled HYKB verification, a uid mismatch, or
