@@ -36,7 +36,9 @@ use prpr::{
     ui::{cleanup_audio, FontArc, TextPainter},
     Main,
 };
-use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
+use prpr_l10n::set_prefered_locale;
+#[cfg(not(feature = "hykb"))]
+use prpr_l10n::{GLOBAL, LANGS};
 use scene::MainScene;
 use std::{
     collections::VecDeque,
@@ -78,10 +80,14 @@ pub async fn load_res_tex(name: &str) -> SafeTexture {
 }
 
 pub fn sync_data() {
-    set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     if get_data().language.is_none() {
-        get_data_mut().language = Some(LANGS[GLOBAL.order.lock().unwrap()[0]].to_owned());
+        #[cfg(feature = "hykb")]
+        let default_lang = "zh-CN".to_owned();
+        #[cfg(not(feature = "hykb"))]
+        let default_lang = LANGS[GLOBAL.order.lock().unwrap()[0]].to_owned();
+        get_data_mut().language = Some(default_lang);
     }
+    set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     let _ = client::set_access_token_sync(get_data().tokens.as_ref().map(|it| &*it.0));
 }
 
