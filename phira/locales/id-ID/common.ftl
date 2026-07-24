@@ -29,4 +29,3 @@ default-fav-folder = Favorit Default
 favorites-online-only = Hanya chart online yang dapat ditambahkan ke favorit online. Chart lokal: { $charts }
 contains-banned-words = Input Anda mengandung kata-kata terlarang. Mohon periksa dan kirim ulang.
 hykb-not-bound-logout = Akun Anda tidak terhubung ke akun HYKB; Anda telah keluar.
-hykb-uid-mismatch = Akun HYKB yang sedang masuk tidak sesuai dengan akun Phira ini; Anda telah keluar.
