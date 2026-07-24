@@ -12,9 +12,30 @@ thread_local! {
     static VIDEO_BUFFERS: RefCell<[Vec<u8>; 3]> = RefCell::default();
 }
 
+fn f32_one() -> f32 {
+    1.
+}
+
+
+
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VideoAttach {
     pub line: usize,
+    #[serde(default = "f32_one")]
+    pub position_x_factor: f32,
+    #[serde(default = "f32_one")]
+    pub position_y_factor: f32,
+    #[serde(default = "f32_one")]
+    pub rotation_factor: f32,
+    #[serde(default = "f32_one")]
+    pub alpha_factor: f32,
+    #[serde(default = "f32_one")]
+    pub tint_factor: f32,
+    #[serde(default)]
+    pub scale_x_mode: u8,
+    #[serde(default)]
+    pub scale_y_mode: u8,
 }
 
 pub struct Video {
@@ -131,7 +152,7 @@ impl Video {
         Ok(())
     }
 
-    pub fn render(&self, t: f64, aspect_ratio: f32, color: Color) {
+    pub fn render(&self, t: f64, aspect_ratio: f32, color: Color, line_scale: Option<(f32, f32, u8, u8)>) {
         if !(0f64..self.duration).contains(&(t - self.start_time)) {
             return;
         }
@@ -141,6 +162,57 @@ impl Video {
         let s = source_of_image(&self.tex_y, r, self.scale_type).unwrap_or_else(|| Rect::new(0., 0., 1., 1.));
         let dim = 1. - self.dim.now();
         let color = Color::new(dim * color.r, dim * color.g, dim * color.b, self.alpha.now_opt().unwrap_or(1.) * color.a);
+
+        let (r, s) = if let Some((sx, sy, mode_x, mode_y)) = line_scale {
+            match (mode_x, mode_y) {
+                (0, 0) => (r, s),
+                _ => {
+                    let mut r = r;
+                    let mut s = s;
+
+                    // Scale mode: scale vertices, mirror with negative values
+                    if mode_x == 1 {
+                        r = Rect::new(r.x, r.y, r.w * sx.abs(), r.h);
+                        if sx < 0. {
+                            s = Rect::new(s.right(), s.y, -s.w, s.h);
+                        }
+                    }
+                    if mode_y == 1 {
+                        r = Rect::new(r.x, r.y, r.w, r.h * sy.abs());
+                        if sy < 0. {
+                            s = Rect::new(s.x, s.bottom(), s.w, -s.h);
+                        }
+                    }
+
+                    // Clip mode: clip both vertices and texture proportionally
+                    if mode_x == 2 {
+                        let clip = sx.abs().min(1.0);
+                        let offset_r = r.w * (1.0 - clip) / 2.0;
+                        let offset_s = s.w * (1.0 - clip) / 2.0;
+                        r = Rect::new(r.x + offset_r, r.y, r.w * clip, r.h);
+                        s = Rect::new(s.x + offset_s, s.y, s.w * clip, s.h);
+                        if sx < 0. {
+                            s = Rect::new(s.right(), s.y, -s.w, s.h);
+                        }
+                    }
+                    if mode_y == 2 {
+                        let clip = sy.abs().min(1.0);
+                        let offset_r = r.h * (1.0 - clip) / 2.0;
+                        let offset_s = s.h * (1.0 - clip) / 2.0;
+                        r = Rect::new(r.x, r.y + offset_r, r.w, r.h * clip);
+                        s = Rect::new(s.x, s.y + offset_s, s.w, s.h * clip);
+                        if sy < 0. {
+                            s = Rect::new(s.x, s.bottom(), s.w, -s.h);
+                        }
+                    }
+
+                    (r, s)
+                }
+            }
+        } else {
+            (r, s)
+        };
+
         let vertices = [
             Vertex::new(r.x, r.y, 0., s.x, s.y, color),
             Vertex::new(r.right(), r.y, 0., s.right(), s.y, color),
