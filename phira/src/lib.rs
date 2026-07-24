@@ -583,3 +583,19 @@ pub fn mark_auto_import() {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().0 = Some("_import_auto".to_owned());
 }
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn on_foreground() {
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(false);
+    }
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn on_background() {
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(true);
+    }
+}
