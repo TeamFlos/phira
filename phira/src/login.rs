@@ -588,23 +588,17 @@ impl Login {
             })
             .await?;
             let me = Client::get_me().await?;
+            // Every email login — bound or not — must complete a native HYKB
+            // login so the SDK's online anti-addiction enforcement runs (the
+            // limits are tied to a signed-in HYKB account, not to any separate
+            // "anti" entry point). We obtain the credential silently and tear
+            // the session down if the player cancels, but we do NOT send it to
+            // the server: the HYKB account is used purely for anti-addiction and
+            // is not bound to the Phira account here. An unbound player may bind
+            // HYKB later from the profile page; a bound account no longer has to
+            // match its stored `hykb_uid` — any successful HYKB login is accepted.
             #[cfg(feature = "hykb")]
-            if me.hykb_uid.is_some() {
-                // An account bound to a HYKB uid must still have the native SDK
-                // signed in (same requirement as the app-restart session restore
-                // in `page/home.rs`): restore it silently and tear the session
-                // down if that login fails/cancels. The signed-in HYKB account no
-                // longer has to match the bound `hykb_uid` — any successful HYKB
-                // login is accepted.
-                crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
-            } else {
-                // An unbound account goes through the SDK's own anti-addiction
-                // real-name dialog instead of being forced to bind: the SDK pops
-                // its verification popup, "去认证" launches the HYKB login UI, and
-                // the SDK enforces play-time limits itself afterwards. The player
-                // may bind HYKB later from the profile page.
-                crate::hykb_check_anti();
-            }
+            crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
             Ok(Some(me))
         });
     }

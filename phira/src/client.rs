@@ -365,9 +365,10 @@ impl Client {
     }
 
     pub async fn get_me() -> Result<User> {
-        // Accounts not bound to a HYKB account are valid: they pass the
-        // anti-addiction check through the SDK's own real-name dialog
-        // (`hykb_check_anti`) and may bind HYKB later from the profile page.
+        // Accounts not bound to a HYKB account are valid: anti-addiction is
+        // covered by a native HYKB login performed at sign-in (used for the
+        // SDK's enforcement, not bound to the account), and the player may
+        // bind HYKB later from the profile page.
         Ok(recv_raw(Self::get("/me")).await?.json().await?)
     }
 
