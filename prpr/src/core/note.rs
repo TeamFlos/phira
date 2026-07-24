@@ -76,7 +76,7 @@ fn draw_tex(res: &Resource, texture: Texture2D, order: i8, x: f32, y: f32, color
             params.source = Some(source);
         }
     }
-    params.flip_y = true;
+    params.flip_y ^= true;
     draw_tex_pts(res, texture, order, p, color, params);
 }
 fn draw_tex_pts(res: &Resource, texture: Texture2D, order: i8, p: [Point; 4], color: Color, params: DrawTextureParams) {
@@ -233,9 +233,10 @@ impl Note {
             }
         };
 
+        let is_covered = cover_base <= -0.001;
         if !config.draw_below
             && (((res.time - FADEOUT_TIME >= self.time || self.fake && res.time >= self.time) && !matches!(self.kind, NoteKind::Hold { .. }))
-                || (self.time > res.time && cover_base <= -0.001))
+                || (self.time > res.time && is_covered))
         {
             return;
         }
@@ -289,8 +290,11 @@ impl Note {
                     let top = (end_height - line_height) as f32;
                     let tex = &style.hold;
                     let ratio = style.hold_ratio();
+                    let is_negative_length = top - bottom < 0.;
+                    let flip_y = config.settings.negative_length_hold && (config.draw_below || !is_covered) && is_negative_length;
+                    let body_h = if flip_y { bottom - top } else { top - bottom };
+                    let body_y = if flip_y { bottom - body_h } else { bottom };
                     // body
-                    // TODO (end_height - height) is not always total height
                     draw_tex(
                         res,
                         **(if res.res_pack.info.hold_repeat {
@@ -300,7 +304,7 @@ impl Note {
                         }),
                         order,
                         -scale,
-                        bottom,
+                        body_y,
                         color,
                         DrawTextureParams {
                             source: Some({
@@ -308,12 +312,13 @@ impl Note {
                                     let hold_body = style.hold_body.as_ref().unwrap();
                                     let width = hold_body.width();
                                     let height = hold_body.height();
-                                    Rect::new(0., 0., 1., (top - bottom) / scale / 2. * width / height)
+                                    Rect::new(0., 0., 1., body_h / scale / 2. * width / height)
                                 } else {
                                     style.hold_body_rect()
                                 }
                             }),
-                            dest_size: Some(vec2(scale * 2., top - bottom)),
+                            dest_size: Some(vec2(scale * 2., body_h)),
+                            flip_y,
                             ..Default::default()
                         },
                         false,
@@ -322,34 +327,41 @@ impl Note {
                     if res.time < self.time || res.res_pack.info.hold_keep_head {
                         let r = style.hold_head_rect();
                         let hf = vec2(scale, r.h / r.w * scale * ratio);
+                        let head_y = if flip_y { bottom + hf.y * 2. } else { bottom };
                         draw_tex(
                             res,
                             **tex,
                             order,
                             -scale,
-                            bottom - if res.res_pack.info.hold_compact { hf.y } else { hf.y * 2. },
+                            head_y - if res.res_pack.info.hold_compact { hf.y } else { hf.y * 2. },
                             color,
                             DrawTextureParams {
                                 source: Some(r),
                                 dest_size: Some(hf * 2.),
+                                flip_y,
                                 ..Default::default()
                             },
                             false,
                         );
                     }
                     // tail
+                    if !flip_y && is_negative_length { // only render head
+                        return;
+                    }
                     let r = style.hold_tail_rect();
                     let hf = vec2(scale, r.h / r.w * scale * ratio);
+                    let tail_y = if flip_y { top - hf.y * 2. } else { top };
                     draw_tex(
                         res,
                         **tex,
                         order,
                         -scale,
-                        top - if res.res_pack.info.hold_compact { hf.y } else { 0. },
+                        tail_y - if res.res_pack.info.hold_compact { hf.y } else { 0. },
                         color,
                         DrawTextureParams {
                             source: Some(r),
                             dest_size: Some(hf * 2.),
+                            flip_y,
                             ..Default::default()
                         },
                         false,
