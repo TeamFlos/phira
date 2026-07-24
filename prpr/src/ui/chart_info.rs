@@ -246,6 +246,7 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
                     edit.enable_unlock = false;
                 } else {
                     info.unlock_video = Some("unlock.mp4".to_string());
+                    edit.unlock_video = Some("unlock.mp4".to_string());
                     edit.enable_unlock = true;
                 }
                 edit.updated = true;

@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
 use prpr::{
     config::Config,
@@ -55,7 +55,8 @@ impl UnlockScene {
     ) -> Result<UnlockScene> {
         let bytes = fs
             .load_file(&info.unlock_video.clone().unwrap_or_else(|| "unlock.mp4".to_owned()))
-            .await?;
+            .await
+            .context("Cannot find unlock video file!")?;
         let video = Video::new(bytes, 0., ScaleType::Inside, Anim::new(vec![Keyframe::new(0., 1., 0)]), Anim::default())?;
         let clip = demux_audio(video.video_file().path().to_str().unwrap())?;
         let music_length = clip.as_ref().map_or(0., AudioClip::length);
