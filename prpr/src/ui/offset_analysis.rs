@@ -187,11 +187,19 @@ impl OffsetAnalysisPanel {
                 });
 
                 let correction_ms = ((result.offset - chart_offset as f64) * 1000.0).round() as i32;
-                ui.text(format!("{correction_ms:+}ms"))
+                let r = ui
+                    .text(format!("{correction_ms:+}ms"))
                     .pos(graph_rect.w - 0.01, 0.)
                     .anchor(1.0, 0.0)
                     .size(0.35)
                     .color(Color::new(0.0, 1.0, 0.0, 0.7))
+                    .no_baseline()
+                    .draw();
+                ui.text(format!("{:.3}", peak_match_score(result)))
+                    .pos(graph_rect.w - 0.01, r.bottom() + 0.003)
+                    .anchor(1.0, 0.0)
+                    .size(0.3)
+                    .color(Color::new(1.0, 0.9, 0.55, 0.72))
                     .no_baseline()
                     .draw();
                 draw_threshold_labels(ui, graph_rect, result);
@@ -270,7 +278,7 @@ fn draw_threshold_labels(ui: &mut Ui, graph_rect: Rect, result: &AlignmentResult
         ui.text(label)
             .pos(0.01, y + inner_h * 0.015)
             .anchor(0.0, 0.0)
-            .size(0.22)
+            .size(0.3)
             .color(Color::new(1.0, 0.82, 0.32, 0.62))
             .no_baseline()
             .draw();
@@ -278,7 +286,11 @@ fn draw_threshold_labels(ui: &mut Ui, graph_rect: Rect, result: &AlignmentResult
 }
 
 fn offset_graph_score_top(result: &AlignmentResult) -> f32 {
-    result.correlation_curve.iter().map(|&(_, s)| s).fold(0.0, f32::max).max(0.25)
+    peak_match_score(result).max(0.25)
+}
+
+fn peak_match_score(result: &AlignmentResult) -> f32 {
+    result.correlation_curve.iter().map(|&(_, s)| s).fold(result.correlation as f32, f32::max)
 }
 
 fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rect, result: &AlignmentResult) {
@@ -297,6 +309,8 @@ fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rec
     let v_pad = 0.08;
     let inner = Rect::new(rect.x, rect.y + rect.h * v_pad, rect.w, rect.h * (1.0 - 2.0 * v_pad));
     let line_w = rect.w * 0.003;
+
+    draw_offset_time_grid(ui, rect, min_o, o_range, chart_offset as f64, line_w);
 
     for value in [0.2_f32, 0.6_f32] {
         if value > s_top {
@@ -332,6 +346,27 @@ fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rec
     draw_offset_marker(ui, inner, min_o, o_range, chart_offset as f64, marker_line_w, Color::new(1.0, 0.5, 0.0, 0.5));
     draw_offset_marker(ui, inner, min_o, o_range, result.offset, marker_line_w, Color::new(0.0, 1.0, 0.0, 0.5));
     draw_offset_marker(ui, inner, min_o, o_range, (chart_offset + info_offset) as f64, marker_line_w, Color::new(0.0, 0.5, 1.0, 0.5));
+}
+
+fn draw_offset_time_grid(ui: &mut Ui, rect: Rect, min_o: f64, o_range: f64, zero_offset: f64, width: f32) {
+    let step = 0.05;
+    let min_tick = ((min_o - zero_offset) / step).ceil() as i32;
+    let max_tick = ((min_o + o_range - zero_offset) / step).floor() as i32;
+    for tick in min_tick..=max_tick {
+        let offset = zero_offset + tick as f64 * step;
+        let x = rect.x + ((offset - min_o) / o_range) as f32 * rect.w;
+        let is_major = tick % 2 == 0;
+        let mut mb = lyon::path::Path::builder();
+        mb.begin(point(x, rect.y));
+        mb.line_to(point(x, rect.y + rect.h));
+        mb.end(false);
+        let color = if is_major {
+            Color::new(1.0, 1.0, 1.0, 0.13)
+        } else {
+            Color::new(1.0, 1.0, 1.0, 0.07)
+        };
+        ui.stroke_path(&mb.build(), width * if is_major { 0.8 } else { 0.55 }, color);
+    }
 }
 
 fn draw_offset_marker(ui: &mut Ui, inner: Rect, min_o: f64, o_range: f64, offset: f64, width: f32, color: Color) {
