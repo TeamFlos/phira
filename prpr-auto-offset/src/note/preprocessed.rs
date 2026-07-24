@@ -1,4 +1,4 @@
-use crate::Signal;
+﻿use crate::Signal;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AutoOffsetNoteKind {
@@ -40,7 +40,7 @@ impl Default for NotePreprocessConfig {
             max_drag_interval_sec: 0.12,
             equal_interval_tolerance_sec: 0.008,
             time_epsilon_sec: 1e-4,
-            drag_weight: 0.8,
+            drag_weight: 1.0,
         }
     }
 }

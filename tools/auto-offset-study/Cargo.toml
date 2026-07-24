@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 name = "prpr-auto-offset-study"
 version.workspace = true
 edition.workspace = true
@@ -8,7 +8,6 @@ license.workspace = true
 anyhow = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 futures-util = { workspace = true }
-plotters = { version = "0.3.7", default-features = false, features = ["bitmap_backend", "bitmap_encoder", "line_series", "point_series", "ttf"] }
 prpr = { workspace = true }
 prpr-auto-offset = { workspace = true }
 prpr-avc = { workspace = true }

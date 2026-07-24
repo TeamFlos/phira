@@ -35,6 +35,12 @@ pub struct AlignmentResult {
     /// Values near 0 suggest the note pattern has no discernible match in
     /// the audio novelty, and the detected offset may be unreliable.
     pub correlation: f64,
+    /// Unnormalized dot-product peak at the selected offset.
+    pub raw_peak: f64,
+    /// Squared L2 energy of the sampled note signal used for this estimate.
+    pub note_energy: f64,
+    /// Squared L2 energy of the sampled audio novelty signal used for this estimate.
+    pub audio_energy: f64,
     /// Whether the correlation exceeds the default reliability threshold.
     pub reliable: bool,
     /// Full correlation curve: (offset_seconds, normalized_correlation_score).
