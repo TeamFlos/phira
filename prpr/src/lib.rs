@@ -8,6 +8,7 @@ pub mod info;
 pub mod judge;
 pub mod parse;
 pub mod particle;
+pub mod replay;
 pub mod scene;
 pub mod task;
 pub mod time;

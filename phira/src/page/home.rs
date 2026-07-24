@@ -57,6 +57,7 @@ pub struct HomePage {
     btn_play: DRectButton,
     btn_event: DRectButton,
     btn_respack: DRectButton,
+    btn_replay: DRectButton,
     btn_msg: DRectButton,
     btn_settings: DRectButton,
     btn_user: DRectButton,
@@ -141,6 +142,7 @@ impl HomePage {
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
             btn_respack: DRectButton::new().with_elevation(0.002).no_sound(),
+            btn_replay: DRectButton::new().with_radius(0.008).with_delta(-0.003).with_elevation(0.002),
             btn_msg: DRectButton::new().with_radius(0.008).with_delta(-0.003).with_elevation(0.002),
             btn_settings: DRectButton::new().with_radius(0.008).with_delta(-0.003).with_elevation(0.002),
             btn_user: DRectButton::new().with_delta(-0.003),
@@ -352,21 +354,28 @@ impl HomePage {
             let lf = r.right() + 0.02;
 
             s.render_fader(ui, |ui| {
-                let r = Rect::new(lf, top, 0.11, 0.11);
+                let r = Rect::new(lf, top, 0.11, 0.07);
                 self.btn_msg.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
-                    let r = r.feather(-0.01);
+                    let r = r.feather(-0.005);
                     ui.fill_rect(r, (*self.icons.msg, r, ScaleType::Fit));
                     if self.has_new {
-                        let pad = 0.007;
-                        ui.fill_circle(r.right() - pad, r.y + pad, 0.01, RED);
+                        let pad = 0.006;
+                        ui.fill_circle(r.right() - pad, r.y + pad, 0.008, RED);
                     }
                 });
 
-                let r = Rect::new(lf, top + 0.12, 0.11, 0.11);
+                let r = Rect::new(lf, top + 0.08, 0.11, 0.07);
+                self.btn_replay.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.4));
+                    let r = r.feather(-0.005);
+                    ui.fill_rect(r, (*self.icons.play, r, ScaleType::Fit));
+                });
+
+                let r = Rect::new(lf, top + 0.16, 0.11, 0.07);
                 self.btn_settings.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
-                    let r = r.feather(0.004);
+                    let r = r.feather(-0.005);
                     ui.fill_rect(r, (*self.icons.settings, r, ScaleType::Fit));
                 });
             });
@@ -426,6 +435,11 @@ impl Page for HomePage {
             }
             if self.btn_msg.touch(touch, t) {
                 self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                return Ok(true);
+            }
+            if self.btn_replay.touch(touch, t) {
+                button_hit_large();
+                self.next_page = Some(NextPage::Overlay(Box::new(super::ReplayListPage::new(Arc::clone(&self.icons), s.icons.clone())?)));
                 return Ok(true);
             }
             if self.btn_settings.touch(touch, t) {
