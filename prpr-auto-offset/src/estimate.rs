@@ -1,17 +1,39 @@
 use crate::{AlignConfig, AlignmentResult, Signal};
 
-/// Reliability threshold for normalized cross-correlation.
+/// Reliability threshold for the empirical peak-ratio match score.
 ///
-/// If the normalized peak `r` exceeds this value, the detected offset is
-/// considered reliable. 0.2 is a conservative practical threshold from the
-/// chart-corpus score distribution; lower scores should be treated as weak.
+/// If the score exceeds this value, the detected offset is considered
+/// reliable. The score is centered near 1.0 for average chart/audio matches,
+/// so 0.2 remains a conservative weak-evidence cutoff.
 const RELIABILITY_THRESHOLD: f64 = 0.2;
 
-/// Normalized cross-correlation between two arrays, limited lag range.
+/// Empirical intercept for expected raw peak estimation.
 ///
-/// Returns `(correlation_values, best_lag_index, peak_value)` where each
-/// correlation value is the normalized dot product of `a` with `b` shifted by
-/// `lag - max_lag_bins`.
+/// The match score is `raw_peak / estimated_raw_peak`, where
+///
+/// `estimated_raw_peak = sqrt(note_energy * audio_energy)
+///     * 10^EXPECTED_LOG10_CS_INTERCEPT
+///     * effective_note_count^EFFECTIVE_COUNT_EXPONENT`.
+///
+/// These constants are a corpus calibration, not a Cauchy-Schwarz bound. They
+/// come from selected charts after note preprocessing:
+///
+/// `log10(cauchy_schwarz_score) = -1.278858 + 0.281458 log10(effective_note_count)`.
+///
+/// The correction compensates for the observed residual dependence of the old
+/// C-S normalized score on chart note mass: low effective-note-count charts
+/// tended to score too low even when matching quality was comparable.
+const EXPECTED_LOG10_CS_INTERCEPT: f64 = -1.278858;
+
+/// Empirical exponent for the effective-note-count correction. See
+/// [`EXPECTED_LOG10_CS_INTERCEPT`] for calibration details.
+const EFFECTIVE_COUNT_EXPONENT: f64 = 0.281458;
+
+/// Peak-ratio cross-correlation between two arrays, limited to a lag range.
+///
+/// The raw dot product still selects the best lag. The reported score is an
+/// empirical ratio against the raw peak expected from signal energies and the
+/// effective note count, so it is scale-invariant but no longer bounded by 1.
 struct CorrelationStats {
     values: Vec<f32>,
     best_lag: usize,
@@ -21,7 +43,7 @@ struct CorrelationStats {
     audio_energy: f64,
 }
 
-fn normalized_cross_correlation(note: &[f32], audio: &[f32], max_lag_bins: usize) -> CorrelationStats {
+fn peak_ratio_cross_correlation(note: &[f32], audio: &[f32], max_lag_bins: usize) -> CorrelationStats {
     let n = note.len().min(audio.len());
     if n == 0 {
         return CorrelationStats {
@@ -36,7 +58,7 @@ fn normalized_cross_correlation(note: &[f32], audio: &[f32], max_lag_bins: usize
 
     let norm_a = note.iter().map(|&v| (v as f64).powi(2)).sum::<f64>();
     let norm_b = audio.iter().map(|&v| (v as f64).powi(2)).sum::<f64>();
-    let denom = (norm_a * norm_b).sqrt();
+    let denom = expected_raw_peak(note, norm_a, norm_b);
 
     let mut best_lag = max_lag_bins;
     let mut best_val = f32::NEG_INFINITY;
@@ -56,12 +78,13 @@ fn normalized_cross_correlation(note: &[f32], audio: &[f32], max_lag_bins: usize
             }
         });
 
-        let value = if denom > 0.0 { (dot / denom).clamp(0.0, 1.0) as f32 } else { 0.0 };
+        let raw_score = dot.max(0.0);
+        let value = if denom > 0.0 { (raw_score / denom) as f32 } else { 0.0 };
         corr.push(value);
         if value > best_val {
             best_val = value;
             best_lag = lag_offset;
-            best_raw = dot;
+            best_raw = raw_score;
         }
     }
 
@@ -73,6 +96,25 @@ fn normalized_cross_correlation(note: &[f32], audio: &[f32], max_lag_bins: usize
         note_energy: norm_a,
         audio_energy: norm_b,
     }
+}
+
+fn expected_raw_peak(note: &[f32], note_energy: f64, audio_energy: f64) -> f64 {
+    if note_energy <= 0.0 || audio_energy <= 0.0 {
+        return 0.0;
+    }
+    let effective_count = effective_note_count(note, note_energy);
+    if effective_count <= 0.0 {
+        return 0.0;
+    }
+    (note_energy * audio_energy).sqrt() * 10.0_f64.powf(EXPECTED_LOG10_CS_INTERCEPT) * effective_count.powf(EFFECTIVE_COUNT_EXPONENT)
+}
+
+fn effective_note_count(note: &[f32], note_energy: f64) -> f64 {
+    if note_energy <= 0.0 {
+        return 0.0;
+    }
+    let note_l1 = note.iter().map(|&value| (value as f64).max(0.0)).sum::<f64>();
+    note_l1 * note_l1 / note_energy
 }
 
 /// Build a uniform time grid from `t_min` to `t_max` (inclusive) with step `dt`.
@@ -143,9 +185,9 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
         };
     }
 
-    // Normalized cross-correlation: now the best lag is a small residual around zero.
+    // Peak-ratio cross-correlation: now the best lag is a small residual around zero.
     let max_lag_bins = (config.search_range_sec / config.sampling_interval_sec).ceil() as usize;
-    let stats = normalized_cross_correlation(&note_samples, &audio_samples, max_lag_bins);
+    let stats = peak_ratio_cross_correlation(&note_samples, &audio_samples, max_lag_bins);
 
     // Residual lag, then add search_center_sec to get absolute offset.
     let best_lag_sec = (stats.best_lag as isize - max_lag_bins as isize) as f64 * config.sampling_interval_sec;

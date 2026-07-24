@@ -95,7 +95,7 @@ fn print_result(result: &AlignmentResult, verbose: bool) {
     }
     println!("═══════════════════════════════════════");
     println!("  Suggested offset: {:.3}s ({:.0}ms)", result.offset, result.offset * 1000.0);
-    println!("  Correlation:      {:.4}", result.correlation);
+    println!("  Match score:      {:.4}", result.correlation);
     println!("  Reliable:          {}", if result.reliable { "yes" } else { "no" });
     println!("═══════════════════════════════════════");
 }

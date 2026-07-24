@@ -77,13 +77,19 @@ impl StudyDataset {
     }
 
     pub fn score_distribution(&self, bin_size: f64) -> Histogram {
-        let bins = (1.0 / bin_size).ceil() as usize;
+        let max_score = self
+            .rows
+            .iter()
+            .map(|row| row.normalized_peak)
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .fold(1.0, f64::max);
+        let bins = (max_score / bin_size).ceil().max(1.0) as usize;
         self.grouped_histogram(bins, 0.0, bin_size, |row| {
             let value = row.normalized_peak;
             if !value.is_finite() {
                 return None;
             }
-            Some(((value.clamp(0.0, 1.0) / bin_size).floor() as usize).min(bins - 1))
+            Some(((value.max(0.0) / bin_size).floor() as usize).min(bins - 1))
         })
     }
 

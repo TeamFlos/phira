@@ -30,10 +30,14 @@ pub struct AlignmentResult {
     /// This value is in absolute time. To get the chart offset correction, subtract the search center:
     ///     chart_offset_correction = offset - search_center_sec
     pub offset: f64,
-    /// Normalized cross-correlation peak, in [0.0, 1.0].
+    /// Empirical peak-ratio match score.
     ///
-    /// Values near 0 suggest the note pattern has no discernible match in
-    /// the audio novelty, and the detected offset may be unreliable.
+    /// This is `raw_peak / estimated_raw_peak`, where the estimate is calibrated
+    /// from chart/audio energy and effective note count. A value near 1.0 means
+    /// average match evidence for the calibrated corpus; values above 1.0 are
+    /// allowed and indicate stronger-than-average evidence. This is no longer a
+    /// Cauchy-Schwarz correlation coefficient and has no theoretical upper
+    /// bound.
     pub correlation: f64,
     /// Unnormalized dot-product peak at the selected offset.
     pub raw_peak: f64,
@@ -41,9 +45,9 @@ pub struct AlignmentResult {
     pub note_energy: f64,
     /// Squared L2 energy of the sampled audio novelty signal used for this estimate.
     pub audio_energy: f64,
-    /// Whether the correlation exceeds the default reliability threshold.
+    /// Whether the empirical match score exceeds the default reliability threshold.
     pub reliable: bool,
-    /// Full correlation curve: (offset_seconds, normalized_correlation_score).
+    /// Full match-score curve: (offset_seconds, empirical_peak_ratio_score).
     /// Useful for visualization of the score-vs-offset landscape.
     /// The offset_seconds values are in absolute time, so the search center is at `search_center_sec`.
     pub correlation_curve: Vec<(f64, f32)>,

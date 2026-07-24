@@ -31,11 +31,11 @@ fn build_sections(dataset: &StudyDataset) -> Result<Vec<PlotSection>> {
             script: histogram_script(
                 HistogramPlot {
                     id: "score-distribution",
-                    title: "Preprocessed normalized score distribution by listing status",
-                    x_title: "normalized score",
+                    title: "Preprocessed match score distribution by listing status",
+                    x_title: "match score",
                     value_name: "score bin",
                     bar_width: 0.023,
-                    x_range: Some("[0, 1]"),
+                    x_range: None,
                     color_mode: HistogramColorMode::MeanAbsLag,
                 },
                 &score,
@@ -206,7 +206,7 @@ fn histogram_script(plot: HistogramPlot<'_>, hist: &Histogram) -> Result<String>
 fn histogram_trace(plot: &HistogramPlot<'_>, hist: &Histogram, series: &crate::study::HistogramSeries) -> Result<String> {
     let marker = match plot.color_mode {
         HistogramColorMode::MeanScore => format!(
-            "{{ color: {}, colorscale: {}, cmin: 0.55, cmax: 0.75, colorbar: {{ title: 'avg score' }}, line: {{ color: '#4f4f4f', width: 0.35 }} }}",
+            "{{ color: {}, colorscale: {}, cmin: 0.5, cmax: 1.5, colorbar: {{ title: 'avg score' }}, line: {{ color: '#4f4f4f', width: 0.35 }} }}",
             serde_json::to_string(&series.mean_score)?,
             mean_score_colorscale()
         ),

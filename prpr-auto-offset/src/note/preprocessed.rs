@@ -37,7 +37,7 @@ impl Default for NotePreprocessConfig {
             max_notes_per_time: 2.0,
             drag_run_weight: 0.2,
             min_drag_run_len: 5,
-            max_drag_interval_sec: 0.12,
+            max_drag_interval_sec: 0.06,
             equal_interval_tolerance_sec: 0.008,
             time_epsilon_sec: 1e-4,
             drag_weight: 1.0,
@@ -53,9 +53,34 @@ struct TimeGroup {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct WeightedNote {
-    time: f64,
-    weight: f32,
+pub struct PreprocessedNote {
+    pub time: f64,
+    pub weight: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct NotePreprocessor {
+    config: NotePreprocessConfig,
+}
+
+impl NotePreprocessor {
+    pub fn new() -> Self {
+        Self::with_config(NotePreprocessConfig::default())
+    }
+
+    pub fn with_config(config: NotePreprocessConfig) -> Self {
+        Self { config }
+    }
+
+    pub fn preprocess(&self, notes: Vec<NoteEvent>) -> Vec<PreprocessedNote> {
+        preprocess_notes(notes, self.config)
+    }
+}
+
+impl Default for NotePreprocessor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// A Gaussian note signal with chart-note preprocessing for auto-offset.
@@ -66,7 +91,7 @@ struct WeightedNote {
 /// spaced drag runs that often behave more like visual chart texture than
 /// audio onsets.
 pub struct PreprocessedNoteGaussian {
-    notes: Vec<WeightedNote>,
+    notes: Vec<PreprocessedNote>,
     sigma: f64,
 }
 
@@ -76,12 +101,17 @@ impl PreprocessedNoteGaussian {
     }
 
     pub fn with_config(notes: Vec<NoteEvent>, sigma: f64, config: NotePreprocessConfig) -> Self {
+        Self::from_preprocessed(NotePreprocessor::with_config(config).preprocess(notes), sigma)
+    }
+
+    pub fn from_preprocessed(notes: Vec<PreprocessedNote>, sigma: f64) -> Self {
         assert!(sigma.is_finite(), "sigma must be finite");
         assert!(sigma > 0.0, "sigma must be positive");
-        Self {
-            notes: preprocess_notes(notes, config),
-            sigma,
-        }
+        Self { notes, sigma }
+    }
+
+    pub fn preprocessed_notes(&self) -> &[PreprocessedNote] {
+        &self.notes
     }
 }
 
@@ -105,7 +135,7 @@ impl Signal for PreprocessedNoteGaussian {
     }
 }
 
-fn preprocess_notes(mut notes: Vec<NoteEvent>, config: NotePreprocessConfig) -> Vec<WeightedNote> {
+fn preprocess_notes(mut notes: Vec<NoteEvent>, config: NotePreprocessConfig) -> Vec<PreprocessedNote> {
     notes.retain(|note| note.time.is_finite() && note.time >= 0.0);
     notes.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
 
@@ -122,7 +152,7 @@ fn preprocess_notes(mut notes: Vec<NoteEvent>, config: NotePreprocessConfig) -> 
         let weight = group.others as f32 + group.drags as f32 * drag_weight;
         let weight = weight.min(config.max_notes_per_time.max(0.0));
         if weight > 0.0 {
-            output.push(WeightedNote { time: group.time, weight });
+            output.push(PreprocessedNote { time: group.time, weight });
         }
     }
 
@@ -243,6 +273,6 @@ mod tests {
             NoteEvent::new(0.25, AutoOffsetNoteKind::Drag),
         ];
         let signal = PreprocessedNoteGaussian::new(notes, 0.001);
-        assert!((signal.samples(&[0.00])[0] - 0.8).abs() < 1e-6);
+        assert!((signal.samples(&[0.00])[0] - 1.0).abs() < 1e-6);
     }
 }

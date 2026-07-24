@@ -42,7 +42,7 @@ impl Signal for SparseSignal {
 }
 
 #[test]
-fn normalized_correlation_is_amplitude_scale_invariant() {
+fn peak_ratio_score_is_amplitude_scale_invariant() {
     let config = AlignConfig {
         search_range_sec: 0.2,
         sampling_interval_sec: 0.1,
@@ -62,10 +62,10 @@ fn normalized_correlation_is_amplitude_scale_invariant() {
     let louder_result = estimate_with(&louder_audio, &note, 2.0, &config);
 
     assert_eq!(result.offset, 0.0);
-    assert!((result.correlation - 1.0).abs() < 1e-6);
+    assert!(result.correlation > 0.0);
     assert_eq!(louder_result.offset, result.offset);
     assert!((louder_result.correlation - result.correlation).abs() < 1e-6);
-    assert!(result.correlation_curve.iter().all(|&(_, v)| (0.0..=1.0).contains(&v)));
+    assert!(result.correlation_curve.iter().all(|&(_, v)| v >= 0.0));
 }
 
 #[derive(Debug, Clone, Copy)]
