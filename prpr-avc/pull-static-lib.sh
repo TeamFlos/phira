@@ -4,6 +4,8 @@ TARGETS=(
     "aarch64-apple-darwin"
     "aarch64-apple-ios-sim"
     "aarch64-apple-ios"
+    "x86_64-apple-darwin"
+    "x86_64-apple-ios"
     "aarch64-unknown-linux-ohos"
     "x86_64-unknown-linux-gnu"
     "x86_64-unknown-linux-musl"
