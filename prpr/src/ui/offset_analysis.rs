@@ -14,6 +14,12 @@ use std::{
 /// Ratio of graph content width to viewport width.
 /// The visible viewport shows `o_range / GRAPH_CONTENT_RATIO` seconds of offset data.
 const GRAPH_CONTENT_RATIO: f32 = 2.0;
+const MIN_SCORE_TOP: f32 = 0.4;
+
+// In a random sample of 2000 charts, only 12 charts scored below 0.35,
+// about 6 per thousand. The 0.6 and 0.75 lines cover the range where most
+// charts land.
+const SCORE_REFERENCE_LINES: [(f32, &str); 3] = [(0.35, "0.35"), (0.6, "0.6"), (0.75, "0.75")];
 
 #[derive(Clone)]
 enum OffsetAnalysisState {
@@ -270,7 +276,7 @@ fn draw_threshold_labels(ui: &mut Ui, graph_rect: Rect, result: &AlignmentResult
     let v_pad = 0.08;
     let inner_y = graph_rect.h * v_pad;
     let inner_h = graph_rect.h * (1.0 - 2.0 * v_pad);
-    for (value, label) in [(0.2_f32, "0.2"), (0.6_f32, "0.6")] {
+    for (value, label) in SCORE_REFERENCE_LINES {
         if value > s_top {
             continue;
         }
@@ -286,7 +292,7 @@ fn draw_threshold_labels(ui: &mut Ui, graph_rect: Rect, result: &AlignmentResult
 }
 
 fn offset_graph_score_top(result: &AlignmentResult) -> f32 {
-    peak_match_score(result).max(0.25)
+    peak_match_score(result).max(MIN_SCORE_TOP)
 }
 
 fn peak_match_score(result: &AlignmentResult) -> f32 {
@@ -312,7 +318,7 @@ fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rec
 
     draw_offset_time_grid(ui, rect, min_o, o_range, chart_offset as f64, line_w);
 
-    for value in [0.2_f32, 0.6_f32] {
+    for (value, _) in SCORE_REFERENCE_LINES {
         if value > s_top {
             continue;
         }
