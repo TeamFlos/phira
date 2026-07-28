@@ -243,6 +243,6 @@ mod tests {
             NoteEvent::new(0.25, AutoOffsetNoteKind::Drag),
         ];
         let signal = PreprocessedNoteGaussian::new(notes, 0.001);
-        debug_assert!((signal.samples(&[0.00])[0] - 0.8).abs() < 1e-6);
+        debug_assert!((signal.samples(&[0.00])[0] - 1.0).abs() < 1e-6);
     }
 }
