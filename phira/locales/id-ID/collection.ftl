@@ -1,0 +1,3 @@
+label = KOLEKSI
+wait-for-more = Segera…
+name-c1 = Reruntuhan Masa Depan
