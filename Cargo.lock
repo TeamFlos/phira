@@ -3609,24 +3609,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prpr-auto-offset-study"
-version = "0.8.1"
-dependencies = [
- "anyhow",
- "clap",
- "futures-util",
- "prpr",
- "prpr-auto-offset",
- "prpr-avc",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "tokio",
- "zip",
-]
-
-[[package]]
 name = "prpr-avc"
 version = "0.1.0"
 dependencies = [
