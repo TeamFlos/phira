@@ -229,6 +229,15 @@ impl Client {
     }
 
     pub async fn login(params: LoginParams<'_>) -> Result<()> {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct FullLoginParams<'a> {
+            #[serde(flatten)]
+            inner: LoginParams<'a>,
+            #[serde(rename = "clientVersion")]
+            client_version: &'static str,
+        }
+
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct Resp {
@@ -236,7 +245,16 @@ impl Client {
             token: String,
             refresh_token: String,
         }
-        let resp: Resp = recv_raw(Self::post("/login", &params)).await?.json().await?;
+        let resp: Resp = recv_raw(Self::post(
+            "/login",
+            &FullLoginParams {
+                inner: params,
+                client_version: env!("CARGO_PKG_VERSION"),
+            },
+        ))
+        .await?
+        .json()
+        .await?;
 
         Self::store_login(resp.id, resp.token, resp.refresh_token).await?;
         Ok(())
