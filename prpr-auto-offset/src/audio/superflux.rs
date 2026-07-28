@@ -41,10 +41,10 @@ impl SuperFlux {
     /// * `window_size` - STFT window size in samples (default: 2048).
     /// * `hop_size` - STFT hop size in samples (default: 1024).
     pub fn new(pcm: &[f32], sample_rate: u32, window_size: usize, hop_size: usize) -> Self {
-        assert!(sample_rate > 0, "sample_rate must be positive");
-        assert!(window_size.is_power_of_two(), "window_size must be a power of two");
-        assert!(window_size > 0, "window_size must be positive");
-        assert!(hop_size > 0, "hop_size must be positive");
+        debug_assert!(sample_rate > 0, "sample_rate must be positive");
+        debug_assert!(window_size.is_power_of_two(), "window_size must be a power of two");
+        debug_assert!(window_size > 0, "window_size must be positive");
+        debug_assert!(hop_size > 0, "hop_size must be positive");
         let native_dt = hop_size as f64 / sample_rate as f64;
         let native_t0 = window_size as f64 / sample_rate as f64 / 2.0;
 
@@ -180,11 +180,11 @@ impl Filterbank {
     /// * `fmax` - Maximum frequency in Hz (default: 17000, capped at Nyquist).
     /// * `equal` - If true, normalize each triangular filter to have area 1.
     pub fn new(sample_rate: u32, window_size: usize, bands_per_octave: usize, fmin: f32, fmax: f32, equal: bool) -> Self {
-        assert!(sample_rate > 0, "sample_rate must be positive");
-        assert!(window_size > 0, "window_size must be positive");
-        assert!(bands_per_octave > 0, "bands_per_octave must be positive");
-        assert!(fmin.is_finite() && fmin > 0.0, "fmin must be finite and positive");
-        assert!(fmax.is_finite() && fmax > fmin, "fmax must be finite and greater than fmin");
+        debug_assert!(sample_rate > 0, "sample_rate must be positive");
+        debug_assert!(window_size > 0, "window_size must be positive");
+        debug_assert!(bands_per_octave > 0, "bands_per_octave must be positive");
+        debug_assert!(fmin.is_finite() && fmin > 0.0, "fmin must be finite and positive");
+        debug_assert!(fmax.is_finite() && fmax > fmin, "fmax must be finite and greater than fmin");
         let n_fft_bins = window_size / 2;
         let fmax = fmax.min(sample_rate as f32 / 2.0);
 
@@ -197,7 +197,7 @@ impl Filterbank {
         bins.retain(|&b| b < n_fft_bins);
 
         let n_bands = bins.len().saturating_sub(2);
-        assert!(n_bands >= 3, "cannot create filterbank with less than 3 frequencies");
+        debug_assert!(n_bands >= 3, "cannot create filterbank with less than 3 frequencies");
 
         let mut weights = vec![vec![0.0f32; n_bands]; n_fft_bins];
 
@@ -255,12 +255,12 @@ pub fn compute_spectrogram(
     mul: f32,
     add: f32,
 ) -> (Vec<Vec<f32>>, f32) {
-    assert!(sample_rate > 0, "sample_rate must be positive");
-    assert!(window_size.is_power_of_two(), "window_size must be a power of two");
-    assert!(window_size > 0, "window_size must be positive");
-    assert!(hop_size > 0, "hop_size must be positive");
-    assert!(mul.is_finite(), "mul must be finite");
-    assert!(add.is_finite(), "add must be finite");
+    debug_assert!(sample_rate > 0, "sample_rate must be positive");
+    debug_assert!(window_size.is_power_of_two(), "window_size must be a power of two");
+    debug_assert!(window_size > 0, "window_size must be positive");
+    debug_assert!(hop_size > 0, "hop_size must be positive");
+    debug_assert!(mul.is_finite(), "mul must be finite");
+    debug_assert!(add.is_finite(), "add must be finite");
 
     use rayon::prelude::*;
     use realfft::RealFftPlanner;

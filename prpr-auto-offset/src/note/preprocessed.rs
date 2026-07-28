@@ -76,8 +76,8 @@ impl PreprocessedNoteGaussian {
     }
 
     pub fn with_config(notes: Vec<NoteEvent>, sigma: f64, config: NotePreprocessConfig) -> Self {
-        assert!(sigma.is_finite(), "sigma must be finite");
-        assert!(sigma > 0.0, "sigma must be positive");
+        debug_assert!(sigma.is_finite(), "sigma must be finite");
+        debug_assert!(sigma > 0.0, "sigma must be positive");
         Self {
             notes: preprocess_notes(notes, config),
             sigma,
@@ -222,14 +222,14 @@ mod tests {
             NoteEvent::new(1.0, AutoOffsetNoteKind::Drag),
         ];
         let signal = PreprocessedNoteGaussian::new(notes, 0.001);
-        assert!((signal.samples(&[1.0])[0] - 2.0).abs() < 1e-6);
+        debug_assert!((signal.samples(&[1.0])[0] - 2.0).abs() < 1e-6);
     }
 
     #[test]
     fn downweights_dense_even_drag_runs() {
         let notes = (0..5).map(|i| NoteEvent::new(i as f64 * 0.05, AutoOffsetNoteKind::Drag)).collect();
         let signal = PreprocessedNoteGaussian::new(notes, 0.001);
-        assert!((signal.samples(&[0.10])[0] - 0.2).abs() < 1e-6);
+        debug_assert!((signal.samples(&[0.10])[0] - 0.2).abs() < 1e-6);
     }
 
     #[test]
@@ -243,6 +243,6 @@ mod tests {
             NoteEvent::new(0.25, AutoOffsetNoteKind::Drag),
         ];
         let signal = PreprocessedNoteGaussian::new(notes, 0.001);
-        assert!((signal.samples(&[0.00])[0] - 0.8).abs() < 1e-6);
+        debug_assert!((signal.samples(&[0.00])[0] - 0.8).abs() < 1e-6);
     }
 }

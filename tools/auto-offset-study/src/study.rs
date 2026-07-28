@@ -35,7 +35,7 @@ pub struct EnergySpace {
     pub plane_z: Vec<Vec<f64>>,
     pub color_abs: f64,
 }
-
+#[allow(clippy::len_without_is_empty)]
 impl StudyDataset {
     pub fn new(rows: Vec<StudyRow>) -> Self {
         Self { rows, plane: None }

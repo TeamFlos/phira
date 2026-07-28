@@ -13,8 +13,8 @@ pub struct NoteGaussian {
 
 impl NoteGaussian {
     pub fn new(times: Vec<f64>, sigma: f64) -> Self {
-        assert!(sigma.is_finite(), "sigma must be finite");
-        assert!(sigma > 0.0, "sigma must be positive");
+        debug_assert!(sigma.is_finite(), "sigma must be finite");
+        debug_assert!(sigma > 0.0, "sigma must be positive");
         Self { times, sigma }
     }
 }
