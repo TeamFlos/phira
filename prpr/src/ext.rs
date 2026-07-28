@@ -83,10 +83,32 @@ impl RectExt for Rect {
     }
 }
 
+static PENDING_TEXTURE_DELETIONS: Lazy<Mutex<Vec<Texture2D>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+/// Deletes all textures queued up by `SafeTexture` drops so far.
+///
+/// Deleting a GL texture from a thread other than the one owning the GL
+/// context crashes, so `SafeTextureInner::drop` cannot call `delete`
+/// directly (it may run on any thread, e.g. when a background task drops
+/// the last `Arc`). Instead it queues the texture here, and this must be
+/// called periodically from the main (rendering) thread.
+pub fn flush_pending_texture_deletions() {
+    let textures = std::mem::take(&mut *PENDING_TEXTURE_DELETIONS.lock().unwrap());
+    for texture in textures {
+        texture.delete();
+    }
+}
+
+/// Queues a texture for deletion on the main thread instead of deleting it
+/// immediately. See [`flush_pending_texture_deletions`].
+pub fn queue_texture_deletion(texture: Texture2D) {
+    PENDING_TEXTURE_DELETIONS.lock().unwrap().push(texture);
+}
+
 struct SafeTextureInner(Texture2D);
 impl Drop for SafeTextureInner {
     fn drop(&mut self) {
-        self.0.delete()
+        queue_texture_deletion(self.0);
     }
 }
 

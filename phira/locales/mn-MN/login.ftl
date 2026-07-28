@@ -5,9 +5,9 @@ register = Бүртгүүлэх
 email = Имэйл хаяг
 username = Хэрэглэгчийн нэр
 password = Нууц үг
-name-length-req = Хэрэглэгчийн нэрийн урт 4-20 тэмдэгт байх ёстой
+name-length-req = Хэрэглэгчийн нэрийн урт { $min }-{ $max } тэмдэгт байх ёстой
 name-has-illegal-char = Хэрэглэгчийн нэрэнд дэмжигдээгүй үсэг байна
-pwd-length-req = Нууц үгийн урт 6-26 тэмдэгт байх ёстой
+pwd-length-req = Нууц үгийн урт { $min }-{ $max } тэмдэгт байх ёстой
 illegal-email = Имэйл хаяг буруу байна
 action-success =
     { $action ->

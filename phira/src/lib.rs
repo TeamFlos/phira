@@ -5,6 +5,7 @@ prpr_l10n::tl_file!("common" ttl crate::);
 mod inner;
 
 mod anim;
+mod censor;
 mod charts_view;
 mod client;
 mod data;
@@ -23,7 +24,6 @@ mod threed;
 mod uml;
 
 use anyhow::Result;
-use core::f64;
 use data::Data;
 use macroquad::prelude::*;
 use prpr::{
@@ -31,12 +31,14 @@ use prpr::{
     core::{init_assets, PGR_FONT},
     ext::SafeTexture,
     log,
-    scene::{show_error, show_message},
+    scene::show_error,
     time::TimeManager,
-    ui::{FontArc, TextPainter},
+    ui::{cleanup_audio, FontArc, TextPainter},
     Main,
 };
-use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
+use prpr_l10n::set_prefered_locale;
+#[cfg(not(feature = "hykb"))]
+use prpr_l10n::{GLOBAL, LANGS};
 use scene::MainScene;
 use std::{
     collections::VecDeque,
@@ -52,7 +54,6 @@ use jni::{
 };
 
 static MESSAGES_TX: Mutex<Option<mpsc::Sender<bool>>> = Mutex::new(None);
-static AA_TX: Mutex<Option<mpsc::Sender<i32>>> = Mutex::new(None);
 static DATA_PATH: Mutex<Option<String>> = Mutex::new(None);
 static CACHE_DIR: Mutex<Option<String>> = Mutex::new(None);
 pub static mut DATA: Option<Data> = None;
@@ -79,10 +80,14 @@ pub async fn load_res_tex(name: &str) -> SafeTexture {
 }
 
 pub fn sync_data() {
-    set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     if get_data().language.is_none() {
-        get_data_mut().language = Some(LANGS[GLOBAL.order.lock().unwrap()[0]].to_owned());
+        #[cfg(feature = "hykb")]
+        let default_lang = "zh-CN".to_owned();
+        #[cfg(not(feature = "hykb"))]
+        let default_lang = LANGS[GLOBAL.order.lock().unwrap()[0]].to_owned();
+        get_data_mut().language = Some(default_lang);
     }
+    set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     let _ = client::set_access_token_sync(get_data().tokens.as_ref().map(|it| &*it.0));
 }
 
@@ -200,15 +205,13 @@ async fn the_main() -> Result<()> {
     sync_data();
     save_data()?;
 
+    // Warm up the offline banned-word automaton so local edits can check
+    // synchronously. No-op without the `aa` feature.
+    tokio::spawn(censor::preload());
+
     let rx = {
         let (tx, rx) = mpsc::channel();
         *MESSAGES_TX.lock().unwrap() = Some(tx);
-        rx
-    };
-
-    let aa_rx = {
-        let (tx, rx) = mpsc::channel();
-        *AA_TX.lock().unwrap() = Some(tx);
         rx
     };
 
@@ -216,10 +219,6 @@ async fn the_main() -> Result<()> {
         .quad_context
         .display_mut()
         .set_pause_resume_listener(on_pause_resume);
-
-    if let Some(me) = &get_data().me {
-        anti_addiction_action("startup", Some(format!("phira-{}", me.id)));
-    }
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
     PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font, None)));
@@ -237,7 +236,7 @@ async fn the_main() -> Result<()> {
     let mut last_frame_start = f32::NAN;
     let mut fps_time_sum = 0.;
 
-    let mut exit_time = f64::INFINITY;
+    let mut paused = false;
 
     'app: loop {
         let frame_start = tm.real_time();
@@ -251,15 +250,24 @@ async fn the_main() -> Result<()> {
         }
         last_frame_start = frame_start as f32;
         let res = || -> Result<()> {
-            main.update()?;
-            main.render(&mut painter)?;
-            if let Ok(paused) = rx.try_recv() {
-                if paused {
+            let signal = if paused {
+                rx.recv_timeout(std::time::Duration::from_secs(1)).ok()
+            } else {
+                rx.try_recv().ok()
+            };
+            if let Some(msg) = signal {
+                paused = msg;
+                if msg {
                     main.pause()?;
                 } else {
                     main.resume()?;
                 }
             }
+            if !paused {
+                main.update()?;
+                main.render(&mut painter)?;
+            }
+            prpr::ext::flush_pending_texture_deletions();
             Ok(())
         }();
         if let Err(err) = res {
@@ -270,47 +278,7 @@ async fn the_main() -> Result<()> {
             break 'app;
         }
 
-        if let Ok(code) = aa_rx.try_recv() {
-            info!("anti addiction callback: {code}");
-            match code {
-                // login success
-                500 => {
-                    anti_addiction_action("enterGame", None);
-                }
-                // switch account
-                1001 => {
-                    anti_addiction_action("exit", None);
-                    get_data_mut().me = None;
-                    get_data_mut().tokens = None;
-                    let _ = save_data();
-                    sync_data();
-                    use crate::login::L10N_LOCAL;
-                    show_message(crate::login::tl!("logged-out")).ok();
-                }
-                // period restrict
-                1030 => {
-                    show_and_exit("你当前为未成年账号，已被纳入防沉迷系统。根据国家相关规定，周五、周六、周日及法定节假日 20 点 - 21 点之外为健康保护时段。当前时间段无法游玩，请合理安排时间。");
-                    exit_time = frame_start;
-                }
-                // duration limit
-                1050 => {
-                    show_and_exit("你当前为未成年账号，已被纳入防沉迷系统。根据国家相关规定，周五、周六、周日及法定节假日 20 点 - 21 点之外为健康保护时段。你已达时间限制，无法继续游戏。");
-                    exit_time = frame_start;
-                }
-                // stopped
-                9002 => {
-                    show_and_exit("必须实名认证方可进行游戏。");
-                    exit_time = frame_start;
-                }
-                _ => {}
-            }
-        }
-
         let t = tm.real_time();
-
-        if t > exit_time + 5. {
-            break;
-        }
 
         let fps_now = t as i32;
         if fps_now != fps_time {
@@ -322,16 +290,11 @@ async fn the_main() -> Result<()> {
             }
         }
 
+        // While backgrounded the scene is paused; the blocking `recv_timeout`
+        // above already parks this thread, so nothing extra is needed here.
         next_frame().await;
     }
     Ok(())
-}
-
-fn show_and_exit(msg: &str) {
-    prpr::ui::Dialog::simple(msg)
-        .buttons(vec!["确定".to_owned()])
-        .listener(|_, _| std::process::exit(0))
-        .show();
 }
 
 fn build_global_window_conf() -> Conf {
@@ -362,6 +325,7 @@ pub extern "C" fn quad_main() {
             error!(?err, "global error");
         }
     });
+    cleanup_audio();
 }
 
 fn on_pause_resume(pause: bool) {
@@ -381,7 +345,6 @@ pub extern "C" fn Java_quad_1native_QuadNative_initializeEnvironment(env: EnvUno
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: EnvUnowned, _class: JClass) {
-    anti_addiction_action("leaveGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(true);
     }
@@ -390,7 +353,6 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnPause(_env: EnvUnow
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: EnvUnowned, _class: JClass) {
-    anti_addiction_action("enterGame", None);
     if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
         let _ = tx.send(false);
     }
@@ -399,7 +361,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnResume(_env: EnvUno
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_prprActivityOnDestroy(_env: EnvUnowned, _class: JClass) {
-    // std::process::exit(0);
+    std::process::exit(0);
 }
 
 #[cfg(target_os = "android")]
@@ -452,37 +414,152 @@ pub extern "C" fn Java_quad_1native_QuadNative_setInputText(_env: EnvUnowned, _c
     INPUT_TEXT.lock().unwrap().1 = Some(text.to_string());
 }
 
-#[cfg(not(all(target_os = "android", feature = "aa")))]
-pub fn anti_addiction_action(_action: &str, _arg: Option<String>) {}
+/// Credentials obtained from the native HYKB (好游快爆) login SDK.
+pub struct HykbCredential {
+    /// SDK result code: 0 on success, otherwise an error / user cancellation.
+    pub code: i32,
+    pub uid: i64,
+    pub nick: String,
+    pub access_token: String,
+}
 
-#[cfg(all(target_os = "android", feature = "aa"))]
-pub fn anti_addiction_action(action: &str, arg: Option<String>) {
-    use jni::{jni_sig, jni_str, objects::JObject, vm::JavaVM};
+impl HykbCredential {
+    /// Map the SDK result code to an error, or yield the credential on success.
+    /// Centralizes the code → user-facing message translation shared by every
+    /// HYKB login/bind entry point.
+    #[cfg(feature = "hykb")]
+    pub fn ok_or_err(self) -> Result<Self> {
+        if self.code == 0 {
+            Ok(self)
+        } else {
+            // A non-zero code is any failure the HYKB SDK reports: 2001 auth
+            // failed, 2002 login failed, 2003 cancelled, 2004 exception, 2005
+            // developer-requested exit / account logout. A HYKB build mandates a
+            // valid, matching HYKB session, so every one of these must tear the
+            // in-game session down — otherwise cancelling the HYKB prompt during
+            // a silent re-verify would leave the player signed in and bypass the
+            // gate entirely.
+            force_logout();
+            anyhow::bail!("{}", crate::ttl!("hykb-login-cancelled"))
+        }
+    }
+}
+
+/// Slot for the pending HYKB login result. The native callback fulfills it.
+static HYKB_TX: Mutex<Option<tokio::sync::oneshot::Sender<HykbCredential>>> = Mutex::new(None);
+
+/// Call a no-arg `void` method on the Android host activity (the HYKB shell).
+#[cfg(all(target_os = "android", feature = "hykb"))]
+fn call_activity_void(method: &'static jni::strings::JNIStr) {
+    use jni::{jni_sig, objects::JObject, vm::JavaVM};
 
     JavaVM::singleton()
         .unwrap()
         .attach_current_thread(|env| -> jni::errors::Result<()> {
             let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
-            let action = env.new_string(action)?;
-            #[allow(clippy::redundant_closure)]
-            let arg = arg
-                .as_ref()
-                .map(|it| env.new_string(it))
-                .transpose()?
-                .map_or_else(|| JObject::null(), |s| s.into());
-            env.call_method(ctx, jni_str!("antiAddiction"), jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"), &[(&action).into(), (&arg).into()])?;
+            env.call_method(ctx, method, jni_sig!("()V"), &[])?;
             Ok(())
         })
         .unwrap();
 }
 
+/// Ask the Android shell to pop the HYKB account picker (`MainActivity.hykbSwitchAccount`).
+/// Used by the explicit login / switch-account flow.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+fn request_hykb_login() {
+    call_activity_void(jni::jni_str!("hykbSwitchAccount"));
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+fn request_hykb_login() {}
+
+/// Ask the Android shell to sign in using the cached HYKB account without
+/// popping the picker (`MainActivity.hykbLogin`). The credentials the SDK
+/// reports flow back through `HYKB_TX`, so the caller can verify them against
+/// the restored Phira session. Used by the silent startup restore.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+fn request_hykb_login_silent() {
+    call_activity_void(jni::jni_str!("hykbLogin"));
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+fn request_hykb_login_silent() {}
+
+/// Tell the native HYKB SDK to sign out (`MainActivity.hykbLogout`). Called when the
+/// player logs out from their profile.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+pub fn hykb_logout() {
+    call_activity_void(jni::jni_str!("hykbLogout"));
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+pub fn hykb_logout() {}
+
+/// Tear down the local session: sign out of the native HYKB SDK, clear the
+/// stored account and tokens, then re-sync. Shared by every path that must
+/// reject a login — a failed/cancelled HYKB verification, a uid mismatch, or
+/// the player logging out from their profile.
+pub fn force_logout() {
+    hykb_logout();
+    get_data_mut().me = None;
+    get_data_mut().tokens = None;
+    let _ = save_data();
+    sync_data();
+}
+
+/// Trigger the native HYKB login and await its credentials.
+#[allow(unused)]
+pub async fn obtain_hykb_credential() -> Result<HykbCredential> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    *HYKB_TX.lock().unwrap() = Some(tx);
+    request_hykb_login();
+    let cred = rx.await.map_err(|_| anyhow::anyhow!("hykb login cancelled"))?;
+    Ok(cred)
+}
+
+/// Silently restore the HYKB session from the cached account and await its
+/// credentials. Unlike [`obtain_hykb_credential`], this does not pop the account
+/// picker; used by the blocking startup check to verify the restored session.
+#[allow(unused)]
+pub async fn obtain_hykb_credential_silent() -> Result<HykbCredential> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    *HYKB_TX.lock().unwrap() = Some(tx);
+    request_hykb_login_silent();
+    let cred = rx.await.map_err(|_| anyhow::anyhow!("hykb login cancelled"))?;
+    Ok(cred)
+}
+
 #[cfg(target_os = "android")]
 #[no_mangle]
-pub extern "C" fn Java_quad_1native_QuadNative_antiAddictionCallback(_env: EnvUnowned, _class: JClass, #[allow(dead_code)] code: jint) {
-    if cfg!(feature = "aa") {
-        if let Some(tx) = AA_TX.lock().unwrap().as_mut() {
-            let _ = tx.send(code);
-        }
+pub extern "C" fn Java_quad_1native_QuadNative_hykbLoginCallback(
+    _env: EnvUnowned,
+    _class: JClass,
+    code: jint,
+    uid: jni::sys::jlong,
+    nick: JString,
+    access_token: JString,
+) {
+    let nick = if nick.is_null() { String::new() } else { nick.to_string() };
+    let access_token = if access_token.is_null() {
+        String::new()
+    } else {
+        access_token.to_string()
+    };
+    if let Some(tx) = HYKB_TX.lock().unwrap().take() {
+        let _ = tx.send(HykbCredential {
+            code: code as i32,
+            uid: uid as i64,
+            nick,
+            access_token,
+        });
+    } else if code == 2005 {
+        // No login is in flight, so this is the SDK's asynchronous
+        // anti-addiction "exit game" action: the player hit a play-time limit
+        // and chose to quit from the SDK's own dialog. Honor it by exiting.
+        // Other async codes (e.g. 2008 "continue playing") are handled inside
+        // the SDK and need no response here. A request-less success (code 0, the
+        // SDK switching accounts on its own) is likewise ignored: any signed-in
+        // HYKB account is accepted, so a switch no longer tears the session down.
     }
 }
 
@@ -505,4 +582,20 @@ pub fn set_chosen_file(file: String) {
 pub fn mark_auto_import() {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().0 = Some("_import_auto".to_owned());
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn on_foreground() {
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(false);
+    }
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn on_background() {
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(true);
+    }
 }

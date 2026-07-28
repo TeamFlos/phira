@@ -1,16 +1,23 @@
 prpr_l10n::tl_file!("profile");
 
+#[cfg(feature = "hykb")]
+use super::confirm_dialog;
 use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
-    anti_addiction_action,
     client::{recv_raw, Client, Record, User, UserManager},
-    get_data, get_data_mut,
+    get_data, get_data_mut, hykb_logout,
     page::{Fader, Illustration, SFader},
     save_data, sync_data,
 };
 use anyhow::Result;
 use chrono::Local;
+#[cfg(feature = "hykb")]
+use inputbox::InputBox;
 use macroquad::prelude::*;
+#[cfg(feature = "hykb")]
+use prpr::scene::{request_input, return_input, take_input};
+#[cfg(feature = "hykb")]
+use prpr::ui::Dialog;
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
@@ -50,6 +57,16 @@ pub struct ProfileScene {
     btn_open_web: DRectButton,
     btn_logout: DRectButton,
     btn_delete: DRectButton,
+    #[cfg(feature = "hykb")]
+    btn_hykb: DRectButton,
+    #[cfg(feature = "hykb")]
+    hykb_task: Option<Task<Result<()>>>,
+    #[cfg(feature = "hykb")]
+    should_unbind_hykb: Arc<AtomicBool>,
+    #[cfg(feature = "hykb")]
+    btn_transfer: DRectButton,
+    #[cfg(feature = "hykb")]
+    transfer_task: Option<Task<Result<()>>>,
 
     load_task: Option<Task<Result<Arc<User>>>>,
 
@@ -91,6 +108,16 @@ impl ProfileScene {
             btn_open_web: DRectButton::new(),
             btn_logout: DRectButton::new(),
             btn_delete: DRectButton::new(),
+            #[cfg(feature = "hykb")]
+            btn_hykb: DRectButton::new(),
+            #[cfg(feature = "hykb")]
+            hykb_task: None,
+            #[cfg(feature = "hykb")]
+            should_unbind_hykb: Arc::default(),
+            #[cfg(feature = "hykb")]
+            btn_transfer: DRectButton::new(),
+            #[cfg(feature = "hykb")]
+            transfer_task: None,
 
             load_task,
 
@@ -165,7 +192,9 @@ impl Scene for ProfileScene {
                             match badge.as_str() {
                                 "admin" => self.user_badges.push(tl!("badge-admin").into_owned()),
                                 "sponsor" => self.user_badges.push(tl!("badge-sponsor").into_owned()),
-                                _ => {}
+                                _ => self
+                                    .user_badges
+                                    .push(res.badge_names.get(badge).cloned().unwrap_or_else(|| badge.clone())),
                             }
                         }
                         self.user = Some(res);
@@ -217,6 +246,63 @@ impl Scene for ProfileScene {
             }
         }
 
+        #[cfg(feature = "hykb")]
+        if let Some(task) = &mut self.hykb_task {
+            if let Some(res) = task.take() {
+                let bound = get_data().me.as_ref().and_then(|it| it.hykb_uid).is_some();
+                match res {
+                    Err(err) => show_error(err.context(tl!("hykb-action-failed"))),
+                    // `bound` now reflects the post-action state (me was refreshed).
+                    Ok(_) => {
+                        show_message(if bound { tl!("hykb-bind-success") } else { tl!("hykb-unbind-success") }).ok();
+                        Client::clear_cache::<User>(self.id)?;
+                        UserManager::clear_cache(self.id)?;
+                        UserManager::request(self.id);
+                        // On a HYKB build an unbound account can no longer stay
+                        // logged in, so unbinding logs the player out and returns
+                        // to the main scene.
+                        if !bound {
+                            hykb_logout();
+                            get_data_mut().me = None;
+                            get_data_mut().tokens = None;
+                            save_data()?;
+                            sync_data();
+                            self.sf.next(t, NextScene::Pop);
+                        }
+                    }
+                }
+                self.hykb_task = None;
+            }
+        }
+
+        #[cfg(feature = "hykb")]
+        if let Some((id, text)) = take_input() {
+            if id == "transfer-email" {
+                let email = text.trim().to_owned();
+                if !email.is_empty() {
+                    self.transfer_task = Some(Task::new(async move {
+                        Client::transfer_request(&email).await?;
+                        Ok(())
+                    }));
+                }
+            } else {
+                return_input(id, text);
+            }
+        }
+
+        #[cfg(feature = "hykb")]
+        if let Some(task) = &mut self.transfer_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("transfer-failed"))),
+                    Ok(_) => {
+                        Dialog::plain(tl!("hykb-transfer"), tl!("transfer-email-sent")).show();
+                    }
+                }
+                self.transfer_task = None;
+            }
+        }
+
         if let Some(task) = &mut self.record_task {
             if let Some(res) = task.take() {
                 match res {
@@ -233,6 +319,21 @@ impl Scene for ProfileScene {
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.delete_task = Some(Task::new(async move {
                 Client::post("/delete-account", &()).send().await?.error_for_status()?;
+                Ok(())
+            }));
+        }
+
+        #[cfg(feature = "hykb")]
+        if self.hykb_task.is_none() && self.should_unbind_hykb.fetch_and(false, Ordering::Relaxed) {
+            self.hykb_task = Some(Task::new(async move {
+                Client::unbind_hykb().await?;
+                // Use the unchecked fetch: the account is now unbound, which the
+                // guarded get_me would reject. The success handler logs out and
+                // returns to the main scene, so this just refreshes the state that
+                // decides the bind/unbind branch there.
+                let me = Client::get_me_unchecked().await?;
+                get_data_mut().me = Some(me);
+                save_data()?;
                 Ok(())
             }));
         }
@@ -274,7 +375,7 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_logout.touch(touch, t) {
-            anti_addiction_action("exit", None);
+            hykb_logout();
             get_data_mut().me = None;
             get_data_mut().tokens = None;
             let _ = save_data();
@@ -285,6 +386,28 @@ impl Scene for ProfileScene {
         }
         if self.btn_delete.touch(touch, t) {
             confirm_delete(Arc::clone(&self.should_delete));
+            return Ok(true);
+        }
+        #[cfg(feature = "hykb")]
+        if self.hykb_task.is_none() && self.btn_hykb.touch(touch, t) {
+            let bound = get_data().me.as_ref().and_then(|it| it.hykb_uid).is_some();
+            if bound {
+                confirm_dialog(tl!("hykb-unbind").into_owned(), tl!("hykb-unbind-confirm").into_owned(), Arc::clone(&self.should_unbind_hykb));
+            } else {
+                self.hykb_task = Some(Task::new(async move {
+                    let cred = crate::obtain_hykb_credential().await?.ok_or_err()?;
+                    Client::bind_hykb(cred.uid, &cred.access_token).await?;
+                    let me = Client::get_me().await?;
+                    get_data_mut().me = Some(me);
+                    save_data()?;
+                    Ok(())
+                }));
+            }
+            return Ok(true);
+        }
+        #[cfg(feature = "hykb")]
+        if self.transfer_task.is_none() && self.btn_transfer.touch(touch, t) {
+            request_input("transfer-email", InputBox::new().title(tl!("hykb-transfer")).prompt(tl!("transfer-prompt")));
             return Ok(true);
         }
         if get_data().me.as_ref().is_some_and(|it| it.id == self.id) && self.avatar_btn.touch(touch) {
@@ -400,6 +523,25 @@ impl Scene for ProfileScene {
                         self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                         r.y += r.h + 0.02;
                         self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
+                        #[cfg(feature = "hykb")]
+                        {
+                            let me = get_data().me.as_ref();
+                            let bound = me.and_then(|it| it.hykb_uid).is_some();
+                            let has_email = me.is_some_and(|it| it.email.is_some());
+                            // Bind/unbind only makes sense for accounts that keep
+                            // an email login; a pure-HYKB account must migrate.
+                            if has_email {
+                                r.y += r.h + 0.02;
+                                let label = if bound { tl!("hykb-unbind") } else { tl!("hykb-bind") };
+                                self.btn_hykb.render_text(ui, r, t, label, 0.6, true);
+                            }
+                            // Pure-HYKB players (bound, no email) can migrate
+                            // their binding onto an existing email account.
+                            if bound && !has_email {
+                                r.y += r.h + 0.02;
+                                self.btn_transfer.render_text(ui, r, t, tl!("hykb-transfer"), 0.6, true);
+                            }
+                        }
                     }
                     (ow, r.bottom() - oy + 0.04)
                 });
@@ -469,6 +611,14 @@ impl Scene for ProfileScene {
 
         if self.avatar_task.is_some() {
             ui.full_loading(tl!("uploading-avatar"), t);
+        }
+        #[cfg(feature = "hykb")]
+        if self.hykb_task.is_some() {
+            ui.full_loading_simple(t);
+        }
+        #[cfg(feature = "hykb")]
+        if self.transfer_task.is_some() {
+            ui.full_loading(tl!("transfer-requesting"), t);
         }
         Ok(())
     }

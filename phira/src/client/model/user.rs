@@ -44,6 +44,7 @@ bitflags! {
         const HEAD_SUPERVISOR   = 0x0008;
         const HEAD_REVIEWER     = 0x0010;
         const PECJAM_REVIEWER   = 0x0020;
+        const MODERATOR         = 0x0040;
     }
 }
 
@@ -90,9 +91,13 @@ impl Roles {
 pub struct User {
     pub id: i32,
     pub name: String,
+    pub email: Option<String>,
+    pub hykb_uid: Option<i64>,
     pub avatar: Option<File>,
     pub badge: Option<String>,
     pub badges: Vec<String>,
+    #[serde(rename = "badgeNames")]
+    pub badge_names: HashMap<String, String>,
     pub language: String,
     pub bio: Option<String>,
     pub exp: i64,
@@ -111,11 +116,11 @@ impl Object for User {
 }
 impl User {
     pub fn perms(&self) -> Permissions {
-        Roles::from_bits(self.roles).map(|it| it.perms(false)).unwrap_or_default()
+        Roles::from_bits_retain(self.roles).perms(false)
     }
 
     pub fn has_perm(&self, perm: Permissions) -> bool {
-        Roles::from_bits(self.roles).is_some_and(|it| it.perms(false).contains(perm))
+        Roles::from_bits_retain(self.roles).perms(false).contains(perm)
     }
 
     pub fn name_color(&self) -> Color {

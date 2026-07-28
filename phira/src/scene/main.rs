@@ -13,7 +13,7 @@ use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::ResPackInfo,
-    ext::{unzip_into, RectExt, SafeTexture},
+    ext::{unzip_into, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
     parse::ParseWarnings,
     scene::{return_file, show_error, show_message, take_file, NextScene, Scene},
@@ -661,16 +661,16 @@ impl Scene for MainScene {
 
         // 3. back
         if self.pages.len() >= 2 {
-            let mut r = ui.back_rect();
+            let r = ui.back_rect();
             self.btn_back.set(ui, r);
-            ui.scissor(r, |ui| {
-                r.y += match self.pages.len() {
-                    1 => 1.,
-                    2 => s.fader.for_sub(|f| f.progress(s.t)),
-                    _ => 0.,
-                } * r.h;
-                ui.fill_rect(r, (*self.icon_back, r));
-            });
+            let dy = (match self.pages.len() {
+                1 => 1.,
+                2 => s.fader.for_sub(|f| f.progress(s.t)),
+                _ => 0.,
+            } * r.h)
+                .clamp(0., r.h);
+            let ir = Rect::new(r.x, r.y + dy, r.w, r.h);
+            ui.fill_rect(Rect::new(r.x, r.y + dy, r.w, r.h - dy), (*self.icon_back, ir, ScaleType::Fit));
         }
 
         self.pages.last_mut().unwrap().render_top(ui, s)?;

@@ -198,6 +198,15 @@ impl ChartsView {
             return Ok(true);
         }
         if self.scroll.touch(touch, t) {
+            // Scroll took over the gesture (user is scrolling, not clicking / long-pressing).
+            // Clear any pending long-touch state so a fast flick doesn't leave a stale
+            // start time behind that later gets misjudged as a long click.
+            if let Some(charts) = &mut self.charts {
+                for item in charts.iter_mut() {
+                    item.long_touch.reset();
+                    item.btn.inner.cancel();
+                }
+            }
             return Ok(true);
         }
         if !self.scroll.contains(touch) {

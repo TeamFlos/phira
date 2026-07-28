@@ -393,9 +393,15 @@ impl LibraryPage {
                         warn!("No info found for chart ref {it:?}");
                         None
                     }
-                }))
+                }));
+                self.current_order.apply(&mut charts, |it| it.chart.as_ref().unwrap());
+                if self.order_rev {
+                    charts.reverse();
+                }
             } else {
-                charts.push(ChartDisplayItem::new(None, None));
+                if cfg!(closed) {
+                    charts.push(ChartDisplayItem::new(None, None));
+                }
                 charts.extend(
                     charts_local
                         .iter()
@@ -494,7 +500,7 @@ fn present_export_picker(path: String) {
             // SAFETY: The signature is correct.
             #[unsafe(method(documentPicker:didPickDocumentsAtURLs:))]
             fn did_pick_documents_at_urls(&self, _controller: &UIDocumentPickerViewController, _urls: &NSArray<NSURL>) {
-                show_message(tl!("multi-exported")).ok();
+                show_message(tl!("exported")).ok();
             }
         }
     }
@@ -853,7 +859,7 @@ impl Page for LibraryPage {
                 self.load_online();
             }
         }
-        if self.tabs.selected_mut().view.clicked_special {
+        if cfg!(closed) && self.tabs.selected_mut().view.clicked_special {
             let icons = Arc::clone(&self.icons);
             self.next_page_task = Some(Box::pin(async move { Ok(NextPage::Overlay(Box::new(CollectionPage::new(icons).await?))) }));
             self.tabs.selected_mut().view.clicked_special = false;
@@ -967,6 +973,8 @@ impl Page for LibraryPage {
                 if text.is_empty() {
                     use crate::page::favorites::{tl as ftl, L10N_LOCAL};
                     show_message(ftl!("name-empty")).error();
+                } else if let Err(err) = crate::censor::check_text(&text) {
+                    show_message(err.to_string()).error();
                 } else {
                     let charts_view = &mut self.tabs.selected_mut().view;
                     if let Some(mut selected) = charts_view.multi_select.clone() {

@@ -12,6 +12,7 @@ default = ["video"]
 video = ["prpr/video"]
 chat = []
 aa = []
+hykb = []
 event_debug = []
 
 [dependencies]
@@ -28,6 +29,7 @@ cacache = { version = "13.1.0", default-features = false, features = [
 cfg-if = "1.0.4"
 chrono = { workspace = true, features = ["serde"] }
 dashmap = "6.1.0"
+daachorse = "3.0.2"
 futures-util = { workspace = true }
 hex = { workspace = true }
 image = { workspace = true, default-features = false, features = [
@@ -46,6 +48,7 @@ macroquad = { workspace = true, default-features = false }
 
 miniquad = { workspace = true }
 nalgebra = { workspace = true }
+obfstr = "0.4.4"
 once_cell = { workspace = true }
 phira-mp-client = { workspace = true }
 phira-mp-common = { workspace = true }
