@@ -45,6 +45,7 @@ pub struct ChartInfo {
     pub intro: String,
 
     pub hold_partial_cover: bool,
+    pub negative_length_hold: bool,
     pub note_uniform_scale: bool,
     pub force_aspect_ratio: bool,
     pub use_rpe_170_speed: Option<bool>,
@@ -86,6 +87,7 @@ impl Default for ChartInfo {
             intro: String::new(),
 
             hold_partial_cover: false,
+            negative_length_hold: true,
             note_uniform_scale: false,
             force_aspect_ratio: false,
             use_rpe_170_speed: None,
