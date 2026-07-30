@@ -19,7 +19,7 @@ use prpr::{
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION},
+    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
@@ -701,6 +701,7 @@ impl AudioList {
             return Ok(wt);
         }
         if let wt @ Some(_) = self.sfx_slider.touch(touch, t, &mut config.volume_sfx) {
+            UI_SFX_VOLUME.store(config.volume_sfx.to_bits(), Ordering::Relaxed);
             return Ok(wt);
         }
         let old = config.volume_bgm;
