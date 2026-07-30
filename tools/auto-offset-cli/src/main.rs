@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+﻿use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use prpr::{
     core::{Chart, NoteKind},
@@ -6,7 +6,7 @@ use prpr::{
     parse::{parse_pec, parse_phigros, parse_rpe},
 };
 use prpr_auto_offset::{
-    AlignConfig, AlignmentResult, AutoOffsetNoteKind, EnergyDiff, NoteEvent, NoteGaussian, PreprocessedNoteGaussian, SpectralFlux, SuperFlux,
+    AlignConfig, AlignResult, AutoOffsetNoteKind, EnergyDiff, NoteEvent, GaussianNote, WeightedGaussianNote, SpectralFlux, SuperFlux,
 };
 use std::io::Write;
 use std::path::PathBuf;
@@ -89,7 +89,7 @@ fn extract_note_events(chart: &Chart) -> Vec<NoteEvent> {
     notes
 }
 
-fn print_result(result: &AlignmentResult, verbose: bool) {
+fn print_result(result: &AlignResult, verbose: bool) {
     if verbose {
         println!();
     }
@@ -242,14 +242,14 @@ fn estimate_with_note_method<A: prpr_auto_offset::Signal>(
     blur_sigma: f64,
     duration: f64,
     config: &AlignConfig,
-) -> AlignmentResult {
+) -> AlignResult {
     match note_method {
         NoteMethod::PreprocessedGaussian => {
-            let note = PreprocessedNoteGaussian::new(note_events.to_vec(), blur_sigma);
+            let note = WeightedGaussianNote::new(note_events.to_vec(), blur_sigma);
             prpr_auto_offset::estimate_with(audio, &note, duration, config)
         }
         NoteMethod::Gaussian => {
-            let note = NoteGaussian::new(note_events.iter().map(|note| note.time).collect(), blur_sigma);
+            let note = GaussianNote::new(note_events.iter().map(|note| note.time).collect(), blur_sigma);
             prpr_auto_offset::estimate_with(audio, &note, duration, config)
         }
     }
