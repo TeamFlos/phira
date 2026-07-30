@@ -61,17 +61,14 @@ impl AVFrame {
 
             let w = this.width as usize;
             let h = this.height as usize;
-            let total = w * h;
 
             dest.clear();
-            dest.reserve(total);
+            dest.reserve(w * h);
 
-            let dst = dest.as_mut_ptr();
             let slice = slice::from_raw_parts(src_ptr, linesize * h);
-            for (i, row) in slice.chunks_exact(linesize).enumerate() {
-                std::ptr::copy_nonoverlapping(row.as_ptr(), dst.add(i * w), w);
+            for row in slice.chunks_exact(linesize) {
+                dest.extend_from_slice(&row[..w]);
             }
-            dest.set_len(total);
         }
     }
 
@@ -84,17 +81,14 @@ impl AVFrame {
 
             let w = (this.width as usize).div_ceil(2);
             let h = (this.height as usize).div_ceil(2);
-            let total = w * h;
 
             dest.clear();
-            dest.reserve(total);
+            dest.reserve(w * h);
 
-            let dst = dest.as_mut_ptr();
             let slice = slice::from_raw_parts(src_ptr, linesize * h);
-            for (i, row) in slice.chunks_exact(linesize).enumerate() {
-                std::ptr::copy_nonoverlapping(row.as_ptr(), dst.add(i * w), w);
+            for row in slice.chunks_exact(linesize) {
+                dest.extend_from_slice(&row[..w]);
             }
-            dest.set_len(total);
         }
     }
 
