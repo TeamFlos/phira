@@ -108,6 +108,7 @@ pub struct MPPanel {
 
     user_list_btn: DRectButton,
     user_list_p: Smooth<f32>,
+    user_list_scroll: Scroll,
     icon_user: SafeTexture,
 }
 
@@ -163,6 +164,7 @@ impl MPPanel {
 
             user_list_btn: DRectButton::new(),
             user_list_p: Smooth::default(),
+            user_list_scroll: Scroll::new(),
             icon_user,
         }
     }
@@ -274,7 +276,12 @@ impl MPPanel {
             return true;
         }
         if *self.user_list_p.to() > 0.5 {
-            self.user_list_p.goto(0., t, USER_LIST_TRANSIT);
+            if self.user_list_scroll.touch(touch, t) {
+                return true;
+            }
+            if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                self.user_list_p.goto(0., t, USER_LIST_TRANSIT);
+            }
             return true;
         }
         if !(self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + ENTER_TRANSIT) {
@@ -358,6 +365,7 @@ impl MPPanel {
                     _ => {}
                 }
                 if self.user_list_btn.touch(touch, t) {
+                    self.user_list_scroll.y_scroller.reset();
                     self.user_list_p.goto(1., t, USER_LIST_TRANSIT);
                     client.blocking_state().unwrap().users.keys().copied().for_each(UserManager::request);
                 }
@@ -397,6 +405,9 @@ impl MPPanel {
             self.msgs_dirty_from = 0;
         }
         self.msg_scroll.update(t);
+        if self.user_list_p.now(t) > 1e-4 {
+            self.user_list_scroll.update(t);
+        }
         if let Some(client) = &self.client {
             self.msgs.extend(client.blocking_take_messages().into_iter().map(|msg| {
                 use phira_mp_common::Message as M;
@@ -770,30 +781,39 @@ impl MPPanel {
                 ui.alpha(p, |ui| {
                     let users: Vec<_> = client.blocking_state().unwrap().users.values().cloned().collect();
                     let n = users.len();
-                    let rn = n.div_ceil(2);
+                    let columns = n.clamp(2, 4);
+                    let rn = n.div_ceil(columns);
                     ui.fill_rect(ui.screen_rect(), semi_black(p * 0.4));
 
                     let mut iter = users.into_iter();
-
                     let h = 0.14;
-                    let w = 0.6;
+                    let w = 0.48;
                     let pad = 0.03;
-                    ui.dy(-(rn as f32 * (h + pad) - pad) / 2.);
-                    for i in 0..rn {
-                        let cn = (n - i * 2).min(2);
-                        let o = -(cn as f32 * (w + pad) - pad) / 2.;
-                        for j in 0..cn {
-                            let r = Rect::new(j as f32 * w + o, i as f32 * h, w, h);
-                            let Some(user) = iter.next() else { unreachable!() };
-                            ui.avatar(r.x + 0.07, r.center().y, 0.05, t, UserManager::opt_avatar(user.id, &self.icon_user));
-                            ui.text(user.name)
-                                .pos(r.x + 0.14, r.center().y)
-                                .anchor(0., 0.5)
-                                .no_baseline()
-                                .size(0.7)
-                                .draw();
+                    let width = w * columns as f32 + pad * (columns - 1) as f32;
+                    let viewport_height = (ui.top * 2. - 0.16).max(h);
+                    ui.dx(-width / 2.);
+                    ui.dy(-ui.top + 0.08);
+                    self.user_list_scroll.size((width, viewport_height));
+                    self.user_list_scroll.render(ui, |ui| {
+                        for i in 0..rn {
+                            let cn = (n - i * columns).min(columns);
+                            let row_width = w * cn as f32 + pad * (cn - 1) as f32;
+                            let row_offset = (width - row_width) / 2.;
+                            for j in 0..cn {
+                                let r = Rect::new(row_offset + j as f32 * (w + pad), i as f32 * (h + pad), w, h);
+                                let Some(user) = iter.next() else { unreachable!() };
+                                ui.avatar(r.x + 0.055, r.center().y, 0.04, t, UserManager::opt_avatar(user.id, &self.icon_user));
+                                ui.text(user.name)
+                                    .pos(r.x + 0.105, r.center().y)
+                                    .anchor(0., 0.5)
+                                    .no_baseline()
+                                    .max_width(0.36)
+                                    .size(0.55)
+                                    .draw();
+                            }
                         }
-                    }
+                        (width, (rn as f32 * (h + pad) - pad).max(0.))
+                    });
                 });
             });
         }

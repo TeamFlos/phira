@@ -8,8 +8,6 @@ use crate::{
     save_data,
     scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
-#[cfg(feature = "hykb")]
-use anyhow::bail;
 use anyhow::Result;
 use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
@@ -380,10 +378,7 @@ impl Login {
     fn show_email_bind(&self) {
         let choice = Arc::clone(&self.email_bind_choice);
         Dialog::plain(tl!("hykb-bind-required-title"), tl!("hykb-bind-required"))
-            .buttons(vec![
-                tl!("hykb-bind-required-cancel").to_string(),
-                tl!("hykb-bind-required-confirm").to_string(),
-            ])
+            .buttons(vec![crate::ttl!("cancel").into_owned(), tl!("hykb-bind-required-confirm").into_owned()])
             .listener(move |_, pos| {
                 match pos {
                     // Cancel button or outside click: back out and log out.
@@ -625,24 +620,15 @@ impl Login {
             let me = Client::get_me_unchecked().await?;
             #[cfg(not(feature = "hykb"))]
             let me = Client::get_me().await?;
-            // An account already bound to a HYKB uid must still be re-verified
-            // against the native SDK's currently signed-in account (same check
-            // as the app-restart session restore in `page/home.rs`). Without
-            // this, logging in by email into an account carrying a stale or
-            // foreign `hykb_uid` binding would skip the real-name/age gate
-            // entirely, since only `start_hykb_login`/session restore actually
-            // invoke the SDK's login UI.
+            // An account already bound to a HYKB uid must still have the native
+            // SDK signed in (same requirement as the app-restart session restore
+            // in `page/home.rs`): restore it silently and tear the session down if
+            // that login fails/cancels. The signed-in HYKB account no longer has
+            // to match the bound `hykb_uid` — any successful HYKB login is
+            // accepted.
             #[cfg(feature = "hykb")]
             if me.hykb_uid.is_some() {
-                let cred = crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
-                if me.hykb_uid != Some(cred.uid) {
-                    crate::hykb_logout();
-                    get_data_mut().me = None;
-                    get_data_mut().tokens = None;
-                    save_data()?;
-                    crate::sync_data();
-                    bail!("{}", crate::ttl!("hykb-uid-mismatch"));
-                }
+                crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
             }
             Ok(Some(me))
         });
@@ -995,19 +981,18 @@ impl Login {
                     ui.fill_path(&path, green);
                     let ir = Rect::new(r.x + 0.03, r.center().y - 0.045, 0.09, 0.09);
                     ui.fill_rect(ir, (*self.icons.hykb, ir, ScaleType::Fit));
-                    let r = ui
-                        .text(tl!("login-method-hykb"))
-                        .pos(ir.right() + 0.03, r.center().y)
+                    ui.text(tl!("login-method-hykb"))
+                        .pos(ir.right() + 0.03, r.center().y - 0.016)
                         .anchor(0., 0.5)
                         .no_baseline()
                         .size(0.6)
                         .color(WHITE)
                         .draw();
                     ui.text(tl!("login-method-recommended"))
-                        .pos(r.right() + 0.02, r.center().y)
+                        .pos(ir.right() + 0.03, r.center().y + 0.024)
                         .anchor(0., 0.5)
                         .no_baseline()
-                        .size(0.6)
+                        .size(0.45)
                         .color(Color::from_hex_rgb(0xffc107))
                         .draw();
                 });

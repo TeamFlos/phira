@@ -33,10 +33,12 @@ use prpr::{
     log,
     scene::show_error,
     time::TimeManager,
-    ui::{FontArc, TextPainter},
+    ui::{cleanup_audio, FontArc, TextPainter},
     Main,
 };
-use prpr_l10n::{set_prefered_locale, GLOBAL, LANGS};
+use prpr_l10n::set_prefered_locale;
+#[cfg(not(feature = "hykb"))]
+use prpr_l10n::{GLOBAL, LANGS};
 use scene::MainScene;
 use std::{
     collections::VecDeque,
@@ -78,10 +80,14 @@ pub async fn load_res_tex(name: &str) -> SafeTexture {
 }
 
 pub fn sync_data() {
-    set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     if get_data().language.is_none() {
-        get_data_mut().language = Some(LANGS[GLOBAL.order.lock().unwrap()[0]].to_owned());
+        #[cfg(feature = "hykb")]
+        let default_lang = "zh-CN".to_owned();
+        #[cfg(not(feature = "hykb"))]
+        let default_lang = LANGS[GLOBAL.order.lock().unwrap()[0]].to_owned();
+        get_data_mut().language = Some(default_lang);
     }
+    set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
     let _ = client::set_access_token_sync(get_data().tokens.as_ref().map(|it| &*it.0));
 }
 
@@ -230,6 +236,8 @@ async fn the_main() -> Result<()> {
     let mut last_frame_start = f32::NAN;
     let mut fps_time_sum = 0.;
 
+    let mut paused = false;
+
     'app: loop {
         let frame_start = tm.real_time();
         if !last_frame_start.is_nan() {
@@ -241,30 +249,25 @@ async fn the_main() -> Result<()> {
             fps_time_sum += frame_time;
         }
         last_frame_start = frame_start as f32;
-        // The SDK switched HYKB accounts underneath us (see `hykbLoginCallback`).
-        // If the freshly signed-in uid no longer matches the account the in-game
-        // session is bound to, drop the session so `HomePage` forces a re-login
-        // as the new account. The SDK is left alone (already on the new account),
-        // so this only clears local tokens — no `hykb_logout` re-entry.
-        #[cfg(feature = "hykb")]
-        if let Some(uid) = HYKB_SWITCH_UID.lock().unwrap().take() {
-            if get_data().me.as_ref().and_then(|it| it.hykb_uid) != Some(uid) && get_data().me.is_some() {
-                get_data_mut().me = None;
-                get_data_mut().tokens = None;
-                let _ = save_data();
-                sync_data();
-            }
-        }
         let res = || -> Result<()> {
-            main.update()?;
-            main.render(&mut painter)?;
-            if let Ok(paused) = rx.try_recv() {
-                if paused {
+            let signal = if paused {
+                rx.recv_timeout(std::time::Duration::from_secs(1)).ok()
+            } else {
+                rx.try_recv().ok()
+            };
+            if let Some(msg) = signal {
+                paused = msg;
+                if msg {
                     main.pause()?;
                 } else {
                     main.resume()?;
                 }
             }
+            if !paused {
+                main.update()?;
+                main.render(&mut painter)?;
+            }
+            prpr::ext::flush_pending_texture_deletions();
             Ok(())
         }();
         if let Err(err) = res {
@@ -287,6 +290,8 @@ async fn the_main() -> Result<()> {
             }
         }
 
+        // While backgrounded the scene is paused; the blocking `recv_timeout`
+        // above already parks this thread, so nothing extra is needed here.
         next_frame().await;
     }
     Ok(())
@@ -320,6 +325,7 @@ pub extern "C" fn quad_main() {
             error!(?err, "global error");
         }
     });
+    cleanup_audio();
 }
 
 fn on_pause_resume(pause: bool) {
@@ -442,13 +448,6 @@ impl HykbCredential {
 /// Slot for the pending HYKB login result. The native callback fulfills it.
 static HYKB_TX: Mutex<Option<tokio::sync::oneshot::Sender<HykbCredential>>> = Mutex::new(None);
 
-/// uid the SDK reported switching to via an async, request-less `code == 0`
-/// callback (the player picked "switch account" from the SDK's own dialog).
-/// The native callback thread only records it here; the teardown itself runs on
-/// the game thread in `the_main` to avoid racing the unsynchronized `DATA`.
-#[cfg(feature = "hykb")]
-static HYKB_SWITCH_UID: Mutex<Option<i64>> = Mutex::new(None);
-
 /// Call a no-arg `void` method on the Android host activity (the HYKB shell).
 #[cfg(all(target_os = "android", feature = "hykb"))]
 fn call_activity_void(method: &'static jni::strings::JNIStr) {
@@ -558,19 +557,9 @@ pub extern "C" fn Java_quad_1native_QuadNative_hykbLoginCallback(
         // anti-addiction "exit game" action: the player hit a play-time limit
         // and chose to quit from the SDK's own dialog. Honor it by exiting.
         // Other async codes (e.g. 2008 "continue playing") are handled inside
-        // the SDK and need no response here.
-        std::process::exit(0);
-    } else if code == 0 {
-        // A request-less success: the SDK switched accounts on its own (the
-        // player chose "switch account" from a dialog it raised after login,
-        // e.g. the real-name / anti-addiction gate). The in-game session still
-        // belongs to the previous account, so record the new uid; the game
-        // thread compares it against the current session and tears it down on a
-        // mismatch. Done off the JNI thread because `DATA` is unsynchronized.
-        #[cfg(feature = "hykb")]
-        {
-            *HYKB_SWITCH_UID.lock().unwrap() = Some(uid as i64);
-        }
+        // the SDK and need no response here. A request-less success (code 0, the
+        // SDK switching accounts on its own) is likewise ignored: any signed-in
+        // HYKB account is accepted, so a switch no longer tears the session down.
     }
 }
 
@@ -593,4 +582,20 @@ pub fn set_chosen_file(file: String) {
 pub fn mark_auto_import() {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().0 = Some("_import_auto".to_owned());
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn on_foreground() {
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(false);
+    }
+}
+
+#[cfg(target_env = "ohos")]
+#[napi]
+pub fn on_background() {
+    if let Some(tx) = MESSAGES_TX.lock().unwrap().as_mut() {
+        let _ = tx.send(true);
+    }
 }

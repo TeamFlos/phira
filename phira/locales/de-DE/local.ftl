@@ -1,7 +1,4 @@
-
 label = Lokal
-
-import-failed = Fehler beim Laden des Levels.
-import-success = Importierung erfolgreich.
-
-not-loaded = Importieren...
+import-failed = Importierung fehlgeschlagen
+import-success = Importierung erfolgreich
+not-loaded = Noch nicht vollständig geladen
