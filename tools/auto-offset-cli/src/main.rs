@@ -1,4 +1,4 @@
-﻿use anyhow::{Context, Result};
+use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
 use prpr::{
     core::{Chart, NoteKind},
@@ -6,7 +6,7 @@ use prpr::{
     parse::{parse_pec, parse_phigros, parse_rpe},
 };
 use prpr_auto_offset::{
-    AlignConfig, AlignResult, AutoOffsetNoteKind, EnergyDiff, NoteEvent, GaussianNote, WeightedGaussianNote, SpectralFlux, SuperFlux,
+    AlignConfig, AlignResult, AutoOffsetNoteKind, EnergyDiff, GaussianNote, NoteEvent, SpectralFlux, SuperFlux, WeightedGaussianNote,
 };
 use std::io::Write;
 use std::path::PathBuf;

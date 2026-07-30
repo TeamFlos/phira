@@ -5,7 +5,7 @@ use crate::{
 };
 use lyon::math::point;
 use macroquad::prelude::*;
-use prpr_auto_offset::{estimate_with, AlignConfig, AlignResult, AutoOffsetNoteKind, NoteEvent, WeightedGaussianNote, SuperFlux};
+use prpr_auto_offset::{estimate_with, AlignConfig, AlignResult, AutoOffsetNoteKind, NoteEvent, SuperFlux, WeightedGaussianNote};
 use std::{
     borrow::Cow,
     sync::{Arc, Mutex},
