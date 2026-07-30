@@ -24,6 +24,9 @@ pub use respack::{ResPackItem, ResPackPage};
 
 mod settings;
 pub use settings::SettingsPage;
+
+mod replay_list;
+pub use replay_list::ReplayListPage;
 use tokio::sync::Notify;
 
 use crate::{

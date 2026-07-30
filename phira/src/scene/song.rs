@@ -857,6 +857,7 @@ impl SongScene {
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         let can_rated = id.is_some() || local_path.starts_with(':');
+        let replay_local_path = local_path.to_owned();
         #[cfg(feature = "video")]
         let local_path = local_path.to_owned();
         #[cfg(closed)]
@@ -993,6 +994,13 @@ impl SongScene {
             }
         }));
 
+        // Persist auto-recorded replays to data/replays/<ts>_<chart>.json.
+        let record_save_fn: Option<prpr::replay::RecordSaveFn> = Some(Arc::new(|data| {
+            let dir = std::path::PathBuf::from(crate::dir::replays()?);
+            prpr::replay::save_replay_to_dir(&dir, &data)?;
+            Ok(())
+        }));
+
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -1060,11 +1068,18 @@ impl SongScene {
                     })
                 })
             }));
+            let replay_handoff = if get_data().config.auto_record && mode == GameMode::Normal {
+                Some(prpr::replay::ReplayHandoff::Record {
+                    chart_local_path: replay_local_path,
+                })
+            } else {
+                None
+            };
             if is_unlock {
                 #[cfg(not(feature = "video"))]
                 {
                     warn!("this build does not support unlock video.");
-                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, replay_handoff, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
@@ -1076,12 +1091,12 @@ impl SongScene {
                         save_data()?;
                     }
 
-                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, replay_handoff, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
             } else {
-                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
+                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, record_save_fn, replay_handoff, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
             }

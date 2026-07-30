@@ -127,6 +127,7 @@ pub struct GameScene {
     chart_bytes: Vec<u8>,
     chart_format: ChartFormat,
     info_offset: f32,
+    replay_record_local_path: Option<String>,
     effects: Vec<Effect>,
 
     first_in: bool,
@@ -146,6 +147,7 @@ pub struct GameScene {
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
     save_fn: Option<SaveFn>,
+    record_save_fn: Option<crate::replay::RecordSaveFn>,
 
     best_record: Option<SimpleRecord>,
 
@@ -245,7 +247,15 @@ impl GameScene {
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
         save_fn: Option<SaveFn>,
+        record_save_fn: Option<crate::replay::RecordSaveFn>,
+        replay_handoff: Option<crate::replay::ReplayHandoff>,
     ) -> Result<Self> {
+        let pending_playback = crate::replay::take_pending_playback();
+        let pending_record = crate::replay::take_pending_record();
+        let replay_handoff = replay_handoff
+            .or_else(|| pending_playback.map(crate::replay::ReplayHandoff::Playback))
+            .or_else(|| pending_record.map(|chart_local_path| crate::replay::ReplayHandoff::Record { chart_local_path }));
+
         match mode {
             GameMode::TweakOffset => {
                 config.mods.insert(Mods::AUTOPLAY);
@@ -305,7 +315,8 @@ impl GameScene {
         let judge = Judge::new(&chart);
 
         let music = Self::new_music(&mut res)?;
-        Ok(Self {
+        let normal_mode = matches!(mode, GameMode::Normal);
+        let mut this = Self {
             should_exit: false,
             next_scene: None,
 
@@ -319,6 +330,7 @@ impl GameScene {
             chart_format,
             effects,
             info_offset,
+            replay_record_local_path: None,
 
             first_in: false,
             exercise_range,
@@ -337,6 +349,7 @@ impl GameScene {
             upload_fn,
             update_fn,
             save_fn,
+            record_save_fn,
 
             best_record: None,
 
@@ -347,7 +360,26 @@ impl GameScene {
             fps_last_frame_time: 0.0,
 
             dead: false,
-        })
+        };
+
+        // Pick up any pending replay/record configuration queued by
+        // the caller before returning.
+        if let Some(replay_handoff) = replay_handoff {
+            match replay_handoff {
+                crate::replay::ReplayHandoff::Playback(replay) => {
+                    this.judge.set_replay_data(replay);
+                }
+                crate::replay::ReplayHandoff::Record { chart_local_path } => {
+                    // Record only when it actually makes sense to: a normal
+                    // play with no autoplay and 1x speed.
+                    if normal_mode && !this.res.config.autoplay() && (this.res.config.speed - 1.0).abs() < 1e-3 {
+                        this.replay_record_local_path = Some(chart_local_path);
+                        this.start_replay_recording();
+                    }
+                }
+            }
+        }
+        Ok(this)
     }
 
     fn new_music(res: &mut Resource) -> Result<Music> {
@@ -550,12 +582,13 @@ impl GameScene {
     }
 
     fn overlay_ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
+        let is_replay = self.judge.is_replaying();
         let c = semi_white(self.res.alpha);
         let res = &mut self.res;
         if tm.paused() {
             let h = 1. / res.aspect_ratio;
             draw_rectangle(-1., -h, 2., h * 2., Color::new(0., 0., 0., 0.6));
-            let o = if self.mode == GameMode::Exercise { -0.3 } else { 0. };
+            let o = if self.mode == GameMode::Exercise || is_replay { -0.3 } else { 0. };
             let s = 0.06;
             let w = 0.05;
             let no_retry = self.mode == GameMode::NoRetry;
@@ -603,7 +636,7 @@ impl GameScene {
                     clicked = None;
                 }
                 let mut pos = self.music.position();
-                if self.mode == GameMode::Exercise {
+                if self.mode == GameMode::Exercise || is_replay {
                     pos = tm.now();
                 }
                 if clicked.is_some_and(|it| it != -1) && (tm.speed - res.config.speed as f64).abs() > 0.01 {
@@ -624,7 +657,9 @@ impl GameScene {
                         miniquad::native::set_interceptor_state(false);
                     }
                     Some(0) => {
+                        self.judge.discard_replay_record();
                         reset!(self, res, tm);
+                        Self::start_replay_recording_with(&mut self.judge, res, self.replay_record_local_path.clone());
                         if self.mode == GameMode::Exercise {
                             self.judge.advance_to(&mut self.chart, self.exercise_range.start);
                         }
@@ -769,6 +804,60 @@ impl GameScene {
                 for touch in ui.ensure_touches() {
                     touch.position /= asp;
                 }
+            } else if is_replay {
+                let asp = self.touch_scale();
+                for touch in ui.ensure_touches() {
+                    touch.position *= asp;
+                }
+                ui.dy(0.06);
+                let hw = 0.7;
+                let h = 0.06;
+                let rad = 0.03;
+                let track_length = self.res.track_length.max(1e-3);
+                let t = self.res.time.clamp(0., track_length);
+                let cur = -hw + (t / track_length) as f32 * hw * 2.;
+                ui.fill_rect(Rect::new(-hw, -h, hw * 2., h * 2.), GRAY);
+                ui.fill_rect(Rect::new(-hw, -h, cur + hw, h * 2.), WHITE);
+                ui.fill_rect(Rect::new(cur, -h, 0., h * 2.).feather(0.005), GREEN);
+                ui.fill_circle(cur, 0., rad, GREEN);
+                if self.exercise_press.is_none() {
+                    let r = ui.rect_to_global(Rect::new(-hw, -h, hw * 2., h * 2.).feather(rad));
+                    self.exercise_press = Judge::get_touches()
+                        .iter()
+                        .find(|it| it.phase == TouchPhase::Started && r.contains(it.position))
+                        .map(|it| (0, it.id));
+                }
+                ui.text(format!("{} / {}", fmt_time(t as f32), fmt_time(track_length as f32)))
+                    .pos(0., -0.23)
+                    .anchor(0.5, 0.)
+                    .size(0.8)
+                    .draw();
+                if let Some((_, id)) = self.exercise_press {
+                    let mut release_press = false;
+                    if let Some(touch) = Judge::get_touches().into_iter().rfind(|it| it.id == id) {
+                        let x = touch.position.x;
+                        let p = ((x + hw) as f64 / (hw * 2.) as f64 * track_length).clamp(0., track_length);
+                        let timeline_pos = p + self.offset() as f64;
+                        tm.seek_to(timeline_pos);
+                        self.music.seek_to(timeline_pos.max(0.))?;
+                        self.res.time = p;
+                        self.bad_notes.clear();
+                        self.chart.reset();
+                        self.judge.seek_replay_to(&mut self.chart, p);
+                        self.res.judge_line_color = self.res.res_pack.info.color_perfect();
+                        if matches!(touch.phase, TouchPhase::Cancelled | TouchPhase::Ended) {
+                            release_press = true;
+                        }
+                    } else {
+                        release_press = true;
+                    }
+                    if release_press {
+                        self.exercise_press = None;
+                    }
+                }
+                for touch in ui.ensure_touches() {
+                    touch.position /= asp;
+                }
             }
         }
         if let Some(time) = self.pause_rewind {
@@ -800,6 +889,44 @@ impl GameScene {
 
     fn offset(&self) -> f32 {
         self.chart.offset + self.res.config.offset + self.info_offset
+    }
+
+    fn start_replay_recording_with(judge: &mut Judge, res: &Resource, chart_local_path: Option<String>) {
+        let Some(chart_local_path) = chart_local_path else {
+            return;
+        };
+        if judge.is_replaying() {
+            return;
+        }
+        judge.start_recording(res.info.id, res.info.name.clone(), chart_local_path, res.info.level.clone(), res.info.offset, res.config.speed);
+    }
+
+    fn start_replay_recording(&mut self) {
+        Self::start_replay_recording_with(&mut self.judge, &self.res, self.replay_record_local_path.clone());
+    }
+
+    fn save_replay_recording_with(judge: &mut Judge, record_save_fn: &Option<crate::replay::RecordSaveFn>) {
+        if judge.is_replaying() {
+            return;
+        }
+        let Some(mut rec) = judge.take_replay_record() else {
+            return;
+        };
+        if rec.records.is_empty() {
+            return;
+        }
+
+        let result = judge.result();
+        rec.finalize(result.score as _, result.accuracy as _, result.max_combo as _, result.max_combo == result.num_of_notes);
+        if let Some(f) = record_save_fn {
+            if let Err(e) = f(rec) {
+                tracing::warn!("failed to save replay: {e:?}");
+            }
+        }
+    }
+
+    fn save_replay_recording(&mut self) {
+        Self::save_replay_recording_with(&mut self.judge, &self.record_save_fn);
     }
 
     fn tweak_offset(&mut self, ui: &mut Ui, ita: bool) {
@@ -879,6 +1006,9 @@ impl Scene for GameScene {
         reset!(self, self.res, tm);
         set_camera(&self.res.camera);
         self.first_in = true;
+        if self.replay_record_local_path.is_some() && !self.judge.is_recording_replay() {
+            self.start_replay_recording();
+        }
         Ok(())
     }
 
@@ -976,6 +1106,11 @@ impl Scene for GameScene {
             State::Ending => {
                 let t = time - self.res.track_length - WAIT_TIME;
                 if t >= AFTER_TIME + 0.3 {
+                    let is_replay = self.judge.is_replaying();
+
+                    // Persist any recorded replay before the scene tears down.
+                    self.save_replay_recording();
+
                     let mut record_data = None;
                     // TODO strengthen the protection
                     #[cfg(closed)]
@@ -1005,18 +1140,21 @@ impl Scene for GameScene {
                     self.next_scene = match self.mode {
                         GameMode::Normal | GameMode::NoRetry | GameMode::View => {
                             let historic_best = self.player.as_ref().map_or(0, |it| it.historic_best);
-                            if let Some(new_rec) = &record {
-                                if let Some(f) = &self.save_fn {
-                                    f(new_rec.clone())?;
-                                }
-                                if let Some(best) = &mut self.best_record {
-                                    best.update(new_rec);
-                                } else {
-                                    self.best_record = record.clone();
-                                }
-                                if let Some(best) = &self.best_record {
-                                    if let Some(player) = &mut self.player {
-                                        player.historic_best = player.historic_best.max(best.score as _);
+                            // Don't update local best / upload during replay playback.
+                            if !is_replay {
+                                if let Some(new_rec) = &record {
+                                    if let Some(f) = &self.save_fn {
+                                        f(new_rec.clone())?;
+                                    }
+                                    if let Some(best) = &mut self.best_record {
+                                        best.update(new_rec);
+                                    } else {
+                                        self.best_record = record.clone();
+                                    }
+                                    if let Some(best) = &self.best_record {
+                                        if let Some(player) = &mut self.player {
+                                            player.historic_best = player.historic_best.max(best.score as _);
+                                        }
                                     }
                                 }
                             }
@@ -1032,11 +1170,11 @@ impl Scene for GameScene {
                                 self.judge.result(),
                                 &self.res.config,
                                 self.res.res_pack.ending.clone(),
-                                self.upload_fn.as_ref().map(Arc::clone),
+                                if is_replay { None } else { self.upload_fn.as_ref().map(Arc::clone) },
                                 self.player.as_ref().map(|it| it.rks),
                                 historic_best,
-                                record_data,
-                                self.best_record.clone(),
+                                if is_replay { None } else { record_data },
+                                if is_replay { None } else { self.best_record.clone() },
                                 if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
                             )?)))
                         }

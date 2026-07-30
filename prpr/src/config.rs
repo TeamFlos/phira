@@ -85,6 +85,9 @@ pub struct Config {
     pub volume_music: f32,
     pub volume_sfx: f32,
 
+    /// Whether to automatically record a replay file for each play.
+    pub auto_record: bool,
+
     // for compatibility
     autoplay: Option<bool>,
 }
@@ -124,6 +127,8 @@ impl Default for Config {
             volume_music: 1.,
             volume_sfx: 1.,
             volume_bgm: 1.,
+
+            auto_record: true,
 
             autoplay: None,
         }
