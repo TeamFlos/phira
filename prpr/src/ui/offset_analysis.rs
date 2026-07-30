@@ -5,7 +5,7 @@ use crate::{
 };
 use lyon::math::point;
 use macroquad::prelude::*;
-use prpr_auto_offset::{estimate_with, AlignConfig, AlignmentResult, AutoOffsetNoteKind, NoteEvent, PreprocessedNoteGaussian, SuperFlux};
+use prpr_auto_offset::{estimate_with, AlignConfig, AlignResult, AutoOffsetNoteKind, NoteEvent, WeightedGaussianNote, SuperFlux};
 use std::{
     borrow::Cow,
     sync::{Arc, Mutex},
@@ -25,7 +25,7 @@ const SCORE_REFERENCE_LINES: [(f32, &str); 3] = [(0.35, "0.35"), (0.6, "0.6"), (
 enum OffsetAnalysisState {
     Idle,
     Computing,
-    Done(AlignmentResult),
+    Done(AlignResult),
 }
 
 pub enum OffsetPanelAction {
@@ -37,7 +37,7 @@ pub enum OffsetPanelAction {
 pub struct OffsetAnalysisPanel {
     state: OffsetAnalysisState,
     requested: bool,
-    handle: Option<Arc<Mutex<Option<AlignmentResult>>>>,
+    handle: Option<Arc<Mutex<Option<AlignResult>>>>,
     scroll: Scroll,
     scroll_centered: bool,
 }
@@ -96,12 +96,12 @@ impl OffsetAnalysisPanel {
             search_center_sec: (chart.offset + info_offset) as f64,
         };
 
-        let result_slot: Arc<Mutex<Option<AlignmentResult>>> = Arc::new(Mutex::new(None));
+        let result_slot: Arc<Mutex<Option<AlignResult>>> = Arc::new(Mutex::new(None));
         self.handle = Some(result_slot.clone());
 
         let _handle = thread::spawn(move || {
             let superflux = SuperFlux::new(&pcm, sample_rate, 2048, 1024);
-            let note = PreprocessedNoteGaussian::new(note_events, 0.02);
+            let note = WeightedGaussianNote::new(note_events, 0.02);
             let duration = pcm.len() as f64 / sample_rate as f64;
             let result = estimate_with(&superflux, &note, duration, &config);
             if let Ok(mut guard) = result_slot.lock() {
@@ -215,7 +215,7 @@ impl OffsetAnalysisPanel {
         }
     }
 
-    fn center_on_recommendation(&mut self, result: &AlignmentResult, width: f32) {
+    fn center_on_recommendation(&mut self, result: &AlignResult, width: f32) {
         if self.scroll_centered || result.correlation_curve.is_empty() {
             return;
         }
@@ -271,7 +271,7 @@ fn draw_centered_text(ui: &mut Ui, rect: Rect, text: &str) {
     ui.dy(rect.h / 2. + 0.03);
 }
 
-fn draw_threshold_labels(ui: &mut Ui, graph_rect: Rect, result: &AlignmentResult) {
+fn draw_threshold_labels(ui: &mut Ui, graph_rect: Rect, result: &AlignResult) {
     let s_top = offset_graph_score_top(result);
     let v_pad = 0.08;
     let inner_y = graph_rect.h * v_pad;
@@ -291,15 +291,15 @@ fn draw_threshold_labels(ui: &mut Ui, graph_rect: Rect, result: &AlignmentResult
     }
 }
 
-fn offset_graph_score_top(result: &AlignmentResult) -> f32 {
+fn offset_graph_score_top(result: &AlignResult) -> f32 {
     peak_match_score(result).max(MIN_SCORE_TOP)
 }
 
-fn peak_match_score(result: &AlignmentResult) -> f32 {
+fn peak_match_score(result: &AlignResult) -> f32 {
     result.correlation_curve.iter().map(|&(_, s)| s).fold(result.correlation as f32, f32::max)
 }
 
-fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rect, result: &AlignmentResult) {
+fn draw_offset_graph(chart_offset: f32, info_offset: f32, ui: &mut Ui, rect: Rect, result: &AlignResult) {
     let curve = &result.correlation_curve;
     if curve.is_empty() {
         return;

@@ -25,7 +25,7 @@ impl Default for AlignConfig {
 
 /// Full result of automatic offset detection.
 #[derive(Debug, Clone)]
-pub struct AlignmentResult {
+pub struct AlignResult {
     /// Suggested global offset in seconds.
     /// This value is in absolute time. To get the chart offset correction, subtract the search center:
     ///     chart_offset_correction = offset - search_center_sec

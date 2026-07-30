@@ -58,19 +58,18 @@ struct WeightedNote {
     weight: f32,
 }
 
-/// A Gaussian note signal with chart-note preprocessing for auto-offset.
+/// A Gaussian note signal with drag-run downweighting for auto-offset.
 ///
 /// Recommended note frontend for offset suggestions.
 ///
-/// The preprocessing caps simultaneous notes and downweights dense, evenly
-/// spaced drag runs that often behave more like visual chart texture than
-/// audio onsets.
-pub struct PreprocessedNoteGaussian {
+/// Caps simultaneous notes and downweights dense, evenly spaced drag runs
+/// that often behave more like visual chart texture than audio onsets.
+pub struct WeightedGaussianNote {
     notes: Vec<WeightedNote>,
     sigma: f64,
 }
 
-impl PreprocessedNoteGaussian {
+impl WeightedGaussianNote {
     pub fn new(notes: Vec<NoteEvent>, sigma: f64) -> Self {
         Self::with_config(notes, sigma, NotePreprocessConfig::default())
     }
@@ -85,7 +84,7 @@ impl PreprocessedNoteGaussian {
     }
 }
 
-impl Signal for PreprocessedNoteGaussian {
+impl Signal for WeightedGaussianNote {
     fn samples(&self, ts: &[f64]) -> Vec<f32> {
         if ts.is_empty() || self.notes.is_empty() {
             return vec![0.0; ts.len()];
@@ -221,14 +220,14 @@ mod tests {
             NoteEvent::new(1.0, AutoOffsetNoteKind::Flick),
             NoteEvent::new(1.0, AutoOffsetNoteKind::Drag),
         ];
-        let signal = PreprocessedNoteGaussian::new(notes, 0.001);
+        let signal = WeightedGaussianNote::new(notes, 0.001);
         debug_assert!((signal.samples(&[1.0])[0] - 2.0).abs() < 1e-6);
     }
 
     #[test]
     fn downweights_dense_even_drag_runs() {
         let notes = (0..5).map(|i| NoteEvent::new(i as f64 * 0.05, AutoOffsetNoteKind::Drag)).collect();
-        let signal = PreprocessedNoteGaussian::new(notes, 0.001);
+        let signal = WeightedGaussianNote::new(notes, 0.001);
         debug_assert!((signal.samples(&[0.10])[0] - 0.2).abs() < 1e-6);
     }
 
@@ -242,7 +241,7 @@ mod tests {
             NoteEvent::new(0.20, AutoOffsetNoteKind::Drag),
             NoteEvent::new(0.25, AutoOffsetNoteKind::Drag),
         ];
-        let signal = PreprocessedNoteGaussian::new(notes, 0.001);
+        let signal = WeightedGaussianNote::new(notes, 0.001);
         debug_assert!((signal.samples(&[0.00])[0] - 1.0).abs() < 1e-6);
     }
 }

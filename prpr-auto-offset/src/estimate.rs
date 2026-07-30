@@ -1,4 +1,4 @@
-use crate::{AlignConfig, AlignmentResult, Signal};
+use crate::{AlignConfig, AlignResult, Signal};
 
 /// Reliability threshold for normalized cross-correlation.
 ///
@@ -84,7 +84,7 @@ fn build_ts_grid(t_min: f64, t_max: f64, dt: f64) -> Vec<f64> {
 /// Estimate the timing offset between two signals.
 ///
 /// Uses default [`AlignConfig`]. See [`estimate_with`] for custom config.
-pub fn estimate<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f64) -> AlignmentResult {
+pub fn estimate<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f64) -> AlignResult {
     estimate_with(audio, note, duration_sec, &AlignConfig::default())
 }
 
@@ -93,8 +93,8 @@ pub fn estimate<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f64) ->
 /// `audio` is a [`Signal`] produced from the audio track (e.g.
 /// [`SpectralFlux`](crate::SpectralFlux)). `note` is a [`Signal`]
 /// produced from the chart's note events (e.g.
-/// [`NoteGaussian`](crate::NoteGaussian)).
-pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f64, config: &AlignConfig) -> AlignmentResult {
+/// [`GaussianNote`](crate::GaussianNote)).
+pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f64, config: &AlignConfig) -> AlignResult {
     debug_assert!(duration_sec.is_finite(), "duration_sec must be finite");
     debug_assert!(config.search_range_sec.is_finite(), "search_range_sec must be finite");
     debug_assert!(config.search_range_sec >= 0.0, "search_range_sec must be non-negative");
@@ -103,7 +103,7 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
     debug_assert!(config.search_center_sec.is_finite(), "search_center_sec must be finite");
 
     if duration_sec <= 0.0 {
-        return AlignmentResult {
+        return AlignResult {
             offset: 0.0,
             correlation: 0.0,
             raw_peak: 0.0,
@@ -132,7 +132,7 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
     let note_samples = note.samples(&note_ts);
 
     if audio_samples.is_empty() || note_samples.is_empty() {
-        return AlignmentResult {
+        return AlignResult {
             offset: 0.0,
             correlation: 0.0,
             raw_peak: 0.0,
@@ -162,7 +162,7 @@ pub fn estimate_with<A: Signal, N: Signal>(audio: &A, note: &N, duration_sec: f6
         })
         .collect();
 
-    AlignmentResult {
+    AlignResult {
         offset,
         correlation: stats.best_value as f64,
         raw_peak: stats.raw_peak,

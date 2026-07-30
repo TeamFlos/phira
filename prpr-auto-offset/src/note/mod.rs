@@ -1,5 +1,5 @@
 mod gaussian;
-mod preprocessed;
+mod weighted_gaussian;
 
-pub use gaussian::NoteGaussian;
-pub use preprocessed::{AutoOffsetNoteKind, NoteEvent, NotePreprocessConfig, PreprocessedNoteGaussian};
+pub use gaussian::GaussianNote;
+pub use weighted_gaussian::{AutoOffsetNoteKind, NoteEvent, NotePreprocessConfig, WeightedGaussianNote};

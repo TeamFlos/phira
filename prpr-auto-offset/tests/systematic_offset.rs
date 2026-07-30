@@ -1,4 +1,4 @@
-use prpr_auto_offset::{estimate_with, AlignConfig, EnergyDiff, NoteGaussian, Signal, SpectralFlux, SuperFlux};
+use prpr_auto_offset::{estimate_with, AlignConfig, EnergyDiff, GaussianNote, Signal, SpectralFlux, SuperFlux};
 use std::path::{Path, PathBuf};
 
 const NOTE_SIGMA: f64 = 0.02;
@@ -15,8 +15,8 @@ fn config() -> AlignConfig {
 fn analytic_signal_has_expected_sign() {
     let note_times = vec![1.0, 1.75, 2.5, 3.125, 4.0, 5.25, 6.0];
     let true_offset = 0.123;
-    let audio = NoteGaussian::new(note_times.iter().map(|t| t + true_offset).collect(), NOTE_SIGMA);
-    let note = NoteGaussian::new(note_times, NOTE_SIGMA);
+    let audio = GaussianNote::new(note_times.iter().map(|t| t + true_offset).collect(), NOTE_SIGMA);
+    let note = GaussianNote::new(note_times, NOTE_SIGMA);
     let result = estimate_with(&audio, &note, 7.0, &config());
 
     eprintln!("analytic: true={true_offset:.3}s estimated={:.3}s corr={:.4}", result.offset, result.correlation);
@@ -85,7 +85,7 @@ impl Frontend {
     }
 
     fn estimate(self, pcm: &[f32], sample_rate: u32, duration: f64, note_times: &[f64]) -> BiasMeasurement {
-        let note = NoteGaussian::new(note_times.to_vec(), NOTE_SIGMA);
+        let note = GaussianNote::new(note_times.to_vec(), NOTE_SIGMA);
         let result = match self {
             Self::Energy => {
                 let audio = EnergyDiff::new(pcm, sample_rate, 10.0, 5.0);
