@@ -872,7 +872,6 @@ impl Judge {
 
     fn auto_play_update(&mut self, res: &mut Resource, chart: &mut Chart) {
         let t = res.time;
-        let spd = res.config.speed as f64;
         let mut judgements = Vec::new();
         for (line_id, (line, (idx, st))) in chart.lines.iter_mut().zip(self.notes.iter_mut()).enumerate() {
             for id in &idx[*st..] {
@@ -895,7 +894,7 @@ impl Judge {
                 note.judge = if matches!(note.kind, NoteKind::Hold { .. }) {
                     note.hitsound.play(res);
                     self.judgements.borrow_mut().push((t, line_id as _, *id, Err(true)));
-                    JudgeStatus::Hold(true, t, (t - note.time) / spd, false, f64::INFINITY)
+                    JudgeStatus::Hold(true, t, t, false, f64::INFINITY)
                 } else {
                     judgements.push((line_id, *id));
                     JudgeStatus::Judged
