@@ -17,16 +17,19 @@ use crate::{
     info::{ChartFormat, ChartInfo},
     judge::Judge,
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
+    play_record::{PlayMeta, PlayRecorder},
     task::Task,
     time::TimeManager,
     ui::{OffsetAnalysisPanel, OffsetPanelAction, OffsetPanelLabels, RectButton, TextPainter, Ui},
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
+use hex::ToHex;
 use inputbox::InputBox;
 use macroquad::{prelude::*, window::InternalGlContext};
 use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     any::Any,
     cell::RefCell,
@@ -149,6 +152,8 @@ pub struct GameScene {
 
     best_record: Option<SimpleRecord>,
 
+    play_recorder: PlayRecorder,
+
     pub touch_points: Vec<(f32, f32)>,
     fps_frame_count: u32,
     fps_total_time: f64,
@@ -162,6 +167,7 @@ macro_rules! reset {
         $self.bad_notes.clear();
         $self.judge.reset();
         $self.chart.reset();
+        $self.play_recorder.reset();
         $res.judge_line_color = $res.res_pack.info.color_perfect();
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
@@ -341,6 +347,8 @@ impl GameScene {
             save_fn,
 
             best_record: None,
+
+            play_recorder: PlayRecorder::new(),
 
             touch_points: Vec::new(),
 
@@ -804,6 +812,16 @@ impl GameScene {
         self.chart.offset + self.res.config.offset + self.info_offset
     }
 
+    /// Whether this play is a genuine attempt worth recording in detail.
+    /// Exercise can seek backwards (which breaks the monotonic touch stream),
+    /// tweaking the offset and viewing are not attempts at all, and an unrated
+    /// play (autoplay above all, which judges nothing) has nothing to record.
+    fn should_record(&self) -> bool {
+        matches!(self.mode, GameMode::Normal | GameMode::NoRetry)
+            && !self.res.config.mods.intersects(Mods::UNRATED)
+            && self.res.config.speed >= 1.0 - 1e-3
+    }
+
     fn tweak_offset(&mut self, ui: &mut Ui, ita: bool) {
         let labels = OffsetPanelLabels {
             adjust_offset: tl!("adjust-offset"),
@@ -960,6 +978,20 @@ impl Scene for GameScene {
                         }
                     }
                     let result = self.judge.result();
+                    let play_record = self.should_record().then(|| {
+                        let meta = PlayMeta {
+                            chart_id: self.res.info.id,
+                            chart_hash: Some(Sha256::digest(&self.chart_bytes).encode_hex()),
+                            mods: self.res.config.mods,
+                            speed: self.res.config.speed,
+                            offset: self.offset(),
+                            player_offset: self.res.config.offset,
+                            use_keyboard: self.res.config.use_keyboard,
+                            aspect_ratio: self.res.aspect_ratio,
+                            track_length: self.res.track_length as f32,
+                        };
+                        Arc::new(std::mem::take(&mut self.play_recorder).finish(meta, &self.chart, &self.judge.hit_events))
+                    });
                     let record = if self.res.config.mods.intersects(Mods::UNRATED) || self.res.config.speed < 1.0 - 1e-3 {
                         None
                     } else {
@@ -1003,6 +1035,7 @@ impl Scene for GameScene {
                                 self.player.as_ref().map(|it| it.rks),
                                 historic_best,
                                 record_data,
+                                play_record,
                                 self.best_record.clone(),
                                 if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
                             )?)))
@@ -1020,6 +1053,7 @@ impl Scene for GameScene {
         if !tm.paused() && self.pause_rewind.is_none() && self.mode != GameMode::View {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
             self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
+            self.play_recorder.record_touches(self.res.time, self.res.aspect_ratio);
             self.gl.quad_gl.viewport(None);
         }
         if let Some(update) = &mut self.update_fn {

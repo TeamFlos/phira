@@ -43,7 +43,7 @@ use prpr::{
     fs::{self},
     info::ChartInfo,
     judge::icon_index,
-    play_record::TouchRecorder,
+    play_record::{PlayRecord, TouchRecorder},
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
         LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
@@ -1005,14 +1005,18 @@ impl SongScene {
                 rks: it.rks,
                 historic_best: record.map_or(0, |it| it.score as u32),
             });
-            let upload_fn: Option<UploadFn> = Some(Arc::new(move |data: Vec<u8>| {
+            let upload_fn: Option<UploadFn> = Some(Arc::new(move |data: Vec<u8>, play_record: Option<Arc<PlayRecord>>| {
                 Task::new(async move {
                     #[derive(Serialize)]
                     #[serde(rename_all = "camelCase")]
-                    struct Req {
+                    struct Req<'a> {
                         chart: i32,
                         token: String,
                         chart_updated: Option<DateTime<Utc>>,
+                        // Borrowed out of the `Arc` rather than held by it, so
+                        // that serde's `rc` feature isn't needed workspace-wide.
+                        #[serde(skip_serializing_if = "Option::is_none")]
+                        play_record: Option<&'a PlayRecord>,
                     }
                     #[derive(Deserialize)]
                     #[serde(rename_all = "camelCase")]
@@ -1029,6 +1033,7 @@ impl SongScene {
                             chart: id.unwrap(),
                             token: STANDARD.encode(data),
                             chart_updated,
+                            play_record: play_record.as_deref(),
                         },
                     ))
                     .await?

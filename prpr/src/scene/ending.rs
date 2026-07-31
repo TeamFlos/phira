@@ -7,6 +7,7 @@ use crate::{
     ext::{create_audio_manger, rect_shadow, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
     info::ChartInfo,
     judge::{icon_index, PlayResult},
+    play_record::PlayRecord,
     scene::show_message,
     task::Task,
     time::TimeManager,
@@ -16,7 +17,7 @@ use anyhow::Result;
 use macroquad::prelude::*;
 use sasa::{AudioClip, AudioManager, Music, MusicParams};
 use serde::Deserialize;
-use std::{cell::RefCell, ops::DerefMut};
+use std::{cell::RefCell, ops::DerefMut, sync::Arc};
 
 #[derive(Deserialize)]
 pub struct RecordUpdateState {
@@ -53,6 +54,7 @@ pub struct EndingScene {
     upload_fn: Option<UploadFn>,
     upload_task: Option<(Task<Result<RecordUpdateState>>, MessageHandle)>,
     record_data: Option<Vec<u8>>,
+    play_record: Option<Arc<PlayRecord>>,
     best_record: Option<SimpleRecord>,
 
     btn_retry: DRectButton,
@@ -83,6 +85,7 @@ impl EndingScene {
         player_rks: Option<f32>,
         historic_best: u32,
         record_data: Option<Vec<u8>>,
+        play_record: Option<Arc<PlayRecord>>,
         best_record: Option<SimpleRecord>,
         avg_fps: Option<f32>,
     ) -> Result<Self> {
@@ -95,9 +98,11 @@ impl EndingScene {
                 ..Default::default()
             },
         )?;
-        let upload_task = upload_fn
-            .as_ref()
-            .and_then(|f| record_data.clone().map(|data| (f(data), show_message(tl!("uploading")).handle())));
+        let upload_task = upload_fn.as_ref().and_then(|f| {
+            record_data
+                .clone()
+                .map(|data| (f(data, play_record.clone()), show_message(tl!("uploading")).handle()))
+        });
         Ok(Self {
             background,
             illustration,
@@ -139,6 +144,7 @@ impl EndingScene {
             upload_fn,
             upload_task,
             record_data,
+            play_record,
             best_record,
             detail_mode: false,
 
@@ -214,7 +220,7 @@ impl Scene for EndingScene {
             self.upload_task = self
                 .record_data
                 .clone()
-                .map(|data| ((self.upload_fn.as_ref().unwrap())(data), show_message(tl!("uploading")).handle()));
+                .map(|data| ((self.upload_fn.as_ref().unwrap())(data, self.play_record.clone()), show_message(tl!("uploading")).handle()));
         }
         if let Some((task, handle)) = &mut self.upload_task {
             if let Some(result) = task.take() {
