@@ -42,7 +42,8 @@ use prpr::{
     },
     fs::{self},
     info::ChartInfo,
-    judge::{icon_index, Judge},
+    judge::icon_index,
+    play_record::TouchRecorder,
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
         LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
@@ -61,7 +62,7 @@ use sha2::{Digest, Sha256};
 use std::{
     any::Any,
     borrow::Cow,
-    collections::{hash_map, BTreeMap, HashMap, VecDeque},
+    collections::{BTreeMap, VecDeque},
     fs::File,
     io::{BufWriter, Cursor, Seek, Write},
     path::Path,
@@ -875,8 +876,7 @@ impl SongScene {
             let mut reconnect_task: Option<Task<Result<phira_mp_client::Client>>> = None;
             let update_fn: Option<UpdateFn> = if live {
                 Some(Box::new({
-                    let mut touch_ids: HashMap<u64, i8> = HashMap::new();
-                    let mut touch_last_update: HashMap<i8, f32> = HashMap::new();
+                    let mut touch_recorder = TouchRecorder::new();
                     let mut touches: VecDeque<TouchFrame> = VecDeque::new();
                     let mut judges: VecDeque<JudgeEvent> = VecDeque::new();
                     let mut last_send_touch_time: f32 = 0.;
@@ -905,27 +905,11 @@ impl SongScene {
                                 reconnect_task = None;
                             }
                         }
-                        let points: Vec<_> = Judge::get_touches()
+                        let points: Vec<_> = touch_recorder
+                            .poll(t, res.aspect_ratio)
                             .into_iter()
-                            .filter_map(|it| {
-                                if matches!(it.phase, TouchPhase::Stationary) {
-                                    return None;
-                                }
-                                let len = touch_ids.len();
-                                let mut id = match touch_ids.entry(it.id) {
-                                    hash_map::Entry::Occupied(val) => *val.get(),
-                                    hash_map::Entry::Vacant(place) => *place.insert(len.try_into().ok()?),
-                                };
-                                if matches!(it.phase, TouchPhase::Moved) && touch_last_update.get(&id).is_some_and(|it| *it as f64 + 1. / 20. >= t) {
-                                    return None;
-                                }
-                                touch_last_update.insert(id, t as f32);
-                                if matches!(it.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
-                                    touch_ids.remove(&it.id);
-                                    id = !id;
-                                }
-                                Some((id, CompactPos::new(it.position.x, it.position.y * res.aspect_ratio)))
-                            })
+                            // `poll` has already scaled `y` by the aspect ratio.
+                            .map(|it| (it.id, CompactPos::new(it.x, it.y)))
                             .collect();
                         if !points.is_empty() {
                             touches.push_back(TouchFrame { time: t as f32, points });
