@@ -12,7 +12,7 @@ use macroquad::prelude::{
 use miniquad::{EventHandler, MouseButton};
 use once_cell::sync::Lazy;
 use sasa::{PlaySfxParams, Sfx};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, mem, num::FpCategory};
 use tracing::debug;
 
@@ -143,12 +143,58 @@ pub enum JudgeStatus {
 }
 
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, Serialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Judgement {
     Perfect,
     Good,
     Bad,
     Miss,
+}
+
+impl From<Judgement> for u8 {
+    fn from(judgement: Judgement) -> Self {
+        judgement as Self
+    }
+}
+
+impl TryFrom<u8> for Judgement {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Ok(match value {
+            0 => Self::Perfect,
+            1 => Self::Good,
+            2 => Self::Bad,
+            3 => Self::Miss,
+            _ => return Err("invalid judgement"),
+        })
+    }
+}
+
+impl Serialize for Judgement {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_u8(*self as u8)
+    }
+}
+
+impl<'de> Deserialize<'de> for Judgement {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::try_from(u8::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+/// A single resolved judgement, kept for post-play statistics.
+#[derive(Debug, Copy, Clone)]
+pub struct HitEvent {
+    pub line_id: u32,
+    pub note_id: u32,
+    pub judgement: Judgement,
+    /// Timing error in seconds, negative meaning early. `None` where there is
+    /// no meaningful one: misses, and every drag or flick.
+    pub diff: Option<f64>,
+    /// Set when this miss is a hold that was hit and then released early,
+    /// which is otherwise indistinguishable from one never touched at all.
+    pub hold_broken: bool,
 }
 
 #[cfg(not(closed))]
@@ -279,6 +325,10 @@ pub struct Judge {
 
     pub(crate) inner: JudgeInner,
     pub judgements: RefCell<Judgements>,
+    /// Every resolved judgement of this run, in order. Only filled during real
+    /// play — autoplay and spectator replay leave it empty, since neither
+    /// produces timing data worth recording.
+    pub hit_events: Vec<HitEvent>,
 }
 
 #[derive(Default)]
@@ -318,6 +368,7 @@ impl Judge {
 
             inner: JudgeInner::new(chart.lines.iter().map(|it| it.notes.iter().filter(|it| !it.fake).count() as u32).sum()),
             judgements: RefCell::new(Vec::new()),
+            hit_events: Vec::new(),
         }
     }
 
@@ -326,6 +377,7 @@ impl Judge {
         self.trackers.clear();
         self.inner.reset();
         self.judgements.borrow_mut().clear();
+        self.hit_events.clear();
     }
 
     /// Advance note pointers past notes before time `t`, marking them as judged.
@@ -620,7 +672,13 @@ impl Judge {
                         match note.kind {
                             NoteKind::Click => {
                                 note.judge = JudgeStatus::Judged;
-                                judgements.push((if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good }, line_id, id, Some(t)));
+                                judgements.push((
+                                    if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good },
+                                    line_id,
+                                    id,
+                                    Some(t),
+                                    false,
+                                ));
                             }
                             NoteKind::Hold { .. } => {
                                 note.hitsound.play(res);
@@ -634,7 +692,7 @@ impl Judge {
                         if matches!(note.judge, JudgeStatus::NotJudged) {
                             // keep the note after bad judgement
                             line.notes[id as usize].judge = JudgeStatus::PreJudge;
-                            judgements.push((Judgement::Bad, line_id, id, None));
+                            judgements.push((Judgement::Bad, line_id, id, None, false));
                         }
                     }
                 } else {
@@ -682,6 +740,7 @@ impl Judge {
                                 line_id,
                                 id,
                                 None,
+                                false,
                             ));
                         }
                         NoteKind::Hold { .. } => {
@@ -716,7 +775,10 @@ impl Judge {
                         {
                             if t > *up_time + UP_TOLERANCE {
                                 note.judge = JudgeStatus::Judged;
-                                judgements.push((Judgement::Miss, line_id, *id, None));
+                                // The head of this hold was hit; the player let
+                                // go too early. Flagged so it can be told apart
+                                // from a hold that was never touched.
+                                judgements.push((Judgement::Miss, line_id, *id, None, true));
                             } else if up_time.is_infinite() {
                                 *up_time = t;
                             }
@@ -733,7 +795,7 @@ impl Judge {
                 let dt = (t - note.time) / spd;
                 if dt > LIMIT_BAD {
                     note.judge = JudgeStatus::Judged;
-                    judgements.push((Judgement::Miss, line_id, *id, None));
+                    judgements.push((Judgement::Miss, line_id, *id, None, false));
                     continue;
                 }
                 if -dt > LIMIT_BAD {
@@ -767,7 +829,7 @@ impl Judge {
                     if let NoteKind::Hold { end_time, .. } = &note.kind {
                         if *end_time <= t {
                             note.judge = JudgeStatus::Judged;
-                            judgements.push((if perfect { Judgement::Perfect } else { Judgement::Good }, line_id, *id, Some(diff)));
+                            judgements.push((if perfect { Judgement::Perfect } else { Judgement::Good }, line_id, *id, Some(diff), false));
                             continue;
                         }
                     }
@@ -789,12 +851,12 @@ impl Judge {
                     };
                     note.judge = JudgeStatus::Judged;
                     if !matches!(note.kind, NoteKind::Click) {
-                        judgements.push((Judgement::Perfect, line_id, *id, diff));
+                        judgements.push((Judgement::Perfect, line_id, *id, diff, false));
                     }
                 }
             }
         }
-        for (judgement, line_id, id, diff) in judgements {
+        for (judgement, line_id, id, diff, hold_broken) in judgements {
             let line = &mut chart.lines[line_id];
             let note = &mut line.notes[id as usize];
             line.object.set_time(t);
@@ -802,17 +864,31 @@ impl Judge {
             let line = &chart.lines[line_id];
             let note = &line.notes[id as usize];
             let line_tr = line.now_transform(res, &chart.lines);
+            // A miss has no observed hit time, and drags and flicks are judged
+            // by contact rather than by when it happened.
+            let error = if matches!(judgement, Judgement::Miss) || matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
+                None
+            } else {
+                Some((diff.unwrap_or(t) - note.time) / spd)
+            };
+            self.hit_events.push(HitEvent {
+                line_id: line_id as _,
+                note_id: id,
+                judgement,
+                diff: error,
+                hold_broken,
+            });
+            // `inner` keeps its own sentinel convention: misses count as very
+            // late, and untimed notes as exactly on time.
             self.commit(
                 t,
                 judgement,
                 line_id as _,
                 id,
-                if matches!(judgement, Judgement::Miss) {
-                    0.25
-                } else if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
-                    0.
-                } else {
-                    (diff.unwrap_or(t) - note.time) / spd
+                match error {
+                    _ if matches!(judgement, Judgement::Miss) => 0.25,
+                    Some(error) => error,
+                    None => 0.,
                 },
             );
             if matches!(note.kind, NoteKind::Hold { .. }) {
