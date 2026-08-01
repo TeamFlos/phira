@@ -13,6 +13,9 @@ mod scroll;
 use inputbox::{InputBox, InputMode};
 pub use scroll::*;
 
+mod offset_analysis;
+pub use offset_analysis::*;
+
 mod shading;
 pub use shading::*;
 
