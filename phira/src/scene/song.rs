@@ -72,7 +72,6 @@ use std::{
     thread_local,
 };
 use tap::Tap;
-use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -887,7 +886,7 @@ impl SongScene {
                             let token = token.clone();
                             let addr = addr.clone();
                             reconnect_task = Some(Task::new(async move {
-                                let client = phira_mp_client::Client::new(TcpStream::connect(addr).await?).await?;
+                                let client = phira_mp_client::Client::from_address(&addr).await?;
                                 client.authenticate(token).await?;
                                 Ok(client)
                             }));

@@ -24,7 +24,7 @@ use prpr::{
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use serde::Deserialize;
-use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
+use std::{borrow::Cow, fs, io, path::PathBuf, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
@@ -545,7 +545,7 @@ impl GeneralList {
         }
         if let Some((id, text)) = take_input() {
             if id == "mp_addr" {
-                if let Err(err) = text.to_socket_addrs() {
+                if let Err(err) = text.parse::<http::uri::Authority>() {
                     show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
                     return Ok(false);
                 } else {
