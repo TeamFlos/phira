@@ -94,7 +94,7 @@ pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 static MENTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s#@(（]+)(?:#(\d+))?(?:\s*[（(]([^)）]+)[)）])?").unwrap());
 
 /// Parse all `@name#id` resolved collaborator mentions and return `(id, role)` pairs.
-fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
+fn parse_collaborators(intro: &str) -> BTreeMap<i32, (Option<String>, RectButton)> {
     use std::collections::btree_map::Entry;
 
     let mut result = BTreeMap::new();
@@ -105,11 +105,11 @@ fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
     }) {
         match result.entry(id) {
             Entry::Vacant(e) => {
-                e.insert(role);
+                e.insert((role, RectButton::new()));
             }
             Entry::Occupied(mut e) => {
-                if e.get().is_none() && role.is_some() {
-                    e.insert(role);
+                if e.get().0.is_none() && role.is_some() {
+                    e.insert((role, RectButton::new()));
                 }
             }
         }
@@ -407,7 +407,7 @@ pub struct SongScene {
 
     confirm_cancel_edit: Arc<AtomicBool>,
 
-    collaborators: BTreeMap<i32, Option<String>>,
+    collaborators: BTreeMap<i32, (Option<String>, RectButton)>,
     autocomplete_task: Option<Task<Result<String>>>,
 
     export_task: Option<mpsc::Receiver<Result<()>>>,
@@ -1265,10 +1265,11 @@ impl SongScene {
             }
             if !self.collaborators.is_empty() {
                 dy!(ui.text(tl!("info-collaborators")).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
-                for (collab_id, role) in &self.collaborators {
+                for (collab_id, (role, btn)) in &mut self.collaborators {
                     let c = 0.06;
                     let s = 0.05;
                     let r = ui.avatar(c, c, s, rt, UserManager::opt_avatar(*collab_id, &self.icons.user));
+                    btn.set(ui, Rect::new(c - s, c - s, s * 2., s * 2.));
                     if let Some((name, color)) = UserManager::name_and_color(*collab_id) {
                         let name_r = ui
                             .text(name)
@@ -1771,6 +1772,13 @@ impl Scene for SongScene {
                                 ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
                             );
                             return Ok(true);
+                        }
+                        for (id, (_, btn)) in &mut self.collaborators {
+                            if btn.touch(touch) {
+                                button_hit();
+                                self.sf.goto(t, ProfileScene::new(*id, self.icons.user.clone(), self.rank_icons.clone()));
+                                return Ok(true);
+                            }
                         }
                         if self.open_web_btn.touch(touch, rt) {
                             open_url(&format!("https://phira.moe/chart/{}", self.info.id.unwrap()))?;
