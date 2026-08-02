@@ -88,7 +88,6 @@ pub struct ProfileScene {
 
 impl ProfileScene {
     pub fn new(id: i32, icon_user: SafeTexture, rank_icons: [SafeTexture; 8]) -> Self {
-        let _ = UserManager::clear_cache(id);
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
         Self {
