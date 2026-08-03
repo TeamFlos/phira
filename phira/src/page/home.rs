@@ -422,11 +422,13 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_event.touch(touch, t) {
-                button_hit_large();
-                if get_data().me.is_none() {
-                    self.login.enter(t);
-                } else {
-                    self.next_page = Some(NextPage::Overlay(Box::new(EventPage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                if check_read_tos_and_policy(true, true) {
+                    button_hit_large();
+                    if get_data().me.is_none() {
+                        self.login.enter(t);
+                    } else {
+                        self.next_page = Some(NextPage::Overlay(Box::new(EventPage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                    }
                 }
                 return Ok(true);
             }
@@ -436,7 +438,9 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_msg.touch(touch, t) {
-                self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                if check_read_tos_and_policy(true, true) {
+                    self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                }
                 return Ok(true);
             }
             if self.btn_settings.touch(touch, t) {
