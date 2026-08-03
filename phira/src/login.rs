@@ -1,12 +1,12 @@
 prpr_l10n::tl_file!("login");
 
 use crate::{
-    client::{Client, LoginParams, User, UserManager, API_URL},
+    client::{Client, ErrorCode, LoginParams, User, UserManager, API_URL},
     get_data_mut,
     icons::Icons,
     page::Fader,
     save_data,
-    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
+    scene::{check_read_tos_and_policy, confirm_dialog, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
 use inputbox::{InputBox, InputMode};
@@ -22,7 +22,7 @@ use prpr::{
     ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
 use regex::Regex;
-use std::{future::Future, sync::atomic::Ordering, sync::Arc};
+use std::{future::Future, sync::atomic::AtomicBool, sync::atomic::Ordering, sync::Arc};
 
 const USERNAME_LEN_MIN: usize = 2;
 const USERNAME_LEN_MAX: usize = 14;
@@ -121,6 +121,11 @@ pub struct Login {
 
     task: Option<(&'static str, Task<Result<Option<User>>>)>,
     after_accept_tos: Option<NextAction>,
+    /// Email/password held while the player decides whether to cancel a pending
+    /// account deletion request and retry the login with `cancel_delete_request`.
+    pending_delete_retry: Option<(String, String)>,
+    /// Result flag for the pending-delete confirmation dialog.
+    pending_delete_confirm: Arc<AtomicBool>,
     /// HYKB login phase 1 (verify uid/token), distinct from `task` which handles
     /// the register/claim follow-up that resolves to a `User`.
     #[cfg(feature = "hykb")]
@@ -208,6 +213,8 @@ impl Login {
 
             task: None,
             after_accept_tos: None,
+            pending_delete_retry: None,
+            pending_delete_confirm: Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "hykb")]
             hykb_task: None,
             #[cfg(feature = "hykb")]
@@ -581,10 +588,15 @@ impl Login {
         }
         let email = self.t_email.clone();
         let pwd = self.t_pwd.clone();
+        self.start_login_with(email, pwd, false);
+    }
+
+    fn start_login_with(&mut self, email: String, pwd: String, cancel_delete_request: bool) {
         self.start("login", async move {
             Client::login(LoginParams::Password {
                 email: &email,
                 password: &pwd,
+                cancel_delete_request,
             })
             .await?;
             let me = Client::get_me().await?;
@@ -669,8 +681,24 @@ impl Login {
         if let Some((action, task)) = &mut self.task {
             if let Some(res) = task.take() {
                 match res {
-                    Err(err) => show_error(err.context(tl!("action-failed", "action" => *action))),
+                    Err(err) => {
+                        // A pending account deletion request blocks the login.
+                        // Prompt the player: confirming cancels the deletion by
+                        // retrying the login with `cancelDeleteRequest: true`.
+                        if *action == "login" && err.downcast_ref::<ErrorCode>() == Some(&ErrorCode::PENDING_DELETE_REQUEST) {
+                            self.pending_delete_retry = Some((self.t_email.clone(), self.t_pwd.clone()));
+                            self.pending_delete_confirm.store(false, Ordering::SeqCst);
+                            confirm_dialog(
+                                tl!("pending-delete-title").into_owned(),
+                                tl!("pending-delete-message").into_owned(),
+                                Arc::clone(&self.pending_delete_confirm),
+                            );
+                        } else {
+                            show_error(err.context(tl!("action-failed", "action" => *action)));
+                        }
+                    }
                     Ok(user) => {
+                        self.pending_delete_retry = None;
                         if let Some(user) = user {
                             UserManager::request(user.id);
                             get_data_mut().me = Some(user);
@@ -691,6 +719,11 @@ impl Login {
                     }
                 }
                 self.task = None;
+            }
+        }
+        if self.pending_delete_confirm.swap(false, Ordering::Relaxed) {
+            if let Some((email, pwd)) = self.pending_delete_retry.take() {
+                self.start_login_with(email, pwd, true);
             }
         }
         #[cfg(feature = "hykb")]

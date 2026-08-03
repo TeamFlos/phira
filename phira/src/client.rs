@@ -102,6 +102,8 @@ impl fmt::Display for ErrorCode {
     }
 }
 
+impl std::error::Error for ErrorCode {}
+
 pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
     let response = request.send().await?;
     if !response.status().is_success() {
@@ -121,15 +123,17 @@ pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
 }
 
 #[derive(Serialize)]
-#[serde(untagged)]
+#[serde(untagged, rename_all_fields = "camelCase")]
 pub enum LoginParams<'a> {
     Password {
         email: &'a str,
         password: &'a str,
+        cancel_delete_request: bool,
     },
     RefreshToken {
         #[serde(rename = "refreshToken")]
         token: &'a str,
+        cancel_delete_request: bool,
     },
 }
 
