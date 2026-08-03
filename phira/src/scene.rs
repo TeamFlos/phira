@@ -35,7 +35,7 @@ use once_cell::sync::{Lazy, OnceCell};
 use prpr::{
     config::Mods,
     core::{BOLD_FONT, PGR_FONT},
-    ext::{semi_white, unzip_into, RectExt, SafeTexture},
+    ext::{open_url, semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
     info::{ChartFormat, ChartInfo},
     parse::ParseWarnings,
@@ -63,8 +63,11 @@ thread_local! {
 }
 
 pub static ASSET_CHART_INFO: Lazy<Mutex<Option<ChartInfo>>> = Lazy::new(Mutex::default);
-pub static TERMS: OnceCell<Option<(String, String)>> = OnceCell::new();
-type LoadTosTask = Task<Result<Option<(String, String)>>>;
+/// External (in-browser) documents shown in the consent dialog.
+pub const TERMS_URL: &str = "https://phira.moe/terms-of-use";
+pub const PRIVACY_URL: &str = "https://phira.moe/privacy-policy";
+pub static TERMS: OnceCell<Option<String>> = OnceCell::new();
+type LoadTosTask = Task<Result<Option<String>>>;
 pub static LOAD_TOS_TASK: Lazy<Mutex<Option<LoadTosTask>>> = Lazy::new(Mutex::default);
 pub static JUST_ACCEPTED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
 pub static JUST_LOADED_TOS: Lazy<AtomicBool> = Lazy::new(AtomicBool::default);
@@ -148,65 +151,40 @@ pub fn check_read_tos_and_policy(change_just_accepted: bool, strict: bool) -> bo
         return true;
     }
     match TERMS.get() {
-        Some(Some((terms, modified))) => {
+        Some(Some(modified)) => {
             // The player already accepted exactly this version — don't re-prompt.
             if get_data().terms_modified.as_deref() == Some(modified.as_str()) {
                 return true;
             }
-            let content = ttl!("tos-and-policy-desc") + "\n\n" + terms.as_str();
-            let lines = content.split('\n').collect::<Vec<_>>();
-            let pages = lines.chunks(50).map(|it| it.join("\n")).collect::<Vec<_>>();
-            let pages_len = pages.len();
-            let mut page = 0;
-            let gen_buttons = move |page: usize| {
-                let mut btns = vec![ttl!("tos-deny").into_owned()];
-                let mut btn_ids = vec![0u8];
-                if page != 0 {
-                    btns.push(ttl!("tos-prev-page").into_owned());
-                    btn_ids.push(1);
-                }
-                if page != pages_len - 1 {
-                    btns.push(ttl!("tos-next-page").into_owned());
-                    btn_ids.push(2);
-                } else {
-                    btns.push(ttl!("tos-accept").into_owned());
-                    btn_ids.push(3);
-                }
-                (btns, btn_ids)
-            };
-            let (btns, mut btn_ids) = gen_buttons(page);
-            Dialog::plain(ttl!("tos-and-policy"), &pages[page])
-                .buttons(btns)
-                .listener(move |dialog, pos| match pos {
+            Dialog::plain(ttl!("tos-and-policy"), ttl!("tos-and-policy-desc"))
+                .links(vec![
+                    (ttl!("tos-link-terms").into_owned(), TERMS_URL.to_owned()),
+                    (ttl!("tos-link-privacy").into_owned(), PRIVACY_URL.to_owned()),
+                ])
+                .on_link(|i| {
+                    let url = match i {
+                        0 => TERMS_URL,
+                        1 => PRIVACY_URL,
+                        _ => return,
+                    };
+                    let _ = open_url(url);
+                })
+                .buttons(vec![ttl!("tos-deny").into_owned(), ttl!("tos-accept").into_owned()])
+                .listener(move |_dialog, pos| match pos {
                     -2 | -1 => true,
-                    _ => {
-                        match btn_ids[pos as usize] {
-                            0 => {
-                                show_message(ttl!("warn-deny-tos-policy")).warn();
-                                return false;
-                            }
-                            1 => {
-                                page -= 1;
-                            }
-                            2 => {
-                                page += 1;
-                            }
-                            3 => {
-                                get_data_mut().terms_modified = Some(modified.clone());
-                                let _ = save_data();
-                                if change_just_accepted {
-                                    JUST_ACCEPTED_TOS.store(true, Ordering::Relaxed);
-                                }
-                                return false;
-                            }
-                            _ => unreachable!(),
-                        }
-                        let (btns, new_btn_ids) = gen_buttons(page);
-                        btn_ids = new_btn_ids;
-                        dialog.set_buttons(btns);
-                        dialog.set_message(&pages[page]);
-                        true
+                    0 => {
+                        show_message(ttl!("warn-deny-tos-policy")).warn();
+                        false
                     }
+                    1 => {
+                        get_data_mut().terms_modified = Some(modified.clone());
+                        let _ = save_data();
+                        if change_just_accepted {
+                            JUST_ACCEPTED_TOS.store(true, Ordering::Relaxed);
+                        }
+                        false
+                    }
+                    _ => true,
                 })
                 .show();
         }

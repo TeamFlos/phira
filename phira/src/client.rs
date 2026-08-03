@@ -432,9 +432,12 @@ impl Client {
         Ok(resp.id)
     }
 
-    /// Returns Some(new_terms, modified) if the terms have been updated.
-    pub async fn fetch_terms(modified: Option<&str>) -> Result<Option<(String, String)>> {
-        let mut req = CLIENT.load().get(format!("{API_URL}/terms/{}.txt", client_locale()));
+    /// Returns `Some(modified)` (the `Last-Modified` header) if the terms have
+    /// been updated since `modified`, or `None` if unchanged. Uses HEAD so the
+    /// ~9 KB body is never downloaded — change detection relies solely on the
+    /// `Last-Modified` header.
+    pub async fn fetch_terms(modified: Option<&str>) -> Result<Option<String>> {
+        let mut req = CLIENT.load().head(format!("{API_URL}/terms/{}.txt", client_locale()));
         if let Some(modified) = modified {
             req = req.header(header::IF_MODIFIED_SINCE, header::HeaderValue::from_str(modified)?);
         }
@@ -456,8 +459,7 @@ impl Client {
             // That mother fucker qiniu does not return NOT_MODIFIED
             return Ok(None);
         }
-        let new_terms = resp.text().await?;
-        Ok(Some((new_terms, new_modified)))
+        Ok(Some(new_modified))
     }
 }
 

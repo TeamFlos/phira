@@ -9,6 +9,7 @@ const WIDTH_RADIO: f32 = 0.5;
 const HEIGHT_RATIO: f32 = 0.7;
 
 type DialogListener = dyn FnMut(&mut Dialog, i32) -> bool;
+type LinkListener = dyn FnMut(usize);
 
 #[must_use]
 pub struct Dialog {
@@ -18,6 +19,12 @@ pub struct Dialog {
     /// listener function returns `false` to close the dialog, `true` to keep it open
     /// the parameter is the *index* of the button clicked, `-1` for outside click, `-2` for text
     listener: Option<Box<DialogListener>>,
+
+    /// Clickable link rows drawn below the message body. Each entry is
+    /// `(label, url)`; `on_link` is invoked with the row index when tapped.
+    links: Vec<(String, String)>,
+    on_link: Option<Box<LinkListener>>,
+    link_buttons: Vec<RectButton>,
 
     text_btn: RectButton,
 
@@ -35,6 +42,10 @@ impl Default for Dialog {
             message: String::new(),
             buttons: vec![tl!("ok").to_string()],
             listener: None,
+
+            links: Vec::new(),
+            on_link: None,
+            link_buttons: Vec::new(),
 
             text_btn: RectButton::new(),
 
@@ -111,6 +122,20 @@ impl Dialog {
         self
     }
 
+    /// Adds clickable link rows drawn below the message body. Each entry is
+    /// `(label, url)`; tapping a row invokes `on_link` with its index.
+    pub fn links(mut self, links: Vec<(String, String)>) -> Self {
+        self.link_buttons = (0..links.len()).map(|_| RectButton::new()).collect();
+        self.links = links;
+        self
+    }
+
+    /// Sets the callback fired when a link row is tapped, receiving its index.
+    pub fn on_link(mut self, f: impl FnMut(usize) + 'static) -> Self {
+        self.on_link = Some(Box::new(f));
+        self
+    }
+
     pub fn show(self) {
         crate::scene::DIALOG.with(|it| *it.borrow_mut() = Some(self));
     }
@@ -130,6 +155,17 @@ impl Dialog {
                     exit = true;
                     break;
                 }
+            }
+        }
+        // Link rows sit inside the message body, below the message text. Test
+        // them before the whole-body `text_btn` so a link tap never falls
+        // through to the `-2` text click or the `-1` outside-click close.
+        for (index, btn) in self.link_buttons.iter_mut().enumerate() {
+            if btn.touch(touch) {
+                if let Some(cb) = self.on_link.as_mut() {
+                    cb(index);
+                }
+                return true; // consume the touch, keep the dialog open
             }
         }
         if self.text_btn.touch(touch) {
@@ -172,6 +208,7 @@ impl Dialog {
         let bh = 0.09;
 
         if self.h.is_none() {
+            let link_h = self.links.len() as f32 * 0.08;
             self.h = Some(
                 (ui.text(&self.message)
                     .size(0.5)
@@ -181,7 +218,8 @@ impl Dialog {
                     .h
                     + ui.text(&self.title).size(0.95).no_baseline().measure().h
                     + bh
-                    + 0.22)
+                    + 0.22
+                    + link_h)
                     .min(mh),
             );
         }
@@ -223,7 +261,29 @@ impl Dialog {
                     .multiline()
                     .draw();
                 self.text_btn.set(ui, r);
-                (r.w, r.h + 0.04)
+                ui.dy(r.h + 0.04);
+
+                let accent = ui.accent();
+                let mut link_h = 0.;
+                for ((label, _url), btn) in self.links.iter().zip(self.link_buttons.iter_mut()) {
+                    let lr = ui
+                        .text(label)
+                        .pos(pad, 0.)
+                        .anchor(0., 0.)
+                        .size(0.45)
+                        .max_width(wr.w - pad * 3.)
+                        .color(accent)
+                        .draw();
+                    // underline
+                    ui.fill_rect(Rect::new(lr.x, lr.bottom() + 0.005, lr.w, 0.004), accent);
+                    // generous tap target
+                    btn.set(ui, lr.feather(0.012));
+                    let dh = lr.h + 0.03;
+                    link_h += dh;
+                    ui.dy(dh);
+                }
+
+                (r.w, r.h + 0.04 + link_h)
             });
         });
         ui.scope(|ui| {
