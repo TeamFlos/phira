@@ -1,4 +1,3 @@
-
 edit-chart = Ritim haritasını düzenle
 level-displayed = Seviye
 chart-name = Ad
@@ -24,5 +23,8 @@ tip = Tüyo
 intro = Tanıtım
 tags = Etiketler
 tag-exists = Bu etiket hâlihazırda var
-
 illegal-input = Geçersiz giriş
+enable-unlock = Açılış Videosu'nu Aktif Et
+unlock-file = Açılış Videosu Ekleme
+how-to-add-collaborator = Katkıda Bulunan Kişileri Nasıl Ekleyebilirsiniz
+rpe-170-speed = Yumuşatılmış Geçiş Hızı
