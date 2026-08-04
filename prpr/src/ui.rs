@@ -47,10 +47,11 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     ops::{Deref, DerefMut, Range},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, Ordering},
 };
 
 pub static PREFER_REDUCED_MOTION: AtomicBool = AtomicBool::new(false);
+pub static UI_SFX_VOLUME: AtomicU32 = AtomicU32::new(1.0f32.to_bits());
 
 #[derive(Default, Clone, Copy)]
 pub struct Gravity(u8);
@@ -353,6 +354,23 @@ impl DRectButton {
                 .size(size * (1. - (1. - r.h / oh).powf(1.3)))
                 .max_width(r.w)
                 .color(if chosen { Color::new(0.3, 0.3, 0.3, 1.) } else { WHITE })
+                .draw();
+        });
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_text_color<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool, color: Color) {
+        let oh = r.h;
+        self.build(ui, t, r, |ui, path| {
+            let ct = r.center();
+            ui.fill_path(&path, if chosen { WHITE } else { semi_black(0.4) });
+            ui.text(text)
+                .pos(ct.x, ct.y)
+                .anchor(0.5, 0.5)
+                .no_baseline()
+                .size(size * (1. - (1. - r.h / oh).powf(1.3)))
+                .max_width(r.w)
+                .color(color)
                 .draw();
         });
     }
@@ -1390,7 +1408,9 @@ thread_local! {
 pub fn button_hit() {
     UI_BTN_HITSOUND.with(|it| {
         if let Some(sfx) = it.borrow_mut().as_mut() {
-            let _ = sfx.play(PlaySfxParams::default());
+            let _ = sfx.play(PlaySfxParams {
+                amplifier: f32::from_bits(UI_SFX_VOLUME.load(Ordering::Relaxed)),
+            });
         }
     });
 }
@@ -1398,7 +1418,9 @@ pub fn button_hit() {
 pub fn button_hit_large() {
     UI_BTN_HITSOUND_LARGE.with(|it| {
         if let Some(sfx) = it.borrow_mut().as_mut() {
-            let _ = sfx.play(PlaySfxParams::default());
+            let _ = sfx.play(PlaySfxParams {
+                amplifier: f32::from_bits(UI_SFX_VOLUME.load(Ordering::Relaxed)),
+            });
         }
     });
 }
@@ -1406,7 +1428,9 @@ pub fn button_hit_large() {
 pub fn list_switch() {
     UI_SWITCH_SOUND.with(|it| {
         if let Some(sfx) = it.borrow_mut().as_mut() {
-            let _ = sfx.play(PlaySfxParams::default());
+            let _ = sfx.play(PlaySfxParams {
+                amplifier: f32::from_bits(UI_SFX_VOLUME.load(Ordering::Relaxed)),
+            });
         }
     });
 }

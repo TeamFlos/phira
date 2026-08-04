@@ -116,6 +116,7 @@ impl MainScene {
     }
 
     async fn init() -> Result<()> {
+        prpr::ui::UI_SFX_VOLUME.store(get_data().config.volume_sfx.to_bits(), Ordering::Relaxed);
         // init button hitsound
         macro_rules! load_sfx {
             ($name:ident, $path:literal) => {{

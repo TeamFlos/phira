@@ -1,6 +1,9 @@
 logout = 登出
 logged-out = 您已登出
 delete = 刪除帳號
+delete-confirm =
+  提交刪除請求後，你的帳號將進入一段時間的待刪除期。待刪除期結束後，你的帳號將被徹底刪除，屆時你將無法再登入或找回帳號。在待刪除期內，你可以透過登入帳號來取消刪除請求。
+  請確認是否繼續？
 delete-failed = 刪除帳號失敗
 delete-req-sent = 帳號刪除請求已提交
 load-user-failed = 載入使用者資訊失敗

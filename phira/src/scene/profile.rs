@@ -2,7 +2,7 @@ prpr_l10n::tl_file!("profile");
 
 #[cfg(feature = "hykb")]
 use super::confirm_dialog;
-use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
+use super::{TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
     client::{recv_raw, Client, Record, User, UserManager},
     get_data, get_data_mut, hykb_logout,
@@ -16,15 +16,13 @@ use inputbox::InputBox;
 use macroquad::prelude::*;
 #[cfg(feature = "hykb")]
 use prpr::scene::{request_input, return_input, take_input};
-#[cfg(feature = "hykb")]
-use prpr::ui::Dialog;
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, Scroll, ShadowConfig, Ui},
+    ui::{button_hit, rounded_rect_shadow, DRectButton, Dialog, RectButton, Scroll, ShadowConfig, Ui},
 };
 use serde_json::json;
 use std::sync::{
@@ -88,7 +86,6 @@ pub struct ProfileScene {
 
 impl ProfileScene {
     pub fn new(id: i32, icon_user: SafeTexture, rank_icons: [SafeTexture; 8]) -> Self {
-        let _ = UserManager::clear_cache(id);
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
         Self {
@@ -258,17 +255,6 @@ impl Scene for ProfileScene {
                         Client::clear_cache::<User>(self.id)?;
                         UserManager::clear_cache(self.id)?;
                         UserManager::request(self.id);
-                        // On a HYKB build an unbound account can no longer stay
-                        // logged in, so unbinding logs the player out and returns
-                        // to the main scene.
-                        if !bound {
-                            hykb_logout();
-                            get_data_mut().me = None;
-                            get_data_mut().tokens = None;
-                            save_data()?;
-                            sync_data();
-                            self.sf.next(t, NextScene::Pop);
-                        }
                     }
                 }
                 self.hykb_task = None;
@@ -327,11 +313,7 @@ impl Scene for ProfileScene {
         if self.hykb_task.is_none() && self.should_unbind_hykb.fetch_and(false, Ordering::Relaxed) {
             self.hykb_task = Some(Task::new(async move {
                 Client::unbind_hykb().await?;
-                // Use the unchecked fetch: the account is now unbound, which the
-                // guarded get_me would reject. The success handler logs out and
-                // returns to the main scene, so this just refreshes the state that
-                // decides the bind/unbind branch there.
-                let me = Client::get_me_unchecked().await?;
+                let me = Client::get_me().await?;
                 get_data_mut().me = Some(me);
                 save_data()?;
                 Ok(())
@@ -385,7 +367,17 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_delete.touch(touch, t) {
-            confirm_delete(Arc::clone(&self.should_delete));
+            let res = self.should_delete.clone();
+            Dialog::plain(ttl!("del-confirm").into_owned(), tl!("delete-confirm").into_owned())
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .countdown(5)
+                .listener(move |_dialog, id| {
+                    if id == 1 {
+                        res.store(true, Ordering::SeqCst);
+                    }
+                    false
+                })
+                .show();
             return Ok(true);
         }
         #[cfg(feature = "hykb")]
@@ -522,7 +514,7 @@ impl Scene for ProfileScene {
                     if get_data().me.as_ref().is_some_and(|it| it.id == self.id) {
                         self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                         r.y += r.h + 0.02;
-                        self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
+                        self.btn_delete.render_text_color(ui, r, t, tl!("delete"), 0.6, true, RED);
                         #[cfg(feature = "hykb")]
                         {
                             let me = get_data().me.as_ref();

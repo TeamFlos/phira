@@ -48,3 +48,6 @@ hykb-other-login-not-bound = 该账号未绑定好游快爆，无法登录
 hykb-bind-required-title = 需要绑定好游快爆
 hykb-bind-required = 该账号尚未绑定好游快爆，需要绑定后才能登录游戏。
 hykb-bind-required-confirm = 绑定好游快爆
+
+pending-delete-title = 待处理的删除请求
+pending-delete-message = 你的账号有一个待处理的删除请求。是否撤销删除并继续登录？

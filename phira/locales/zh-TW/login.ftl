@@ -44,3 +44,6 @@ hykb-other-login-not-bound = 該帳號未綁定好遊快爆，無法登入
 hykb-bind-required-title = 需要綁定好遊快爆
 hykb-bind-required = 該帳號尚未綁定好遊快爆，需要綁定後才能登入遊戲。
 hykb-bind-required-confirm = 綁定好遊快爆
+
+pending-delete-title = 待處理的刪除請求
+pending-delete-message = 你的帳號有一個待處理的刪除請求。是否撤銷刪除並繼續登入？

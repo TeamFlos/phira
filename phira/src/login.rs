@@ -1,12 +1,12 @@
 prpr_l10n::tl_file!("login");
 
 use crate::{
-    client::{Client, LoginParams, User, UserManager, API_URL},
+    client::{Client, ErrorCode, LoginParams, User, UserManager, API_URL},
     get_data_mut,
     icons::Icons,
     page::Fader,
     save_data,
-    scene::{check_read_tos_and_policy, dispatch_tos_task, JUST_ACCEPTED_TOS},
+    scene::{check_read_tos_and_policy, confirm_dialog, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
 use inputbox::{InputBox, InputMode};
@@ -22,7 +22,7 @@ use prpr::{
     ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
 };
 use regex::Regex;
-use std::{future::Future, sync::atomic::Ordering, sync::Arc};
+use std::{future::Future, sync::atomic::AtomicBool, sync::atomic::Ordering, sync::Arc};
 
 const USERNAME_LEN_MIN: usize = 2;
 const USERNAME_LEN_MAX: usize = 14;
@@ -121,6 +121,11 @@ pub struct Login {
 
     task: Option<(&'static str, Task<Result<Option<User>>>)>,
     after_accept_tos: Option<NextAction>,
+    /// Email/password held while the player decides whether to cancel a pending
+    /// account deletion request and retry the login with `cancel_delete_request`.
+    pending_delete_retry: Option<(String, String)>,
+    /// Result flag for the pending-delete confirmation dialog.
+    pending_delete_confirm: Arc<AtomicBool>,
     /// HYKB login phase 1 (verify uid/token), distinct from `task` which handles
     /// the register/claim follow-up that resolves to a `User`.
     #[cfg(feature = "hykb")]
@@ -137,11 +142,6 @@ pub struct Login {
     /// Choice written by the register/claim dialog listener.
     #[cfg(feature = "hykb")]
     hykb_choice: Arc<Mutex<Option<HykbChoice>>>,
-    /// Choice written by the "bind HYKB to continue" dialog shown after an email
-    /// login to an account not yet bound to HYKB: `Some(true)` = bind now,
-    /// `Some(false)` = cancel (and log the half-finished session back out).
-    #[cfg(feature = "hykb")]
-    email_bind_choice: Arc<Mutex<Option<bool>>>,
 
     /// The in-app "choose your username" panel shown for a new HYKB account,
     /// in place of popping the native InputBox directly. The InputBox only
@@ -213,6 +213,8 @@ impl Login {
 
             task: None,
             after_accept_tos: None,
+            pending_delete_retry: None,
+            pending_delete_confirm: Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "hykb")]
             hykb_task: None,
             #[cfg(feature = "hykb")]
@@ -223,8 +225,6 @@ impl Login {
             hykb_nick: None,
             #[cfg(feature = "hykb")]
             hykb_choice: Arc::new(Mutex::new(None)),
-            #[cfg(feature = "hykb")]
-            email_bind_choice: Arc::new(Mutex::new(None)),
 
             #[cfg(feature = "hykb")]
             reg_name_fader: Fader::new().with_distance(-0.4).with_time(0.5),
@@ -364,26 +364,6 @@ impl Login {
                     -1 => *choice.lock().unwrap() = Some(HykbChoice::Cancel),
                     0 => *choice.lock().unwrap() = Some(HykbChoice::Register),
                     1 => *choice.lock().unwrap() = Some(HykbChoice::Claim),
-                    _ => {}
-                }
-                false
-            })
-            .show();
-    }
-
-    /// Show the "this account isn't bound to HYKB yet" dialog after an email
-    /// login, offering to bind HYKB (or cancel). The choice is recorded in
-    /// `email_bind_choice` and acted on in `update_hykb`.
-    #[cfg(feature = "hykb")]
-    fn show_email_bind(&self) {
-        let choice = Arc::clone(&self.email_bind_choice);
-        Dialog::plain(tl!("hykb-bind-required-title"), tl!("hykb-bind-required"))
-            .buttons(vec![crate::ttl!("cancel").into_owned(), tl!("hykb-bind-required-confirm").into_owned()])
-            .listener(move |_, pos| {
-                match pos {
-                    // Cancel button or outside click: back out and log out.
-                    0 | -1 => *choice.lock().unwrap() = Some(false),
-                    1 => *choice.lock().unwrap() = Some(true),
                     _ => {}
                 }
                 false
@@ -608,28 +588,29 @@ impl Login {
         }
         let email = self.t_email.clone();
         let pwd = self.t_pwd.clone();
+        self.start_login_with(email, pwd, false);
+    }
+
+    fn start_login_with(&mut self, email: String, pwd: String, cancel_delete_request: bool) {
         self.start("login", async move {
             Client::login(LoginParams::Password {
                 email: &email,
                 password: &pwd,
+                cancel_delete_request,
             })
             .await?;
-            // Fetch without the HYKB guard: an unbound account is handled by the
-            // "bind HYKB to continue" dialog rather than an immediate logout.
-            #[cfg(feature = "hykb")]
-            let me = Client::get_me_unchecked().await?;
-            #[cfg(not(feature = "hykb"))]
             let me = Client::get_me().await?;
-            // An account already bound to a HYKB uid must still have the native
-            // SDK signed in (same requirement as the app-restart session restore
-            // in `page/home.rs`): restore it silently and tear the session down if
-            // that login fails/cancels. The signed-in HYKB account no longer has
-            // to match the bound `hykb_uid` — any successful HYKB login is
-            // accepted.
+            // Every email login — bound or not — must complete a native HYKB
+            // login so the SDK's online anti-addiction enforcement runs (the
+            // limits are tied to a signed-in HYKB account, not to any separate
+            // "anti" entry point). We obtain the credential silently and tear
+            // the session down if the player cancels, but we do NOT send it to
+            // the server: the HYKB account is used purely for anti-addiction and
+            // is not bound to the Phira account here. An unbound player may bind
+            // HYKB later from the profile page; a bound account no longer has to
+            // match its stored `hykb_uid` — any successful HYKB login is accepted.
             #[cfg(feature = "hykb")]
-            if me.hykb_uid.is_some() {
-                crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
-            }
+            crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
             Ok(Some(me))
         });
     }
@@ -697,56 +678,53 @@ impl Login {
             }
             self.after_accept_tos = None;
         }
-        #[cfg(feature = "hykb")]
-        let mut email_needs_bind = false;
         if let Some((action, task)) = &mut self.task {
             if let Some(res) = task.take() {
                 match res {
-                    Err(err) => show_error(err.context(tl!("action-failed", "action" => *action))),
-                    Ok(user) => {
-                        // In HYKB builds a plain email login is only permitted for
-                        // accounts already bound to a HYKB account; others are sent
-                        // through the "bind HYKB to continue" dialog below.
-                        #[cfg(feature = "hykb")]
-                        let needs_bind = *action == "login" && user.as_ref().is_some_and(|u| u.hykb_uid.is_none());
-                        #[cfg(not(feature = "hykb"))]
-                        let needs_bind = false;
-                        if needs_bind {
-                            self.t_pwd.clear();
-                            #[cfg(feature = "hykb")]
-                            {
-                                email_needs_bind = true;
-                            }
+                    Err(err) => {
+                        // A pending account deletion request blocks the login.
+                        // Prompt the player: confirming cancels the deletion by
+                        // retrying the login with `cancelDeleteRequest: true`.
+                        if *action == "login" && err.downcast_ref::<ErrorCode>() == Some(&ErrorCode::PENDING_DELETE_REQUEST) {
+                            self.pending_delete_retry = Some((self.t_email.clone(), self.t_pwd.clone()));
+                            self.pending_delete_confirm.store(false, Ordering::SeqCst);
+                            confirm_dialog(
+                                tl!("pending-delete-title").into_owned(),
+                                tl!("pending-delete-message").into_owned(),
+                                Arc::clone(&self.pending_delete_confirm),
+                            );
                         } else {
-                            if let Some(user) = user {
-                                UserManager::request(user.id);
-                                get_data_mut().me = Some(user);
-                                save_data()?;
-                            }
-                            self.t_pwd.clear();
-                            show_message(tl!("action-success", "action" => *action)).ok();
-                            if *action == "register" {
-                                Dialog::simple(tl!("email-sent")).show();
-                                self.t_reg_email.clear();
-                                self.t_reg_name.clear();
-                                self.t_reg_pwd.clear();
-                                self.start_time = t;
-                            }
-                            if *action == "login" || *action == "hykb-login" {
-                                self.dismiss(t);
-                            }
+                            show_error(err.context(tl!("action-failed", "action" => *action)));
+                        }
+                    }
+                    Ok(user) => {
+                        self.pending_delete_retry = None;
+                        if let Some(user) = user {
+                            UserManager::request(user.id);
+                            get_data_mut().me = Some(user);
+                            save_data()?;
+                        }
+                        self.t_pwd.clear();
+                        show_message(tl!("action-success", "action" => *action)).ok();
+                        if *action == "register" {
+                            Dialog::simple(tl!("email-sent")).show();
+                            self.t_reg_email.clear();
+                            self.t_reg_name.clear();
+                            self.t_reg_pwd.clear();
+                            self.start_time = t;
+                        }
+                        if *action == "login" || *action == "hykb-login" {
+                            self.dismiss(t);
                         }
                     }
                 }
                 self.task = None;
             }
         }
-        // The email login resolved to an account not yet bound to HYKB: prompt the
-        // player to bind it (deferred to here so it doesn't overlap the `self.task`
-        // borrow above).
-        #[cfg(feature = "hykb")]
-        if email_needs_bind {
-            self.show_email_bind();
+        if self.pending_delete_confirm.swap(false, Ordering::Relaxed) {
+            if let Some((email, pwd)) = self.pending_delete_retry.take() {
+                self.start_login_with(email, pwd, true);
+            }
         }
         #[cfg(feature = "hykb")]
         self.update_hykb(t)?;
@@ -757,32 +735,6 @@ impl Login {
     /// choice dialog, and the follow-up that resolves to a logged-in user.
     #[cfg(feature = "hykb")]
     fn update_hykb(&mut self, t: f32) -> Result<()> {
-        // The "bind HYKB to continue" dialog (shown after an email login to an
-        // unbound account) recorded the player's decision.
-        let email_bind = self.email_bind_choice.lock().unwrap().take();
-        if let Some(bind) = email_bind {
-            if bind {
-                // Bind the freshly-authenticated session to a HYKB account, then
-                // finish as a normal login. Reuse the "hykb-login" action so the
-                // success path (set user, dismiss) is shared.
-                self.start("hykb-login", async move {
-                    let cred = obtain_hykb_credential().await?.ok_or_err()?;
-                    Client::bind_hykb(cred.uid, &cred.access_token).await?;
-                    Ok(Some(Client::get_me().await?))
-                });
-            } else {
-                // Cancelled: the email login already obtained tokens, so drop them
-                // and return to the method picker rather than leaving an unbound,
-                // half-logged-in session.
-                get_data_mut().me = None;
-                get_data_mut().tokens = None;
-                save_data()?;
-                crate::sync_data();
-                self.show = false;
-                self.fader.back(t);
-                self.show_picker(t);
-            }
-        }
         if let Some(task) = &mut self.hykb_task {
             if let Some(res) = task.take() {
                 match res {

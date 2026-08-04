@@ -72,13 +72,11 @@ pub fn demux_audio(file: impl AsRef<str>) -> Result<Option<AudioClip>> {
     let params = stream.codec_params();
     let in_format = AudioStreamFormat {
         channel_layout: params.channel_layout(),
-        channels: params.channels(),
         sample_fmt: params.sample_format(),
         sample_rate: params.sample_rate(),
     };
     let out_format = AudioStreamFormat {
-        channel_layout: ffi::AV_CH_LAYOUT_STEREO,
-        channels: 2,
+        channel_layout: ffi::AV_CHANNEL_LAYOUT_STEREO,
         sample_fmt: ffi::AV_SAMPLE_FMT_FLT,
         sample_rate: AUDIO_DECODING_SAMPLE_RATE,
     };
