@@ -1,29 +1,27 @@
-
 del-confirm = Silmek istediğinize emin misiniz?
 del-confirm-content = Bu işlem geri alınamaz.
-
 cancel = İptal Et
 confirm = Onayla
-
 release-to-refresh = Yenilemek için bırakın
-
 switch-on = Açık
 switch-off = Kapalı
-
 chart-ranked = Sıralı
 chart-special = Özel
 chart-unstable = Değişken
-
 list-empty = Bir şey yok
-
 tos-and-policy = Kullanım Şartları ve Gizlilik İlkesi
 tos-and-policy-desc = TeamFlos tarfından sunulan Phira online servislerini kullanmadan önce Kullanum Şartlarını ve Gizlilik İlkesini okuyup onaylamanız gerekmektedir.
 tos-deny = Reddet
 tos-accept = Kabul Et
 tos-link-terms = Kullanım Şartları
 tos-link-privacy = Gizlilik İlkesi
-
 open-in-web = Tarayıcıda Aç
-
 main-character-name = Alp
 main-character-intro = Hehe
+loading_tos_policy = Gizlilik Politikası ve Kullanım Şatlarına Yönlendiriliyorsunuz...
+fetch-tos-policy-failed = Gizlilik Politikası ve Kullanım Şartlarına Ulaşılamadı
+warn-deny-tos-policy = Phiranın çevrimiçi servislerini kullanmak için kabül etmelisiniz.
+favorites = Sevdikleriniz
+default-fav-folder = Sevdikleriniz (Varsayılan)
+favorites-online-only = Yalnızca çevrimiçi bölümler çevrimiçi sevdiklerinize eklenebilir. Çevrimiçi bölümler: { $charts }
+contains-banned-words = Girdiniz izin verilmeyen kelimeler içeriyor. Lütfen kontrol edin.
