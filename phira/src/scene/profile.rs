@@ -506,7 +506,7 @@ impl Scene for ProfileScene {
                     if get_data().me.as_ref().is_some_and(|it| it.id == self.id) {
                         self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                         r.y += r.h + 0.02;
-                        self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
+                        self.btn_delete.render_text_color(ui, r, t, tl!("delete"), 0.6, true, RED);
                         #[cfg(feature = "hykb")]
                         {
                             let me = get_data().me.as_ref();

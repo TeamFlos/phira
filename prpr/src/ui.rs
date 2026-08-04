@@ -358,6 +358,22 @@ impl DRectButton {
         });
     }
 
+    pub fn render_text_color<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool, color: Color) {
+        let oh = r.h;
+        self.build(ui, t, r, |ui, path| {
+            let ct = r.center();
+            ui.fill_path(&path, if chosen { WHITE } else { semi_black(0.4) });
+            ui.text(text)
+                .pos(ct.x, ct.y)
+                .anchor(0.5, 0.5)
+                .no_baseline()
+                .size(size * (1. - (1. - r.h / oh).powf(1.3)))
+                .max_width(r.w)
+                .color(color)
+                .draw();
+        });
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn render_text_left<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, alpha: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool) {
         let oh = r.h;

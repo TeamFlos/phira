@@ -260,7 +260,16 @@ pub fn load_tos_and_policy(show_loading: bool) {
 
 #[inline]
 pub fn confirm_delete(res: Arc<AtomicBool>) {
-    confirm_dialog(ttl!("del-confirm"), ttl!("del-confirm-content"), res)
+    Dialog::plain(ttl!("del-confirm").into_owned(), ttl!("del-confirm-content").into_owned())
+        .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+        .countdown(10)
+        .listener(move |_dialog, id| {
+            if id == 1 {
+                res.store(true, Ordering::SeqCst);
+            }
+            false
+        })
+        .show();
 }
 
 pub fn gen_custom_dir() -> Result<(PathBuf, Uuid)> {
