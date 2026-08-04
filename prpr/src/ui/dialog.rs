@@ -33,6 +33,9 @@ pub struct Dialog {
     scroll: Scroll,
     window_rect: Option<Rect>,
     rect_buttons: Vec<DRectButton>,
+
+    countdown_start: f64,
+    countdown_seconds: i32,
 }
 
 impl Default for Dialog {
@@ -54,6 +57,9 @@ impl Default for Dialog {
             scroll: Scroll::new(),
             window_rect: None,
             rect_buttons: vec![DRectButton::new()],
+
+            countdown_start: 0.0,
+            countdown_seconds: -1,
         }
     }
 }
@@ -136,6 +142,11 @@ impl Dialog {
         self
     }
 
+    pub fn countdown(mut self, seconds: i32) -> Self {
+        self.countdown_seconds = seconds;
+        self
+    }
+
     pub fn show(self) {
         crate::scene::DIALOG.with(|it| *it.borrow_mut() = Some(self));
     }
@@ -144,7 +155,8 @@ impl Dialog {
         self.scroll.touch(touch, t);
         let mut exit = false;
         for (index, btn) in self.rect_buttons.iter_mut().enumerate() {
-            if btn.touch(touch, t) {
+            let blocked = self.countdown_seconds > 0 && index > 0 && (self.countdown_seconds as f64 - (t as f64 - self.countdown_start)) > 0.0;
+            if !blocked && btn.touch(touch, t) {
                 if let Some(mut listener) = self.listener.take() {
                     if !listener(self, index as i32) {
                         exit = true;
@@ -197,6 +209,9 @@ impl Dialog {
 
     pub fn update(&mut self, t: f32) {
         self.scroll.update(t);
+        if self.countdown_seconds > 0 && self.countdown_start == 0.0 {
+            self.countdown_start = t as f64;
+        }
     }
 
     pub fn render(&mut self, ui: &mut Ui, t: f32) {
@@ -289,8 +304,20 @@ impl Dialog {
         ui.scope(|ui| {
             let bw = (wr.w - pad * (self.buttons.len() + 1) as f32) / self.buttons.len() as f32;
             let mut r = Rect::new(wr.x + pad, wr.bottom() - s - bh, bw, bh);
-            for (text, btn) in self.buttons.iter().zip(self.rect_buttons.iter_mut()) {
-                btn.render_text(ui, r, t, text, 0.5, true);
+            let n = self.buttons.len();
+            for (i, (text, btn)) in self.buttons.iter().zip(self.rect_buttons.iter_mut()).enumerate() {
+                let display_text = if self.countdown_seconds > 0 && i == n - 1 {
+                    let remaining = self.countdown_seconds as f64 - (t as f64 - self.countdown_start);
+                    let remaining = (remaining.max(0.0).ceil() as i32).max(0);
+                    if remaining > 0 {
+                        format!("{} ({})", text, remaining)
+                    } else {
+                        text.clone()
+                    }
+                } else {
+                    text.clone()
+                };
+                btn.render_text(ui, r, t, display_text, 0.5, true);
                 r.x += bw + pad;
             }
         });

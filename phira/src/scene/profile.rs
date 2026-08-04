@@ -2,7 +2,7 @@ prpr_l10n::tl_file!("profile");
 
 #[cfg(feature = "hykb")]
 use super::confirm_dialog;
-use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
+use super::{TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
     client::{recv_raw, Client, Record, User, UserManager},
     get_data, get_data_mut, hykb_logout,
@@ -16,15 +16,13 @@ use inputbox::InputBox;
 use macroquad::prelude::*;
 #[cfg(feature = "hykb")]
 use prpr::scene::{request_input, return_input, take_input};
-#[cfg(feature = "hykb")]
-use prpr::ui::Dialog;
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, Scroll, ShadowConfig, Ui},
+    ui::{button_hit, rounded_rect_shadow, DRectButton, Dialog, RectButton, Scroll, ShadowConfig, Ui},
 };
 use serde_json::json;
 use std::sync::{
@@ -369,7 +367,17 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_delete.touch(touch, t) {
-            confirm_delete(Arc::clone(&self.should_delete));
+            let res = self.should_delete.clone();
+            Dialog::plain(ttl!("del-confirm").into_owned(), tl!("delete-confirm").into_owned())
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .countdown(5)
+                .listener(move |_dialog, id| {
+                    if id == 1 {
+                        res.store(true, Ordering::SeqCst);
+                    }
+                    false
+                })
+                .show();
             return Ok(true);
         }
         #[cfg(feature = "hykb")]
@@ -506,7 +514,7 @@ impl Scene for ProfileScene {
                     if get_data().me.as_ref().is_some_and(|it| it.id == self.id) {
                         self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                         r.y += r.h + 0.02;
-                        self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
+                        self.btn_delete.render_text_color(ui, r, t, tl!("delete"), 0.6, true, RED);
                         #[cfg(feature = "hykb")]
                         {
                             let me = get_data().me.as_ref();
