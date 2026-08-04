@@ -9,6 +9,10 @@ edition = "2021"
 thiserror = "2.0.18"
 tracing = { workspace = true }
 
+[build-dependencies]
+serde_json = "1"
+ureq = { version = "2", features = ["json"] }
+
 [target.'cfg(target_env = "ohos")'.dependencies]
 sasa = { workspace = true, default-features = false, features = ["ohos"] }
 
