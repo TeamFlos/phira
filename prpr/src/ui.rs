@@ -358,6 +358,7 @@ impl DRectButton {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render_text_color<'a>(&mut self, ui: &mut Ui, r: Rect, t: f32, text: impl Into<Cow<'a, str>>, size: f32, chosen: bool, color: Color) {
         let oh = r.h;
         self.build(ui, t, r, |ui, path| {
