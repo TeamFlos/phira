@@ -6,5 +6,5 @@ input-hint = 텍스트
 cancel = 취소
 confirm = 확인
 
-read-file-failed = 파일을 읽어드리지 못함
+read-file-failed = 파일을 읽어들이지 못함
 pasted = 클립보드에서 붙여넣기
