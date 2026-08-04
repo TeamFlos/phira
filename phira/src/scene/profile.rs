@@ -16,15 +16,13 @@ use inputbox::InputBox;
 use macroquad::prelude::*;
 #[cfg(feature = "hykb")]
 use prpr::scene::{request_input, return_input, take_input};
-#[cfg(feature = "hykb")]
-use prpr::ui::Dialog;
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, Scroll, ShadowConfig, Ui},
+    ui::{button_hit, rounded_rect_shadow, DRectButton, Dialog, RectButton, Scroll, ShadowConfig, Ui},
 };
 use serde_json::json;
 use std::sync::{
@@ -369,7 +367,17 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_delete.touch(touch, t) {
-            confirm_delete(Arc::clone(&self.should_delete));
+            let res = self.should_delete.clone();
+            Dialog::plain(ttl!("del-confirm").into_owned(), tl!("delete-confirm").into_owned())
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .countdown(5)
+                .listener(move |_dialog, id| {
+                    if id == 1 {
+                        res.store(true, Ordering::SeqCst);
+                    }
+                    false
+                })
+                .show();
             return Ok(true);
         }
         #[cfg(feature = "hykb")]

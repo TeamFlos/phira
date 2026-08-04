@@ -262,7 +262,6 @@ pub fn load_tos_and_policy(show_loading: bool) {
 pub fn confirm_delete(res: Arc<AtomicBool>) {
     Dialog::plain(ttl!("del-confirm").into_owned(), ttl!("del-confirm-content").into_owned())
         .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-        .countdown(10)
         .listener(move |_dialog, id| {
             if id == 1 {
                 res.store(true, Ordering::SeqCst);
