@@ -2,7 +2,7 @@ prpr_l10n::tl_file!("profile");
 
 #[cfg(feature = "hykb")]
 use super::confirm_dialog;
-use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
+use super::{TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
     client::{recv_raw, Client, Record, User, UserManager},
     get_data, get_data_mut, hykb_logout,
