@@ -18,6 +18,7 @@ pub struct ChartExtra {
 pub struct ChartSettings {
     pub pe_alpha_extension: bool,
     pub hold_partial_cover: bool,
+    pub line_reference_y_axis: bool,
 }
 
 pub type HitSoundMap = HashMap<String, AudioClip>;
@@ -143,20 +144,31 @@ impl Chart {
     }
 
     pub fn render(&self, ui: &mut Ui, res: &mut Resource) {
-        #[cfg(feature = "video")]
-        for (video, attach) in &self.extra.videos {
-            if let Some(attach) = attach {
-                let line = &self.lines[attach.line];
-                let color = line.color.now_opt().unwrap_or(res.judge_line_color);
-                let mat = self.lines[attach.line].object.now(res);
-                res.apply_model_of(&mat, |res| {
-                    video.render(res.time, res.aspect_ratio, color);
-                });
-            } else {
-                video.render(res.time, res.aspect_ratio, WHITE);
-            }
-        }
         res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(if res.config.flip_x() { -1. } else { 1. }, -1.)), |res| {
+            #[cfg(feature = "video")]
+            for (video, attach) in &self.extra.videos {
+                if let Some(attach) = attach {
+                    let line = &self.lines[attach.line];
+                    let color = line.color.now_opt().unwrap_or(res.judge_line_color);
+                    let line_scale = line.object.scale.now_with_def(1.0, 1.0);
+                    let mat = Rotation2::new(
+                        self.lines[attach.line].fetch_rot(&self.lines).to_radians() * attach.rotation_factor).to_homogeneous()
+                        .append_translation(&self.lines[attach.line].fetch_pos(res, &self.lines).component_mul(&Vector::new(attach.position_x_factor, attach.position_y_factor)));
+                    res.apply_model_of(&mat.append_nonuniform_scaling(&Vector::new(1., -1.)), |res| {
+                        video.render(
+                            res.time,
+                            res.aspect_ratio,
+                            color,
+                            Some((line_scale.x, line_scale.y, attach.scale_x_mode, attach.scale_y_mode)),
+                        );
+                    });
+                } else {
+                    res.apply_model_of(&Matrix::identity().append_nonuniform_scaling(&Vector::new(1., -1.)), |res| {
+                        video.render(res.time, res.aspect_ratio, WHITE, None);
+                    });
+                }
+            }
+
             let mut guard = self.bpm_list.borrow_mut();
             for id in &self.order {
                 self.lines[*id].render(ui, res, &self.lines, &mut guard, &self.settings, *id);
