@@ -28,3 +28,4 @@ enable-unlock = Açılış Videosu'nu Aktif Et
 unlock-file = Açılış Videosu Ekleme
 how-to-add-collaborator = Katkıda Bulunan Kişileri Nasıl Ekleyebilirsiniz
 rpe-170-speed = Yumuşatılmış Geçiş Hızı
+attach-ui-fix = Arayüz Düzeltimini Bağla
