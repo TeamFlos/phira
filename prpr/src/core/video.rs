@@ -112,7 +112,7 @@ impl Video {
         self.dim.set_time(t);
 
         // Throttle to video frame rate
-        let frame_idx = (elapsed / self.frame_duration) as i64;
+        let frame_idx = (elapsed / self.frame_duration).round() as i64;
         if frame_idx != self.last_frame_idx {
             self.last_frame_idx = frame_idx;
             self.video.seek(self.video.elapsed_to_timestamp(elapsed));
