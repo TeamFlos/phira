@@ -22,3 +22,4 @@ action-failed =
        *[other] _
     }
 email-sent = Bir doğrulama e-postası gönderildi. Lütfen hesabınızı doğrulayıp giriş yapın.
+hykb-login-cancelled = 3839 Games için oturum açma iptal edildi.
