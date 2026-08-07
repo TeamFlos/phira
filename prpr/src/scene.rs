@@ -516,7 +516,7 @@ impl Main {
             return Ok(());
         }
         let mut ui = Ui::new(painter, self.viewport);
-        ui.set_touches(self.touches.take().unwrap());
+        ui.set_touches(self.touches.take());
         ui.scope(|ui| self.scenes.last_mut().unwrap().render(&mut self.tm, ui))?;
         if self.top_level {
             push_camera_state();
@@ -566,6 +566,10 @@ impl Main {
     pub fn resume(&mut self) -> Result<()> {
         self.paused = false;
         self.scenes.last_mut().unwrap().resume(&mut self.tm)
+    }
+
+    pub fn paused(&self) -> bool {
+        self.paused
     }
 
     pub fn should_exit(&self) -> bool {

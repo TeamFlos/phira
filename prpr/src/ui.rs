@@ -722,8 +722,8 @@ impl<'a> Ui<'a> {
         self.touches.as_mut().unwrap()
     }
 
-    pub(crate) fn set_touches(&mut self, touches: Vec<Touch>) {
-        self.touches = Some(touches);
+    pub(crate) fn set_touches(&mut self, touches: Option<Vec<Touch>>) {
+        self.touches = touches;
     }
 
     pub fn builder<T: IntoShading>(&self, shading: T) -> VertexBuilder<T::Target> {
