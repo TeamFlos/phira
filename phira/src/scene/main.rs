@@ -210,6 +210,7 @@ impl Scene for MainScene {
     }
 
     fn resume(&mut self, tm: &mut TimeManager) -> Result<()> {
+        tm.resume();
         if let Some(bgm) = &mut self.bgm {
             bgm.play()?;
         }
@@ -219,6 +220,7 @@ impl Scene for MainScene {
     }
 
     fn pause(&mut self, tm: &mut TimeManager) -> Result<()> {
+        tm.pause();
         if let Some(bgm) = &mut self.bgm {
             bgm.pause()?;
         }
