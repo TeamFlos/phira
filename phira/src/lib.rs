@@ -22,6 +22,7 @@ mod tabs;
 mod tags;
 mod threed;
 mod uml;
+mod android_hrz;
 
 use anyhow::Result;
 use data::Data;
@@ -169,6 +170,9 @@ mod dir {
 
 async fn the_main() -> Result<()> {
     log::register();
+
+    android_hrz::request_high_refresh_rate();
+
     #[cfg(target_env = "ohos")]
     {
         *DATA_PATH.lock().unwrap() = Some("/data/storage/el2/base".to_owned());
