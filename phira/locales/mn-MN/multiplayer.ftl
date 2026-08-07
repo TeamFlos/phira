@@ -52,8 +52,8 @@ msg-new-host = `{ $user }` шинэ өрөөний эзэн боллоо
 msg-select-chart = Өрөөний эзэн `{ $user }` бийтмап `{ $chart }` (#{ $id }) сонголоо
 msg-game-start = Өрөөний эзэн `{ $user }` тоглоомоо эхлүүлэв. Бусад тоглогчид бэлэн болоорой.
 msg-ready = `{ $user }` бэлэн болов
-msg-cancel-ready = `{ $user }` бэлэн болохоо болиулав
-msg-cancel-game = `{ $user }` тоглоомоо болиуллаа
+msg-cancel-ready = `{ $user }` бэлэн биш боллоо
+msg-cancel-game = `{ $user }` тоглоомыг цуцаллаа
 msg-start-playing = Game Start
 msg-played =
     `{ $user }` тоглоод дууссан: { $score } ({ $accuracy }){ $full-combo ->
