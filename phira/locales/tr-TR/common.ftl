@@ -20,6 +20,8 @@ tos-and-policy = Kullanım Şartları ve Gizlilik İlkesi
 tos-and-policy-desc = TeamFlos tarfından sunulan Phira online servislerini kullanmadan önce Kullanum Şartlarını ve Gizlilik İlkesini okuyup onaylamanız gerekmektedir.
 tos-deny = Reddet
 tos-accept = Kabul Et
+tos-link-terms = Kullanım Şartları
+tos-link-privacy = Gizlilik İlkesi
 
 open-in-web = Tarayıcıda Aç
 

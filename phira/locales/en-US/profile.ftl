@@ -3,6 +3,9 @@ logout = Logout
 logged-out = Logged out.
 
 delete = Delete Account
+delete-confirm =
+  After submitting the deletion request, your account will enter a pending deletion period. Once this period ends, your account will be permanently deleted, and you will no longer be able to log in or recover it. During the pending deletion period, you can cancel the deletion request by logging into your account.
+  Are you sure you want to continue?
 delete-failed = Failed to delete account.
 delete-req-sent = Account deletion request has been submitted.
 

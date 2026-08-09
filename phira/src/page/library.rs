@@ -98,6 +98,10 @@ pub struct LibraryPage {
     next_page_btn: DRectButton,
 
     online_task: Option<OnlineTask>,
+    /// Set when `load_online` was blocked by the TOS gate, so the online list
+    /// is retried automatically once the player accepts the terms — otherwise
+    /// it stays on the loading spinner forever.
+    online_pending_tos: bool,
 
     icons: Arc<Icons>,
     rank_icons: [SafeTexture; 8],
@@ -182,6 +186,7 @@ impl LibraryPage {
             next_page_btn: DRectButton::new(),
 
             online_task: None,
+            online_pending_tos: false,
 
             icons,
             rank_icons,
@@ -269,8 +274,11 @@ impl LibraryPage {
             return;
         }
         if !check_read_tos_and_policy(false, false) {
+            // Blocked on the TOS gate; retry automatically once accepted.
+            self.online_pending_tos = true;
             return;
         }
+        self.online_pending_tos = false;
         self.tabs.selected_mut().view.reset_scroll();
         self.tabs.selected_mut().view.clear();
         let page = self.current_page;
@@ -1173,6 +1181,11 @@ impl Page for LibraryPage {
         }
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
+        }
+        // If loading was blocked on the TOS gate, retry as soon as the player
+        // has accepted (terms_modified transitions from None to Some).
+        if self.online_pending_tos && get_data().terms_modified.is_some() {
+            self.load_online();
         }
         let list = self.tabs.selected_mut();
         let view = &mut list.view;

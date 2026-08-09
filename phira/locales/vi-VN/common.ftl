@@ -20,8 +20,8 @@ tos-and-policy = Điều khoản & Bảo mật
 tos-and-policy-desc = Bạn phải đọc và đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi trước khi sử dụng các dịch vụ trực tuyến Phira do TeamFlos cung cấp.
 tos-deny = Từ chối
 tos-accept = Chấp nhận
-tos-prev-page = Trang trước
-tos-next-page = Trang sau
+tos-link-terms = Điều khoản dịch vụ
+tos-link-privacy = Chính sách bảo mật
 fetch-tos-policy-failed = Không thể duyệt Điều khoản dịch vụ và Chính sách bảo mật
 warn-deny-tos-policy = Bạn cần chấp nhận điều khoản
 

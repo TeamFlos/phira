@@ -382,7 +382,9 @@ impl Page for ResPackPage {
                         emitter.emit_at(vec2(cx, line), 0., pack.info.fx_perfect());
                     }
                     if let Some(sfxs) = &mut self.sfxs {
-                        let _ = sfxs[(irnd % 3) as usize].play(PlaySfxParams::default());
+                        let _ = sfxs[(irnd % 3) as usize].play(PlaySfxParams {
+                            amplifier: get_data().config.volume_sfx,
+                        });
                     }
                     self.last_round = irnd;
                 }

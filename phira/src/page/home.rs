@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     anim::Anim,
-    client::{recv_raw, Character, Client, LoginParams, User, UserManager},
+    client::{recv_raw, Character, Client, ErrorCode, LoginParams, User, UserManager},
     dir, get_data, get_data_mut,
     icons::Icons,
     login::Login,
@@ -33,7 +33,10 @@ use reqwest::StatusCode;
 use serde::Deserialize;
 use std::{
     borrow::Cow,
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicI8, Ordering},
+        Arc,
+    },
 };
 use tap::Tap;
 use tracing::{info, warn};
@@ -65,6 +68,9 @@ pub struct HomePage {
 
     login: Login,
     update_task: Option<Task<Result<User>>>,
+    /// Outcome of the session-restore pending-delete dialog: 0 = none,
+    /// 1 = confirm (cancel the deletion and retry), 2 = cancel (log out).
+    pending_delete_choice: Arc<AtomicI8>,
 
     need_back: bool,
     sf: SFader,
@@ -113,14 +119,18 @@ impl HomePage {
             Some(Task::new(async {
                 Client::login(LoginParams::RefreshToken {
                     token: &get_data().tokens.as_ref().unwrap().1,
+                    cancel_delete_request: false,
                 })
                 .await?;
                 let me = Client::get_me().await?;
-                // On HYKB builds a restored session still requires the native SDK
-                // to be signed in: silently restore the SDK session and tear the
-                // in-game session down if that login fails/cancels (`ok_or_err`).
-                // The signed-in HYKB account no longer has to match the restored
-                // Phira account — any successful HYKB login is accepted.
+                // On HYKB builds a restored session still requires anti-addiction
+                // coverage, which is driven by a signed-in native HYKB account.
+                // Restore that session silently (no account picker) and tear the
+                // in-game session down if the player cancels (`ok_or_err`). The
+                // credential is used only for the SDK's online anti-addiction —
+                // it is not verified against the restored account, so any
+                // successful HYKB login is accepted whether or not the Phira
+                // account is bound.
                 #[cfg(feature = "hykb")]
                 crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
                 Ok(me)
@@ -149,6 +159,7 @@ impl HomePage {
 
             login: Login::new(icons),
             update_task,
+            pending_delete_choice: Arc::new(AtomicI8::new(0)),
 
             need_back: false,
             sf: SFader::new(),
@@ -411,11 +422,13 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_event.touch(touch, t) {
-                button_hit_large();
-                if get_data().me.is_none() {
-                    self.login.enter(t);
-                } else {
-                    self.next_page = Some(NextPage::Overlay(Box::new(EventPage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                if check_read_tos_and_policy(true, true) {
+                    button_hit_large();
+                    if get_data().me.is_none() {
+                        self.login.enter(t);
+                    } else {
+                        self.next_page = Some(NextPage::Overlay(Box::new(EventPage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                    }
                 }
                 return Ok(true);
             }
@@ -425,7 +438,9 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_msg.touch(touch, t) {
-                self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                if check_read_tos_and_policy(true, true) {
+                    self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                }
                 return Ok(true);
             }
             if self.btn_settings.touch(touch, t) {
@@ -502,8 +517,24 @@ impl Page for HomePage {
                             let _ = save_data();
                             sync_data();
                         }
-                        // TODO: better error handling
-                        show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
+                        if err.downcast_ref::<ErrorCode>() == Some(&ErrorCode::PENDING_DELETE_REQUEST) {
+                            self.pending_delete_choice.store(0, Ordering::SeqCst);
+                            use crate::login::{tl as ltl, L10N_LOCAL};
+                            let choice = Arc::clone(&self.pending_delete_choice);
+                            Dialog::plain(ltl!("pending-delete-title").into_owned(), ltl!("pending-delete-message").into_owned())
+                                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                                .listener(move |_dialog, id| {
+                                    if id == -1 {
+                                        return true;
+                                    }
+                                    choice.store(if id == 1 { 1 } else { 2 }, Ordering::SeqCst);
+                                    false
+                                })
+                                .show();
+                        } else {
+                            // TODO: better error handling
+                            show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
+                        }
                     }
                     Ok(val) => {
                         get_data_mut().me = Some(val);
@@ -512,6 +543,28 @@ impl Page for HomePage {
                 }
                 self.update_task = None;
             }
+        }
+        match self.pending_delete_choice.swap(0, Ordering::Relaxed) {
+            1 => {
+                let tokens = get_data().tokens.clone();
+                self.update_task = tokens.map(|(_, refresh)| {
+                    Task::new(async move {
+                        Client::login(LoginParams::RefreshToken {
+                            token: &refresh,
+                            cancel_delete_request: true,
+                        })
+                        .await?;
+                        let me = Client::get_me().await?;
+                        #[cfg(feature = "hykb")]
+                        crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+                        Ok(me)
+                    })
+                });
+            }
+            2 => {
+                crate::force_logout();
+            }
+            _ => {}
         }
         if self.board_task.is_none() && t - self.board_last_time > BOARD_SWITCH_TIME {
             let charts = &get_data().charts;

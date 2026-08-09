@@ -19,12 +19,12 @@ use prpr::{
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION},
+    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use serde::Deserialize;
-use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
+use std::{borrow::Cow, fs, io, path::PathBuf, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
@@ -545,7 +545,7 @@ impl GeneralList {
         }
         if let Some((id, text)) = take_input() {
             if id == "mp_addr" {
-                if let Err(err) = text.to_socket_addrs() {
+                if let Err(err) = text.parse::<http::uri::Authority>() {
                     show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
                     return Ok(false);
                 } else {
@@ -701,6 +701,7 @@ impl AudioList {
             return Ok(wt);
         }
         if let wt @ Some(_) = self.sfx_slider.touch(touch, t, &mut config.volume_sfx) {
+            UI_SFX_VOLUME.store(config.volume_sfx.to_bits(), Ordering::Relaxed);
             return Ok(wt);
         }
         let old = config.volume_bgm;

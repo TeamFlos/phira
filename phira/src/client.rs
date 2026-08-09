@@ -2,7 +2,8 @@
 
 mod model;
 pub use model::*;
-use tracing::debug;
+
+use std::{borrow::Cow, collections::HashMap, fmt, marker::PhantomData, sync::Arc};
 
 use crate::{get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
@@ -13,7 +14,7 @@ use prpr_l10n::LANG_IDENTS;
 use reqwest::{header, ClientBuilder, Method, RequestBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{borrow::Cow, collections::HashMap, marker::PhantomData, sync::Arc};
+use tracing::debug;
 
 pub static CLIENT_TOKEN: Lazy<ArcSwap<Option<String>>> = Lazy::new(|| ArcSwap::from_pointee(None));
 
@@ -65,15 +66,56 @@ async fn set_access_token(access_token: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ErrorCode(Cow<'static, str>);
+
+macro_rules! error_code {
+    ($($name:ident => $status:expr),* $(,)?) => {
+        $(
+            pub const $name: ErrorCode = ErrorCode(Cow::Borrowed(stringify!($name)));
+        )*
+    };
+}
+
+#[allow(dead_code)]
+impl ErrorCode {
+    error_code! {
+        INVALID_INPUT => StatusCode::BAD_REQUEST,
+        UNAUTHENTICATED => StatusCode::UNAUTHORIZED,
+        EXPIRED => StatusCode::UNAUTHORIZED,
+        PERMISSION_DENIED => StatusCode::FORBIDDEN,
+        USER_BANNED => StatusCode::FORBIDDEN,
+        PENDING_DELETE_REQUEST => StatusCode::FORBIDDEN,
+        RATE_LIMITED => StatusCode::TOO_MANY_REQUESTS,
+        NOT_FOUND => StatusCode::NOT_FOUND,
+        CONFLICT => StatusCode::CONFLICT,
+        NOT_MODIFIED => StatusCode::NOT_MODIFIED,
+        NOT_IMPLEMENTED => StatusCode::NOT_IMPLEMENTED,
+        STORAGE_UNAVAILABLE => StatusCode::SERVICE_UNAVAILABLE,
+        INTERNAL_SERVER_ERROR => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
+impl fmt::Display for ErrorCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ErrorCode({})", self.0)
+    }
+}
+
+impl std::error::Error for ErrorCode {}
+
 pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
     let response = request.send().await?;
     if !response.status().is_success() {
         let status = response.status().as_str().to_owned();
         let text = response.text().await.context("failed to receive text")?;
         if let Ok(what) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(detail) = what["error"].as_str() {
-                bail!("request failed ({status}): {detail}");
+            let detail = what.get("error").and_then(|it| it.as_str()).unwrap_or("unknown error");
+            let mut err = anyhow!("request failed (HTTP {status}): {detail}");
+            if let Some(code) = what.get("code").and_then(|it| it.as_str()) {
+                err = err.context(ErrorCode(Cow::Owned(code.to_owned())));
             }
+            return Err(err);
         }
         bail!("request failed ({status}): {text}");
     }
@@ -81,15 +123,17 @@ pub async fn recv_raw(request: RequestBuilder) -> Result<Response> {
 }
 
 #[derive(Serialize)]
-#[serde(untagged)]
+#[serde(untagged, rename_all_fields = "camelCase")]
 pub enum LoginParams<'a> {
     Password {
         email: &'a str,
         password: &'a str,
+        cancel_delete_request: bool,
     },
     RefreshToken {
         #[serde(rename = "refreshToken")]
         token: &'a str,
+        cancel_delete_request: bool,
     },
 }
 
@@ -230,6 +274,7 @@ impl Client {
 
     pub async fn login(params: LoginParams<'_>) -> Result<()> {
         #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
         struct FullLoginParams<'a> {
             #[serde(flatten)]
             inner: LoginParams<'a>,
@@ -364,25 +409,10 @@ impl Client {
     }
 
     pub async fn get_me() -> Result<User> {
-        let user: User = Self::get_me_unchecked().await?;
-        // In HYKB builds an account must stay bound to a HYKB account. If the
-        // server ever reports an unbound account, force a logout instead of
-        // letting the player continue in an invalid state.
-        #[cfg(feature = "hykb")]
-        if user.hykb_uid.is_none() {
-            get_data_mut().me = None;
-            get_data_mut().tokens = None;
-            save_data()?;
-            crate::sync_data();
-            bail!("{}", crate::ttl!("hykb-not-bound-logout"));
-        }
-        Ok(user)
-    }
-
-    /// Fetch `/me` without the HYKB binding guard. Used by the email-login flow,
-    /// which handles an unbound account by offering to bind HYKB rather than
-    /// forcing a logout.
-    pub async fn get_me_unchecked() -> Result<User> {
+        // Accounts not bound to a HYKB account are valid: anti-addiction is
+        // covered by a native HYKB login performed at sign-in (used for the
+        // SDK's enforcement, not bound to the account), and the player may
+        // bind HYKB later from the profile page.
         Ok(recv_raw(Self::get("/me")).await?.json().await?)
     }
 
@@ -402,9 +432,12 @@ impl Client {
         Ok(resp.id)
     }
 
-    /// Returns Some(new_terms, modified) if the terms have been updated.
-    pub async fn fetch_terms(modified: Option<&str>) -> Result<Option<(String, String)>> {
-        let mut req = CLIENT.load().get(format!("{API_URL}/terms/{}.txt", client_locale()));
+    /// Returns `Some(modified)` (the `Last-Modified` header) if the terms have
+    /// been updated since `modified`, or `None` if unchanged. Uses HEAD so the
+    /// ~9 KB body is never downloaded — change detection relies solely on the
+    /// `Last-Modified` header.
+    pub async fn fetch_terms(modified: Option<&str>) -> Result<Option<String>> {
+        let mut req = CLIENT.load().head(format!("{API_URL}/terms/{}.txt", client_locale()));
         if let Some(modified) = modified {
             req = req.header(header::IF_MODIFIED_SINCE, header::HeaderValue::from_str(modified)?);
         }
@@ -426,8 +459,7 @@ impl Client {
             // That mother fucker qiniu does not return NOT_MODIFIED
             return Ok(None);
         }
-        let new_terms = resp.text().await?;
-        Ok(Some((new_terms, new_modified)))
+        Ok(Some(new_modified))
     }
 }
 

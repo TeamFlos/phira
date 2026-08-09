@@ -160,7 +160,15 @@ impl UserManager {
             id,
             Task::new(async move {
                 let user: Arc<User> = Client::load(id).await?;
-                RESULTS.lock().await.insert(id, (user.name.clone(), user.name_color(), None));
+                {
+                    let mut guard = RESULTS.lock().await;
+                    if let Some((name, color, ..)) = guard.get_mut(&id) {
+                        *name = user.name.clone();
+                        *color = user.name_color();
+                    } else {
+                        guard.insert(id, (user.name.clone(), user.name_color(), None));
+                    }
+                }
                 if let Some(avatar) = &user.avatar {
                     Ok(Some(image::load_from_memory(&avatar.fetch().await?)?))
                 } else {

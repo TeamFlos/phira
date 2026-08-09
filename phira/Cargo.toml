@@ -32,6 +32,7 @@ dashmap = "6.1.0"
 daachorse = "3.0.2"
 futures-util = { workspace = true }
 hex = { workspace = true }
+http = { workspace = true }
 image = { workspace = true, default-features = false, features = [
     "bmp",
     "gif",
