@@ -5,7 +5,7 @@ on:
   pull_request: {}
 
 env:
-  PRPR_AVC_FFMPEG_VERSION: 20260309_v0
+  PRPR_AVC_FFMPEG_VERSION: 20260730_v0
 
 jobs:
   clippy:
