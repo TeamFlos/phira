@@ -1,4 +1,4 @@
 time = Цаг
 name = Нэр
-rating = Үнэлгээгээр буурах.
-difficulty = Хэцүүгийн түвшин
+rating = Үнэлгээ
+difficulty = Түвшин
