@@ -23,3 +23,4 @@ action-failed =
     }
 email-sent = Баталгаажуулах имэйл илгээгдсэн. Та баталгаажуулаад нэвтэрнэ үү.
 forget-password = Нууц үг мартсан уу?
+hykb-login-cancelled = 3839 Games рүү нэвтрэх үйл цуцлагдлаа
