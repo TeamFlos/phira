@@ -3,6 +3,7 @@ multiplayer = Multiplayer
 
 connect = เชื่อมต่อ
 connect-must-login = คุณต้อง Login เพื่อเล่น Multiplayer
+connect-no-server = โปรดเพิ่มและเลือกเซิร์ฟเวอร์หลายผู้เล่นก่อน
 connect-success = เชื่อมต่อเสร็จสิ้น
 connect-failed = เชื่อมต่อล้มเหลว
 connect-authenticate-failed = การขออนุญาติล้มเหลว

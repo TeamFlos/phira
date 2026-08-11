@@ -3,6 +3,7 @@ multiplayer = Çok Oyunculu
 
 connect = Bağlan
 connect-must-login = Çok oyunculu moda katılmak için giriş yapmalısınız
+connect-no-server = Önce çok oyunculu bir sunucu ekleyip seçin.
 connect-success = Bağlantı başarılı
 connect-failed = Bağlanılamadı
 connect-authenticate-failed = Giriş başarısız
