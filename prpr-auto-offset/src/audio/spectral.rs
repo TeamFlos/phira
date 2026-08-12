@@ -69,11 +69,10 @@ fn compute_spectral_flux(pcm: &[f32], n: usize, hop: usize) -> Vec<f32> {
 
         fft.process(&mut buffer);
 
-        for i in 0..num_bins {
-            prev_mags[i] = core::mem::replace(&mut prev_mags[i], buffer[i].norm());
-        }
-
         if frame == 0 {
+            for i in 0..num_bins {
+                prev_mags[i] = buffer[i].norm();
+            }
             novelty.push(0.0);
             continue;
         }
@@ -81,7 +80,12 @@ fn compute_spectral_flux(pcm: &[f32], n: usize, hop: usize) -> Vec<f32> {
         let flux: f32 = buffer[..num_bins]
             .iter()
             .enumerate()
-            .map(|(i, c)| (c.norm() - prev_mags[i]).max(0.0))
+            .map(|(i, c)| {
+                let mag = c.norm();
+                let diff = (mag - prev_mags[i]).max(0.0);
+                prev_mags[i] = mag;
+                diff
+            })
             .sum();
 
         novelty.push(flux);
