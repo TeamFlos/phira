@@ -14,8 +14,8 @@ flate2 = "1"
 tar = "0.4"
 ureq = "2"
 
-[target.'cfg(target_env = "ohos")'.dependencies]
-sasa = { workspace = true, default-features = false, features = ["ohos"] }
-
 [target.'cfg(not(target_env = "ohos"))'.dependencies]
 sasa = { workspace = true, default-features = false }
+
+[target.'cfg(target_env = "ohos")'.dependencies]
+sasa = { workspace = true, default-features = false, features = ["ohos"] }
