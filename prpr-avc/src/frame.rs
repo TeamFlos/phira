@@ -95,6 +95,10 @@ impl AVFrame {
     pub fn line_size(&self) -> i32 {
         unsafe { self.0.as_ref().linesize[0] }
     }
+
+    pub fn unref(&mut self) {
+        unsafe { ffi::av_frame_unref(self.0.as_mut()) }
+    }
 }
 
 impl Drop for AVFrame {
