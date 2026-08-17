@@ -22,6 +22,10 @@ impl AVPacket {
     pub fn duration(&self) -> i64 {
         unsafe { self.0.as_ref().duration }
     }
+
+    pub fn unref(&mut self) {
+        unsafe { ffi::av_packet_unref(self.0.as_mut()) }
+    }
 }
 
 unsafe impl Send for AVPacket {}
