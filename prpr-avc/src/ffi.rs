@@ -42,7 +42,6 @@ extern "C" {
     pub fn av_strerror(errnum: ::std::os::raw::c_int, errbuf: *mut ::std::os::raw::c_char, errbuf_size: usize) -> ::std::os::raw::c_int;
     pub fn av_frame_alloc() -> *mut AVFrame;
     pub fn av_frame_free(frame: *mut *mut AVFrame);
-    pub fn av_frame_unref(frame: *mut AVFrame);
     pub fn av_frame_get_buffer(frame: *mut AVFrame, align: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
     pub fn av_rescale_rnd(a: i64, b: i64, c: i64, r: AVRounding) -> i64;
 }
