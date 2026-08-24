@@ -31,3 +31,6 @@ sync-confirm = Việc đồng bộ có thể ghi đè dữ liệu, tiếp tục?
 info-name = Tên
 info-description = Mô tả
 info-count = Số lượng chart
+sync-outdated = Dữ liệu đám mây đã được cập nhật từ thiết bị khác, vẫn muốn đồng bộ (ghi đè lên đám mây)?
+delete-from-cloud-confirm = Xóa thư mục này khỏi cloud?
+already-up-to-date = Đã là bản mới nhất
