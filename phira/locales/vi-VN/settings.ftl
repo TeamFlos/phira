@@ -94,3 +94,6 @@ item-show-avg-fps = Hiển thị FPS trung bình
 item-show-avg-fps-sub = Hiển thị FPS trung bình tại màn hình tổng kết
 item-ap-fc-indicator = Chỉ báo AP/FC
 item-ap-fc-indicator-sub = Dùng màu đường phán đoán để hiển thị trạng thái AP/FC
+item-preferred-sample-rate = Sample rate ưu tiên
+preferred-sample-rate-default = Mặc định hệ thống
+item-audio-buffer-size = Kích thước bộ đệm audio
