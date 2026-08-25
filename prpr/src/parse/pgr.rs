@@ -239,6 +239,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f64, format_version: u32) -> Re
     Ok(JudgeLine {
         object: Object {
             alpha: parse_float_events(r, pgr.alpha_events).with_context(|| ptl!("alpha-events-parse-failed"))?,
+            scale: AnimVector(AnimFloat::fixed(5.75 / 6.0), AnimFloat::default()),
             rotation: parse_float_events(r, pgr.rotate_events).with_context(|| ptl!("rotate-events-parse-failed"))?,
             translation: {
                 match format_version {
@@ -246,8 +247,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f64, format_version: u32) -> Re
                     3 => parse_move_events(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
                     _ => ptl!(bail "unknown-format-version"),
                 }
-            },
-            ..Default::default()
+            }
         },
         ctrl_obj: RefCell::default(),
         kind: JudgeLineKind::Normal,
@@ -293,5 +293,15 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         .collect::<Result<Vec<_>>>()?;
 
     process_lines(&mut lines);
-    Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra, HashMap::new()))
+    Ok(Chart::new(
+        pgr.offset,
+        lines,
+        BpmList::default(),
+        ChartSettings {
+            line_reference_y_axis: true,
+            ..Default::default()
+        },
+        extra,
+        HashMap::new()
+    ))
 }
