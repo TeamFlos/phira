@@ -87,6 +87,7 @@ pub struct ResPackPage {
     delete_btn: DRectButton,
     export_btn: DRectButton,
     export_task: Option<mpsc::Receiver<Result<()>>>,
+    export_path: Option<PathBuf>,
 
     should_delete: Arc<AtomicBool>,
 
@@ -156,6 +157,7 @@ impl ResPackPage {
             export_btn: delete_btn.clone(),
             delete_btn,
             export_task: None,
+            export_path: None,
 
             should_delete: Arc::new(AtomicBool::default()),
 
@@ -191,7 +193,7 @@ impl Page for ResPackPage {
                 }
             }
         }
-        if self.info_btn.touch(touch, t) {
+        if self.items[self.index].loaded.is_some() && self.info_btn.touch(touch, t) {
             let item = &self.items[self.index];
             let info = &item.loaded.as_ref().unwrap().info;
             Dialog::plain(
@@ -202,11 +204,10 @@ impl Page for ResPackPage {
             .show();
             return Ok(true);
         }
-        if self.export_btn.touch(touch, t) {
-            if self.index != 0 {
-                let name = sanitize_filename(&self.items[self.index].name);
-                request_export(format!("{name}.zip"));
-            }
+        if self.index != 0 && self.export_btn.touch(touch, t) {
+            let name = sanitize_filename(&self.items[self.index].name);
+            self.export_path = self.items[self.index].path.clone();
+            request_export(format!("{name}.zip"));
             return Ok(true);
         }
         if self.delete_btn.touch(touch, t) {
@@ -256,18 +257,19 @@ impl Page for ResPackPage {
         if let Some(config) = take_export() {
             match config {
                 Ok(config) => {
-                    let path = self.items[self.index].path.clone().unwrap();
-                    let (tx, rx) = mpsc::channel();
-                    self.export_task = Some(rx);
-                    std::thread::spawn(move || {
-                        let result = (|| -> Result<()> {
-                            let mut writer = BufWriter::new(config.file);
-                            compress_folder(&path, &mut writer)?;
-                            writer.flush()?;
-                            Ok(())
-                        })();
-                        let _ = tx.send(result);
-                    });
+                    if let Some(path) = self.export_path.take() {
+                        let (tx, rx) = mpsc::channel();
+                        self.export_task = Some(rx);
+                        std::thread::spawn(move || {
+                            let result = (|| -> Result<()> {
+                                let mut writer = BufWriter::new(config.file);
+                                compress_folder(&path, &mut writer)?;
+                                writer.flush()?;
+                                Ok(())
+                            })();
+                            let _ = tx.send(result);
+                        });
+                    }
                 }
                 Err(err) => {
                     show_error(err.into());
