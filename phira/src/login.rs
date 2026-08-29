@@ -863,20 +863,10 @@ impl Login {
 
                         let h = 0.09;
                         let pad = 0.05;
-                        // Under the anti-addiction build, self-service email
-                        // registration is disabled: only offer login.
-                        #[cfg(feature = "hykb")]
-                        {
-                            let r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, wr.w - pad * 2., h);
-                            self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
-                        }
-                        #[cfg(not(feature = "hykb"))]
-                        {
-                            let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
-                            self.btn_to_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
-                            r.x += r.w + pad;
-                            self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
-                        }
+                        let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
+                        self.btn_to_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
+                        r.x += r.w + pad;
+                        self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
                     });
                 });
             });
