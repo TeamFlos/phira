@@ -257,18 +257,27 @@ impl Page for ResPackPage {
         if let Some(config) = take_export() {
             match config {
                 Ok(config) => {
+                    let file = config.file;
+                    let deleter = config.deleter;
                     if let Some(path) = self.export_path.take() {
                         let (tx, rx) = mpsc::channel();
                         self.export_task = Some(rx);
                         std::thread::spawn(move || {
                             let result = (|| -> Result<()> {
-                                let mut writer = BufWriter::new(config.file);
+                                let mut writer = BufWriter::new(file);
                                 compress_folder(&path, &mut writer)?;
                                 writer.flush()?;
                                 Ok(())
                             })();
+                            if result.is_err() {
+                                let _ = (deleter)();
+                            }
                             let _ = tx.send(result);
                         });
+                    } else {
+                        drop(file);
+                        let _ = (deleter)();
+                        show_error(anyhow::anyhow!("No resource pack selected for export"));
                     }
                 }
                 Err(err) => {
