@@ -565,10 +565,7 @@ impl Judge {
             for (line, (idx, st)) in chart.lines.iter().zip(self.notes.iter()) {
                 for &note_idx in &idx[*st..] {
                     let note = &line.notes[note_idx as usize];
-                    if matches!(note.kind, NoteKind::Drag | NoteKind::Flick)
-                        && note.time < t
-                        && matches!(note.judge, JudgeStatus::NotJudged)
-                    {
+                    if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && note.time < t && matches!(note.judge, JudgeStatus::NotJudged) {
                         max_protection_time = Some(max_protection_time.map_or(note.time, |m| m.max(note.time)));
                     }
                 }
@@ -614,9 +611,7 @@ impl Judge {
                     let key = dt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
                     let key = if matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. })
                         && note.time > t
-                        && max_protection_time.is_some_and(|prot_time| {
-                            (t - prot_time) / spd < (note.time - t) / spd - PROTECTION_THRESHOLD
-                        })
+                        && max_protection_time.is_some_and(|prot_time| (t - prot_time) / spd < (note.time - t) / spd - PROTECTION_THRESHOLD)
                     {
                         f64::INFINITY
                     } else {
