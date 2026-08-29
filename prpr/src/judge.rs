@@ -609,10 +609,14 @@ impl Judge {
                         dt
                     };
                     let key = dt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
-                    let key = if matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. })
-                        && note.time > t
-                        && max_protection_time.is_some_and(|prot_time| (t - prot_time) / spd < (note.time - t) / spd - PROTECTION_THRESHOLD)
-                    {
+let key = if matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. })
+    && note.time > t
+    && max_protection_time.is_some_and(|prot_time| (t - prot_time) < (note.time - t) - PROTECTION_THRESHOLD)
+{
+    f64::INFINITY
+} else {
+    key
+};
                         f64::INFINITY
                     } else {
                         key
