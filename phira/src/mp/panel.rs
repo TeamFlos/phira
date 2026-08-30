@@ -265,12 +265,6 @@ impl MPPanel {
         ALLOWED.contains(&host)
     }
 
-    /// 判断当前连接的服务器是否可上报真实成绩（域名包含 mp.tianstudio.top / mp.ratzen.top）
-    fn server_is_tianstudio(&self) -> bool {
-        let addr = &get_data().config.mp_address;
-        addr.contains("mp.tianstudio.top") || addr.contains("mp.ratzen.top")
-    }
-
     /// 从谱面库中选择本地谱面（无在线 id）进行分享。
     /// 生成随机 UUID，把本地谱面目录复制到 `download/{uuid}`，并发送 `SelectLocalChart`。
     pub fn select_local_chart(&mut self, local_path: String, name: String) {
@@ -811,11 +805,8 @@ impl MPPanel {
             }
         }
         if self.need_upload && self.entered {
-            let id = RECORD_ID.load(Ordering::Relaxed);
-            // 取本地真实成绩（本地/在线谱面均可），用于游戏结束的成绩上报
-            let result = mp_take_result();
-            // 仅当连接的服务器可上报真实成绩时才上传，其它服务器保持默认行为（放弃游戏）
-            let upload_score = self.server_is_tianstudio();
+            // 本地谱面（无官方 record id）：成绩直传；在线谱面：走原始渠道（上传官方 record id）
+            let is_local_chart = self.local_chart.is_some();
             // 单人房间中游玩期间一旦连接断开并重连，服务端可能已在 Playing 状态清理掉房间，
             // 此时再上报成绩会得到 "no room" 报错，因此若已不在房间则跳过成绩上报。
             let in_room = self
@@ -824,17 +815,24 @@ impl MPPanel {
                 .is_some_and(|it| it.blocking_state().is_some());
             if in_room {
                 let client = self.clone_client();
+                let id = RECORD_ID.load(Ordering::Relaxed);
                 self.task = Some(Task::new(async move {
-                    if upload_score {
-                        if let Some(r) = result {
+                    if is_local_chart {
+                        // 本地谱面：成绩直传（客户端上报真实成绩，不依赖官方 record id）
+                        if let Some(r) = mp_take_result() {
                             client
-                                .played(id, r.score, r.accuracy, r.full_combo, r.max_combo, r.perfect, r.good, r.bad, r.miss)
+                                .played_with_score(id, r.score, r.accuracy, r.full_combo, r.max_combo, r.perfect, r.good, r.bad, r.miss)
                                 .await
                         } else {
                             client.abort().await
                         }
                     } else {
-                        client.abort().await
+                        // 在线谱面：走原始渠道（上传官方 record id，服务端回源）
+                        if id != -1 {
+                            client.played(id).await
+                        } else {
+                            client.abort().await
+                        }
                     }
                 }));
             }
