@@ -3560,7 +3560,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-client"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp?rev=cc822df#cc822df1c9e2d151b4323cc6c97da68e882b681f"
+source = "git+https://github.com/tiancra/phira-mp?branch=feature%2Flocal-chart-and-score#68a145eacccfeda6e1f7dad1ca21c938844d99c7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3576,7 +3576,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-common"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp?rev=cc822df#cc822df1c9e2d151b4323cc6c97da68e882b681f"
+source = "git+https://github.com/tiancra/phira-mp?branch=feature%2Flocal-chart-and-score#68a145eacccfeda6e1f7dad1ca21c938844d99c7"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -3592,7 +3592,7 @@ dependencies = [
 [[package]]
 name = "phira-mp-macros"
 version = "0.1.0"
-source = "git+https://github.com/TeamFlos/phira-mp?rev=cc822df#cc822df1c9e2d151b4323cc6c97da68e882b681f"
+source = "git+https://github.com/tiancra/phira-mp?branch=feature%2Flocal-chart-and-score#68a145eacccfeda6e1f7dad1ca21c938844d99c7"
 dependencies = [
  "proc-macro2",
  "quote",
