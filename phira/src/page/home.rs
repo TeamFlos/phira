@@ -111,7 +111,7 @@ pub struct HomePage {
 }
 
 impl HomePage {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(icons: Arc<Icons>) -> Result<Self> {
         let update_task = if get_data().config.offline_mode {
             None
         } else if let Some(u) = &get_data().me {
@@ -144,7 +144,6 @@ impl HomePage {
             _ => "none".to_owned(),
         };
 
-        let icons = Arc::new(Icons::new().await?);
         let mut res = Self {
             icons: Arc::clone(&icons),
 

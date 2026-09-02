@@ -15,21 +15,17 @@ use std::{
 use tempfile::tempfile;
 use url::Url;
 
-use crate::client::{basic_client_builder, API_URL};
+use crate::client::{basic_client_builder, Chart, Ptr, API_URL};
 
-/// Upper bound for deeplink downloads, protecting against untrusted sources
-/// serving arbitrarily large files.
+/// Upper bound for deeplink downloads from untrusted sources.
 pub const MAX_DEEPLINK_DOWNLOAD: u64 = 100 << 20;
 
 static PENDING_DEEPLINK: Mutex<Option<String>> = Mutex::new(None);
 
-/// Stores a deeplink payload injected by the platform layer (Android JNI,
-/// desktop argv). Last one wins.
 pub fn set_deeplink(input: impl Into<String>) {
     *PENDING_DEEPLINK.lock().unwrap() = Some(input.into());
 }
 
-/// Takes the pending deeplink, if any. Consumed by `MainScene::update`.
 pub fn take_deeplink() -> Option<String> {
     PENDING_DEEPLINK.lock().unwrap().take()
 }
@@ -41,15 +37,12 @@ static OFFICIAL_HOST: LazyLock<String> = LazyLock::new(|| {
         .unwrap_or_else(|| API_URL.trim_start_matches("https://").trim_end_matches('/').to_owned())
 });
 
-/// The host charts files are expected to come from to count as official.
 pub fn official_host() -> &'static str {
     &OFFICIAL_HOST
 }
 
-/// Web wrapper host (`https://phira.moe/dlink/...?src=<real url>`), kept in
-/// sync with the Android intent-filter on the same path.
 const DLINK_HOST: &str = "phira.moe";
-const DLINK_PATH: &str = "/dlink";
+const DLINK_PATH: &str = "/dlink/";
 
 #[derive(Clone)]
 pub struct DeepLinkTarget {
@@ -61,40 +54,71 @@ fn is_official(url: &Url) -> bool {
     url.host_str() == Some(&OFFICIAL_HOST) && url.port().is_none()
 }
 
-/// Whether the URL is a transport wrapper (`phira://...` or
-/// `https://phira.moe/dlink/...`) whose real target sits in the `src` query
-/// parameter.
-fn is_wrapper(url: &Url) -> bool {
-    url.scheme() == "phira" || (matches!(url.scheme(), "http" | "https") && url.host_str() == Some(DLINK_HOST) && url.path().starts_with(DLINK_PATH))
+/// The `<action>` segment of an `https://phira.moe/dlink/<action>` wrapper.
+fn dlink_action(url: &Url) -> Option<&str> {
+    if url.host_str() != Some(DLINK_HOST) {
+        return None;
+    }
+    url.path().strip_prefix(DLINK_PATH)
 }
 
-/// Resolves a raw `http(s)` chart file URL, a `phira://import?src=<url>` or an
-/// `https://phira.moe/dlink/import?src=<url>` wrapper, into the final download
-/// target. The indirection is unwrapped exactly once and must lead to
-/// `http(s)`; the official-source flag is judged on the *final* URL, so a
-/// wrapper pointing anywhere but the official host still warns.
-pub fn parse_deeplink(input: &str) -> Result<DeepLinkTarget> {
-    let mut url = Url::parse(input.trim())?;
-    if is_wrapper(&url) {
-        let src = url
-            .query_pairs()
-            .find(|(key, _)| key == "src")
-            .map(|(_, value)| value.into_owned())
-            .context("missing src")?;
-        url = Url::parse(&src).context("invalid src")?;
-        if is_wrapper(&url) {
-            bail!("nested wrapper");
-        }
+fn query_param(url: &Url, key: &str) -> Option<String> {
+    url.query_pairs().into_owned().find(|(k, _)| k == key).map(|(_, v)| v)
+}
+
+fn src_target(url: &Url) -> Result<Url> {
+    let src = query_param(url, "src").context("missing src")?;
+    let target = Url::parse(&src).context("invalid src")?;
+    if dlink_action(&target).is_some() {
+        bail!("nested wrapper");
     }
+    Ok(target)
+}
+
+fn chart_id(url: &Url) -> Result<i32> {
+    query_param(url, "id").context("missing id")?.parse().context("invalid id")
+}
+
+/// What a deeplink asks the app to do.
+#[derive(Clone)]
+pub enum DeepLink {
+    /// Download a chart file and import it. `official` is judged on the final
+    /// download URL, after unwrapping any wrapper.
+    Import(DeepLinkTarget),
+    /// Open the details page of the chart with this id.
+    Chart(i32),
+}
+
+/// Accepted forms:
+/// - `phira://chart?id=<id>` or `https://phira.moe/dlink/chart?id=<id>`
+/// - `phira://import?src=<url>` or `https://phira.moe/dlink/import?src=<url>`
+pub fn parse_deeplink(input: &str) -> Result<DeepLink> {
+    let url = Url::parse(input.trim())?;
+    let action = if url.scheme() == "phira" {
+        url.host_str().context("missing action")?
+    } else if let Some(action) = dlink_action(&url) {
+        action
+    } else {
+        bail!("unsupported scheme");
+    };
+    match action {
+        "import" => Ok(DeepLink::Import(download_target(src_target(&url)?)?)),
+        "chart" => Ok(DeepLink::Chart(chart_id(&url)?)),
+        _ => bail!("unknown action"),
+    }
+}
+
+fn download_target(url: Url) -> Result<DeepLinkTarget> {
     if !matches!(url.scheme(), "http" | "https") {
         bail!("unsupported scheme");
     }
-    let official = is_official(&url);
-    Ok(DeepLinkTarget { url, official })
+    Ok(DeepLinkTarget {
+        official: is_official(&url),
+        url,
+    })
 }
 
-/// Overlay state for an in-progress deeplink download, modeled after
-/// `SongScene`'s `Downloading`. Dropping this struct cancels the transfer.
+/// Overlay for an in-progress deeplink download. Dropping it cancels the transfer.
 pub struct DeepLinkDownload {
     prog: Arc<Mutex<Option<f32>>>,
     loading_last: f32,
@@ -160,6 +184,39 @@ impl DeepLinkDownload {
     }
 
     pub fn take_result(&mut self) -> Option<Result<std::fs::File>> {
+        self.task.take()
+    }
+}
+
+/// Overlay while a chart deeplink fetches the chart's details. Dropping it
+/// cancels the fetch.
+pub struct DeepLinkChartOpening {
+    cancel_btn: DRectButton,
+    task: Task<Result<Arc<Chart>>>,
+}
+
+pub fn start_chart_opening(id: i32) -> DeepLinkChartOpening {
+    DeepLinkChartOpening {
+        cancel_btn: DRectButton::new(),
+        task: Task::new(async move { Ptr::<Chart>::new(id).fetch().await }),
+    }
+}
+
+impl DeepLinkChartOpening {
+    /// Returns `true` when the user tapped the cancel button.
+    pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
+        self.cancel_btn.touch(touch, t)
+    }
+
+    pub fn render(&mut self, ui: &mut Ui, t: f32) {
+        ui.fill_rect(ui.screen_rect(), semi_black(0.6));
+        ui.loading(0., -0.06, t, WHITE, ());
+        ui.text(itl!("deeplink-opening")).pos(0., 0.02).anchor(0.5, 0.).size(0.6).draw();
+        let r = ui.text(ttl!("cancel")).pos(0., 0.12).anchor(0.5, 0.).size(0.7).measure().feather(0.02);
+        self.cancel_btn.render_text(ui, r, t, ttl!("cancel"), 0.6, true);
+    }
+
+    pub fn take_result(&mut self) -> Option<Result<Arc<Chart>>> {
         self.task.take()
     }
 }

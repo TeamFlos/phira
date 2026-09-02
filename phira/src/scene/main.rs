@@ -2,12 +2,13 @@ use super::{import_chart, L10N_LOCAL};
 use crate::{
     charts_view::NEED_UPDATE,
     data::LocalChart,
-    deeplink::{self, DeepLinkDownload, DeepLinkTarget},
+    deeplink::{self, DeepLink, DeepLinkChartOpening, DeepLinkDownload, DeepLinkTarget},
     dir, get_data, get_data_mut,
+    icons::Icons,
     mp::MPPanel,
-    page::{ExportInfo, HomePage, NextPage, Page, ResPackItem, SharedState},
+    page::{ChartItem, ExportInfo, HomePage, NextPage, Page, ResPackItem, SharedState},
     save_data,
-    scene::{confirm_dialog, import_chart_to, parse_warnings_to_string, TEX_BACKGROUND, TEX_ICON_BACK},
+    scene::{confirm_dialog, import_chart_to, parse_warnings_to_string, SongScene, TEX_BACKGROUND, TEX_ICON_BACK},
 };
 use anyhow::{anyhow, Context, Result};
 use macroquad::prelude::*;
@@ -72,6 +73,12 @@ pub struct MainScene {
     deeplink_confirm: Arc<AtomicBool>,
     deeplink_dl: Option<DeepLinkDownload>,
 
+    // deeplink chart (open the details page of a chart by id)
+    deeplink_chart: Option<DeepLinkChartOpening>,
+    deeplink_scene: Option<NextScene>,
+
+    icons: Arc<Icons>,
+
     mp_btn: RectButton,
     mp_icon: SafeTexture,
     mp_btn_pos: Vec2,
@@ -117,7 +124,7 @@ impl MainScene {
         let bgm = None;
 
         let mut sf = Self::new_inner(bgm, fallback).await?;
-        sf.pages.push(Box::new(HomePage::new().await?));
+        sf.pages.push(Box::new(HomePage::new(Arc::clone(&sf.icons)).await?));
         Ok(sf)
     }
 
@@ -164,6 +171,11 @@ impl MainScene {
             deeplink_pending: None,
             deeplink_confirm: Arc::new(AtomicBool::new(false)),
             deeplink_dl: None,
+
+            deeplink_chart: None,
+            deeplink_scene: None,
+
+            icons: Arc::new(Icons::new().await?),
 
             mp_btn: RectButton::new(),
             mp_icon: SafeTexture::from(load_texture("multiplayer.png").await?).with_mipmap(),
@@ -252,6 +264,15 @@ impl Scene for MainScene {
             if cancelled {
                 // dropping the overlay aborts the transfer
                 self.deeplink_dl = None;
+            }
+            return Ok(true);
+        }
+        if self.deeplink_chart.is_some() {
+            let t = tm.real_time() as f32;
+            let cancelled = self.deeplink_chart.as_mut().is_some_and(|it| it.touch(touch, t));
+            if cancelled {
+                // dropping the overlay discards the fetch
+                self.deeplink_chart = None;
             }
             return Ok(true);
         }
@@ -511,13 +532,23 @@ impl Scene for MainScene {
         }
         // Wait until any dialog is gone and no import is running: `Dialog::show`
         // replaces the current dialog, and a pending deeplink can simply wait.
-        if self.deeplink_dl.is_none() && self.import_task.is_none() && DIALOG.with(|it| it.borrow().is_none()) {
+        if self.deeplink_dl.is_none()
+            && self.import_task.is_none()
+            && self.deeplink_chart.is_none()
+            && self.deeplink_scene.is_none()
+            && DIALOG.with(|it| it.borrow().is_none())
+        {
             if let Some(input) = deeplink::take_deeplink() {
                 match deeplink::parse_deeplink(&input) {
                     Err(err) => {
                         show_error(err.context(itl!("deeplink-bad-url")));
                     }
-                    Ok(target) => {
+                    Ok(DeepLink::Chart(id)) => {
+                        // Viewing a chart's details is safe (same as tapping a
+                        // chart in a message), so no confirmation is needed.
+                        self.deeplink_chart = Some(deeplink::start_chart_opening(id));
+                    }
+                    Ok(DeepLink::Import(target)) => {
                         let message = if target.official {
                             format!("{}\n{}", itl!("deeplink-confirm"), target.url)
                         } else {
@@ -547,6 +578,29 @@ impl Scene for MainScene {
                     }
                 }
             }
+        }
+        if let Some(res) = self.deeplink_chart.as_mut().and_then(|it| it.take_result()) {
+            match res {
+                Err(err) => show_error(err.context(itl!("deeplink-open-failed"))),
+                Ok(chart) => {
+                    let (local_path, mods) = {
+                        let data = get_data();
+                        data.charts
+                            .iter()
+                            .find(|it| it.info.id == Some(chart.id))
+                            .map(|it| (Some(it.local_path.clone()), it.mods))
+                            .unwrap_or_default()
+                    };
+                    self.deeplink_scene = Some(NextScene::Overlay(Box::new(SongScene::new(
+                        ChartItem::from_remote(chart.as_ref()),
+                        local_path,
+                        Arc::clone(&self.icons),
+                        self.state.icons.clone(),
+                        mods,
+                    ))));
+                }
+            }
+            self.deeplink_chart = None;
         }
         if self.deeplink_confirm.load(Ordering::Relaxed) && self.deeplink_dl.is_none() && self.import_task.is_none() {
             self.deeplink_confirm.store(false, Ordering::Relaxed);
@@ -773,6 +827,9 @@ impl Scene for MainScene {
         if let Some(dl) = &mut self.deeplink_dl {
             dl.render(ui, s.t);
         }
+        if let Some(it) = &mut self.deeplink_chart {
+            it.render(ui, s.t);
+        }
         if self.batch_import_task.is_some() {
             let current = self.batch_imported_charts.len();
             let total = self.batch_import_total;
@@ -783,6 +840,12 @@ impl Scene for MainScene {
     }
 
     fn next_scene(&mut self, _tm: &mut TimeManager) -> NextScene {
+        if let Some(next) = self.deeplink_scene.take() {
+            if let Some(bgm) = &mut self.bgm {
+                let _ = bgm.fade_out(0.5);
+            }
+            return next;
+        }
         let res = MP_PANEL
             .with(|it| it.borrow_mut().as_mut().and_then(|it| it.next_scene()))
             .unwrap_or(self.pages.last_mut().unwrap().next_scene(&mut self.state));
