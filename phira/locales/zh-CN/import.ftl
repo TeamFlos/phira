@@ -19,3 +19,12 @@ batch-import-failed-chart = 批量导入失败: { $chart }
 warning = 警告
 warning-new-speed-event = 该谱面使用了 RPE 1.7.0 引入的速度事件缓动。为兼容性考虑，Phira 默认不启用对该事件的支持。如果需要启用，请在谱面信息中勾选“新速度缓动”。
 warning-attach-ui = 该谱面使用了 UI 绑定。Phira 最近的版本引入了 UI 绑定的修复，但可能会导致依赖旧行为的谱面出现问题。如有必要，请在谱面信息中取消勾选“UI 绑定修复”。
+
+deeplink-title = 通过链接导入谱面
+deeplink-confirm = 是否从链接下载谱面并导入到本地？
+deeplink-unofficial = 非官方来源：该文件并非由 Phira 官方服务器（{ $host }）提供，请确认来源可信后再下载
+deeplink-download = 下载
+deeplink-bad-url = 谱面文件链接不合法
+deeplink-downloading = 下载中…
+deeplink-dl-failed = 下载失败
+deeplink-too-large = 文件大小超出链接导入的上限（100 MiB）

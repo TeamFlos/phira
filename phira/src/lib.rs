@@ -9,6 +9,7 @@ mod censor;
 mod charts_view;
 mod client;
 mod data;
+pub mod deeplink;
 mod icons;
 mod images;
 mod login;
@@ -389,6 +390,12 @@ pub extern "C" fn Java_quad_1native_QuadNative_setDpi(_env: EnvUnowned, _class: 
 pub extern "C" fn Java_quad_1native_QuadNative_setChosenFile(_env: EnvUnowned, _class: JClass, file: JString) {
     use prpr::scene::CHOSEN_FILE;
     CHOSEN_FILE.lock().unwrap().1 = Some(file.to_string());
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_setDeepLink(_env: EnvUnowned, _class: JClass, url: JString) {
+    deeplink::set_deeplink(url.to_string());
 }
 
 #[cfg(target_os = "android")]

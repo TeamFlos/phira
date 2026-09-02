@@ -314,7 +314,10 @@ pub async fn import_chart_to(dir: &Path, local_path: String, file: File) -> Resu
     unzip_into(BufReader::new(file), &dir, true)?;
     let mut fs = fs_from_path(&local_path)?;
     let mut info = fs::load_info(fs.as_mut()).await.with_context(|| itl!("info-fail"))?;
-    fs::fix_info(fs.as_mut(), &mut info).await.with_context(|| itl!("invalid-chart"))?;
+    let has_info_yml = fs.exists("info.yml").await?;
+    fs::fix_info_with(fs.as_mut(), &mut info, !has_info_yml)
+        .await
+        .with_context(|| itl!("invalid-chart"))?;
     let warnings = if info.use_rpe_170_speed.is_none() || info.use_attach_ui_fix.is_none() {
         if info.use_attach_ui_fix.is_none() {
             info.use_attach_ui_fix = Some(true);

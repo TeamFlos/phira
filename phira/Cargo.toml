@@ -80,6 +80,7 @@ tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+url = { workspace = true }
 walkdir = { workspace = true }
 zip = { workspace = true, features = ["chrono"] }
 zstd = "0.13"

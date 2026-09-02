@@ -19,3 +19,12 @@ batch-import-failed-chart = Batch import failed: { $chart }
 warning = Warning
 warning-new-speed-event = This chart uses the speed event easing introduced in RPE 1.7.0. For compatibility reasons, Phira does not enable support for this event by default. If you want to enable it, please check "New Speed Tween" in the chart information.
 warning-attach-ui = This chart uses UI attachment. Recent versions of Phira introduced a fix for UI attachment that may cause issues with charts that rely on the old behavior. If you encounter any problems, please uncheck "Attach UI Fix" in the chart information.
+
+deeplink-title = Import Chart from Link
+deeplink-confirm = Download and import the chart from this link?
+deeplink-unofficial = Unofficial source: this file is not provided by Phira's official server ({ $host }). Make sure you trust the source before downloading.
+deeplink-download = Download
+deeplink-bad-url = Invalid chart file link.
+deeplink-downloading = Downloading...
+deeplink-dl-failed = Download failed
+deeplink-too-large = The file exceeds the maximum size allowed for link import (100 MiB)
