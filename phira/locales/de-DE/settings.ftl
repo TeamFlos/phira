@@ -57,6 +57,8 @@ about-content =
 
     Phira ist ein nicht-kommerzielles, von der Community getragenes Rhythmusspiel, dessen Gameplay auf Phigros basiert und das mit Rust entwickelt wurde.
 
+    Dies ist ein inoffizielles Projekt von Spielern und steht in keinerlei Lizenz-, Kooperations- oder Betriebsbeziehung zu Pigeon Games Co., Ltd. oder zum offiziellen Phigros-Team.
+
     Bilibili-Konto: @Phira官方
     QQ-Kanal: r48eajexth
 

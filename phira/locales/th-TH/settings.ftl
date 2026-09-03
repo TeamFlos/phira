@@ -57,6 +57,8 @@ about-content =
 
     Phira คือเกมรูทึมที่ไม่แสวงหาผลกำไรและขับเคลื่อนโดยชุมชน ได้รับแรงบันดาลใจจาก Phigros
 
+    โปรเจกต์นี้เป็นโปรเจกต์ของผู้เล่นที่ไม่เป็นทางการ และไม่มีความสัมพันธ์ในด้านการอนุญาต การร่วมมือ หรือการดำเนินงานใด ๆ กับ Pigeon Games Co., Ltd. หรือทีมงานทางการของ Phigros
+
     BiliBili Account: @Phira官方
     QQ Guild: r48eajexth
     Discord Server: discord.gg/gqpR3bTSsP

@@ -52,6 +52,8 @@ about-content =
 
   Phira, Phigros'tan ilham alınmış ticari olmayan topluluk odaklı bir ritim oyunudur.
 
+  Bu proje gayri resmî bir oyuncu projesidir ve Pigeon Games Co., Ltd. ya da resmî Phigros ekibiyle hiçbir yetkilendirme, iş birliği veya işletme ilişkisi bulunmamaktadır.
+
   BiliBili Hesabı: @Phira官方
   QQ Loncası: r48eajexth
   Discord Sunucusu: discord.gg/gqpR3bTSsP

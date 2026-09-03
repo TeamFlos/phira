@@ -65,6 +65,8 @@ about-content =
 
   Phira là một trò chơi nhịp điệu phi thương mại do cộng đồng điều hành, lấy cảm hứng từ Phigros.
 
+  Đây là một dự án không chính thức do người chơi thực hiện, và không tồn tại bất kỳ quan hệ ủy quyền, hợp tác hay vận hành nào với Pigeon Games Co., Ltd. hay với đội ngũ chính thức của Phigros.
+
   Tài khoản BiliBili: @Phira官方
   QQ Guild: r48eajexth
   Máy chủ Discord: discord.gg/gqpR3bTSsP

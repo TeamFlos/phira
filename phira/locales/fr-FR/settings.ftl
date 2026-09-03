@@ -65,6 +65,8 @@ about-content =
 
   Phira est un jeu de rythme communautaire et non commercial, inspiré par Phigros.
 
+  Il s'agit d'un projet non officiel réalisé par des joueurs ; il n'existe aucune relation de licence, de partenariat ou d'exploitation avec Pigeon Games Co., Ltd. ni avec l'équipe officielle de Phigros.
+
   Compte BiliBili : @Phira官方
   Chaîne QQ : r48eajexth
   Serveur Discord : discord.gg/gqpR3bTSsP

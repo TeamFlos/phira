@@ -65,6 +65,8 @@ about-content =
 
     Phira 是一款玩法基於 Phigros 的非商業社區音樂遊戲，使用 Rust 開發。
 
+    本專案為非官方玩家專案，與南京鴿遊網路有限公司及《Phigros》官方不存在授權、合作或營運關係。
+
     BiliBili 帳號：@Phira官方
     QQ 頻道：r48eajexth
     Discord 伺服器：discord.gg/gqpR3bTSsP
