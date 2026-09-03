@@ -1,12 +1,9 @@
-
 label = CÀI ĐẶT
-
 general = Chung
 audio = Âm thanh
 chart = Chart
 debug = Gỡ lỗi
 about = Giới thiệu
-
 item-lang = Ngôn ngữ
 item-offline = Chế độ Offline
 item-offline-sub = Tắt tất cả các chức năng trực tuyến.
@@ -32,14 +29,12 @@ item-enable-anys-sub = Sử dụng cổng Anys để nâng cao chất lượng k
 item-anys-gateway = Cổng Anys
 item-anys-gateway-sub = Sử dụng cổng Anys tùy chỉnh
 item-anys-gateway-invalid = Địa chỉ không hợp lệ
-
 item-adjust = Tự động điều chỉnh
 item-adjust-sub = Điều chỉnh độ lệch âm thanh và chart một cách tự động
 item-music = Âm lượng nhạc
 item-sfx = Âm lượng Note
 item-bgm = Âm lượng nhạc nền
 item-cali = Hiệu chỉnh
-
 item-show-acc = Hiển thị độ chính xác theo thời gian thực
 item-dc-pause = Chạm hai lần để tạm dừng
 item-dhint = Nổi bật note trùng nhau
@@ -52,48 +47,53 @@ item-prefer-reduced-motion = Ưu tiên giảm chuyển động
 item-prefer-reduced-motion-sub = Giảm hoạt ảnh và hiệu ứng hình ảnh
 item-speed = Tốc độ
 item-note-size = Kích thước Note
-
 item-chart-debug = Hiển thị line ID
 item-chart-debug-sub = Hiển thị ID và hướng của line
 item-touch-debug = Hiển thị điểm chạm
 item-touch-debug-sub = Hiển thị điểm chạm khi bạn chạm vào màn hình
-
 load-cali-failed = Không thể tải âm thanh hiệu chỉnh
-
 about-content =
-  Phira v{ $version }
+    Phira v{ $version }
 
-  Phira là một trò chơi nhịp điệu phi thương mại do cộng đồng điều hành, lấy cảm hứng từ Phigros.
+    Phira là một trò chơi nhịp điệu phi thương mại do cộng đồng điều hành, lấy cảm hứng từ Phigros.
 
-  Tài khoản BiliBili: @Phira官方
-  QQ Guild: r48eajexth
-  Máy chủ Discord: discord.gg/gqpR3bTSsP
+    Tài khoản BiliBili: @Phira官方
+    QQ Guild: r48eajexth
+    Máy chủ Discord: discord.gg/gqpR3bTSsP
 
-  Chúng tôi khuyến khích bạn tham gia QQ Guild hoặc máy chủ Discord để nhận thông báo cập nhật mới nhất và được hỗ trợ kịp thời.
+    Chúng tôi khuyến khích bạn tham gia QQ Guild hoặc máy chủ Discord để nhận thông báo cập nhật mới nhất và được hỗ trợ kịp thời.
 
-  Danh sách nhân viên (sắp xếp theo thứ tự bảng chữ cái)
-  Phát triển
-  { $development }
+    Danh sách nhân viên (sắp xếp theo thứ tự bảng chữ cái)
+    Phát triển
+    { $development }
 
-  Vận hành
-  { $operations }
+    Vận hành
+    { $operations }
 
-  Tài liệu
-  { $documentation }
+    Tài liệu
+    { $documentation }
 
-  Nghệ thuật
-  { $art }
+    Nghệ thuật
+    { $art }
 
-  Âm nhạc
-  { $music }
+    Âm nhạc
+    { $music }
 
-  Âm thanh
-  { $audio }
+    Âm thanh
+    { $audio }
 
-  Quản lý cộng đồng
-  { $community }
+    Quản lý cộng đồng
+    { $community }
 
-  Địa phương hóa
-  { $localization }
+    Địa phương hóa
+    { $localization }
 
-  Và nhiều người đánh giá chart tình nguyện khác. Để xem danh sách đầy đủ, vui lòng tham khảo https://phira.moe/staff
+    Và nhiều người đánh giá chart tình nguyện khác. Để xem danh sách đầy đủ, vui lòng tham khảo https://phira.moe/staff
+item-fullscreen = Chế độ toàn màn hình
+item-show-avg-fps = Hiển thị FPS trung bình
+item-show-avg-fps-sub = Hiển thị FPS trung bình tại màn hình tổng kết
+item-ap-fc-indicator = Chỉ báo AP/FC
+item-ap-fc-indicator-sub = Dùng màu đường phán đoán để hiển thị trạng thái AP/FC
+item-preferred-sample-rate = Sample rate ưu tiên
+preferred-sample-rate-default = Mặc định hệ thống
+item-audio-buffer-size = Kích thước bộ đệm audio

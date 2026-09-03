@@ -10,3 +10,4 @@ load-record-failed = Gagal memuat catatan
 last-login = Terakhir login: { $time }
 badge-admin = Admin
 badge-sponsor = Sponsor
+hykb-login-cancelled = Login hykb dibatalkan
