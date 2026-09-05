@@ -36,7 +36,7 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
     rc::Rc,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use tracing::{debug, warn};
@@ -58,6 +58,30 @@ pub struct SimpleRecord {
     pub score: i32,
     pub accuracy: f32,
     pub full_combo: bool,
+}
+
+// 最近一次游戏结束的真实成绩（供联机面板上报，不依赖在线 record id）
+#[derive(Clone, Copy, Default)]
+pub struct MpResult {
+    pub score: u32,
+    pub accuracy: f32,
+    pub full_combo: bool,
+    pub max_combo: u32,
+    pub perfect: u32,
+    pub good: u32,
+    pub bad: u32,
+    pub miss: u32,
+}
+
+static MP_RESULT: std::sync::LazyLock<Mutex<Option<MpResult>>> =
+    std::sync::LazyLock::new(|| Mutex::new(None));
+
+pub fn mp_reset_result() {
+    *MP_RESULT.lock().unwrap() = None;
+}
+
+pub fn mp_take_result() -> Option<MpResult> {
+    MP_RESULT.lock().unwrap().take()
 }
 
 impl SimpleRecord {
@@ -963,6 +987,17 @@ impl Scene for GameScene {
                     let record = if self.res.config.mods.intersects(Mods::UNRATED) || self.res.config.speed < 1.0 - 1e-3 {
                         None
                     } else {
+                        // 记录真实成绩，供联机面板在游戏结束后上报
+                        *MP_RESULT.lock().unwrap() = Some(MpResult {
+                            score: result.score as u32,
+                            accuracy: result.accuracy as f32,
+                            full_combo: result.max_combo == result.num_of_notes,
+                            max_combo: result.max_combo,
+                            perfect: result.counts[0],
+                            good: result.counts[1],
+                            bad: result.counts[2],
+                            miss: result.counts[3],
+                        });
                         Some(SimpleRecord {
                             score: result.score as _,
                             accuracy: result.accuracy as _,
