@@ -1,11 +1,14 @@
 prpr_l10n::tl_file!("respack");
 
-use super::{Page, SharedState};
+use super::{
+    library::{request_export, resolve_export, take_export},
+    Page, SharedState,
+};
 use crate::{
     dir, get_data, get_data_mut,
     icons::Icons,
     save_data,
-    scene::{confirm_delete, MainScene},
+    scene::{compress_folder, confirm_delete, MainScene},
 };
 use anyhow::Result;
 use macroquad::prelude::*;
@@ -20,15 +23,25 @@ use serde_yaml::Error;
 use std::{
     borrow::Cow,
     fs::File,
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        mpsc, Arc,
     },
 };
 
 fn build_emitter(pack: &ResourcePack) -> Result<ParticleEmitter> {
     ParticleEmitter::new(pack, get_data().config.note_scale * 0.6, pack.info.hide_particles)
+}
+
+fn sanitize_filename(name: &str) -> String {
+    name.chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect()
 }
 
 pub struct ResPackItem {
@@ -72,6 +85,9 @@ pub struct ResPackPage {
 
     info_btn: DRectButton,
     delete_btn: DRectButton,
+    export_btn: DRectButton,
+    export_task: Option<mpsc::Receiver<Result<()>>>,
+    export_path: Option<PathBuf>,
 
     should_delete: Arc<AtomicBool>,
 
@@ -138,7 +154,10 @@ impl ResPackPage {
             icons,
 
             info_btn: delete_btn.clone(),
+            export_btn: delete_btn.clone(),
             delete_btn,
+            export_task: None,
+            export_path: None,
 
             should_delete: Arc::new(AtomicBool::default()),
 
@@ -174,7 +193,7 @@ impl Page for ResPackPage {
                 }
             }
         }
-        if self.info_btn.touch(touch, t) {
+        if self.items[self.index].loaded.is_some() && self.info_btn.touch(touch, t) {
             let item = &self.items[self.index];
             let info = &item.loaded.as_ref().unwrap().info;
             Dialog::plain(
@@ -183,6 +202,12 @@ impl Page for ResPackPage {
             )
             .listener(|_dialog, pos| pos == -2)
             .show();
+            return Ok(true);
+        }
+        if self.index != 0 && self.export_btn.touch(touch, t) {
+            let name = sanitize_filename(&self.items[self.index].name);
+            self.export_path = self.items[self.index].path.clone();
+            request_export(format!("{name}.zip"));
             return Ok(true);
         }
         if self.delete_btn.touch(touch, t) {
@@ -228,6 +253,54 @@ impl Page for ResPackPage {
             save_data()?;
             self.items[self.index].load();
             show_message(tl!("deleted")).ok();
+        }
+        if let Some(config) = take_export() {
+            match config {
+                Ok(config) => {
+                    let file = config.file;
+                    let deleter = config.deleter;
+                    if let Some(path) = self.export_path.take() {
+                        let (tx, rx) = mpsc::channel();
+                        self.export_task = Some(rx);
+                        std::thread::spawn(move || {
+                            let result = (|| -> Result<()> {
+                                let mut writer = BufWriter::new(file);
+                                compress_folder(&path, &mut writer)?;
+                                writer.flush()?;
+                                Ok(())
+                            })();
+                            if result.is_err() {
+                                let _ = (deleter)();
+                            }
+                            let _ = tx.send(result);
+                        });
+                    } else {
+                        drop(file);
+                        let _ = (deleter)();
+                        show_error(anyhow::anyhow!("No resource pack selected for export"));
+                    }
+                }
+                Err(err) => {
+                    show_error(err.into());
+                }
+            }
+        }
+        if let Some(rx) = &mut self.export_task {
+            match rx.try_recv() {
+                Ok(Err(err)) => {
+                    show_error(err);
+                    self.export_task = None;
+                }
+                Ok(Ok(())) => {
+                    resolve_export();
+                    self.export_task = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    show_error(anyhow::anyhow!("Export thread panicked"));
+                    self.export_task = None;
+                }
+            }
         }
         if let Some(item) = MainScene::take_imported_respack() {
             self.items.push(item);
@@ -411,6 +484,25 @@ impl Page for ResPackPage {
                     ui.fill_path(&path, semi_black(0.2));
                     let r = tr.feather(-0.02);
                     ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                });
+            }
+            if self.index != 0 {
+                let size = 0.06;
+                let font_size = 0.56;
+                let pad = 0.02;
+                let text_width = ui.text(tl!("export")).size(font_size).measure().w;
+                let mut r = Rect::new(cr.right() - pad, cr.y + pad, text_width + size + pad * 3., size + pad * 2.);
+                r.x -= r.w;
+                self.export_btn.render_shadow(ui, r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.2));
+                    let ir = Rect::new(r.x + pad, r.y + pad, size, size);
+                    ui.fill_rect(ir, (*self.icons.export, ir, ScaleType::Fit));
+                    ui.text(tl!("export"))
+                        .pos(ir.right() + pad, r.y + r.h / 2.)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(font_size)
+                        .draw();
                 });
             }
         });
