@@ -487,11 +487,22 @@ impl Page for ResPackPage {
                 });
             }
             if self.index != 0 {
-                let export_tr = Rect::new(cr.right() - 0.04 - s - 2. * (s + 0.02), tr.y, s, s);
-                self.export_btn.render_shadow(ui, export_tr, t, |ui, path| {
+                let size = 0.06;
+                let font_size = 0.56;
+                let pad = 0.02;
+                let text_width = ui.text(tl!("export")).size(font_size).measure().w;
+                let mut r = Rect::new(cr.right() - pad, cr.y + pad, text_width + size + pad * 3., size + pad * 2.);
+                r.x -= r.w;
+                self.export_btn.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.2));
-                    let r = export_tr.feather(-0.02);
-                    ui.fill_rect(r, (*self.icons.export, r, ScaleType::Fit));
+                    let ir = Rect::new(r.x + pad, r.y + pad, size, size);
+                    ui.fill_rect(ir, (*self.icons.export, ir, ScaleType::Fit));
+                    ui.text(tl!("export"))
+                        .pos(ir.right() + pad, r.y + r.h / 2.)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(font_size)
+                        .draw();
                 });
             }
         });
