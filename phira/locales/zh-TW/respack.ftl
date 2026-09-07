@@ -8,3 +8,4 @@ info-content =
     描述：{ $desc }
 cant-delete-builtin = 不能刪除內建資源包
 deleted = 資源包已刪除
+export = 匯出
