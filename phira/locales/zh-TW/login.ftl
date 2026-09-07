@@ -7,9 +7,9 @@ username = 使用者名稱
 password = 密碼
 forget-password = 忘記密碼？
 name-length-req = 使用者名稱長度應介於 { $min }-{ $max } 之間
-name-has-illegal-char = 使用者名稱包含非法字元
+name-has-illegal-char = 使用者名稱包含未允許的字元
 pwd-length-req = 密碼長度應介於 { $min }-{ $max } 之間
-illegal-email = 電子郵件地址不合法
+illegal-email = 電郵地址格式錯誤
 action-success =
     { $action ->
         [login] 登入成功
@@ -24,7 +24,7 @@ action-failed =
         [hykb-login] 好遊快爆登入失敗
        *[other] _
     }
-email-sent = 驗證信已發送至您的電子郵件地址，請前往驗證後登入。
+email-sent = 驗證信件已發送至指定的信箱，請前往驗證後方可登入。
 hykb-login-cancelled = 已取消好遊快爆登入
 login-method-title = 選擇登入方式
 login-method-email = 郵箱登入
@@ -44,6 +44,5 @@ hykb-other-login-not-bound = 該帳號未綁定好遊快爆，無法登入
 hykb-bind-required-title = 需要綁定好遊快爆
 hykb-bind-required = 該帳號尚未綁定好遊快爆，需要綁定後才能登入遊戲。
 hykb-bind-required-confirm = 綁定好遊快爆
-
 pending-delete-title = 待處理的刪除請求
 pending-delete-message = 你的帳號有一個待處理的刪除請求。是否撤銷刪除並繼續登入？

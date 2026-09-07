@@ -22,3 +22,5 @@ action-failed =
        *[other] _
     }
 email-sent = Bạn đã được gửi một Email xác minh, hãy xác minh nó và quay lại đăng nhập.
+hykb-login-cancelled = Đã hủy đăng nhập hykb
+forget-password = Quên mật khẩu
