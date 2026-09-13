@@ -225,8 +225,12 @@ impl ChartsView {
                                         panel.select_chart(id);
                                         panel.show(rt);
                                     } else {
-                                        use crate::mp::{mtl, L10N_LOCAL};
-                                        show_message(mtl!("select-chart-local")).error();
+                                        // 本地谱面（无在线 id）：作为本地谱面分享选择，生成 UUID 并发送
+                                        panel.select_local_chart(
+                                            chart.local_path.clone().unwrap_or_default(),
+                                            chart.info.name.clone(),
+                                        );
+                                        panel.show(rt);
                                     }
                                     return true;
                                 }

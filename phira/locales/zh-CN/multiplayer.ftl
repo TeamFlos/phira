@@ -84,3 +84,13 @@ msg-room-cycle = { $cycle ->
   [true] 房间已切换为循环模式
   *[other] 房间已切换为普通模式
 }
+
+# LocalChart 本地谱面分享
+local-chart-syncing = 正在同步谱面…
+local-chart-sync-failed = 谱面同步失败：{ $err }
+select-local-chart = 选择本地谱面
+select-local-chart-prompt = 请输入本地谱面 ID 和名称（用空格分隔）
+local-chart-server-not-allowed = 当前服务器不允许上传本地谱面
+msg-select-local-chart = 房主 `{ $user }` 选择了本地谱面 `{ $chart }` (#{ $id })
+msg-send-chart = 房主 `{ $user }` 正在分享谱面
+msg-download-ready = `{ $user }` 已完成谱面同步

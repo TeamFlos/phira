@@ -47,8 +47,8 @@ objc2-ui-kit = "0.3.2"
 objc2-uniform-type-identifiers = "0.3.2"
 once_cell = "1.21.4"
 phira = { path = "phira", default-features = false }
-phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp", rev = "cc822df" }
-phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", rev = "cc822df" }
+phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp", branch = "main" }
+phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", branch = "main" }
 pollster = "0.4.0"
 prpr = { path = "prpr", default-features = false }
 prpr-auto-offset = { path = "prpr-auto-offset" }
