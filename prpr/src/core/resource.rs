@@ -412,6 +412,9 @@ pub struct Resource {
     pub last_vp: (i32, i32, i32, i32),
     pub note_width: f32,
 
+    /// Whether the loaded chart uses `blockAreaList` and the renderer is active.
+    pub has_noise_area: bool,
+
     pub time: f64,
 
     pub alpha: f32,
@@ -533,6 +536,8 @@ impl Resource {
             last_vp: (0, 0, 0, 0),
             note_width,
 
+            has_noise_area: false,
+
             time: 0.,
 
             alpha: 1.,
@@ -591,7 +596,7 @@ impl Resource {
             return false;
         }
         self.last_vp = vp;
-        if !self.no_effect || self.config.sample_count != 1 {
+        if !self.no_effect || self.config.sample_count != 1 || self.has_noise_area {
             self.chart_target = Some(MSRenderTarget::new((vp.2 as u32, vp.3 as u32), self.config.sample_count));
         }
         fn viewport(aspect_ratio: f32, (x, y, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {

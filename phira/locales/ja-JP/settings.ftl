@@ -36,6 +36,8 @@ item-prefer-reduced-motion = アニメーションを減らす
 item-prefer-reduced-motion-sub = アニメーションと視覚効果を減らします
 item-speed = 速さ
 item-note-size = ノーツの大きさ
+item-noise-no-jitter = ノイズエリアを静止
+item-noise-no-jitter-sub = ノイズエリアの輪郭の揺れを止めます。
 
 item-chart-debug = ビートマップデバッグモード
 item-chart-debug-sub = ラインナンバーや回転値を表示します

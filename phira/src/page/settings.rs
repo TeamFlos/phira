@@ -815,6 +815,7 @@ struct ChartList {
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
     use_keyboard_btn: DRectButton,
+    noise_no_jitter_btn: DRectButton,
     speed_slider: Slider,
     size_slider: Slider,
 }
@@ -829,6 +830,7 @@ impl ChartList {
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
             use_keyboard_btn: DRectButton::new(),
+            noise_no_jitter_btn: DRectButton::new(),
             speed_slider: Slider::new(0.5..2., 0.05),
             size_slider: Slider::new(0.8..1.2, 0.005),
         }
@@ -867,6 +869,10 @@ impl ChartList {
         }
         if self.use_keyboard_btn.touch(touch, t) {
             config.use_keyboard ^= true;
+            return Ok(Some(true));
+        }
+        if self.noise_no_jitter_btn.touch(touch, t) {
+            config.noise_area.no_jitter ^= true;
             return Ok(Some(true));
         }
         if let wt @ Some(_) = self.speed_slider.touch(touch, t, &mut config.speed) {
@@ -931,6 +937,10 @@ impl ChartList {
         item! {
             render_title(ui, tl!("item-note-size"), None);
             self.size_slider.render(ui, rr, t, config.note_scale, format!("{:.3}", config.note_scale));
+        }
+        item! {
+            render_title(ui, tl!("item-noise-no-jitter"), Some(tl!("item-noise-no-jitter-sub")));
+            render_switch(ui, rr, t, &mut self.noise_no_jitter_btn, config.noise_area.no_jitter);
         }
         (w, h)
     }

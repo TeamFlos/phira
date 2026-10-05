@@ -12,6 +12,7 @@ use crate::{
     },
     ext::NotNanExt,
     judge::{HitSound, JudgeStatus},
+    noise_area::BlockArea,
 };
 
 #[derive(Deserialize)]
@@ -70,6 +71,10 @@ struct PgrChart {
     format_version: u32,
     offset: f32,
     judge_line_list: Vec<PgrJudgeLine>,
+    /// `Option` so an explicit `"blockAreaList": null` is treated as empty rather
+    /// than failing the whole chart.
+    #[serde(default)]
+    block_area_list: Option<Vec<BlockArea>>,
 }
 
 macro_rules! validate_events {
@@ -265,9 +270,21 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f64, format_version: u32) -> Re
     })
 }
 
-pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
+pub fn parse_phigros(source: &str, mut extra: ChartExtra) -> Result<Chart> {
     let pgr: PgrChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
     let format_version = pgr.format_version;
+    extra.block_areas = pgr
+        .block_area_list
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|mut area| match area.normalize() {
+            Ok(()) => Some(area),
+            Err(err) => {
+                warn!("ignoring invalid block area: {err:?}");
+                None
+            }
+        })
+        .collect();
     let max_time = *pgr
         .judge_line_list
         .iter()
