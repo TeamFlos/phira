@@ -378,6 +378,7 @@ impl Scene for ProfileScene {
                     false
                 })
                 .show();
+            crate::request_hykb_fcm_stop();
             return Ok(true);
         }
         #[cfg(feature = "hykb")]
