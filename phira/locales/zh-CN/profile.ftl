@@ -36,3 +36,6 @@ transfer-prompt = 要迁移的旧账号邮箱
 transfer-requesting = 正在申请迁移
 transfer-email-sent = 确认邮件已发送，请前往邮箱点击链接完成迁移
 transfer-failed = 申请迁移失败
+
+web-login = 在网页端登录
+web-login-failed = 打开网页登录失败

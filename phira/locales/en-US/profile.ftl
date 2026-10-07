@@ -36,3 +36,6 @@ transfer-prompt = Email of the old account to migrate
 transfer-requesting = Requesting migration...
 transfer-email-sent = Confirmation email sent. Please click the link in your inbox to complete the migration.
 transfer-failed = Failed to request migration.
+
+web-login = Log in on web
+web-login-failed = Failed to open web login.

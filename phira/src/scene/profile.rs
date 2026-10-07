@@ -53,6 +53,8 @@ pub struct ProfileScene {
     btn_back: RectButton,
     btn_name: RectButton,
     btn_open_web: DRectButton,
+    btn_web_login: DRectButton,
+    web_login_task: Option<Task<Result<String>>>,
     btn_logout: DRectButton,
     btn_delete: DRectButton,
     #[cfg(feature = "hykb")]
@@ -103,6 +105,8 @@ impl ProfileScene {
             btn_back: RectButton::new(),
             btn_name: RectButton::new(),
             btn_open_web: DRectButton::new(),
+            btn_web_login: DRectButton::new(),
+            web_login_task: None,
             btn_logout: DRectButton::new(),
             btn_delete: DRectButton::new(),
             #[cfg(feature = "hykb")]
@@ -243,6 +247,18 @@ impl Scene for ProfileScene {
             }
         }
 
+        if let Some(task) = &mut self.web_login_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("web-login-failed"))),
+                    // The ticket rides in the fragment so it never reaches
+                    // server logs; it is single-use and expires in minutes.
+                    Ok(ticket) => open_url(&format!("https://phira.moe/auth/app#ticket={ticket}"))?,
+                }
+                self.web_login_task = None;
+            }
+        }
+
         #[cfg(feature = "hykb")]
         if let Some(task) = &mut self.hykb_task {
             if let Some(res) = task.take() {
@@ -356,8 +372,13 @@ impl Scene for ProfileScene {
             open_url(&format!("https://phira.moe/user/{}", self.id))?;
             return Ok(true);
         }
+        if self.web_login_task.is_none() && self.btn_web_login.touch(touch, t) {
+            self.web_login_task = Some(Task::new(Client::create_web_ticket()));
+            return Ok(true);
+        }
         if self.btn_logout.touch(touch, t) {
             hykb_logout();
+            crate::request_hykb_fcm_stop();
             get_data_mut().me = None;
             get_data_mut().tokens = None;
             let _ = save_data();
@@ -378,7 +399,6 @@ impl Scene for ProfileScene {
                     false
                 })
                 .show();
-            crate::request_hykb_fcm_stop();
             return Ok(true);
         }
         #[cfg(feature = "hykb")]
@@ -513,6 +533,8 @@ impl Scene for ProfileScene {
                     self.btn_open_web.render_text(ui, r, t, ttl!("open-in-web"), 0.6, true);
                     r.y += r.h + 0.02;
                     if get_data().me.as_ref().is_some_and(|it| it.id == self.id) {
+                        self.btn_web_login.render_text(ui, r, t, tl!("web-login"), 0.6, true);
+                        r.y += r.h + 0.02;
                         self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                         r.y += r.h + 0.02;
                         self.btn_delete.render_text_color(ui, r, t, tl!("delete"), 0.6, true, RED);
