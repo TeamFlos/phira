@@ -136,6 +136,8 @@ pub struct GameScene {
 
     pub music: Music,
 
+    noise_renderer: Option<crate::noise_area::render::NoiseRenderer>,
+
     state: State,
     pub last_update_time: f64,
     pause_rewind: Option<f64>,
@@ -260,6 +262,7 @@ impl GameScene {
         if config.mods.contains(Mods::NO_SHADER) {
             chart.extra.effects.clear();
             chart.extra.global_effects.clear();
+            config.noise_area.low_performance = true;
         }
         let effects = std::mem::take(&mut chart.extra.global_effects);
         if config.fxaa {
@@ -302,6 +305,19 @@ impl GameScene {
 
         let exercise_range = (chart.offset + info_offset + res.config.offset) as f64..res.track_length;
 
+        // blockAreaList (噪域) renders the chart through an off-screen target, so
+        // the target has to exist even when no effect requested it.
+        res.has_noise_area = res.config.noise_area.enabled && !chart.extra.block_areas.is_empty();
+        let noise_renderer = if res.has_noise_area {
+            Some(
+                crate::noise_area::render::NoiseRenderer::new(res.config.noise_area.low_performance)
+                    .await
+                    .context("Failed to initialize the block-area renderer")?,
+            )
+        } else {
+            None
+        };
+
         let judge = Judge::new(&chart);
 
         let music = Self::new_music(&mut res)?;
@@ -328,6 +344,8 @@ impl GameScene {
             exercise_btns: (RectButton::new(), RectButton::new()),
 
             music,
+
+            noise_renderer,
 
             state: State::Starting,
             last_update_time: 0.,
@@ -1195,6 +1213,10 @@ impl Scene for GameScene {
                 .or_else(|| res.camera.render_pass()),
         );
 
+        if let Some(renderer) = &mut self.noise_renderer {
+            renderer.render(res, &self.chart.extra.block_areas, &self.judge.noise_state, ui.viewport)?;
+        }
+
         self.bad_notes.retain(|dummy| dummy.render(res));
         let t = tm.real_time();
         let dt = (t - std::mem::replace(&mut self.last_update_time, t)) as f32;
@@ -1227,7 +1249,7 @@ impl Scene for GameScene {
             }
             pop_camera_state();
         }
-        if msaa || !self.res.no_effect {
+        if msaa || !self.res.no_effect || self.res.has_noise_area {
             // render the texture onto screen
             if let Some(target) = &self.res.chart_target {
                 self.gl.flush();

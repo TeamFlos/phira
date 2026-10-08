@@ -39,6 +39,8 @@ item-prefer-reduced-motion = Prefer Gerakan Berkurang
 item-prefer-reduced-motion-sub = Kurangi animasi dan efek visual
 item-speed = Kecepatan
 item-note-size = Ukuran note
+item-noise-no-jitter = Area Noise Statis
+item-noise-no-jitter-sub = Membekukan tepi area noise agar tidak bergetar.
 
 load-cali-failed = Gagal memuat audio
 

@@ -2,8 +2,9 @@
 
 use crate::{
     config::Config,
-    core::{BadNote, Chart, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
+    core::{BadNote, Chart, Matrix, Note, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
     ext::{get_viewport, NotNanExt},
+    noise_area::{blocked, note_world, screen_to_world, BlockArea, NoiseAreaState},
 };
 use macroquad::prelude::{
     utils::{register_input_subscriber, repeat_all_miniquad_input},
@@ -277,6 +278,9 @@ pub struct Judge {
 
     key_down_count: u32,
 
+    /// Phigros `blockAreaList` (噪域) state; empty and inert for charts without it.
+    pub noise_state: NoiseAreaState,
+
     pub(crate) inner: JudgeInner,
     pub judgements: RefCell<Judgements>,
 }
@@ -316,6 +320,8 @@ impl Judge {
 
             key_down_count: 0,
 
+            noise_state: NoiseAreaState::default(),
+
             inner: JudgeInner::new(chart.lines.iter().map(|it| it.notes.iter().filter(|it| !it.fake).count() as u32).sum()),
             judgements: RefCell::new(Vec::new()),
         }
@@ -324,6 +330,7 @@ impl Judge {
     pub fn reset(&mut self) {
         self.notes.iter_mut().for_each(|it| it.1 = 0);
         self.trackers.clear();
+        self.noise_state.clear();
         self.inner.reset();
         self.judgements.borrow_mut().clear();
     }
@@ -407,6 +414,18 @@ impl Judge {
                 })
                 .collect()
         })
+    }
+
+    /// Block-area (噪域) test for a single note.
+    ///
+    /// A key press carries no position, so it cannot be filtered the way a finger
+    /// is. The question is asked of the note instead: the one about to be judged is
+    /// placed on screen and checked against the areas, so a covered note stays
+    /// unreachable no matter how it is being played.
+    fn note_blocked(res: &Resource, tr: &Matrix, note: &mut Note, areas: &[BlockArea], t: f64) -> bool {
+        note.object.translation.set_time(t);
+        let world = note_world(tr, note.object.translation.now(), res.aspect_ratio);
+        blocked(areas, world, t as f32, res.aspect_ratio)
     }
 
     pub fn update(&mut self, res: &mut Resource, chart: &mut Chart, bad_notes: &mut Vec<BadNote>) {
@@ -509,6 +528,31 @@ impl Judge {
                 }
             }
         }
+        // blockAreaList (噪域): a finger that touches a block area is ignored by
+        // the note judgement until it is lifted, and drives the hover overlay.
+        {
+            // The `touches` map above already went through `touch_transform`, so its
+            // positions are viewport-normalized (x in [-1, 1], y in [-1/aspect, 1/aspect]) —
+            // exactly the space `screen_to_world` consumes. Do NOT transform again:
+            // a second pass reads those normalized values as pixels and collapses
+            // every touch onto the top-left corner of the playfield.
+            let mut noise_touches: Vec<(u64, Vec2)> = touches
+                .values()
+                .filter(|touch| !matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled))
+                .map(|touch| (touch.id, screen_to_world(touch.position, res.aspect_ratio)))
+                .collect();
+            noise_touches.sort_by_key(|(id, _)| *id);
+            noise_touches.dedup_by_key(|(id, _)| *id);
+            self.noise_state.update(
+                &chart.extra.block_areas,
+                &noise_touches,
+                t as f32,
+                res.aspect_ratio,
+                res.config.noise_area.enabled,
+                get_frame_time(),
+            );
+        }
+        touches.retain(|id, _| !self.noise_state.is_blocked(*id));
         let touches: Vec<Touch> = touches
             .into_values()
             .map(|mut it| {
@@ -522,9 +566,14 @@ impl Judge {
             .collect();
         // pos[line][touch]
         let mut pos = Vec::<Vec<Option<Point>>>::with_capacity(chart.lines.len());
+        // The same transforms, kept around: the block-area test at the end needs to
+        // lift a note out of chart space, and `pos` only keeps their inverse.
+        let mut line_transforms = Vec::with_capacity(chart.lines.len());
         for id in 0..chart.lines.len() {
             chart.lines[id].object.set_time(t);
-            let inv = chart.lines[id].now_transform(res, &chart.lines).try_inverse().unwrap();
+            let transform = chart.lines[id].now_transform(res, &chart.lines);
+            line_transforms.push(transform);
+            let inv = transform.try_inverse().unwrap();
             pos.push(
                 touches
                     .iter()
@@ -543,6 +592,11 @@ impl Judge {
                     .collect(),
             );
         }
+        // A keyboard key is a click with no position attached, so the touch filter
+        // above cannot see it. Keyboard judgement therefore asks the question from
+        // the note's side instead: it may not reach a note the areas cover.
+        let areas = &chart.extra.block_areas;
+        let blocking = res.config.noise_area.enabled && !areas.is_empty();
         let time_of = |touch: &Touch| {
             if touch.time.is_infinite() {
                 t
@@ -666,6 +720,11 @@ impl Judge {
                 .min_by_key(|(line_id, id)| chart.lines[*line_id].notes[*id as usize].time.not_nan())
             {
                 let note = &mut chart.lines[line_id].notes[id as usize];
+                if blocking && Self::note_blocked(res, &line_transforms[line_id], note, areas, t) {
+                    // The key cannot reach this note. Spend the press on it rather
+                    // than letting it slide through to a later, uncovered one.
+                    break;
+                }
                 let dt = (t - note.time).abs() / spd;
                 if dt <= if matches!(note.kind, NoteKind::Click) { LIMIT_BAD } else { LIMIT_GOOD } {
                     match note.kind {
@@ -740,6 +799,11 @@ impl Judge {
                     break;
                 }
                 if !matches!(note.kind, NoteKind::Drag) && (self.key_down_count == 0 || !matches!(note.kind, NoteKind::Flick)) {
+                    continue;
+                }
+                // Holding a key prejudges drags/flicks anywhere on screen; a covered
+                // one stays out of reach, same as it does for a finger.
+                if blocking && Self::note_blocked(res, &line_transforms[line_id], note, areas, t) {
                     continue;
                 }
                 let dt = dt.abs();

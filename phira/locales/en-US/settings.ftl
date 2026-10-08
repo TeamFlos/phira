@@ -60,6 +60,8 @@ item-prefer-reduced-motion = Prefer Reduced Motion
 item-prefer-reduced-motion-sub = Reduce animations and visual effects
 item-speed = Speed
 item-note-size = Note Size
+item-noise-no-jitter = Static Block Area
+item-noise-no-jitter-sub = Freeze the block area edges so they stop jittering.
 
 item-chart-debug = Show Line ID
 item-chart-debug-sub = Display the IDs and orientation of lines.

@@ -39,6 +39,8 @@ item-prefer-reduced-motion = Azaltılmış Hareket Tercih Et
 item-prefer-reduced-motion-sub = Animasyonları ve görsel efektleri azalt
 item-speed = Hız
 item-note-size = Nota boyutu
+item-noise-no-jitter = Sabit Gürültü Alanı
+item-noise-no-jitter-sub = Gürültü alanının kenarlarını sabitler.
 
 item-chart-debug = Ritim haritası hata ayıklama modu
 item-chart-debug-sub = Çizgi numarasını ve oryantasyonunu göster

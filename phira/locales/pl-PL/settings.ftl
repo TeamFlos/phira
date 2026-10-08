@@ -27,6 +27,8 @@ item-use-keyboard-sub = Włącz wprowadzanie z klawiatury do gry. Wyniki nie mog
 item-prefer-reduced-motion = Preferuj zmniejszony ruch
 item-prefer-reduced-motion-sub = Zmniejsza animacje i efekty wizualne
 item-note-size = Rozmiar nut
+item-noise-no-jitter = Statyczny obszar szumu
+item-noise-no-jitter-sub = Zatrzymuje drganie krawędzi obszaru szumu.
 
 load-cali-failed = Nie załadowano plików audio
 

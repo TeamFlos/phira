@@ -52,6 +52,8 @@ item-prefer-reduced-motion = Préférer mouvement réduit
 item-prefer-reduced-motion-sub = Réduire les animations et les effets visuels
 item-speed = Vitesse
 item-note-size = Taille des notes
+item-noise-no-jitter = Zone de bruit statique
+item-noise-no-jitter-sub = Fige les bords de la zone de bruit.
 
 item-chart-debug = Mode de débogage des partitions
 item-chart-debug-sub = Afficher le numéro et l'orientation des lignes de jugement

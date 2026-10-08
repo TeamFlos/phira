@@ -6,6 +6,7 @@ pub mod ext;
 pub mod fs;
 pub mod info;
 pub mod judge;
+pub mod noise_area;
 pub mod parse;
 pub mod particle;
 pub mod scene;

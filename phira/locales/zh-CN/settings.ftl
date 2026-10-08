@@ -60,6 +60,8 @@ item-prefer-reduced-motion = 减少动画效果
 item-prefer-reduced-motion-sub = 减少动画和视觉特效
 item-speed = 速度
 item-note-size = 音符大小
+item-noise-no-jitter = 噪域不抖动
+item-noise-no-jitter-sub = 让噪域的边缘保持静止，不再抖动
 
 item-chart-debug = 谱面调试
 item-chart-debug-sub = 显示判定线编号和朝向

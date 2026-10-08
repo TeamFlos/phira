@@ -39,6 +39,8 @@ item-prefer-reduced-motion = Preferir movimento reduzido
 item-prefer-reduced-motion-sub = Reduzir animações e efeitos visuais
 item-speed = Velocidade
 item-note-size = Tamanho da nota
+item-noise-no-jitter = Área de ruído estática
+item-noise-no-jitter-sub = Congela as bordas da área de ruído.
 
 item-chart-debug = Modo de depuração de Beatmap
 item-chart-debug-sub = Exibir número de linha e orientação
