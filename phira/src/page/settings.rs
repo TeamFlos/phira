@@ -19,7 +19,7 @@ use prpr::{
     ext::{LocalTask, RectExt, SafeTexture, open_url, poll_future, semi_white},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, InlineInputBox, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
+    ui::{DRectButton, Scroll, Slider, Ui, InlineInputBtn, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
@@ -396,8 +396,7 @@ struct GeneralList {
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
-    mp_addr_btn: DRectButton,
-    mp_addr_input: InlineInputBox,
+    mp_addr_input: InlineInputBtn,
     #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
     prefer_reduced_motion_btn: DRectButton,
@@ -433,8 +432,7 @@ impl GeneralList {
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
-            mp_addr_btn: DRectButton::new(),
-            mp_addr_input: InlineInputBox::new(),
+            mp_addr_input: InlineInputBtn::new().set_centered(),
             #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
             prefer_reduced_motion_btn: DRectButton::new(),
@@ -481,21 +479,10 @@ impl GeneralList {
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
         let data = get_data_mut();
-        if self.mp_addr_input.is_active() {
-            let submitted = self.mp_addr_input.touch(touch);
-            if submitted {
-                let text = self.mp_addr_input.confirm();
-                if text.trim().is_empty() {
-                    data.config.mp_address = String::new();
-                    return Ok(Some(true));
-                }
-                data.config.mp_address = text;
-                return Ok(Some(true));
-            }
-            return Ok(Some(false));
-        }
-
         let config = &mut data.config;
+        self.mp_addr_input.touch(touch);
+        self.mp_addr_input.activate(touch, t, &config.mp_address);
+
         if self.lang_btn.touch(touch, t) {
             return Ok(Some(false));
         }
@@ -528,10 +515,6 @@ impl GeneralList {
             config.mp_enabled ^= true;
             return Ok(Some(true));
         }
-        if self.mp_addr_btn.touch(touch, t) {
-            self.mp_addr_input.activate(&config.mp_address, false, false);
-            return Ok(Some(true));
-        }
         #[cfg(not(target_env = "ohos"))]
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
@@ -560,9 +543,11 @@ impl GeneralList {
     pub fn update(&mut self, t: f32) -> Result<bool> {
         self.lang_btn.update(t);
         let data = get_data_mut();
-        if self.mp_addr_input.is_active() {
-            self.mp_addr_input.update();
+        if let Some(text) = self.mp_addr_input.confirm() {
+            data.config.mp_address = text;
+            return Ok(true);
         }
+        self.mp_addr_input.update();
         if self.lang_btn.changed() {
             data.language = Some(LANG_IDENTS[self.lang_btn.selected()].to_string());
             sync_data();
@@ -641,11 +626,7 @@ impl GeneralList {
         }
         item! {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
-            if self.mp_addr_input.is_active() {
-                self.mp_addr_input.render(ui, rr, t, &tl!("item-mp-addr"));
-            } else {
-                self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false)
-            };
+            self.mp_addr_input.render(ui, rr, t, WHITE, &tl!("item-mp-addr"), &config.mp_address);
         }
         item! {
             render_title(ui, tl!("item-prefer-reduced-motion"), Some(tl!("item-prefer-reduced-motion-sub")));

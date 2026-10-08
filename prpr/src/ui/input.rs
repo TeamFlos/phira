@@ -2,7 +2,7 @@ prpr_l10n::tl_file!("input");
 
 use super::Ui;
 use crate::{
-    ext::RectExt, judge::take_wheel, ui::scroll::WHEEL_STEP,
+    ext::RectExt, judge::take_wheel, ui::{DRectButton, scroll::WHEEL_STEP},
 };
 use macroquad::{
     input::Touch,
@@ -12,6 +12,78 @@ use macroquad::{
 
 const CONTEXT_MENU_MENU_W: f32 = 0.12;
 const CONTEXT_MENU_ITEM_Y: f32 = 0.04;
+
+pub struct InlineInputBtn {
+    pub input: InlineInputBox,
+    pub btn: DRectButton,
+}
+
+impl InlineInputBtn {
+    pub fn new() -> Self {
+        Self {
+            input: InlineInputBox::new(),
+            btn: DRectButton::new(),
+        }
+    }
+
+    pub fn set_multiline(mut self) -> Self {
+        self.input = self.input.set_multiline();
+        self
+    }
+
+    pub fn set_password(mut self) -> Self {
+        self.input = self.input.set_password();
+        self
+    }
+
+    pub fn set_centered(mut self) -> Self {
+        self.input = self.input.set_centered();
+        self
+    }
+
+    pub fn set_no_background_input(mut self) -> Self {
+        self.input = self.input.set_no_background();
+        self
+    }
+
+    pub fn touch(&mut self, touch: &Touch) {
+        if self.input.is_active() {
+            self.input.touch(touch);
+        }
+    }
+
+    pub fn confirm(&mut self) -> Option<String> {
+        if self.input.need_confirm() {
+            Some(self.input.confirm())
+        } else {
+            None
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.input.is_active()
+    }
+
+    pub fn activate(&mut self, touch: &Touch, t: f32, text: &str) {
+        if !self.input.is_active() && self.btn.touch(touch, t) {
+            self.input.activate(text);
+        }
+    }
+
+    pub fn update(&mut self) {
+        if self.input.is_active() {
+            self.input.update();
+        }
+    }
+
+    pub fn render(&mut self, ui: &mut Ui, rect: Rect, t: f32, color: Color, placeholder: &str, text: &str) {
+        if self.input.is_active() {
+            self.input.render(ui, rect, color.a, placeholder);
+        } else {
+            self.btn.render_text(ui, rect, t, text, 0.42, false);
+        }
+    }
+}
 
 struct ContextMenu {
     visible: bool,
@@ -41,6 +113,8 @@ pub struct InlineInputBox {
     rect: Rect,
     multiline: bool,
     password: bool,
+    centered: bool,
+    render_background: bool,
 
     state: State,
     context_menu: ContextMenu,
@@ -69,6 +143,10 @@ struct State {
     up_arrow_time: Option<f64>,
     down_arrow_time: Option<f64>,
     last_cursor_time: Option<f64>,
+    last_preedit_time: Option<f64>,
+
+    line_time: Option<f64>,
+    last_line_time: Option<f64>,
 
     cursor_positions: Vec<(f32, f32)>,
     scroll_x: f32,
@@ -83,6 +161,8 @@ struct State {
     touch_scale_x: f32,
     touch_scale_y: f32,
     manual_scroll: bool,
+
+    need_confirm: bool,
 }
 
 impl InlineInputBox {
@@ -92,30 +172,64 @@ impl InlineInputBox {
             rect: Rect::new(0., 0., 0., 0.),
             multiline: false,
             password: false,
+            centered: false,
+            render_background: true,
             state: State::default(),
             context_menu: ContextMenu::default(),
         }
     }
 
-    pub fn activate(&mut self, initial: &str, multiline: bool, password: bool) {
+    pub fn set_multiline(mut self) -> Self {
+        self.multiline = true;
+        self
+    }
+
+    pub fn set_password(mut self) -> Self {
+        self.password = true;
+        self
+    }
+
+    pub fn set_centered(mut self) -> Self {
+        self.centered = true;
+        self
+    }
+
+    pub fn set_no_background(mut self) -> Self {
+        self.render_background = false;
+        self
+    }
+
+    pub fn activate(&mut self, initial: &str) {
         self.state.active = true;
         self.buffer = initial.to_string();
-        self.multiline = multiline;
-        self.password = password;
         self.state.cursor = initial.chars().count();
         self.state.selection_anchor = None;
         self.state.backspace_time = None;
         self.state.scroll_x = 0.0;
         self.state.scroll_y = 0.0;
         self.state.manual_scroll = false;
+        self.state.need_confirm = false;
         miniquad::window::set_ime_enabled(true);
         miniquad::window::show_keyboard(true);
+        miniquad::window::update_text_input_state(
+            initial.to_string(),
+            self.state.cursor,
+            self.state.selection_anchor.unwrap_or(self.state.cursor),
+            self.password,
+            self.multiline,
+            1,
+            0,
+        );
 
         while get_char_pressed().is_some() {}
     }
 
     pub fn is_active(&self) -> bool {
         self.state.active
+    }
+
+    pub fn need_confirm(&self) -> bool {
+        self.state.need_confirm
     }
 
     pub fn cancel(&mut self) {
@@ -126,6 +240,15 @@ impl InlineInputBox {
         self.context_menu.visible = false;
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
+        miniquad::window::update_text_input_state(
+            String::new(),
+            0,
+            0,
+            false,
+            false,
+            0,
+            0,
+        );
     }
 
     pub fn confirm(&mut self) -> String {
@@ -133,8 +256,18 @@ impl InlineInputBox {
         self.state.selection_anchor = None;
         self.state.backspace_time = None;
         self.context_menu.visible = false;
+        self.state.need_confirm = false;
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
+        miniquad::window::update_text_input_state(
+            String::new(),
+            0,
+            0,
+            false,
+            false,
+            0,
+            0,
+        );
         std::mem::take(&mut self.buffer)
     }
 
@@ -192,6 +325,42 @@ impl InlineInputBox {
         miniquad::window::set_ime_position(x as i32, y as i32);
     }
 
+    fn update_ime_state(&mut self) {
+        miniquad::window::update_text_input_state(
+            self.buffer.clone(),
+            self.state.selection_anchor.unwrap_or(self.state.cursor),
+            self.state.cursor,
+            self.password,
+            self.multiline,
+            1,
+            0,
+        );
+    }
+
+    fn render_preedit(&self, ui: &mut Ui, x: f32, y: f32, t: f32, center_x: Option<f32>) {
+        if let Some((text, cursor)) = get_ime_preedit() {
+            let display_before = &text[..cursor];
+            let cursor_w = ui.text(display_before).size(0.42).measure().w;
+            let mut start_x = x;
+            let mut text = ui.text(&text)
+                .pos(x, y)
+                .anchor(0.0, 0.5)
+                .size(0.42)
+                .no_baseline()
+                .color(Color::new(1.0, 1.0, 1.0, t));
+            let mut r = text.measure();
+            if let Some(cx) = center_x {
+                start_x = cx - r.w * 0.5;
+                text = text.pos(start_x, y);
+                r.x = start_x;
+            }
+            text.ui.fill_rect(r, Color::new(0.0, 0.0, 0.0, t));
+            text.draw();
+            let cx = start_x + cursor_w;
+            ui.fill_rect(Rect::new(cx - 0.001, r.top(), 0.003, r.h), Color::new(1.0, 1.0, 1.0, t * 0.9));
+        }
+    }
+
     pub fn touch(&mut self, touch: &Touch) -> bool {
         let p = touch.position;
         let in_rect = self.rect.contains(p);
@@ -208,6 +377,7 @@ impl InlineInputBox {
                                     0 => { // Select All
                                         self.state.selection_anchor = Some(0);
                                         self.state.cursor = self.buffer.chars().count();
+                                        self.update_ime_state();
                                     }
                                     1 => { // Copy
                                         if let Some(text) = self.selected_text() {
@@ -218,6 +388,7 @@ impl InlineInputBox {
                                         if let Some(text) = self.selected_text() {
                                             clipboard_set(&text);
                                             self.delete_selection();
+                                            self.update_ime_state();
                                         }
                                     }
                                     3 => { // Paste
@@ -226,6 +397,7 @@ impl InlineInputBox {
                                             let byte_pos = self.byte_at(self.state.cursor);
                                             self.buffer.insert_str(byte_pos, &text);
                                             self.state.cursor += text.chars().count();
+                                            self.update_ime_state();
                                         }
                                     }
                                     _ => {}
@@ -245,6 +417,7 @@ impl InlineInputBox {
                 TouchPhase::Moved | TouchPhase::Stationary => {
                     if !self.context_menu.visible {
                         self.state.cursor = cursor;
+                        self.update_ime_state();
                     }
                     false
                 }
@@ -256,6 +429,10 @@ impl InlineInputBox {
                         self.state.cursor = cursor;
                         self.state.selection_anchor = Some(cursor);
                         self.state.manual_scroll = false;
+                        self.update_ime_state();
+                    }
+                    if !self.context_menu.visible && !in_rect {
+                        self.state.need_confirm = true;
                     }
                     !in_rect
                 }
@@ -274,6 +451,8 @@ impl InlineInputBox {
                                 p.y.max(self.rect.y).min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32)
                             );
                         }
+                    } else {
+                        self.state.need_confirm = true;
                     }
                     false
                 }
@@ -291,6 +470,8 @@ impl InlineInputBox {
                         self.state.touch_start_scroll_x = self.state.scroll_x;
                         self.state.touch_start_scroll_y = self.state.scroll_y;
                         self.state.touch_is_moved = false;
+                    } else {
+                        self.state.need_confirm = true;
                     }
                     !in_rect
                 }
@@ -313,6 +494,7 @@ impl InlineInputBox {
                                 self.state.cursor = cursor;
                                 self.state.selection_anchor = Some(cursor);
                                 self.state.manual_scroll = false;
+                                self.update_ime_state();
                             }
                         }
                         TouchMode::Scrolling => {
@@ -323,6 +505,7 @@ impl InlineInputBox {
                         }
                         TouchMode::Selecting => {
                             self.state.cursor = cursor;
+                            self.update_ime_state();
                         }
                         _ => {}
                     }
@@ -345,6 +528,7 @@ impl InlineInputBox {
                         self.state.selection_anchor = None;
                         self.state.manual_scroll = false;
                         miniquad::window::show_keyboard(true);
+                        self.update_ime_state();
                     }
                     self.state.touch_mode = TouchMode::None;
                     false
@@ -361,7 +545,7 @@ impl InlineInputBox {
         let mut best_dist = f32::MAX;
         for (i, &(px, py)) in self.state.cursor_positions.iter().enumerate() {
             let dx = touch_x - px;
-            let dy = touch_y - py;
+            let dy = touch_y - py - 0.0175;
             let dist = dx * dx + dy * dy * 10000.0;
             if dist < best_dist {
                 best_dist = dist;
@@ -466,16 +650,24 @@ impl InlineInputBox {
         let ctrl = is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl);
         let shift = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
 
+        if get_ime_preedit().is_some() {
+            self.state.last_preedit_time = Some(now);
+            return;
+        }
+
         // Arrow keys
         if is_key_pressed(KeyCode::Right) {
             self.state.right_arrow_time = Some(now);
             self.cursor_right(shift);
+            self.state.manual_scroll = false;
+            self.update_ime_state();
         } else if let Some(arrow_time) = self.state.right_arrow_time {
             if is_key_down(KeyCode::Right) {
                 if now - arrow_time > 0.5 {
                     if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
                         self.state.last_cursor_time = Some(now);
                         self.cursor_right(shift);
+                        self.update_ime_state();
                     }
                 }
             } else {
@@ -485,12 +677,15 @@ impl InlineInputBox {
         if is_key_pressed(KeyCode::Left) {
             self.state.left_arrow_time = Some(now);
             self.cursor_left(shift);
+            self.state.manual_scroll = false;
+            self.update_ime_state();
         } else if let Some(arrow_time) = self.state.left_arrow_time {
             if is_key_down(KeyCode::Left) {
                 if now - arrow_time > 0.5 {
                     if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
                         self.state.last_cursor_time = Some(now);
                         self.cursor_left(shift);
+                        self.update_ime_state();
                     }
                 }
             } else {
@@ -501,12 +696,15 @@ impl InlineInputBox {
             if is_key_pressed(KeyCode::Up) {
                 self.state.up_arrow_time = Some(now);
                 self.cursor_up(shift);
+                self.state.manual_scroll = false;
+                self.update_ime_state();
             } else if let Some(arrow_time) = self.state.up_arrow_time {
                 if is_key_down(KeyCode::Up) {
                     if now - arrow_time > 0.5 {
                         if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
                             self.state.last_cursor_time = Some(now);
                             self.cursor_up(shift);
+                            self.update_ime_state();
                         }
                     }
                 } else {
@@ -516,12 +714,15 @@ impl InlineInputBox {
             if is_key_pressed(KeyCode::Down) {
                 self.state.down_arrow_time = Some(now);
                 self.cursor_down(shift);
+                self.state.manual_scroll = false;
+                self.update_ime_state();
             } else if let Some(arrow_time) = self.state.down_arrow_time {
                 if is_key_down(KeyCode::Down) {
                     if now - arrow_time > 0.5 {
                         if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
                             self.state.last_cursor_time = Some(now);
                             self.cursor_down(shift);
+                            self.update_ime_state();
                         }
                     }
                 } else {
@@ -539,6 +740,8 @@ impl InlineInputBox {
             }
             let before = self.text_before();
             self.state.cursor = before.rfind('\n').map(|i| self.buffer[..i].chars().count() + 1).unwrap_or(0);
+            self.state.manual_scroll = false;
+            self.update_ime_state();
         }
         if is_key_pressed(KeyCode::End) {
             if shift {
@@ -552,6 +755,8 @@ impl InlineInputBox {
             self.state.cursor = self.buffer[after_byte..].find('\n').map(|i| {
                 self.buffer[..after_byte + i].chars().count()
             }).unwrap_or(self.buffer.chars().count());
+            self.state.manual_scroll = false;
+            self.update_ime_state();
         }
 
         // Copy/Paste/Cut
@@ -565,6 +770,7 @@ impl InlineInputBox {
                 if let Some(text) = self.selected_text() {
                     clipboard_set(&text);
                     self.delete_selection();
+                    self.update_ime_state();
                 }
             }
             if is_key_pressed(KeyCode::V) {
@@ -574,20 +780,26 @@ impl InlineInputBox {
                     let byte_pos = self.byte_at(self.state.cursor);
                     self.buffer.insert_str(byte_pos, &text);
                     self.state.cursor += text.chars().count();
+                    self.update_ime_state();
                 }
             }
             if is_key_pressed(KeyCode::A) {
                 self.state.selection_anchor = Some(0);
                 self.state.cursor = self.buffer.chars().count();
+                self.update_ime_state();
             }
         }
 
-        if is_key_pressed(KeyCode::Backspace) {
+        let block_remove = self.state.last_preedit_time.map_or(false, |t| now - t < 0.25);
+
+        if is_key_pressed(KeyCode::Backspace) && !block_remove {
             self.state.backspace_time = Some(now);
             if !self.delete_selection() {
                 if self.state.cursor > 0 {
                     self.state.cursor -= 1;
                     self.remove_char_at(self.state.cursor);
+                    self.state.manual_scroll = false;
+                    self.update_ime_state();
                 }
             }
         } else if let Some(backspace_time) = self.state.backspace_time {
@@ -599,6 +811,7 @@ impl InlineInputBox {
                             if self.state.cursor > 0 {
                                 self.state.cursor -= 1;
                                 self.remove_char_at(self.state.cursor);
+                                self.update_ime_state();
                             }
                         }
                     }
@@ -609,11 +822,13 @@ impl InlineInputBox {
         }
 
         // Delete key
-        if is_key_pressed(KeyCode::Delete) {
+        if is_key_pressed(KeyCode::Delete) && !block_remove {
             self.state.delete_time = Some(now);
             if !self.delete_selection() {
                 if self.state.cursor < self.buffer.chars().count() {
                     self.remove_char_at(self.state.cursor);
+                    self.state.manual_scroll = false;
+                    self.update_ime_state();
                 }
             }
         } else if let Some(delete_time) = self.state.delete_time {
@@ -624,6 +839,7 @@ impl InlineInputBox {
                         if !self.delete_selection() {
                             if self.state.cursor < self.buffer.chars().count() {
                                 self.remove_char_at(self.state.cursor);
+                                self.update_ime_state();
                             }
                         }
                     }
@@ -633,13 +849,31 @@ impl InlineInputBox {
             }
         }
 
-        // Enter key
-        if is_key_pressed(KeyCode::Enter) {
-            if self.multiline {
+        if self.multiline {
+            // Enter key
+            if is_key_pressed(KeyCode::Enter) {
+                self.state.line_time = Some(now);
                 self.delete_selection();
                 let byte_pos = self.byte_at(self.state.cursor);
                 self.buffer.insert(byte_pos, '\n');
                 self.state.cursor += 1;
+                self.state.manual_scroll = false;
+                self.update_ime_state();
+            } else if let Some(line_time) = self.state.line_time {
+                if is_key_down(KeyCode::Enter) {
+                    if now - line_time > 0.5 {
+                        if self.state.last_line_time.map_or(true, |t| now - t > 0.02) {
+                            self.state.last_line_time = Some(now);
+                            self.delete_selection();
+                            let byte_pos = self.byte_at(self.state.cursor);
+                            self.buffer.insert(byte_pos, '\n');
+                            self.state.cursor += 1;
+                            self.update_ime_state();
+                        }
+                    }
+                } else {
+                    self.state.line_time = None;
+                }
             }
         }
 
@@ -651,7 +885,36 @@ impl InlineInputBox {
                 let byte_pos = self.byte_at(self.state.cursor);
                 self.buffer.insert(byte_pos, ch);
                 self.state.cursor += 1;
+                self.state.manual_scroll = false;
+                self.update_ime_state();
             }
+        }
+
+        while let Some(ImeCommit::Text(text)) = get_ime_commit() {
+            if !text.is_empty() {
+                self.delete_selection();
+                let byte_pos = self.byte_at(self.state.cursor);
+                self.buffer.insert_str(byte_pos, &text);
+                self.state.cursor += text.chars().count();
+                self.state.manual_scroll = false;
+                self.update_ime_state();
+            }
+        }
+
+        if let Some(ime_state) = get_ime_state() {
+            if ime_state.text.trim_end() != self.buffer.trim_end() {
+                self.buffer = ime_state.text;
+            }
+            self.state.cursor = ime_state.selection_end;
+            if ime_state.selection_start == ime_state.selection_end {
+                self.state.selection_anchor = None;
+            } else {
+                self.state.selection_anchor = Some(ime_state.selection_start);
+            }
+        }
+
+        if !self.multiline && is_key_pressed(KeyCode::Enter) {
+            self.state.need_confirm = true;
         }
 
         if is_key_pressed(KeyCode::Escape) {
@@ -661,7 +924,11 @@ impl InlineInputBox {
         // Mouse wheel
         if self.multiline {
             let (x, y) = take_wheel();
-            if x.abs() > 1e-5 || y.abs() > 1e-5 {
+            if shift && (x.abs() > 1e-5 || y.abs() > 1e-5) {
+                self.state.scroll_x -= x * WHEEL_STEP;
+                self.state.scroll_x -= y * WHEEL_STEP;
+                self.state.manual_scroll = true;
+            } else if x.abs() > 1e-5 || y.abs() > 1e-5 {
                 self.state.scroll_x -= x * WHEEL_STEP;
                 self.state.scroll_y -= y * WHEEL_STEP;
                 self.state.manual_scroll = true;
@@ -670,7 +937,18 @@ impl InlineInputBox {
     }
 
     pub fn render(&mut self, ui: &mut Ui, rect: Rect, t: f32, placeholder: &str) {
-        self.rect = ui.rect_to_global(rect);
+        let global_rect = ui.rect_to_global(rect);
+        let screen = ui.screen_rect().feather(-0.04);
+        let w = global_rect.w.min(screen.w).max(0.0);
+        let h = global_rect.h.min(screen.h).max(0.0);
+        let global_rect = Rect::new(
+            global_rect.x.clamp(screen.x, screen.right() - w),
+            global_rect.y.clamp(screen.y, screen.bottom() - h),
+            w,
+            h,
+        );
+        self.rect = global_rect;
+        let rect = ui.rect_to_local(global_rect);
         self.state.touch_scale_x = if self.rect.w > 0.0 { rect.w / self.rect.w } else { 1.0 };
         self.state.touch_scale_y = if self.rect.h > 0.0 { rect.h / self.rect.h } else { 1.0 };
         let bx = rect.x;
@@ -678,14 +956,16 @@ impl InlineInputBox {
         let bw = rect.w;
         let bh = rect.h;
 
-        ui.fill_path(
-            &Rect::new(bx, by, bw, bh).rounded(0.008),
-            Color::new(0.35, 0.5, 1.0, t),
-        );
-        ui.fill_path(
-            &Rect::new(bx + 0.002, by + 0.002, bw - 0.004, bh - 0.004).rounded(0.006),
-            Color::new(0.15, 0.15, 0.18, t),
-        );
+        if self.render_background {
+            ui.fill_path(
+                &Rect::new(bx, by, bw, bh).rounded(0.008),
+                Color::new(0.35, 0.5, 1.0, t),
+            );
+            ui.fill_path(
+                &Rect::new(bx + 0.002, by + 0.002, bw - 0.004, bh - 0.004).rounded(0.006),
+                Color::new(0.15, 0.15, 0.18, t),
+            );
+        }
 
         let line_h = ui.text("0").size(0.42).measure().h;
         let text_x = bx + 0.02;
@@ -697,17 +977,21 @@ impl InlineInputBox {
                 let text_y = by + 0.02;
                 let line_h_with_space = ui.text("0\n0").size(0.42).multiline().measure().h - line_h;
                 if self.buffer.is_empty() {
+                    let ph_w = ui.text(placeholder).size(0.42).measure().w;
+                    let ph_x = if self.centered { bx + (bw - ph_w) * 0.5 } else { text_x };
+                    let cursor_x = if self.centered { bx + bw * 0.5 } else { text_x };
                     ui.text(placeholder)
-                        .pos(text_x, text_y)
+                        .pos(ph_x, text_y)
                         .anchor(0.0, 0.0)
                         .no_baseline()
                         .size(0.42)
                         .color(Color::new(1.0, 1.0, 1.0, t * 0.3))
                         .draw();
-                    ui.fill_rect(Rect::new(text_x, text_y, 0.003, line_h + 0.01), Color::new(1.0, 1.0, 1.0, t * 0.9));
-                    self.update_ime(ui, (text_x, text_y));
+                    ui.fill_rect(Rect::new(cursor_x, text_y, 0.003, line_h + 0.01), Color::new(1.0, 1.0, 1.0, t * 0.9));
+                    self.update_ime(ui, (cursor_x, text_y));
                     self.state.cursor_positions.clear();
-                    self.state.cursor_positions.push(ui.to_global((text_x, text_y)));
+                    self.state.cursor_positions.push(ui.to_global((cursor_x, text_y)));
+                    self.render_preedit(ui, cursor_x + 0.003, text_y + line_h / 2., t, if self.centered { Some(bx + bw * 0.5) } else { None });
                     return;
                 }
                 let display = if self.password {
@@ -727,13 +1011,17 @@ impl InlineInputBox {
                 let cursor_y = line_num * line_h_with_space;
                 let full_text = ui.text(display).size(0.42).multiline().measure();
                 let text_x_adj = if full_text.w > max_w {
-                    let margin = max_w * 0.1;
-                    let lo = (cursor_w - max_w + margin).max(0.0);
-                    let hi = (cursor_w - margin).max(0.0).min(full_text.w - max_w);
-                    if lo <= hi {
-                        self.state.scroll_x = self.state.scroll_x.clamp(lo, hi);
+                    if self.state.manual_scroll {
+                        self.state.scroll_x = self.state.scroll_x.clamp(0.0, full_text.w - max_w);
                     } else {
-                        self.state.scroll_x = hi;
+                        let margin = max_w * 0.1;
+                        let lo = (cursor_w - max_w + margin).max(0.0);
+                        let hi = (cursor_w - margin).max(0.0).min(full_text.w - max_w);
+                        if lo <= hi {
+                            self.state.scroll_x = self.state.scroll_x.clamp(lo, hi);
+                        } else {
+                            self.state.scroll_x = hi;
+                        }
                     }
                     text_x - self.state.scroll_x
                 } else {
@@ -760,6 +1048,18 @@ impl InlineInputBox {
                     text_y
                 };
                 let cursor_y_adj = text_y_adj + line_num * line_h_with_space;
+                let centered = self.centered && full_text.w <= max_w;
+                let line_widths: Option<Vec<f32>> = if centered {
+                    Some(display.split('\n').map(|line| ui.text(line).size(0.42).multiline().measure().w).collect())
+                } else {
+                    None
+                };
+                let line_x = |idx: usize| -> f32 {
+                    match &line_widths {
+                        Some(ws) => bx + (bw - ws[idx]) * 0.5,
+                        None => text_x_adj,
+                    }
+                };
                 if let Some((sel_start, sel_end)) = self.selection_range() {
                     let mut char_offset = 0usize;
                     for (line_idx, line) in display.split('\n').enumerate() {
@@ -781,7 +1081,7 @@ impl InlineInputBox {
                             let end_w = if end_byte == 0 { 0.0 } else { ui.text(&line[..end_byte]).size(0.42).multiline().measure().w };
 
                             let y = text_y_adj + line_idx as f32 * line_h_with_space;
-                            let x = text_x_adj + start_w;
+                            let x = line_x(line_idx) + start_w;
                             let w = end_w - start_w;
                             if w > 0.0 {
                                 ui.fill_rect(Rect::new(x, y, w, line_h + 0.01), Color::new(0.3, 0.5, 1.0, t * 0.3));
@@ -791,13 +1091,24 @@ impl InlineInputBox {
                         char_offset += line_len + 1;
                     }
                 }
-                ui.text(display)
-                    .pos(text_x_adj, text_y_adj)
-                    .size(0.42)
-                    .color(Color::new(1.0, 1.0, 1.0, t))
-                    .multiline()
-                    .draw();
-                let cx = text_x_adj + cursor_w;
+                if line_widths.is_some() {
+                    for (line_idx, line) in display.split('\n').enumerate() {
+                        ui.text(line)
+                            .pos(line_x(line_idx), text_y_adj + line_idx as f32 * line_h_with_space)
+                            .size(0.42)
+                            .color(Color::new(1.0, 1.0, 1.0, t))
+                            .multiline()
+                            .draw();
+                    }
+                } else {
+                    ui.text(display)
+                        .pos(text_x_adj, text_y_adj)
+                        .size(0.42)
+                        .color(Color::new(1.0, 1.0, 1.0, t))
+                        .multiline()
+                        .draw();
+                }
+                let cx = line_x(line_num as usize) + cursor_w;
                 ui.fill_rect(Rect::new(cx, cursor_y_adj, 0.003, line_h + 0.01), Color::new(1.0, 1.0, 1.0, t * 0.9));
                 self.update_ime(ui, (cx, cursor_y_adj + 0.002));
                 self.state.cursor_positions.clear();
@@ -819,26 +1130,30 @@ impl InlineInputBox {
                     } else {
                         ui.text(line_text).size(0.42).multiline().measure().w
                     };
-                    let x = text_x_adj + w;
+                    let x = line_x(line_num_cur) + w;
                     let y = text_y_adj + line_num_cur as f32 * line_h_with_space;
                     self.state.cursor_positions.push(ui.to_global((x, y)));
                 }
+                self.render_preedit(ui, cx + 0.003, cursor_y_adj + line_h / 2. + 0.002, t, if self.centered { Some(bx + bw * 0.5) } else { None });
             } else {
                 if self.buffer.is_empty() {
                     let text_y = by + bh * 0.5;
+                    let ph_w = ui.text(placeholder).size(0.42).measure().w;
+                    let ph_x = if self.centered { bx + (bw - ph_w) * 0.5 } else { text_x };
+                    let cursor_x = if self.centered { bx + bw * 0.5 } else { text_x };
                     ui.text(placeholder)
-                        .pos(text_x, text_y)
+                        .pos(ph_x, text_y)
                         .anchor(0.0, 0.5)
                         .no_baseline()
                         .size(0.42)
                         .color(Color::new(1.0, 1.0, 1.0, t * 0.3))
                         .draw();
-                    let cursor_x = text_x;
                     let cursor_y = by + 0.01;
                     ui.fill_rect(Rect::new(cursor_x, cursor_y, 0.003, bh - 0.02), Color::new(1.0, 1.0, 1.0, t * 0.9));
                     self.update_ime(ui, (cursor_x, text_y - line_h * 0.5));
                     self.state.cursor_positions.clear();
                     self.state.cursor_positions.push(ui.to_global((cursor_x, text_y)));
+                    self.render_preedit(ui, cursor_x + 0.003, text_y, t, if self.centered { Some(bx + bw * 0.5) } else { None });
                     return;
                 }
                 let text_y = by + bh * 0.5;
@@ -866,7 +1181,11 @@ impl InlineInputBox {
                     text_x - self.state.scroll_x
                 } else {
                     self.state.scroll_x = 0.0;
-                    text_x
+                    if self.centered {
+                        bx + (bw - full_w) * 0.5
+                    } else {
+                        text_x
+                    }
                 };
                 // Draw selection highlight
                 if let Some((sel_start, sel_end)) = self.selection_range() {
@@ -896,6 +1215,7 @@ impl InlineInputBox {
                     let x = text_x_adj + w;
                     self.state.cursor_positions.push(ui.to_global((x, text_y)));
                 }
+                self.render_preedit(ui, cx + 0.003, text_y, t, if self.centered { Some(bx + bw * 0.5) } else { None });
             }
         });
 
