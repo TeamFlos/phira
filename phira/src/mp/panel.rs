@@ -10,7 +10,6 @@ use macroquad::prelude::*;
 use phira_mp_client::Client;
 use phira_mp_common::{RoomId, RoomState};
 use prpr::{
-    config::Mods,
     core::{Smooth, Tweenable},
     ext::{poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture},
     info::ChartInfo,
@@ -476,7 +475,7 @@ impl MPPanel {
                     self.scene_task = SongScene::global_launch(
                         Some(id),
                         &format!("download/{id}"),
-                        Mods::default(),
+                        Default::default(),
                         GameMode::NoRetry,
                         self.client.as_ref().map(Arc::clone),
                         None,

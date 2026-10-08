@@ -55,6 +55,7 @@ phira-mp-client = { workspace = true }
 phira-mp-common = { workspace = true }
 pollster = { workspace = true }
 prpr = { workspace = true, features = ["log"], default-features = false }
+prpr-legacy = { workspace = true }
 prpr-l10n = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }

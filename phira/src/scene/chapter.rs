@@ -12,7 +12,6 @@ use crate::{
 use anyhow::Result;
 use macroquad::prelude::*;
 use prpr::{
-    config::Mods,
     core::BOLD_FONT,
     ext::{semi_black, semi_white, RectExt, SafeTexture},
     info::ChartInfo,
@@ -20,6 +19,7 @@ use prpr::{
     time::TimeManager,
     ui::{button_hit, DRectButton, RectButton, Scroll, Ui},
 };
+use prpr_legacy::config::Mods;
 use serde::Deserialize;
 use std::{borrow::Cow, sync::Arc};
 use tap::Tap;

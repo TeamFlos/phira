@@ -37,7 +37,7 @@ impl OffsetPage {
     const FADE_TIME: f32 = 0.8;
 
     pub async fn new() -> Result<Self> {
-        let mut audio = create_audio_manger(&get_data().config)?;
+        let mut audio = create_audio_manger(&get_data().config.clone().into())?;
         let cali = audio.create_music(
             AudioClip::new(load_file("cali.ogg").await?)?,
             MusicParams {

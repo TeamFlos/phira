@@ -3507,6 +3507,7 @@ dependencies = [
  "pollster",
  "prpr",
  "prpr-l10n",
+ "prpr-legacy",
  "rand 0.8.5",
  "regex",
  "reqwest",
@@ -3550,6 +3551,7 @@ dependencies = [
  "phira-mp-common",
  "pretty_env_logger",
  "prpr",
+ "prpr-legacy",
  "reqwest",
  "serde",
  "serde_json",
@@ -3860,6 +3862,15 @@ dependencies = [
  "tracing",
  "unic-langid",
  "walkdir",
+]
+
+[[package]]
+name = "prpr-legacy"
+version = "0.8.2"
+dependencies = [
+ "bitflags 2.11.0",
+ "prpr",
+ "serde",
 ]
 
 [[package]]

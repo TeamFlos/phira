@@ -1,0 +1,12 @@
+[package]
+name = "prpr-legacy"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[lib]
+
+[dependencies]
+prpr = { workspace = true }
+bitflags = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }

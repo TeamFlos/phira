@@ -5,12 +5,8 @@ use crate::{
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use prpr::{
-    config::{Config, Mods},
-    info::ChartInfo,
-    scene::SimpleRecord,
-    ui::PREFER_REDUCED_MOTION,
-};
+use prpr::{info::ChartInfo, scene::SimpleRecord, ui::PREFER_REDUCED_MOTION};
+use prpr_legacy::config::{Config, Mods};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},

@@ -34,7 +34,6 @@ use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
-    config::Mods,
     core::{Tweenable, BOLD_FONT},
     ext::{
         open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType,
@@ -51,6 +50,7 @@ use prpr::{
     time::TimeManager,
     ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, Ui, UI_AUDIO},
 };
+use prpr_legacy::config::Mods;
 use regex::Regex;
 use reqwest::Method;
 use sanitize_filename::sanitize;
@@ -1080,7 +1080,7 @@ impl SongScene {
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
             } else {
-                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
+                LoadingScene::new(mode, info, config.into(), fs, player, upload_fn, update_fn, save_fn, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
             }

@@ -1,7 +1,6 @@
 use anyhow::{bail, Context, Result};
 use macroquad::prelude::*;
 use prpr::{
-    config::Config,
     core::{demux_audio, Anim, Keyframe, Video},
     ext::{create_audio_manger, semi_black, semi_white, SafeTexture, ScaleType},
     fs::FileSystem,
@@ -10,6 +9,7 @@ use prpr::{
     time::TimeManager,
     ui::LoadingParams,
 };
+use prpr_legacy::config::Config;
 use sasa::{AudioClip, AudioManager, Music, MusicParams};
 
 enum State {
@@ -63,7 +63,7 @@ impl UnlockScene {
 
         let bgm = match clip {
             Some(clip) => {
-                let mut audio_manager = create_audio_manger(&config)?;
+                let mut audio_manager = create_audio_manger(&config.clone().into())?;
                 let music = audio_manager.create_music(
                     clip,
                     MusicParams {
@@ -77,7 +77,7 @@ impl UnlockScene {
         };
 
         let (_, background, _) = preloaded.clone().unwrap_or(LoadingScene::load(&mut *fs, &info.illustration).await?);
-        let loading_scene = Box::new(LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, preloaded).await?);
+        let loading_scene = Box::new(LoadingScene::new(mode, info, config.into(), fs, player, upload_fn, update_fn, save_fn, preloaded).await?);
 
         Ok(UnlockScene {
             loading_scene,

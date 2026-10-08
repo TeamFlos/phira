@@ -145,7 +145,7 @@ impl ResPackPage {
         items[index].load();
         let delete_btn = DRectButton::new().with_delta(-0.004).with_elevation(0.);
         Ok(Self {
-            audio: create_audio_manger(&get_data().config)?,
+            audio: create_audio_manger(&get_data().config.clone().into())?,
             items,
             import_btn: DRectButton::new(),
             btns_scroll: Scroll::new(),

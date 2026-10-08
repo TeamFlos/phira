@@ -85,8 +85,9 @@ pub struct Config {
     pub volume_music: f32,
     pub volume_sfx: f32,
 
+    #[warn(deprecated, reason = "use Mods::AUTOPLAY")]
     // for compatibility
-    autoplay: Option<bool>,
+    pub autoplay: Option<bool>,
 }
 
 impl Default for Config {

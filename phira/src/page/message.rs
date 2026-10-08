@@ -204,7 +204,13 @@ impl Page for MessagePage {
                             .unwrap_or_default();
                         self.sf.goto(
                             t,
-                            SongScene::new(ChartItem::from_remote(chart.as_ref()), local_path, self.icons.clone(), self.rank_icons.clone(), mods),
+                            SongScene::new(
+                                ChartItem::from_remote(chart.as_ref()),
+                                local_path,
+                                self.icons.clone(),
+                                self.rank_icons.clone(),
+                                mods,
+                            ),
                         );
                     }
                 }

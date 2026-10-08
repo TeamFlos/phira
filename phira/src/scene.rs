@@ -33,7 +33,6 @@ use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use once_cell::sync::{Lazy, OnceCell};
 use prpr::{
-    config::Mods,
     core::{BOLD_FONT, PGR_FONT},
     ext::{open_url, semi_white, unzip_into, RectExt, SafeTexture},
     fs::{self, FileSystem},
@@ -332,7 +331,7 @@ pub async fn import_chart_to(dir: &Path, local_path: String, file: File) -> Resu
             info: info.into(),
             local_path,
             record: None,
-            mods: Mods::default(),
+            mods: Default::default(),
             played_unlock: false,
         },
         warnings,

@@ -4,6 +4,7 @@ members = [
     "phira-main",
     "phira-monitor",
     "prpr",
+    "prpr-legacy",
     "prpr-auto-offset",
     "prpr-avc",
     "prpr-l10n",
@@ -51,6 +52,7 @@ phira-mp-client = { git = "https://github.com/TeamFlos/phira-mp", rev = "cc822df
 phira-mp-common = { git = "https://github.com/TeamFlos/phira-mp", rev = "cc822df" }
 pollster = "0.4.0"
 prpr = { path = "prpr", default-features = false }
+prpr-legacy = { path = "prpr-legacy", default-features = false }
 prpr-auto-offset = { path = "prpr-auto-offset" }
 prpr-avc = { path = "prpr-avc" }
 prpr-l10n = { path = "prpr-l10n" }
