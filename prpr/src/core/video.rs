@@ -149,7 +149,7 @@ impl Video {
         if self.last_pts == -1 {
             return;
         }
-        gl_use_material(self.material);
+        gl_use_material(&self.material);
         let top = 1. / aspect_ratio;
         let r = Rect::new(-1., -top, 2., top * 2.);
         let s = source_of_image(&self.tex_y, r, self.scale_type).unwrap_or_else(|| Rect::new(0., 0., 1., 1.));

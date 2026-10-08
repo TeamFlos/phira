@@ -496,7 +496,7 @@ impl Page for ResPackPage {
                 self.export_btn.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.2));
                     let ir = Rect::new(r.x + pad, r.y + pad, size, size);
-                    ui.fill_rect(ir, (*self.icons.export, ir, ScaleType::Fit));
+                    ui.fill_rect(ir, (Texture2D::clone(&self.icons.export), ir, ScaleType::Fit));
                     ui.text(tl!("export"))
                         .pos(ir.right() + pad, r.y + r.h / 2.)
                         .anchor(0., 0.5)

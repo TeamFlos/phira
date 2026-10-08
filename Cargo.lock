@@ -1570,17 +1570,17 @@ dependencies = [
 
 [[package]]
 name = "hms-opengtx-binding"
-version = "0.1.2"
-source = "git+https://github.com/ohos-rs/ohos-native-bindings#93fa86c973d99b1b5b9b26135dc761ea8b9d52f8"
+version = "0.1.4"
+source = "git+https://github.com/ohos-rs/ohos-native-bindings#c9f97f4fb09e75252ffa37e6d3862cde1edd0818"
 dependencies = [
  "hms-opengtx-sys",
- "ohos-enum-derive 0.1.1 (git+https://github.com/ohos-rs/ohos-native-bindings)",
+ "ohos-enum-derive 0.1.2",
 ]
 
 [[package]]
 name = "hms-opengtx-sys"
-version = "0.1.2"
-source = "git+https://github.com/ohos-rs/ohos-native-bindings#93fa86c973d99b1b5b9b26135dc761ea8b9d52f8"
+version = "0.1.4"
+source = "git+https://github.com/ohos-rs/ohos-native-bindings#c9f97f4fb09e75252ffa37e6d3862cde1edd0818"
 
 [[package]]
 name = "http"
@@ -3062,7 +3062,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99cef7adee31f6fdac89222a69e94df5236cf4ca049a23e380a1065f9141acb6"
 dependencies = [
  "ohos-arkui-input-sys",
- "ohos-enum-derive 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ohos-enum-derive 0.1.1",
 ]
 
 [[package]]
@@ -3128,8 +3128,8 @@ dependencies = [
 
 [[package]]
 name = "ohos-enum-derive"
-version = "0.1.1"
-source = "git+https://github.com/ohos-rs/ohos-native-bindings#93fa86c973d99b1b5b9b26135dc761ea8b9d52f8"
+version = "0.1.2"
+source = "git+https://github.com/ohos-rs/ohos-native-bindings#c9f97f4fb09e75252ffa37e6d3862cde1edd0818"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
@@ -3180,7 +3180,7 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a09e0a0b3844744535309aaf246df1e8c52fb1107631b3f7ddbfc275a0314bd3"
 dependencies = [
- "ohos-enum-derive 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ohos-enum-derive 0.1.1",
  "ohos-input-method-sys",
 ]
 
@@ -3295,7 +3295,7 @@ dependencies = [
  "napi-ohos",
  "napi-sys-ohos",
  "ohos-arkui-input-binding",
- "ohos-enum-derive 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ohos-enum-derive 0.1.1",
  "ohos-xcomponent-sys",
  "raw-window-handle",
 ]

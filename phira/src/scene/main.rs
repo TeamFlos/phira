@@ -799,7 +799,7 @@ impl Scene for MainScene {
             } * r.h)
                 .clamp(0., r.h);
             let ir = Rect::new(r.x, r.y + dy, r.w, r.h);
-            ui.fill_rect(Rect::new(r.x, r.y + dy, r.w, r.h - dy), (*self.icon_back, ir, ScaleType::Fit));
+            ui.fill_rect(Rect::new(r.x, r.y + dy, r.w, r.h - dy), (Texture2D::clone(&self.icon_back), ir, ScaleType::Fit));
         }
 
         self.pages.last_mut().unwrap().render_top(ui, s)?;

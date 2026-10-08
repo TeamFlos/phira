@@ -221,10 +221,10 @@ async fn the_main() -> Result<()> {
         rx
     };
 
-    unsafe { get_internal_gl() }
-        .quad_context
-        .display_mut()
-        .set_pause_resume_listener(on_pause_resume);
+    // unsafe { get_internal_gl() }
+    //     .quad_context
+    //     .display_mut()
+    //     .set_pause_resume_listener(on_pause_resume);
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
     PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font, None)));

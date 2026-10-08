@@ -19,7 +19,7 @@ use prpr::{
     ext::{LocalTask, RectExt, SafeTexture, open_url, poll_future, semi_white},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
+    ui::{DRectButton, Scroll, Slider, Ui, InlineInputBox, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;

@@ -406,7 +406,9 @@ impl TextPainter {
 
 impl Drop for TextPainter {
     fn drop(&mut self) {
-        // unsafe { get_internal_gl() }.quad_context.delete_texture(self.cache_texture.raw_miniquad_id());
-        crate::ext::queue_texture_deletion(self.cache_texture);
+        // A `Texture2D` cannot be moved out of `&mut self`; clone the handle so
+        // the clone (now the last strong reference) gets dropped by the queue
+        // on the main thread.
+        crate::ext::queue_texture_deletion(self.cache_texture.clone());
     }
 }
