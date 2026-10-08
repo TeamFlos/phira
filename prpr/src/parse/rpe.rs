@@ -40,6 +40,10 @@ fn f32_one() -> f32 {
     1.
 }
 
+fn i32_one() -> i32 {
+    1
+}
+
 fn rpe_version_default() -> i32 {
     160
 }
@@ -68,7 +72,7 @@ struct RPEEvent<T = f32> {
     bezier: u8,
     #[serde(default)]
     bezier_points: [f32; 4],
-    #[serde(default)]
+    #[serde(default = "i32_one")]
     easing_type: i32,
     start: T,
     end: T,
@@ -373,7 +377,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
                 if event.easing_type == 0 {
                     push_kf(start_time, end_time, StaticTween::get_rc(2), start_speed);
                 } else if event.easing_type <= 1 {
-                    if start_speed.signum() * end_speed.signum() < 0. {
+                    if start_speed * end_speed < 0. {
                         let x = start_speed / (start_speed - end_speed);
                         let mid = f64::tween(&start_time, &end_time, x);
                         for (start_time, end_time, start, end) in [(start_time, mid, start_speed, 0.), (mid, end_time, 0., end_speed)] {
@@ -681,16 +685,16 @@ async fn parse_judge_line(
                 events_with_factor(r, &event_layers, |it| &it.move_y_events, 2. / RPE_HEIGHT, "move Y", bezier_map)?,
             ),
             scale: {
-                fn parse(r: &mut BpmList, opt: &Option<Vec<RPEEvent>>, factor: f32, bezier_map: &BezierMap) -> Result<AnimFloat> {
-                    let mut res = opt
-                        .as_ref()
-                        .map(|it| parse_events(r, it, None, bezier_map))
-                        .transpose()?
-                        .unwrap_or_default();
+                fn parse(r: &mut BpmList, opt: &Option<Vec<RPEEvent>>, factor: f32, default: f32, bezier_map: &BezierMap) -> Result<AnimFloat> {
+                    let Some(events) = opt.as_ref().filter(|it| !it.is_empty()) else {
+                        return Ok(AnimFloat::fixed(default));
+                    };
+                    let mut res = parse_events(r, events, None, bezier_map)?;
                     res.map_value(|v| v * factor);
                     Ok(res)
                 }
                 let factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
+                let default = if rpe.texture == "line.png" { 1. } else { factor };
                 rpe.extended
                     .as_ref()
                     .map(|e| -> Result<_> {
@@ -711,13 +715,14 @@ async fn parse_judge_line(
                                     } else {
                                         1.
                                     },
+                                default,
                                 bezier_map,
                             )?,
-                            parse(r, &e.scale_y_events, factor, bezier_map)?,
+                            parse(r, &e.scale_y_events, factor, default, bezier_map)?,
                         ))
                     })
                     .transpose()?
-                    .unwrap_or_default()
+                    .unwrap_or_else(|| AnimVector(AnimFloat::fixed(default), AnimFloat::fixed(default)))
             },
         },
         ctrl_obj: RefCell::new(CtrlObject {

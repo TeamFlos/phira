@@ -348,9 +348,6 @@ impl Judge {
 
     pub fn commit(&mut self, t: f64, what: Judgement, line_id: u32, note_id: u32, diff: f64) {
         self.judgements.borrow_mut().push((t, line_id, note_id, Ok(what)));
-        #[cfg(closed)]
-        self.inner.commit(what, diff as f32);
-        #[cfg(not(closed))]
         self.inner.commit(what, diff);
     }
 
@@ -692,7 +689,7 @@ impl Judge {
                         NoteKind::Hold { .. } => {
                             note.hitsound.play(res);
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
-                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f64::INFINITY);
+                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f64::INFINITY);
                         }
                         _ => unreachable!(),
                     };

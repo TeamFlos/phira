@@ -98,6 +98,10 @@ pub struct LibraryPage {
     next_page_btn: DRectButton,
 
     online_task: Option<OnlineTask>,
+    /// Set when `load_online` was blocked by the TOS gate, so the online list
+    /// is retried automatically once the player accepts the terms — otherwise
+    /// it stays on the loading spinner forever.
+    online_pending_tos: bool,
 
     icons: Arc<Icons>,
     rank_icons: [SafeTexture; 8],
@@ -182,6 +186,7 @@ impl LibraryPage {
             next_page_btn: DRectButton::new(),
 
             online_task: None,
+            online_pending_tos: false,
 
             icons,
             rank_icons,
@@ -269,8 +274,11 @@ impl LibraryPage {
             return;
         }
         if !check_read_tos_and_policy(false, false) {
+            // Blocked on the TOS gate; retry automatically once accepted.
+            self.online_pending_tos = true;
             return;
         }
+        self.online_pending_tos = false;
         self.tabs.selected_mut().view.reset_scroll();
         self.tabs.selected_mut().view.clear();
         let page = self.current_page;
@@ -393,9 +401,15 @@ impl LibraryPage {
                         warn!("No info found for chart ref {it:?}");
                         None
                     }
-                }))
+                }));
+                self.current_order.apply(&mut charts, |it| it.chart.as_ref().unwrap());
+                if self.order_rev {
+                    charts.reverse();
+                }
             } else {
-                charts.push(ChartDisplayItem::new(None, None));
+                if cfg!(closed) {
+                    charts.push(ChartDisplayItem::new(None, None));
+                }
                 charts.extend(
                     charts_local
                         .iter()
@@ -494,7 +508,7 @@ fn present_export_picker(path: String) {
             // SAFETY: The signature is correct.
             #[unsafe(method(documentPicker:didPickDocumentsAtURLs:))]
             fn did_pick_documents_at_urls(&self, _controller: &UIDocumentPickerViewController, _urls: &NSArray<NSURL>) {
-                show_message(tl!("multi-exported")).ok();
+                show_message(tl!("exported")).ok();
             }
         }
     }
@@ -853,7 +867,7 @@ impl Page for LibraryPage {
                 self.load_online();
             }
         }
-        if self.tabs.selected_mut().view.clicked_special {
+        if cfg!(closed) && self.tabs.selected_mut().view.clicked_special {
             let icons = Arc::clone(&self.icons);
             self.next_page_task = Some(Box::pin(async move { Ok(NextPage::Overlay(Box::new(CollectionPage::new(icons).await?))) }));
             self.tabs.selected_mut().view.clicked_special = false;
@@ -967,6 +981,8 @@ impl Page for LibraryPage {
                 if text.is_empty() {
                     use crate::page::favorites::{tl as ftl, L10N_LOCAL};
                     show_message(ftl!("name-empty")).error();
+                } else if let Err(err) = crate::censor::check_text(&text) {
+                    show_message(err.to_string()).error();
                 } else {
                     let charts_view = &mut self.tabs.selected_mut().view;
                     if let Some(mut selected) = charts_view.multi_select.clone() {
@@ -1166,6 +1182,11 @@ impl Page for LibraryPage {
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
         }
+        // If loading was blocked on the TOS gate, retry as soon as the player
+        // has accepted (terms_modified transitions from None to Some).
+        if self.online_pending_tos && get_data().terms_modified.is_some() {
+            self.load_online();
+        }
         let list = self.tabs.selected_mut();
         let view = &mut list.view;
         if let Some((from, to)) = view.take_movement() {
@@ -1257,7 +1278,8 @@ impl Page for LibraryPage {
                 let mut zip = zip::ZipWriter::new(BufWriter::new(output));
                 let options = zip::write::SimpleFileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored)
-                    .unix_permissions(0o755);
+                    .unix_permissions(0o755)
+                    .last_modified_time(chrono::Utc::now().naive_utc().try_into().unwrap_or_default());
                 for (i, name) in paths.iter().enumerate() {
                     zip.start_file(format!("{name}.zip"), options)?;
                     let mut chart_bytes = Vec::new();

@@ -5,9 +5,9 @@ register = Бүртгүүлэх
 email = Имэйл хаяг
 username = Хэрэглэгчийн нэр
 password = Нууц үг
-name-length-req = Хэрэглэгчийн нэрийн урт 4-20 тэмдэгт байх ёстой
+name-length-req = Хэрэглэгчийн нэрийн урт { $min }-{ $max } тэмдэгт байх ёстой
 name-has-illegal-char = Хэрэглэгчийн нэрэнд дэмжигдээгүй үсэг байна
-pwd-length-req = Нууц үгийн урт 6-26 тэмдэгт байх ёстой
+pwd-length-req = Нууц үгийн урт { $min }-{ $max } тэмдэгт байх ёстой
 illegal-email = Имэйл хаяг буруу байна
 action-success =
     { $action ->
@@ -23,3 +23,4 @@ action-failed =
     }
 email-sent = Баталгаажуулах имэйл илгээгдсэн. Та баталгаажуулаад нэвтэрнэ үү.
 forget-password = Нууц үг мартсан уу?
+hykb-login-cancelled = 3839 Games рүү нэвтрэх үйл цуцлагдлаа

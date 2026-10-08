@@ -1,9 +1,15 @@
-
 info-fail = Bilgi yüklenemedi
 invalid-chart = Geçersiz tablo
-
 importing = Yükleniyor
 import-success = Yükleme başarılı
 import-failed = Yükleme başarısız
 import-respack-success = Kaynak paketi yüklendi
 import-respack-failed = Kaynak paketi yüklenemedi
+batch-import = Birlikte İçeri Aktar
+batch-importing = Yükleniyor... ({ $current }/{ $total })
+batch-import-confirm = İçeri aktarma verisi bulundu. { $count } kadar bölüm içeri aktarılsın mı?
+batch-import-success = { $count } bölüm içeri aktarıldı.
+batch-import-downloaded-skipped = Şu bölümler zaten var olduğu için geçildi: { $charts }
+batch-import-failed = Birlikte içeri aktarma başarısız
+batch-import-failed-chart = Şu bölüm yüklenemedi: { $chart }
+warning = Dikkat

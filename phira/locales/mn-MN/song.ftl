@@ -107,3 +107,4 @@ stabilize-approved = Зөвшөөрөгдсөн
 stabilize-approved-passed = Зөвшөөрөгдсөн, бийтмап тогтворжуулагдсан.
 stabilize-denied = Татгалзсан
 stabilize-denied-passed = Татгалзсан, бийтмап тогтворжуулагдаагүй.
+cancel-not-saved = Мэдээллээ хадгалаагүй байна, гарахдаа итгэлтэй байна уу?

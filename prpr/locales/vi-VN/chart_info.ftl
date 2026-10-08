@@ -1,4 +1,3 @@
-
 edit-chart = Sửa Chart
 level-displayed = Level
 chart-name = Tên
@@ -13,7 +12,7 @@ preview-too-short = Thời gian quá ngắn
 preview-too-long = Thời gian quá dài
 offset = Offset (s)
 aspect-ratio = Tỉ lệ màn hình
-ps = Ghi chú
+ps = Ghi chú:
 aspect-hint = Tỉ lệ màn hình có thể là số hoặc chữ dạng như "rộng:cao"
 dim = Độ sáng nền
 enable-unlock = Bật video mở màn
@@ -26,5 +25,7 @@ tip = Mẹo
 intro = Mô tả
 tags = Thẻ
 tag-exists = Thẻ đã tồn tại
-
 illegal-input = Đầu vào không hợp lệ
+attach-ui-fix = Sửa lỗi liên kết UI
+how-to-add-collaborator = Cách thêm cộng tác viên
+rpe-170-speed = Easing tốc độ mới

@@ -47,6 +47,8 @@ about-content =
 
   Phira adalah game ritme berbasis komunitas non-komersial, terinspirasi oleh Phigros.
 
+  Proyek ini adalah proyek pemain yang tidak resmi, dan tidak memiliki hubungan lisensi, kemitraan, maupun operasional dengan Pigeon Games Co., Ltd. maupun dengan tim resmi Phigros.
+
   Akun BiliBili: @Phira官方
   QQ Guild: r48eajexth
   Server Discord: discord.gg/gqpR3bTSsP

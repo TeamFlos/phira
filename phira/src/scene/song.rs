@@ -73,7 +73,6 @@ use std::{
     thread_local,
 };
 use tap::Tap;
-use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -96,7 +95,7 @@ pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 static MENTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s#@(（]+)(?:#(\d+))?(?:\s*[（(]([^)）]+)[)）])?").unwrap());
 
 /// Parse all `@name#id` resolved collaborator mentions and return `(id, role)` pairs.
-fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
+fn parse_collaborators(intro: &str) -> BTreeMap<i32, (Option<String>, RectButton)> {
     use std::collections::btree_map::Entry;
 
     let mut result = BTreeMap::new();
@@ -107,11 +106,11 @@ fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
     }) {
         match result.entry(id) {
             Entry::Vacant(e) => {
-                e.insert(role);
+                e.insert((role, RectButton::new()));
             }
             Entry::Occupied(mut e) => {
-                if e.get().is_none() && role.is_some() {
-                    e.insert(role);
+                if e.get().0.is_none() && role.is_some() {
+                    e.insert((role, RectButton::new()));
                 }
             }
         }
@@ -158,7 +157,7 @@ fn create_music(clip: AudioClip) -> Result<Music> {
         it.borrow_mut().create_music(
             clip,
             MusicParams {
-                amplifier: 0.7,
+                amplifier: get_data().config.volume_music * 0.7,
                 loop_mix_time: 0.,
                 ..Default::default()
             },
@@ -409,7 +408,7 @@ pub struct SongScene {
 
     confirm_cancel_edit: Arc<AtomicBool>,
 
-    collaborators: BTreeMap<i32, Option<String>>,
+    collaborators: BTreeMap<i32, (Option<String>, RectButton)>,
     autocomplete_task: Option<Task<Result<String>>>,
 
     export_task: Option<mpsc::Receiver<Result<()>>>,
@@ -785,7 +784,7 @@ impl SongScene {
                 .charts
                 .iter()
                 .find(|it| it.local_path == *local_path)
-                .is_some_and(|it| it.played_unlock)
+                .is_some_and(|it| it.info.has_unlock && it.played_unlock)
             {
                 self.menu_options.push("unlock");
             }
@@ -888,7 +887,7 @@ impl SongScene {
                             let token = token.clone();
                             let addr = addr.clone();
                             reconnect_task = Some(Task::new(async move {
-                                let client = phira_mp_client::Client::new(TcpStream::connect(addr).await?).await?;
+                                let client = phira_mp_client::Client::from_address(&addr).await?;
                                 client.authenticate(token).await?;
                                 Ok(client)
                             }));
@@ -1267,10 +1266,11 @@ impl SongScene {
             }
             if !self.collaborators.is_empty() {
                 dy!(ui.text(tl!("info-collaborators")).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
-                for (collab_id, role) in &self.collaborators {
+                for (collab_id, (role, btn)) in &mut self.collaborators {
                     let c = 0.06;
                     let s = 0.05;
                     let r = ui.avatar(c, c, s, rt, UserManager::opt_avatar(*collab_id, &self.icons.user));
+                    btn.set(ui, Rect::new(c - s, c - s, s * 2., s * 2.));
                     if let Some((name, color)) = UserManager::name_and_color(*collab_id) {
                         let name_r = ui
                             .text(name)
@@ -1418,6 +1418,26 @@ impl SongScene {
     fn save_edit(&mut self) {
         let Some(edit) = &self.info_edit else { unreachable!() };
         let info = edit.info.clone();
+        // Offline moderation of locally-edited chart metadata. Cloud uploads are
+        // checked server-side, but this text is written to the local info.yml.
+        {
+            let mut texts = vec![
+                info.name.as_str(),
+                info.level.as_str(),
+                info.charter.as_str(),
+                info.composer.as_str(),
+                info.illustrator.as_str(),
+                info.intro.as_str(),
+            ];
+            if let Some(tip) = &info.tip {
+                texts.push(tip.as_str());
+            }
+            texts.extend(info.tags.iter().map(String::as_str));
+            if let Err(err) = crate::censor::check_texts(texts) {
+                show_message(err.to_string()).error();
+                return;
+            }
+        }
         let path = self.local_path.clone().unwrap();
         let edit = edit.clone();
         let is_owner = self.is_owner();
@@ -1753,6 +1773,13 @@ impl Scene for SongScene {
                                 ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
                             );
                             return Ok(true);
+                        }
+                        for (id, (_, btn)) in &mut self.collaborators {
+                            if btn.touch(touch) {
+                                button_hit();
+                                self.sf.goto(t, ProfileScene::new(*id, self.icons.user.clone(), self.rank_icons.clone()));
+                                return Ok(true);
+                            }
                         }
                         if self.open_web_btn.touch(touch, rt) {
                             open_url(&format!("https://phira.moe/chart/{}", self.info.id.unwrap()))?;
@@ -2825,7 +2852,7 @@ impl Scene for SongScene {
             || self.toggle_fav_task.is_some()
             || self.autocomplete_task.is_some()
         {
-            ui.full_loading("", t);
+            ui.full_loading_simple(t);
         }
         let rt = tm.real_time() as f32;
         self.tags.render(ui, rt);
@@ -2874,12 +2901,18 @@ pub fn compress_folder<W: Write + Seek>(src: &Path, dst: &mut W) -> Result<()> {
         let entry = entry?;
         let path = entry.path();
         let name = path.strip_prefix(src)?;
+        let mod_time = entry
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .map(|t| DateTime::<Utc>::from(t).naive_utc())
+            .unwrap_or_else(|| Utc::now().naive_utc());
         if path.is_file() {
-            zip.start_file_from_path(name, options)?;
+            zip.start_file_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
             let mut f = File::open(path)?;
             std::io::copy(&mut f, &mut zip)?;
         } else if !name.as_os_str().is_empty() {
-            zip.add_directory_from_path(name, options)?;
+            zip.add_directory_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
         }
     }
     zip.finish()?;

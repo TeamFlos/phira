@@ -9,7 +9,11 @@ chrono = { workspace = true }
 futures-util = { workspace = true }
 log = "0.4.29"
 macroquad = { workspace = true, default-features = false }
+
+phira-mp-client = { workspace = true }
+phira-mp-common = { workspace = true }
 pretty_env_logger = "0.5.0"
+prpr = { workspace = true }
 reqwest = { workspace = true, default-features = false, features = [
     "json",
     "stream",
@@ -24,7 +28,3 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
-
-phira-mp-client = { workspace = true }
-phira-mp-common = { workspace = true }
-prpr = { workspace = true }

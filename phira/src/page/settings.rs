@@ -19,12 +19,12 @@ use prpr::{
     ext::{LocalTask, RectExt, SafeTexture, open_url, poll_future, semi_white},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, InlineInputBox, PREFER_REDUCED_MOTION, Scroll, Slider, Ui},
+    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use serde::Deserialize;
-use std::{borrow::Cow, fs, io, net::ToSocketAddrs, path::PathBuf, sync::atomic::Ordering};
+use std::{borrow::Cow, fs, io, path::PathBuf, sync::atomic::Ordering};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
@@ -389,6 +389,10 @@ struct GeneralList {
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
+    // Offline mode skips the online session restore entirely; the HYKB channel
+    // requires the online anti-addiction check for every restored session, so
+    // the switch does not exist there.
+    #[cfg(not(feature = "hykb"))]
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
@@ -425,6 +429,7 @@ impl GeneralList {
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
+            #[cfg(not(feature = "hykb"))]
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
@@ -510,6 +515,7 @@ impl GeneralList {
             show_message(tl!("item-cache-cleared")).ok();
             return Ok(Some(false));
         }
+        #[cfg(not(feature = "hykb"))]
         if self.offline_btn.touch(touch, t) {
             config.offline_mode ^= true;
             return Ok(Some(true));
@@ -564,7 +570,7 @@ impl GeneralList {
         }
         if let Some((id, text)) = take_input() {
             if id == "mp_addr" {
-                if let Err(err) = text.to_socket_addrs() {
+                if let Err(err) = text.parse::<http::uri::Authority>() {
                     show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
                     return Ok(false);
                 } else {
@@ -620,6 +626,7 @@ impl GeneralList {
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
         }
 
+        #[cfg(not(feature = "hykb"))]
         item! {
             render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
@@ -724,6 +731,7 @@ impl AudioList {
             return Ok(wt);
         }
         if let wt @ Some(_) = self.sfx_slider.touch(touch, t, &mut config.volume_sfx) {
+            UI_SFX_VOLUME.store(config.volume_sfx.to_bits(), Ordering::Relaxed);
             return Ok(wt);
         }
         let old = config.volume_bgm;

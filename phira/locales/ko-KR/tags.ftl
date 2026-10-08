@@ -10,7 +10,7 @@ unwanted = 제외된 태그
 cancel = 취소
 confirm = 확인
 
-filter-by-rating = 평점으로 필터링 하기
+filter-by-rating = 평점으로 필터링하기
 
 regular = 평범함
 troll = 트롤

@@ -17,7 +17,7 @@ dl-success = 다운로드 완료
 
 guest = 게스트
 
-warn-unrated = 이번 플레이는 평가되지 않았습니다.
+warn-unrated = 이번 플레이 기록은 저장되지 않습니다.
 failed-to-play = 온라인 모드로 시작할 수 없습니다.
 play-cancel = 취소
 play-switch-to-offline = 오프라인 모드로 전환

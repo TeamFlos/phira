@@ -406,6 +406,7 @@ impl TextPainter {
 
 impl Drop for TextPainter {
     fn drop(&mut self) {
-        unsafe { get_internal_gl() }.quad_context.delete_texture(self.cache_texture.raw_miniquad_id());
+        // unsafe { get_internal_gl() }.quad_context.delete_texture(self.cache_texture.raw_miniquad_id());
+        crate::ext::queue_texture_deletion(self.cache_texture);
     }
 }

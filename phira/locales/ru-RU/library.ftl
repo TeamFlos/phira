@@ -29,3 +29,6 @@ multi-export-title = Выберите место экспорта
 multi-exporting = Экспортируем… ({ $current } / { $total })
 exported = Экспортировано
 multi-added-to-fav = Добавлены в избранные
+multi-export-no-file = Пожалуйста, загрузите все чарты перед экспортированием. Отсутствует: { $charts }
+multi-removed-from-fav = Удалены из избранных
+fav-created = Избранные созданы

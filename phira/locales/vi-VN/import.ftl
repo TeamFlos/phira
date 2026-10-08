@@ -1,9 +1,11 @@
-
 info-fail = Không thể tải thông tin
 invalid-chart = Chart không hợp lệ
-
 importing = Đang nhập
 import-success = Nhập thành công
 import-failed = Không thể nhập
 import-respack-success = Nhập thành công
 import-respack-failed = Không thể nhập respack này
+batch-import = Nhập hàng loạt
+batch-importing = Đang nhập hàng loạt ({ $current }/{ $total })
+batch-import-confirm = Phát hiện nhập hàng loạt, bạn có muốn nhập toàn bộ { $count } chart không?
+batch-import-success = Đã nhập thành công { $count } chart.

@@ -22,7 +22,6 @@ use std::{
     path::Path,
     sync::Arc,
 };
-use tokio::net::TcpStream;
 
 const ASPECT_MIN: f32 = 3. / 2.;
 const ASPECT_MAX: f32 = 9. / 5.;
@@ -292,9 +291,7 @@ fn create_init_task(config: Config, token: Option<String>) -> Task<Result<InitRe
         };
 
         info!("连接 & 鉴权中…");
-        let client = Client::new(TcpStream::connect(&config.server).await.context("连接到服务器失败")?)
-            .await
-            .context("连接失败")?;
+        let client = Client::from_address(&config.server).await.context("连接失败")?;
         client.authenticate(token.clone()).await?;
 
         info!("加入房间…");

@@ -21,8 +21,7 @@ impl AVFrame {
     pub fn set_audio_format(&mut self, format: &crate::AudioStreamFormat) {
         unsafe {
             let this = self.0.as_mut();
-            this.channels = format.channels;
-            this.channel_layout = format.channel_layout;
+            this.ch_layout = format.channel_layout;
             this.format = format.sample_fmt;
             this.sample_rate = format.sample_rate;
         }

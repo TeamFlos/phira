@@ -49,6 +49,8 @@ about-content =
 
   PhiraはPhigrosにインスパイアされた非商業のコミュニティ主導のリズムゲームです。
 
+  本プロジェクトは非公式のプレイヤーによるプロジェクトであり、南京鸽游网络有限公司（Pigeon Games）および『Phigros』公式とは、許諾・協力・運営のいずれの関係も一切存在しません。
+
   BiliBiliアカウント: @Phira官方
   QQ Guild: r48eajexth
   Discord Server: discord.gg/gqpR3bTSsP
