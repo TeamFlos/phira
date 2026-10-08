@@ -47,7 +47,6 @@ lru = { workspace = true }
 lyon = { workspace = true }
 macroquad = { workspace = true, default-features = false }
 
-miniquad = { workspace = true }
 nalgebra = { workspace = true }
 obfstr = "0.4.4"
 once_cell = { workspace = true }
