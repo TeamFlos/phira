@@ -860,7 +860,10 @@ impl Scene for MainScene {
 
 static STRIPE_MATERIAL: Lazy<Material> = Lazy::new(|| {
     load_material(
-        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::FRAGMENT },
+        ShaderSource::Glsl {
+            vertex: shader::VERTEX,
+            fragment: shader::FRAGMENT,
+        },
         MaterialParams {
             uniforms: vec![UniformDesc::new("time", UniformType::Float1)],
             ..Default::default()

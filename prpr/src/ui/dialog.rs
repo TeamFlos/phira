@@ -3,8 +3,8 @@ prpr_l10n::tl_file!("dialog");
 use super::{DRectButton, RectButton, Scroll, Ui};
 use crate::{core::BOLD_FONT, ext::RectExt, scene::show_message};
 use anyhow::Error;
-use macroquad::prelude::*;
 use macroquad::miniquad;
+use macroquad::prelude::*;
 
 const WIDTH_RADIO: f32 = 0.5;
 const HEIGHT_RATIO: f32 = 0.7;

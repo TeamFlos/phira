@@ -2,12 +2,14 @@ prpr_l10n::tl_file!("input");
 
 use super::Ui;
 use crate::{
-    ext::RectExt, judge::take_wheel, ui::{DRectButton, scroll::WHEEL_STEP},
+    ext::RectExt,
+    judge::take_wheel,
+    ui::{scroll::WHEEL_STEP, DRectButton},
 };
 use macroquad::{
     input::Touch,
-    prelude::*,
     miniquad::window::{clipboard_get, clipboard_set},
+    prelude::*,
 };
 
 const CONTEXT_MENU_MENU_W: f32 = 0.12;
@@ -240,15 +242,7 @@ impl InlineInputBox {
         self.context_menu.visible = false;
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
-        miniquad::window::update_text_input_state(
-            String::new(),
-            0,
-            0,
-            false,
-            false,
-            0,
-            0,
-        );
+        miniquad::window::update_text_input_state(String::new(), 0, 0, false, false, 0, 0);
     }
 
     pub fn confirm(&mut self) -> String {
@@ -259,15 +253,7 @@ impl InlineInputBox {
         self.state.need_confirm = false;
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
-        miniquad::window::update_text_input_state(
-            String::new(),
-            0,
-            0,
-            false,
-            false,
-            0,
-            0,
-        );
+        miniquad::window::update_text_input_state(String::new(), 0, 0, false, false, 0, 0);
         std::mem::take(&mut self.buffer)
     }
 
@@ -342,7 +328,8 @@ impl InlineInputBox {
             let display_before = &text[..cursor];
             let cursor_w = ui.text(display_before).size(0.42).measure().w;
             let mut start_x = x;
-            let mut text = ui.text(&text)
+            let mut text = ui
+                .text(&text)
                 .pos(x, y)
                 .anchor(0.0, 0.5)
                 .size(0.42)
@@ -374,24 +361,28 @@ impl InlineInputBox {
                         for (i, btn_rect) in self.context_menu.items.iter().enumerate() {
                             if btn_rect.0.contains(p) {
                                 match i {
-                                    0 => { // Select All
+                                    0 => {
+                                        // Select All
                                         self.state.selection_anchor = Some(0);
                                         self.state.cursor = self.buffer.chars().count();
                                         self.update_ime_state();
                                     }
-                                    1 => { // Copy
+                                    1 => {
+                                        // Copy
                                         if let Some(text) = self.selected_text() {
                                             clipboard_set(&text);
                                         }
                                     }
-                                    2 => { // Cut
+                                    2 => {
+                                        // Cut
                                         if let Some(text) = self.selected_text() {
                                             clipboard_set(&text);
                                             self.delete_selection();
                                             self.update_ime_state();
                                         }
                                     }
-                                    3 => { // Paste
+                                    3 => {
+                                        // Paste
                                         if let Some(text) = clipboard_get().map(|s| s.to_string()) {
                                             self.delete_selection();
                                             let byte_pos = self.byte_at(self.state.cursor);
@@ -421,9 +412,7 @@ impl InlineInputBox {
                     }
                     false
                 }
-                TouchPhase::Ended | TouchPhase::Cancelled => {
-                    false
-                }
+                TouchPhase::Ended | TouchPhase::Cancelled => false,
                 TouchPhase::Started => {
                     if !self.context_menu.visible && in_rect {
                         self.state.cursor = cursor;
@@ -439,16 +428,15 @@ impl InlineInputBox {
             }
         } else if is_mouse_button_down(MouseButton::Right) || is_mouse_button_released(MouseButton::Right) {
             match touch.phase {
-                TouchPhase::Moved | TouchPhase::Stationary => {
-                    false
-                }
+                TouchPhase::Moved | TouchPhase::Stationary => false,
                 TouchPhase::Ended | TouchPhase::Cancelled => {
                     if in_rect {
                         if !self.password && self.rect.contains(p) && !self.context_menu.visible {
                             self.context_menu.visible = true;
                             self.context_menu.position = (
                                 p.x.max(self.rect.x).min(self.rect.right() - CONTEXT_MENU_MENU_W),
-                                p.y.max(self.rect.y).min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32)
+                                p.y.max(self.rect.y)
+                                    .min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32),
                             );
                         }
                     } else {
@@ -456,9 +444,7 @@ impl InlineInputBox {
                     }
                     false
                 }
-                TouchPhase::Started => {
-                    !in_rect
-                }
+                TouchPhase::Started => !in_rect,
             }
         } else {
             match touch.phase {
@@ -516,10 +502,18 @@ impl InlineInputBox {
                     if dt > 0.5 && !self.state.touch_is_moved && !self.password && self.rect.contains(p) && !self.context_menu.visible {
                         self.context_menu.visible = true;
                         self.context_menu.position = (
-                            self.state.cursor_positions.get(self.state.cursor).map_or(p.x, |&(x, _)| x)
-                                .max(self.rect.x).min(self.rect.right() - CONTEXT_MENU_MENU_W),
-                            self.state.cursor_positions.get(self.state.cursor).map_or(p.y, |&(_, y)| y)
-                                .max(self.rect.y).min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32),
+                            self.state
+                                .cursor_positions
+                                .get(self.state.cursor)
+                                .map_or(p.x, |&(x, _)| x)
+                                .max(self.rect.x)
+                                .min(self.rect.right() - CONTEXT_MENU_MENU_W),
+                            self.state
+                                .cursor_positions
+                                .get(self.state.cursor)
+                                .map_or(p.y, |&(_, y)| y)
+                                .max(self.rect.y)
+                                .min(self.rect.bottom() - CONTEXT_MENU_ITEM_Y * self.context_menu.items.len() as f32),
                         );
                         self.state.touch_mode = TouchMode::Wating;
                     }
@@ -636,7 +630,10 @@ impl InlineInputBox {
         let after = &self.buffer[before_byte..];
         if let Some(rel_nl) = after.find('\n') {
             let next_line_start = before_byte + rel_nl + 1;
-            let next_line_end = self.buffer[next_line_start..].find('\n').map(|i| next_line_start + i).unwrap_or(self.buffer.chars().count());
+            let next_line_end = self.buffer[next_line_start..]
+                .find('\n')
+                .map(|i| next_line_start + i)
+                .unwrap_or(self.buffer.chars().count());
             let next_line_len = next_line_end - next_line_start;
             let target_col = col.min(next_line_len);
             let target_byte = next_line_start + target_col;
@@ -752,9 +749,10 @@ impl InlineInputBox {
                 self.state.selection_anchor = None;
             }
             let after_byte = self.byte_at(self.state.cursor);
-            self.state.cursor = self.buffer[after_byte..].find('\n').map(|i| {
-                self.buffer[..after_byte + i].chars().count()
-            }).unwrap_or(self.buffer.chars().count());
+            self.state.cursor = self.buffer[after_byte..]
+                .find('\n')
+                .map(|i| self.buffer[..after_byte + i].chars().count())
+                .unwrap_or(self.buffer.chars().count());
             self.state.manual_scroll = false;
             self.update_ime_state();
         }
@@ -941,12 +939,7 @@ impl InlineInputBox {
         let screen = ui.screen_rect().feather(-0.04);
         let w = global_rect.w.min(screen.w).max(0.0);
         let h = global_rect.h.min(screen.h).max(0.0);
-        let global_rect = Rect::new(
-            global_rect.x.clamp(screen.x, screen.right() - w),
-            global_rect.y.clamp(screen.y, screen.bottom() - h),
-            w,
-            h,
-        );
+        let global_rect = Rect::new(global_rect.x.clamp(screen.x, screen.right() - w), global_rect.y.clamp(screen.y, screen.bottom() - h), w, h);
         self.rect = global_rect;
         let rect = ui.rect_to_local(global_rect);
         self.state.touch_scale_x = if self.rect.w > 0.0 { rect.w / self.rect.w } else { 1.0 };
@@ -957,14 +950,8 @@ impl InlineInputBox {
         let bh = rect.h;
 
         if self.render_background {
-            ui.fill_path(
-                &Rect::new(bx, by, bw, bh).rounded(0.008),
-                Color::new(0.35, 0.5, 1.0, t),
-            );
-            ui.fill_path(
-                &Rect::new(bx + 0.002, by + 0.002, bw - 0.004, bh - 0.004).rounded(0.006),
-                Color::new(0.15, 0.15, 0.18, t),
-            );
+            ui.fill_path(&Rect::new(bx, by, bw, bh).rounded(0.008), Color::new(0.35, 0.5, 1.0, t));
+            ui.fill_path(&Rect::new(bx + 0.002, by + 0.002, bw - 0.004, bh - 0.004).rounded(0.006), Color::new(0.15, 0.15, 0.18, t));
         }
 
         let line_h = ui.text("0").size(0.42).measure().h;
@@ -1077,8 +1064,16 @@ impl InlineInputBox {
                             let start_byte = line.char_indices().nth(sel_start_in_line).map(|(i, _)| i).unwrap_or(line.len());
                             let end_byte = line.char_indices().nth(sel_end_in_line).map(|(i, _)| i).unwrap_or(line.len());
 
-                            let start_w = if start_byte == 0 { 0.0 } else { ui.text(&line[..start_byte]).size(0.42).multiline().measure().w };
-                            let end_w = if end_byte == 0 { 0.0 } else { ui.text(&line[..end_byte]).size(0.42).multiline().measure().w };
+                            let start_w = if start_byte == 0 {
+                                0.0
+                            } else {
+                                ui.text(&line[..start_byte]).size(0.42).multiline().measure().w
+                            };
+                            let end_w = if end_byte == 0 {
+                                0.0
+                            } else {
+                                ui.text(&line[..end_byte]).size(0.42).multiline().measure().w
+                            };
 
                             let y = text_y_adj + line_idx as f32 * line_h_with_space;
                             let x = line_x(line_idx) + start_w;
@@ -1231,7 +1226,12 @@ impl InlineInputBox {
             ui.fill_path(&menu_rect.rounded(0.006), Color::new(0.2, 0.2, 0.22, 1.0));
 
             for (i, item) in self.context_menu.items.iter_mut().enumerate() {
-                let btn_rect = Rect::new(menu_x + 0.005, menu_y + i as f32 * CONTEXT_MENU_ITEM_Y + 0.005, CONTEXT_MENU_MENU_W - 0.01, CONTEXT_MENU_ITEM_Y - 0.01);
+                let btn_rect = Rect::new(
+                    menu_x + 0.005,
+                    menu_y + i as f32 * CONTEXT_MENU_ITEM_Y + 0.005,
+                    CONTEXT_MENU_MENU_W - 0.01,
+                    CONTEXT_MENU_ITEM_Y - 0.01,
+                );
                 item.0 = ui.rect_to_global(btn_rect);
 
                 ui.text(&item.1)

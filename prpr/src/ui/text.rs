@@ -7,10 +7,7 @@ use glyph_brush::{
     ab_glyph::{Font, FontArc, ScaleFont},
     BrushAction, BrushError, FontId, GlyphBrush, GlyphBrushBuilder, GlyphCruncher, HorizontalAlign, Layout, Section, SectionGlyph, Text,
 };
-use macroquad::{
-    miniquad::TextureParams,
-    prelude::*,
-};
+use macroquad::{miniquad::TextureParams, prelude::*};
 use once_cell::sync::Lazy;
 use std::{borrow::Cow, cell::RefCell, thread::LocalKey};
 use tracing::debug;
@@ -302,17 +299,15 @@ impl TextPainter {
 
     fn new_cache_texture(dim: (u32, u32)) -> Texture2D {
         debug!("creating cache texture: {}x{}", dim.0, dim.1);
-        Texture2D::from_miniquad_texture(unsafe { get_internal_gl() }.quad_context.new_render_texture(
-            TextureParams {
-                width: dim.0,
-                height: dim.1,
-                min_filter: FilterMode::Linear,
-                mag_filter: FilterMode::Linear,
-                format: miniquad::TextureFormat::RGBA8,
-                wrap: miniquad::TextureWrap::Clamp,
-                ..Default::default()
-            },
-        ))
+        Texture2D::from_miniquad_texture(unsafe { get_internal_gl() }.quad_context.new_render_texture(TextureParams {
+            width: dim.0,
+            height: dim.1,
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
+            format: miniquad::TextureFormat::RGBA8,
+            wrap: miniquad::TextureWrap::Clamp,
+            ..Default::default()
+        }))
     }
 
     pub fn line_gap(&self, scale: f32) -> f32 {
@@ -366,7 +361,9 @@ impl TextPainter {
                         unsafe { get_internal_gl() }.flush();
                         flushed = true;
                     }
-                    unsafe { get_internal_gl() }.quad_context.delete_texture(self.cache_texture.raw_miniquad_id());
+                    unsafe { get_internal_gl() }
+                        .quad_context
+                        .delete_texture(self.cache_texture.raw_miniquad_id());
                     self.cache_texture = Self::new_cache_texture(suggested);
                     self.brush.resize_texture(suggested.0, suggested.1);
                 }

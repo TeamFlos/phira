@@ -129,7 +129,10 @@ impl Effect {
             t: f64::NEG_INFINITY,
             defaults,
             material: load_material(
-                ShaderSource::Glsl { vertex: VERTEX_SHADER, fragment: shader },
+                ShaderSource::Glsl {
+                    vertex: VERTEX_SHADER,
+                    fragment: shader,
+                },
                 MaterialParams {
                     uniforms: new_uniforms,
                     textures: vec!["screenTexture".to_owned()],
@@ -184,8 +187,7 @@ impl Effect {
 }
 
 impl Drop for Effect {
-    fn drop(&mut self) {
-    }
+    fn drop(&mut self) {}
 }
 
 const VERTEX_SHADER: &str = r#"#version 100

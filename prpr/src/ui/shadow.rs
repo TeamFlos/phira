@@ -18,20 +18,37 @@ fn alpha_blend_material_params(uniforms: Vec<UniformDesc>) -> MaterialParams {
     }
 }
 
-static SHADOW_MATERIAL: Lazy<Material> =
-    Lazy::new(|| load_material(ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::SHADOW_FRAGMENT }, alpha_blend_material_params(ShadowConfig::uniforms())).unwrap());
+static SHADOW_MATERIAL: Lazy<Material> = Lazy::new(|| {
+    load_material(
+        ShaderSource::Glsl {
+            vertex: shader::VERTEX,
+            fragment: shader::SHADOW_FRAGMENT,
+        },
+        alpha_blend_material_params(ShadowConfig::uniforms()),
+    )
+    .unwrap()
+});
 
 static RR_MATERIAL: Lazy<Material> = Lazy::new(|| {
     load_material(
-        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::RR_FRAGMENT },
-        alpha_blend_material_params(vec![UniformDesc::new("rect", UniformType::Float4), UniformDesc::new("radius", UniformType::Float1)]),
+        ShaderSource::Glsl {
+            vertex: shader::VERTEX,
+            fragment: shader::RR_FRAGMENT,
+        },
+        alpha_blend_material_params(vec![
+            UniformDesc::new("rect", UniformType::Float4),
+            UniformDesc::new("radius", UniformType::Float1),
+        ]),
     )
     .unwrap()
 });
 
 static SECTOR_MATERIAL: Lazy<Material> = Lazy::new(|| {
     load_material(
-        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::SECTOR_FRAGMENT },
+        ShaderSource::Glsl {
+            vertex: shader::VERTEX,
+            fragment: shader::SECTOR_FRAGMENT,
+        },
         alpha_blend_material_params(vec![
             UniformDesc::new("center", UniformType::Float2),
             UniformDesc::new("angle", UniformType::Float2),

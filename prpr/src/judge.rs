@@ -5,11 +5,11 @@ use crate::{
     core::{BadNote, Chart, NoteKind, Point, Resource, Vector, NOTE_WIDTH_RATIO_BASE},
     ext::{get_viewport, NotNanExt},
 };
+use macroquad::miniquad::{EventHandler, KeyMods, MouseButton, TouchPhase as MiniquadTouchPhase};
 use macroquad::prelude::{
     utils::{register_input_subscriber, repeat_all_miniquad_input},
     *,
 };
-use macroquad::miniquad::{EventHandler, KeyMods, MouseButton, TouchPhase as MiniquadTouchPhase};
 use once_cell::sync::Lazy;
 use sasa::{PlaySfxParams, Sfx};
 use serde::Serialize;

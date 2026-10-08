@@ -440,7 +440,10 @@ pub fn make_pipeline(write_color: bool, pass_op: StencilOp, test_func: CompareFu
     } = unsafe { get_internal_gl() };
     gl.make_pipeline(
         context,
-        ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::FRAGMENT },
+        ShaderSource::Glsl {
+            vertex: shader::VERTEX,
+            fragment: shader::FRAGMENT,
+        },
         PipelineParams {
             color_write: (write_color, write_color, write_color, write_color),
             color_blend: Some(BlendState::new(

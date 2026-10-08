@@ -9,9 +9,9 @@
 //! 4. time can be customized by input argument
 //! 5. Remove EmittersCache
 
+use macroquad::miniquad::RenderPass;
 use macroquad::prelude::*;
 use macroquad::window::miniquad::*;
-use macroquad::miniquad::RenderPass;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interpolation {
@@ -272,9 +272,7 @@ impl ParticleShape {
         Bindings {
             vertex_buffers: vec![geometry_vertex_buffer, positions_vertex_buffer],
             index_buffer,
-            images: vec![
-                texture.map_or_else(|| ctx.new_texture_from_rgba8(1, 1, &[255, 255, 255, 255]), |texture| texture.raw_miniquad_id())
-            ],
+            images: vec![texture.map_or_else(|| ctx.new_texture_from_rgba8(1, 1, &[255, 255, 255, 255]), |texture| texture.raw_miniquad_id())],
         }
     }
 }
@@ -451,7 +449,14 @@ impl Emitter {
             let vertex = preprocess_shader(vertex, &config);
             let fragment = preprocess_shader(fragment, &config);
 
-            ctx.new_shader(ShaderSource::Glsl { vertex: &vertex, fragment: &fragment }, shader::meta()).unwrap()
+            ctx.new_shader(
+                ShaderSource::Glsl {
+                    vertex: &vertex,
+                    fragment: &fragment,
+                },
+                shader::meta(),
+            )
+            .unwrap()
         };
 
         let blend_mode = config.blend_mode.blend_state();
@@ -480,8 +485,15 @@ impl Emitter {
             },
         );
 
-        let post_processing_shader =
-            ctx.new_shader(ShaderSource::Glsl { vertex: post_processing_shader::VERTEX, fragment: post_processing_shader::FRAGMENT }, post_processing_shader::meta()).unwrap();
+        let post_processing_shader = ctx
+            .new_shader(
+                ShaderSource::Glsl {
+                    vertex: post_processing_shader::VERTEX,
+                    fragment: post_processing_shader::FRAGMENT,
+                },
+                post_processing_shader::meta(),
+            )
+            .unwrap();
 
         let post_processing_pipeline = ctx.new_pipeline(
             &[BufferLayout::default(), BufferLayout::default()],
@@ -500,16 +512,14 @@ impl Emitter {
             },
         );
         let post_processing_pass = {
-            let color_img = ctx.new_render_texture(
-                TextureParams {
-                    width: 320,
-                    height: 200,
-                    format: TextureFormat::RGBA8,
-                    min_filter: FilterMode::Nearest,
-                    mag_filter: FilterMode::Nearest,
-                    ..Default::default()
-                },
-            );
+            let color_img = ctx.new_render_texture(TextureParams {
+                width: 320,
+                height: 200,
+                format: TextureFormat::RGBA8,
+                min_filter: FilterMode::Nearest,
+                mag_filter: FilterMode::Nearest,
+                ..Default::default()
+            });
 
             ctx.new_render_pass(color_img, None)
         };

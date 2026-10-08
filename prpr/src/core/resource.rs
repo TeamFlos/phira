@@ -7,11 +7,11 @@ use crate::{
     particle::{AtlasConfig, ColorCurve, Emitter, EmitterConfig},
 };
 use anyhow::{bail, Context, Result};
-use macroquad::prelude::*;
 use macroquad::miniquad::{
     gl::{GLuint, GL_LINEAR},
     RawId, TextureId, TextureWrap,
 };
+use macroquad::prelude::*;
 use sasa::{AudioClip, AudioManager, Sfx};
 use serde::Deserialize;
 use std::{

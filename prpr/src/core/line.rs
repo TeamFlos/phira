@@ -4,8 +4,8 @@ use crate::{
     judge::JudgeStatus,
     ui::Ui,
 };
-use macroquad::prelude::*;
 use macroquad::miniquad::{self, RenderPass, TextureParams, TextureWrap};
+use macroquad::prelude::*;
 use nalgebra::Rotation2;
 use serde::Deserialize;
 use std::cell::RefCell;
@@ -304,17 +304,15 @@ impl JudgeLine {
                         let vp = get_viewport();
                         let pass = *guard.0.get_or_insert_with(|| {
                             let ctx = &mut gl.quad_context;
-                            let tex = ctx.new_render_texture(
-                                TextureParams {
-                                    width: vp.2 as _,
-                                    height: vp.3 as _,
-                                    format: miniquad::TextureFormat::RGBA8,
-                                    min_filter: FilterMode::Linear,
-                                    mag_filter: FilterMode::Linear,
-                                    wrap: TextureWrap::Clamp,
-                                    ..Default::default()
-                                },
-                            );
+                            let tex = ctx.new_render_texture(TextureParams {
+                                width: vp.2 as _,
+                                height: vp.3 as _,
+                                format: miniquad::TextureFormat::RGBA8,
+                                min_filter: FilterMode::Linear,
+                                mag_filter: FilterMode::Linear,
+                                wrap: TextureWrap::Clamp,
+                                ..Default::default()
+                            });
                             ctx.new_render_pass(tex, None)
                         });
                         gl.flush();

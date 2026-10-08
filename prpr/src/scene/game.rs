@@ -1175,27 +1175,29 @@ impl Scene for GameScene {
 
         {
             let dim_alpha = 0.7;
-            //let alpha = res.alpha * (1. - dim_alpha) + dim_alpha;    
+            //let alpha = res.alpha * (1. - dim_alpha) + dim_alpha;
             let dim = Color::new(0.1, 0.1, 0.1, dim_alpha * res.alpha);
             let x_range = vp.0 as f32 / ui.viewport.2 as f32;
-            let y_range =  vp.1 as f32 / vp.3 as f32;
-            draw_rectangle(-1., -h,x_range * 2., h * 2., dim); // Left
-            draw_rectangle(1., -h,-x_range * 2., h * 2., dim); // Right
-            draw_rectangle(-1., -h,2., -y_range * 2., dim); // Top
-            draw_rectangle(-1., h,2., y_range * 2., dim); // Bottom
+            let y_range = vp.1 as f32 / vp.3 as f32;
+            draw_rectangle(-1., -h, x_range * 2., h * 2., dim); // Left
+            draw_rectangle(1., -h, -x_range * 2., h * 2., dim); // Right
+            draw_rectangle(-1., -h, 2., -y_range * 2., dim); // Top
+            draw_rectangle(-1., h, 2., y_range * 2., dim); // Bottom
             draw_rectangle(x_range * 2. - 1., -h, (1. - x_range * 2.) * 2., h * 2., Color::new(0., 0., 0., res.alpha * res.info.background_dim));
         }
 
         let chart_zoom = vec2(1., asp2_chart);
         let chart_viewport = viewport_chart;
 
-        set_camera( &Camera2D {
+        set_camera(&Camera2D {
             zoom: chart_zoom,
             viewport: chart_viewport,
             render_target: chart_onto.clone(),
             ..Default::default()
         });
-        self.gl.quad_gl.render_pass(chart_onto.as_ref().map(|it| it.render_pass.raw_miniquad_id()));
+        self.gl
+            .quad_gl
+            .render_pass(chart_onto.as_ref().map(|it| it.render_pass.raw_miniquad_id()));
         self.chart.render(ui, res);
 
         self.gl.quad_gl.render_pass(
@@ -1228,7 +1230,12 @@ impl Scene for GameScene {
             set_camera(&Camera2D {
                 zoom: vec2(1., asp2_ui),
                 viewport: chart_viewport,
-                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                render_target: self
+                    .res
+                    .chart_target
+                    .as_ref()
+                    .map(|it| it.output())
+                    .or(self.res.camera.render_target.clone()),
                 ..Default::default()
             });
             self.ui(ui, tm)?;
@@ -1250,7 +1257,12 @@ impl Scene for GameScene {
             set_camera(&Camera2D {
                 zoom: vec2(1., 1.),
                 viewport: viewport_window,
-                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                render_target: self
+                    .res
+                    .chart_target
+                    .as_ref()
+                    .map(|it| it.output())
+                    .or(self.res.camera.render_target.clone()),
                 ..Default::default()
             });
             if tm.paused() {
@@ -1262,7 +1274,12 @@ impl Scene for GameScene {
             set_camera(&Camera2D {
                 zoom: vec2(1., asp2_window),
                 viewport: viewport_window,
-                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                render_target: self
+                    .res
+                    .chart_target
+                    .as_ref()
+                    .map(|it| it.output())
+                    .or(self.res.camera.render_target.clone()),
                 ..Default::default()
             });
             if self.mode == GameMode::TweakOffset {
@@ -1274,12 +1291,17 @@ impl Scene for GameScene {
                 }
             }
         }
-        
+
         {
             set_camera(&Camera2D {
                 zoom: vec2(1., asp2_chart),
                 viewport: viewport_chart,
-                render_target: self.res.chart_target.as_ref().map(|it| it.output()).or(self.res.camera.render_target.clone()),
+                render_target: self
+                    .res
+                    .chart_target
+                    .as_ref()
+                    .map(|it| it.output())
+                    .or(self.res.camera.render_target.clone()),
                 ..Default::default()
             });
             self.overlay_ui(ui, tm)?;

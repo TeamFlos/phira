@@ -1,8 +1,8 @@
 use super::Anim;
 use crate::ext::{source_of_image, ScaleType};
 use anyhow::Result;
-use macroquad::prelude::*;
 use macroquad::miniquad::{TextureFormat, TextureParams, TextureWrap};
+use macroquad::prelude::*;
 use prpr_avc::AVPixelFormat;
 use serde::Deserialize;
 use std::{cell::RefCell, io::Write};
@@ -38,17 +38,15 @@ pub struct Video {
 }
 
 fn new_tex(w: u32, h: u32) -> Texture2D {
-    Texture2D::from_miniquad_texture(unsafe { get_internal_gl() }.quad_context.new_render_texture(
-        TextureParams {
-            width: w,
-            height: h,
-            format: TextureFormat::Alpha,
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            wrap: TextureWrap::Clamp,
-            ..Default::default()
-        },
-    ))
+    Texture2D::from_miniquad_texture(unsafe { get_internal_gl() }.quad_context.new_render_texture(TextureParams {
+        width: w,
+        height: h,
+        format: TextureFormat::Alpha,
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        wrap: TextureWrap::Clamp,
+        ..Default::default()
+    }))
 }
 
 impl Video {
@@ -63,7 +61,10 @@ impl Video {
         let h = format.height as u32;
 
         let material = load_material(
-            ShaderSource::Glsl { vertex: shader::VERTEX, fragment: shader::FRAGMENT },
+            ShaderSource::Glsl {
+                vertex: shader::VERTEX,
+                fragment: shader::FRAGMENT,
+            },
             MaterialParams {
                 pipeline_params: PipelineParams::default(),
                 uniforms: Vec::new(),

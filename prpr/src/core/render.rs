@@ -1,8 +1,8 @@
+use macroquad::miniquad::{self as miniquad, gl::GLuint};
 use macroquad::{
     texture::{RenderTarget, Texture2D},
     window::get_internal_gl,
 };
-use macroquad::miniquad::{self as miniquad, gl::GLuint};
 
 pub struct MSRenderTarget {
     dim: (u32, u32),
