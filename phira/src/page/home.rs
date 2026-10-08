@@ -112,7 +112,15 @@ pub struct HomePage {
 
 impl HomePage {
     pub async fn new(icons: Arc<Icons>) -> Result<Self> {
-        let update_task = if get_data().config.offline_mode {
+        // HYKB builds must keep every restored session covered by the online
+        // anti-addiction check: offline mode (whose switch does not exist
+        // there) never skips the restore, so even a migrated config cannot
+        // bypass coverage.
+        #[cfg(feature = "hykb")]
+        let offline = false;
+        #[cfg(not(feature = "hykb"))]
+        let offline = get_data().config.offline_mode;
+        let update_task = if offline {
             None
         } else if let Some(u) = &get_data().me {
             UserManager::request(u.id);
@@ -124,15 +132,13 @@ impl HomePage {
                 .await?;
                 let me = Client::get_me().await?;
                 // On HYKB builds a restored session still requires anti-addiction
-                // coverage, which is driven by a signed-in native HYKB account.
-                // Restore that session silently (no account picker) and tear the
-                // in-game session down if the player cancels (`ok_or_err`). The
-                // credential is used only for the SDK's online anti-addiction —
-                // it is not verified against the restored account, so any
-                // successful HYKB login is accepted whether or not the Phira
-                // account is bound.
+                // coverage. Email-sourced sessions get it from the GTS SDK under
+                // the game's own user id — no HYKB account involved. Failures
+                // arrive asynchronously via `hykbFcmCallback` and tear the
+                // session down; a HYKB-sourced session is instead covered by the
+                // signed-in native HYKB account's own enforcement.
                 #[cfg(feature = "hykb")]
-                crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+                crate::request_hykb_fcm(&me.id.to_string());
                 Ok(me)
             }))
         } else {
@@ -515,6 +521,22 @@ impl Page for HomePage {
                             get_data_mut().tokens = None;
                             let _ = save_data();
                             sync_data();
+                        } else {
+                            // The session survives this failure (only an invalid
+                            // token tears it down), so on HYKB builds it still
+                            // needs anti-addiction coverage: normally the task
+                            // requests it after get_me, but a weak network can
+                            // fail before that point, which used to leave the
+                            // restored session playing with no coverage at all.
+                            // Start the GTS check under the persisted user id —
+                            // it fails closed (an init failure tears the session
+                            // back down via -3, a failed check shows the SDK's
+                            // exit-only dialog) and runs normally once the
+                            // network recovers.
+                            #[cfg(feature = "hykb")]
+                            if let Some(me) = &get_data().me {
+                                crate::request_hykb_fcm(&me.id.to_string());
+                            }
                         }
                         if err.downcast_ref::<ErrorCode>() == Some(&ErrorCode::PENDING_DELETE_REQUEST) {
                             self.pending_delete_choice.store(0, Ordering::SeqCst);
@@ -554,8 +576,10 @@ impl Page for HomePage {
                         })
                         .await?;
                         let me = Client::get_me().await?;
+                        // Same coverage rule as the startup restore above: the
+                        // GTS SDK backs email sessions, async teardown on failure.
                         #[cfg(feature = "hykb")]
-                        crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+                        crate::request_hykb_fcm(&me.id.to_string());
                         Ok(me)
                     })
                 });
