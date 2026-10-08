@@ -60,11 +60,11 @@ impl HitSound {
 }
 
 pub fn play_sfx(sfx: &mut Sfx, config: &Config) {
-    if config.volume_sfx <= 1e-2 {
+    if config.audio.volume_sfx <= 1e-2 {
         return;
     }
     let _ = sfx.play(PlaySfxParams {
-        amplifier: config.volume_sfx,
+        amplifier: config.audio.volume_sfx,
     });
 }
 

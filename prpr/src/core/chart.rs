@@ -163,7 +163,7 @@ impl Chart {
             }
             drop(guard);
             res.note_buffer.borrow_mut().draw_all();
-            if res.config.sample_count > 1 {
+            if res.config.graphics.sample_count > 1 {
                 unsafe { get_internal_gl() }.flush();
                 if let Some(target) = &res.chart_target {
                     target.blit();

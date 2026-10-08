@@ -499,7 +499,7 @@ impl Resource {
                 SafeTexture::from(Texture2D::from_image(&load_image($path).await?))
             };
         }
-        let res_pack = ResourcePack::from_path(config.res_pack_path.as_ref())
+        let res_pack = ResourcePack::from_path(config.appearance.res_pack_path.as_ref())
             .await
             .context("Failed to load resource pack")?;
         let camera = Camera2D {
@@ -517,12 +517,12 @@ impl Resource {
         let sfx_flick = audio.create_sfx(res_pack.sfx_flick.clone(), buffer_size)?;
 
         let aspect_ratio = config.aspect_ratio.unwrap_or(info.aspect_ratio);
-        let note_width = config.note_scale * NOTE_WIDTH_RATIO_BASE as f32;
-        let note_scale = config.note_scale;
+        let note_width = config.appearance.note_scale * NOTE_WIDTH_RATIO_BASE as f32;
+        let note_scale = config.appearance.note_scale;
 
         let emitter = ParticleEmitter::new(&res_pack, note_scale, res_pack.info.hide_particles)?;
 
-        let no_effect = config.disable_effect || has_no_effect;
+        let no_effect = config.appearance.disable_effect || has_no_effect;
 
         macroquad::window::gl_set_drawcall_buffer_capacity(MAX_SIZE * 4, MAX_SIZE * 6);
         Ok(Self {
@@ -575,7 +575,7 @@ impl Resource {
     }
 
     pub fn emit_at_origin(&mut self, rotation: f32, color: Color) {
-        if !self.config.particle {
+        if !self.config.appearance.particle {
             return;
         }
         let pt = self.world_to_screen(Point::default());
@@ -591,8 +591,8 @@ impl Resource {
             return false;
         }
         self.last_vp = vp;
-        if !self.no_effect || self.config.sample_count != 1 {
-            self.chart_target = Some(MSRenderTarget::new((vp.2 as u32, vp.3 as u32), self.config.sample_count));
+        if !self.no_effect || self.config.graphics.sample_count != 1 {
+            self.chart_target = Some(MSRenderTarget::new((vp.2 as u32, vp.3 as u32), self.config.graphics.sample_count));
         }
         fn viewport(aspect_ratio: f32, (x, y, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
             let w = w as f32;

@@ -1,4 +1,5 @@
 use bitflags::bitflags;
+use prpr::config::{AppearanceConfig, AudioConfig, GraphicsConfig};
 use serde::{Deserialize, Serialize};
 
 bitflags! {
@@ -164,43 +165,48 @@ impl From<Config> for prpr::config::Config {
             use_keyboard,
             volume_music,
             volume_sfx,
-            volume_bgm,
+            volume_bgm: _,
             autoplay,
         }: Config,
     ) -> Self {
         Self {
+            appearance: AppearanceConfig {
+                ap_fc_indicator,
+                disable_effect,
+                double_hint,
+                note_scale,
+                particle,
+                res_pack_path,
+                show_acc,
+                show_avg_fps,
+            },
+            audio: AudioConfig {
+                audio_buffer_size,
+                preferred_sample_rate,
+                volume_music,
+                volume_sfx,
+            },
+            graphics: GraphicsConfig {
+                fxaa,
+                fullscreen_mode,
+                sample_count,
+            },
             adjust_time,
             aggressive,
-            ap_fc_indicator,
             aspect_ratio,
-            audio_buffer_size,
             chart_debug,
-            disable_effect,
             double_click_to_pause,
-            double_hint,
-            fxaa,
             interactive,
             mods: mods.into(),
             mp_address,
             mp_enabled,
-            note_scale,
             offline_mode,
-            fullscreen_mode,
             offset,
-            particle,
             player_name,
             player_rks,
-            preferred_sample_rate,
-            res_pack_path,
-            sample_count,
-            show_acc,
-            show_avg_fps,
             speed,
             touch_debug,
             use_keyboard,
-            volume_music,
-            volume_sfx,
-            volume_bgm,
 
             autoplay,
         }
@@ -215,7 +221,7 @@ impl Config {
         #[cfg(target_env = "ohos")]
         {
             // Due to the fucking poor performance of the Maloon GPU, the sample count must be set to 1.
-            self.sample_count = 1;
+            self.graphics.sample_count = 1;
         }
     }
 

@@ -203,7 +203,7 @@ impl Note {
                 return;
             }
         }
-        let scale = (if res.config.double_hint && self.multiple_hint {
+        let scale = (if res.config.appearance.double_hint && self.multiple_hint {
             res.res_pack.note_style_mh.click.width() / res.res_pack.note_style.click.width()
         } else {
             1.0
@@ -240,7 +240,7 @@ impl Note {
             return;
         }
         let order = self.kind.order();
-        let style = if res.config.double_hint && self.multiple_hint {
+        let style = if res.config.appearance.double_hint && self.multiple_hint {
             &res.res_pack.note_style_mh
         } else {
             &res.res_pack.note_style
@@ -269,7 +269,7 @@ impl Note {
             }
             NoteKind::Hold { end_time, end_height } => {
                 res.with_model(self.now_transform(res, ctrl_obj, 0., 0.), |res| {
-                    let style = if res.config.double_hint && self.multiple_hint {
+                    let style = if res.config.appearance.double_hint && self.multiple_hint {
                         &res.res_pack.note_style_mh
                     } else {
                         &res.res_pack.note_style

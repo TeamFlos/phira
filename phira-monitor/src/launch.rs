@@ -37,7 +37,11 @@ pub fn launch_task(id: i32, players: Vec<UserInfo>) -> Result<LaunchTask> {
                 Ok(PlayerView::new(
                     player,
                     chart,
-                    ParticleEmitter::new(&game_scene.res.res_pack, game_scene.res.config.note_scale, game_scene.res.res_pack.info.hide_particles)?,
+                    ParticleEmitter::new(
+                        &game_scene.res.res_pack,
+                        game_scene.res.config.appearance.note_scale,
+                        game_scene.res.res_pack.info.hide_particles,
+                    )?,
                 ))
             })
             .collect::<Result<_>>()?;

@@ -90,7 +90,7 @@ impl EndingScene {
         let bgm = audio.create_music(
             bgm,
             MusicParams {
-                amplifier: config.volume_music,
+                amplifier: config.audio.volume_music,
                 loop_mix_time: 0.,
                 ..Default::default()
             },

@@ -262,7 +262,7 @@ impl GameScene {
             chart.extra.global_effects.clear();
         }
         let effects = std::mem::take(&mut chart.extra.global_effects);
-        if config.fxaa {
+        if config.graphics.fxaa {
             chart
                 .extra
                 .effects
@@ -356,7 +356,7 @@ impl GameScene {
         res.audio.create_music(
             res.music.clone(),
             MusicParams {
-                amplifier: res.config.volume_music as _,
+                amplifier: res.config.audio.volume_music as _,
                 playback_rate: res.config.speed as _,
                 ..Default::default()
             },
@@ -442,7 +442,7 @@ impl GameScene {
                         .size(0.8)
                         .color(c)
                         .draw_using(&PGR_FONT);
-                    if res.config.show_acc {
+                    if res.config.appearance.show_acc {
                         ui.text(format!("{:05.2}%", self.judge.real_time_accuracy() * 100.))
                             .pos(1. - margin, score_top + h)
                             .anchor(1., 0.)
@@ -613,7 +613,7 @@ impl GameScene {
                     self.music = res.audio.create_music(
                         res.music.clone(),
                         MusicParams {
-                            amplifier: res.config.volume_music as _,
+                            amplifier: res.config.audio.volume_music as _,
                             playback_rate: res.config.speed as _,
                             ..Default::default()
                         },
@@ -1004,7 +1004,7 @@ impl Scene for GameScene {
                                 historic_best,
                                 record_data,
                                 self.best_record.clone(),
-                                if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
+                                if self.res.config.appearance.show_avg_fps { self.get_avg_fps() } else { None },
                             )?)))
                         }
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
@@ -1026,7 +1026,7 @@ impl Scene for GameScene {
             update(self.res.time, &mut self.res, &mut self.judge);
         }
         let counts = self.judge.counts();
-        self.res.judge_line_color = if counts[2] + counts[3] == 0 && self.res.config.ap_fc_indicator {
+        self.res.judge_line_color = if counts[2] + counts[3] == 0 && self.res.config.appearance.ap_fc_indicator {
             if counts[1] == 0 {
                 self.res.res_pack.info.color_perfect()
             } else {
@@ -1140,7 +1140,7 @@ impl Scene for GameScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        if self.res.config.show_avg_fps {
+        if self.res.config.appearance.show_avg_fps {
             let current_time = tm.real_time();
             if matches!(self.state, State::Playing) && !tm.paused() {
                 let frame_delta = current_time - self.fps_last_frame_time;
@@ -1156,7 +1156,7 @@ impl Scene for GameScene {
             set_camera(&res.camera);
         }
 
-        let msaa = res.config.sample_count > 1;
+        let msaa = res.config.graphics.sample_count > 1;
 
         let chart_onto = res
             .chart_target
@@ -1198,7 +1198,7 @@ impl Scene for GameScene {
         self.bad_notes.retain(|dummy| dummy.render(res));
         let t = tm.real_time();
         let dt = (t - std::mem::replace(&mut self.last_update_time, t)) as f32;
-        if res.config.particle {
+        if res.config.appearance.particle {
             res.emitter.draw(dt);
         }
         self.ui(ui, tm)?;
