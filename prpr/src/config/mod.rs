@@ -65,25 +65,27 @@ pub struct Config {
 
     #[serde(rename = "adjust_time_new")]
     pub adjust_time: bool,
+
     pub aggressive: bool,
-    pub aspect_ratio: Option<f32>,
+
     pub chart_debug: bool,
+    pub touch_debug: bool,
+
+    pub aspect_ratio: Option<f32>,
     pub double_click_to_pause: bool,
+
     pub interactive: bool,
+
     pub mods: Mods,
-    pub mp_address: String,
-    pub mp_enabled: bool,
+    pub speed: f32,
+
     pub offline_mode: bool,
     pub offset: f32,
+
     pub player_name: String,
     pub player_rks: f32,
-    pub speed: f32,
-    pub touch_debug: bool,
-    pub use_keyboard: bool,
 
-    #[warn(deprecated, reason = "use Mods::AUTOPLAY")]
-    // for compatibility
-    pub autoplay: Option<bool>,
+    pub use_keyboard: bool,
 }
 
 impl Default for Config {
@@ -105,8 +107,6 @@ impl Default for Config {
 
             interactive: true,
             mods: Mods::default(),
-            mp_address: "mp2.phira.cn:12345".to_owned(),
-            mp_enabled: false,
             offline_mode: false,
             offset: 0.,
             speed: 1.,
@@ -114,17 +114,12 @@ impl Default for Config {
 
             chart_debug: false,
             touch_debug: false,
-
-            autoplay: None,
         }
     }
 }
 
 impl Config {
     pub fn init(&mut self) {
-        if let Some(flag) = self.autoplay {
-            self.mods.set(Mods::AUTOPLAY, flag);
-        }
         #[cfg(target_env = "ohos")]
         {
             // Due to the fucking poor performance of the Maloon GPU, the sample count must be set to 1.

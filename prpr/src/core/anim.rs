@@ -5,6 +5,7 @@ use std::rc::Rc;
 pub struct Keyframe<T> {
     pub time: f64,
     pub value: T,
+    /// between this and the next keyframe
     pub tween: Rc<dyn TweenFunction>,
 }
 

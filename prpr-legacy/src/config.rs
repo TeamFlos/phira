@@ -145,9 +145,9 @@ impl From<Config> for prpr::config::Config {
             double_hint,
             fxaa,
             interactive,
-            mods,
-            mp_address,
-            mp_enabled,
+            mut mods,
+            mp_address: _,
+            mp_enabled: _,
             note_scale,
             offline_mode,
             fullscreen_mode,
@@ -169,6 +169,9 @@ impl From<Config> for prpr::config::Config {
             autoplay,
         }: Config,
     ) -> Self {
+        if let Some(flag) = autoplay {
+            mods.set(Mods::AUTOPLAY, flag);
+        }
         Self {
             appearance: AppearanceConfig {
                 ap_fc_indicator,
@@ -198,8 +201,6 @@ impl From<Config> for prpr::config::Config {
             double_click_to_pause,
             interactive,
             mods: mods.into(),
-            mp_address,
-            mp_enabled,
             offline_mode,
             offset,
             player_name,
@@ -207,8 +208,6 @@ impl From<Config> for prpr::config::Config {
             speed,
             touch_debug,
             use_keyboard,
-
-            autoplay,
         }
     }
 }
