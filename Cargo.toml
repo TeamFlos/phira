@@ -31,13 +31,12 @@ fluent-syntax = "0.12.0"
 futures-util = "0.3.32"
 hex = "0.4.3"
 http = "1"
-image = { version = "0.25.10", default-features = false }
+image = { version = "0.24", default-features = false }
 inputbox = "0.1.5"
 lru = "0.16.3"
 lyon = "1.0.19"
 
-macroquad = { git = "https://github.com/Mivik/prpr-macroquad", rev = "2150130", default-features = false }
-miniquad = { git = "https://github.com/Mivik/prpr-miniquad", rev = "138679c" }
+macroquad = { git = "https://github.com/2278535805/macroquad", default-features = false }
 nalgebra = "0.34.1"
 
 objc2 = "0.6.4"

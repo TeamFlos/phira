@@ -384,7 +384,7 @@ impl Scene for EventScene {
         let p = 1. - (self.scroll.y_scroller.offset / 0.4).clamp(0., 1.);
 
         let r = ui.back_rect();
-        ui.fill_rect(r, (*self.icons.back, r, ScaleType::Fit, semi_white(p)));
+        ui.fill_rect(r, (Texture2D::clone(&self.icons.back), r, ScaleType::Fit, semi_white(p)));
         self.btn_back.set(ui, r);
 
         ui.fill_rect(ui.screen_rect(), semi_black((self.scroll.y_scroller.offset / 0.3).min(1.) * 0.7));
@@ -471,7 +471,7 @@ impl Scene for EventScene {
                         let w = w + 0.01 + ir.w;
                         ir.x += (ir.w - w) / 2.;
                         text.pos(ir.right() + 0.01, ct.y).draw();
-                        ui.fill_rect(ir, (*self.icons.ldb, ir, ScaleType::Fit));
+                        ui.fill_rect(ir, (Texture2D::clone(&self.icons.ldb), ir, ScaleType::Fit));
                     }
                 } else {
                     draw(tl!("btn-join"), bc);

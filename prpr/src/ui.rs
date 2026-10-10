@@ -10,7 +10,7 @@ mod dialog;
 pub use dialog::Dialog;
 
 mod scroll;
-use inputbox::{InputBox, InputMode};
+use inputbox::InputMode;
 pub use scroll::*;
 
 mod offset_analysis;
@@ -25,13 +25,16 @@ pub use shadow::*;
 mod text;
 pub use text::{DrawText, TextPainter};
 
+mod input;
+pub use input::{InlineInputBox, InlineInputBtn};
+
 pub use glyph_brush::ab_glyph::FontArc;
 
 use crate::{
     core::{Matrix, Point, Vector},
-    ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
+    ext::{nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
-    scene::{request_input, return_input, show_error, take_input},
+    scene::show_error,
 };
 use core::f32;
 use lyon::{
@@ -140,7 +143,7 @@ impl<T: Shading> VertexBuilder<T> {
 
     pub fn commit(&self) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.texture(self.shading.texture());
+        gl.texture(self.shading.texture().as_ref());
         gl.draw_mode(DrawMode::Triangles);
         gl.geometry(&self.vertices, &self.indices);
     }
@@ -621,6 +624,7 @@ impl Slider {
 
 thread_local! {
     static STATE: RefCell<HashMap<String, Option<u64>>> = RefCell::new(HashMap::new());
+    static INPUT_STATE: RefCell<HashMap<String, InlineInputBox>> = RefCell::new(HashMap::new());
 }
 
 pub struct InputParams<'a> {
@@ -712,7 +716,7 @@ impl<'a> Ui<'a> {
 
     pub fn camera(&self) -> Camera2D {
         Camera2D {
-            zoom: vec2(1., -self.viewport.2 as f32 / self.viewport.3 as f32),
+            zoom: vec2(1., self.viewport.2 as f32 / self.viewport.3 as f32),
             viewport: Some(self.viewport),
             ..Default::default()
         }
@@ -794,7 +798,7 @@ impl<'a> Ui<'a> {
 
     fn emit_lyon(&mut self, texture: Option<Texture2D>) {
         let gl = unsafe { get_internal_gl() }.quad_gl;
-        gl.texture(texture);
+        gl.texture(texture.as_ref());
         gl.draw_mode(DrawMode::Triangles);
         gl.geometry(&std::mem::take(&mut self.vertex_buffers.vertices), &std::mem::take(&mut self.vertex_buffers.indices));
     }
@@ -827,6 +831,17 @@ impl<'a> Ui<'a> {
 
     pub fn to_local(&self, pt: (f32, f32)) -> (f32, f32) {
         let r = self.transform.try_inverse().unwrap().transform_point(&Point::new(pt.0, pt.1));
+        (r.x, r.y)
+    }
+
+    pub fn rect_to_local(&self, rect: Rect) -> Rect {
+        let pt = self.to_local((rect.x, rect.y));
+        let vec = self.vec_to_local((rect.w, rect.h));
+        Rect::new(pt.0, pt.1, vec.0, vec.1)
+    }
+
+    pub fn vec_to_local(&self, vec: (f32, f32)) -> (f32, f32) {
+        let r = self.transform.try_inverse().unwrap().transform_vector(&Vector::new(vec.0, vec.1));
         (r.x, r.y)
     }
 
@@ -898,10 +913,22 @@ impl<'a> Ui<'a> {
         let igl = unsafe { get_internal_gl() };
         let gl = igl.quad_gl;
         let rect = self.rect_to_global(rect);
-        let vp = get_viewport();
+        let vp = gl.get_viewport();
         let pt = (
             vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
-            (screen_height() - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
+            match gl.get_active_render_pass() {
+                Some(pass) => {
+                    let texture = igl.quad_context.render_pass_texture(pass);
+                    let target_height = igl.quad_context.texture_size(texture).1 as f32;
+                    target_height
+                        - (vp.1 as f32
+                            + ((rect.y + rect.h) * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32)
+                }
+                None => {
+                    (screen_height() - (vp.1 + vp.3) as f32)
+                        + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32
+                }
+            },
         );
 
         let old = self.scissor;
@@ -1039,26 +1066,53 @@ impl<'a> Ui<'a> {
         let label = label.into();
         let params = params.into();
         let id = format!("input#{label}");
-        let r = self.text(label).anchor(1., 0.).size(0.47).draw();
+        let r = self.text(&label).anchor(1., 0.).size(0.47).draw();
         let lf = r.x;
         let r = Rect::new(0.02, r.y - 0.01, params.length, r.h + 0.02);
-        if if params.mode == InputMode::Password {
-            self.button(&id, r, "*".repeat(value.chars().count()))
-        } else {
-            self.button(&id, r, value.lines().next().unwrap_or_default())
-        } {
-            request_input(&id, InputBox::new().default_text(value.as_str()).mode(params.mode));
-        }
-        if let Some((its_id, text)) = take_input() {
-            if its_id == id {
-                if let Some(changed) = params.changed {
-                    *changed = true;
+        INPUT_STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            let input = state.entry(id.clone()).or_insert_with(|| {
+                let mut it = InlineInputBox::new();
+                if params.mode == InputMode::Password {
+                    it = it.set_password();
                 }
-                *value = text;
-            } else {
-                return_input(its_id, text);
+                if params.mode == InputMode::Multiline {
+                    it = it.set_multiline();
+                }
+                it
+            });
+            if input.is_active() {
+                // While a field is focused it is effectively modal: it must see
+                // every touch, even ones already consumed by other widgets
+                // (e.g. a save button processed earlier in the frame), so the
+                // edited text is committed before those widgets act.
+                for touch in Judge::get_touches() {
+                    if touch.phase == TouchPhase::Stationary {
+                        continue;
+                    }
+                    input.touch(&touch);
+                }
+                if input.need_confirm() {
+                    if let Some(changed) = params.changed {
+                        *changed = true;
+                    }
+                    *value = input.confirm();
+                } else {
+                    input.update();
+                    input.render(self, r, 1., &label);
+                }
+            } else if self.button(
+                &id,
+                r,
+                if params.mode == InputMode::Password {
+                    "*".repeat(value.chars().count())
+                } else {
+                    value.lines().next().unwrap_or_default().to_owned()
+                },
+            ) {
+                input.activate(value);
             }
-        }
+        });
         Rect::new(lf, r.y, r.right() - lf, r.h)
     }
 
@@ -1159,7 +1213,7 @@ impl<'a> Ui<'a> {
         let rect = Rect::new(cx - r, cy - r, r * 2., r * 2.);
         match avatar {
             Ok(Some(avatar)) => {
-                self.fill_circle(cx, cy, r, (*avatar, rect));
+                self.fill_circle(cx, cy, r, (Texture2D::clone(&*avatar), rect));
             }
             Ok(None) => {
                 self.loading(
@@ -1176,7 +1230,7 @@ impl<'a> Ui<'a> {
             }
             Err(icon) => {
                 self.fill_circle(cx, cy, r, semi_black(0.2));
-                self.fill_circle(cx, cy, r, (*icon, rect.feather(-0.025), ScaleType::CropCenter, WHITE));
+                self.fill_circle(cx, cy, r, (Texture2D::clone(&*icon), rect.feather(-0.025), ScaleType::CropCenter, WHITE));
             }
         }
         self.stroke_circle(cx, cy, r, 0.004, WHITE);

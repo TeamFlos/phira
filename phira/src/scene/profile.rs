@@ -11,11 +11,9 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::Local;
-#[cfg(feature = "hykb")]
-use inputbox::InputBox;
 use macroquad::prelude::*;
 #[cfg(feature = "hykb")]
-use prpr::scene::{request_input, return_input, take_input};
+use prpr::ui::InlineInputBox;
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
@@ -65,6 +63,8 @@ pub struct ProfileScene {
     should_unbind_hykb: Arc<AtomicBool>,
     #[cfg(feature = "hykb")]
     btn_transfer: DRectButton,
+    #[cfg(feature = "hykb")]
+    transfer_input: InlineInputBox,
     #[cfg(feature = "hykb")]
     transfer_task: Option<Task<Result<()>>>,
 
@@ -117,6 +117,8 @@ impl ProfileScene {
             should_unbind_hykb: Arc::default(),
             #[cfg(feature = "hykb")]
             btn_transfer: DRectButton::new(),
+            #[cfg(feature = "hykb")]
+            transfer_input: InlineInputBox::new(),
             #[cfg(feature = "hykb")]
             transfer_task: None,
 
@@ -278,18 +280,18 @@ impl Scene for ProfileScene {
         }
 
         #[cfg(feature = "hykb")]
-        if let Some((id, text)) = take_input() {
-            if id == "transfer-email" {
-                let email = text.trim().to_owned();
-                if !email.is_empty() {
-                    self.transfer_task = Some(Task::new(async move {
-                        Client::transfer_request(&email).await?;
-                        Ok(())
-                    }));
-                }
-            } else {
-                return_input(id, text);
+        if self.transfer_input.need_confirm() {
+            let email = self.transfer_input.confirm().trim().to_owned();
+            if !email.is_empty() {
+                self.transfer_task = Some(Task::new(async move {
+                    Client::transfer_request(&email).await?;
+                    Ok(())
+                }));
             }
+        }
+        #[cfg(feature = "hykb")]
+        if self.transfer_input.is_active() {
+            self.transfer_input.update();
         }
 
         #[cfg(feature = "hykb")]
@@ -352,6 +354,11 @@ impl Scene for ProfileScene {
         if self.avatar_task.is_some() {
             return Ok(true);
         }
+        #[cfg(feature = "hykb")]
+        if self.transfer_input.is_active() {
+            self.transfer_input.touch(touch);
+            return Ok(true);
+        }
         let t = tm.now() as f32;
         if self.pf_scroll.touch(touch, t) {
             return Ok(true);
@@ -363,7 +370,7 @@ impl Scene for ProfileScene {
         }
         if self.btn_name.touch(touch) {
             if let Some(user) = &self.user {
-                unsafe { get_internal_gl() }.quad_context.clipboard_set(&user.name);
+                macroquad::miniquad::window::clipboard_set(&user.name);
                 show_message(tl!("name-copied")).ok();
             }
             return Ok(true);
@@ -420,7 +427,7 @@ impl Scene for ProfileScene {
         }
         #[cfg(feature = "hykb")]
         if self.transfer_task.is_none() && self.btn_transfer.touch(touch, t) {
-            request_input("transfer-email", InputBox::new().title(tl!("hykb-transfer")).prompt(tl!("transfer-prompt")));
+            self.transfer_input.activate("");
             return Ok(true);
         }
         if get_data().me.as_ref().is_some_and(|it| it.id == self.id) && self.avatar_btn.touch(touch) {
@@ -449,9 +456,9 @@ impl Scene for ProfileScene {
         let t = tm.now() as f32;
 
         let r = ui.screen_rect();
-        ui.fill_rect(r, (*self.background, r));
+        ui.fill_rect(r, (Texture2D::clone(&self.background), r));
         let r = ui.back_rect();
-        ui.fill_rect(r, (*self.icon_back, r));
+        ui.fill_rect(r, (Texture2D::clone(&self.icon_back), r));
         self.btn_back.set(ui, r);
 
         let r = Rect::new(-0.85, -ui.top + 0.1, 0.6, 2.);
@@ -589,14 +596,14 @@ impl Scene for ProfileScene {
                                     }
                                     item.illu.notify();
                                     item.btn.render_shadow(ui, r, t, |ui, path| {
-                                        ui.fill_path(&path, (*item.illu.texture.0, r));
+                                        ui.fill_path(&path, (Texture2D::clone(&item.illu.texture.0), r));
                                         ui.fill_path(&path, semi_black(0.6));
                                     });
 
                                     let icon = icon_index(item.record.score as _, item.record.full_combo);
                                     let s = r.h - pad * 2.;
                                     let ir = Rect::new(r.x + pad, r.y + pad, s, s);
-                                    ui.fill_rect(ir, (*self.rank_icons[icon], ir, ScaleType::Fit));
+                                    ui.fill_rect(ir, (Texture2D::clone(&self.rank_icons[icon]), ir, ScaleType::Fit));
 
                                     let lf = ir.right() + 0.02;
 
@@ -634,6 +641,12 @@ impl Scene for ProfileScene {
         #[cfg(feature = "hykb")]
         if self.transfer_task.is_some() {
             ui.full_loading(tl!("transfer-requesting"), t);
+        }
+        #[cfg(feature = "hykb")]
+        if self.transfer_input.is_active() {
+            ui.fill_rect(ui.screen_rect(), semi_black(0.5));
+            self.transfer_input
+                .render(ui, Rect::new(-0.35, -0.06, 0.7, 0.12), 1., &tl!("transfer-prompt"));
         }
         Ok(())
     }

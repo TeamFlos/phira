@@ -45,7 +45,6 @@ lru = { workspace = true }
 lyon = { workspace = true }
 
 macroquad = { workspace = true, default-features = false }
-miniquad = { workspace = true }
 miniz_oxide = "0.9.1"
 nalgebra = { workspace = true }
 obfstr = "0.4.4"

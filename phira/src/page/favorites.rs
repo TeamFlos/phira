@@ -12,14 +12,13 @@ use crate::{
 };
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use prpr::{
     core::Tweenable,
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType},
-    scene::{request_input, show_error, show_message, take_input},
+    scene::{show_error, show_message},
     task::Task,
-    ui::{button_hit, DRectButton, Dialog, LoadingParams, RectButton, Scroll, Ui},
+    ui::{button_hit, DRectButton, Dialog, InlineInputBox, InlineInputBtn, LoadingParams, RectButton, Scroll, Ui},
 };
 use regex::Regex;
 use reqwest::Method;
@@ -68,8 +67,11 @@ pub struct FavoritesPage {
     folders: Vec<FolderItem>,
     scroll: Scroll,
 
-    create_btn: DRectButton,
-    import_btn: DRectButton,
+    create_input: InlineInputBtn,
+    import_input: InlineInputBtn,
+    rename_input: InlineInputBox,
+    desc_input: InlineInputBox,
+    batch_import_input: InlineInputBox,
     all_illu: Illustration,
 
     active_folder: Option<usize>,
@@ -130,8 +132,11 @@ impl FavoritesPage {
             folders: Vec::new(),
             scroll: Scroll::new(),
 
-            create_btn: DRectButton::new(),
-            import_btn: DRectButton::new(),
+            create_input: InlineInputBtn::new(),
+            import_input: InlineInputBtn::new(),
+            rename_input: InlineInputBox::new(),
+            desc_input: InlineInputBox::new().set_multiline(),
+            batch_import_input: InlineInputBox::new(),
             all_illu: Illustration::from_done(TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap())),
 
             active_folder,
@@ -421,6 +426,21 @@ impl Page for FavoritesPage {
         let t = s.t;
         let rt = s.rt;
 
+        self.create_input.touch(touch);
+        self.import_input.touch(touch);
+        if self.rename_input.is_active() {
+            self.rename_input.touch(touch);
+            return Ok(true);
+        }
+        if self.desc_input.is_active() {
+            self.desc_input.touch(touch);
+            return Ok(true);
+        }
+        if self.batch_import_input.is_active() {
+            self.batch_import_input.touch(touch);
+            return Ok(true);
+        }
+
         if self.has_task() {
             return Ok(true);
         }
@@ -465,14 +485,8 @@ impl Page for FavoritesPage {
             return Ok(true);
         }
 
-        if self.create_btn.touch(touch, t) {
-            request_input("fav_create", InputBox::new());
-            return Ok(true);
-        }
-        if self.import_btn.touch(touch, t) {
-            request_input("fav_import", InputBox::new());
-            return Ok(true);
-        }
+        self.create_input.activate(touch, t, "");
+        self.import_input.activate(touch, t, "");
 
         if self.scroll.touch(touch, rt) {
             return Ok(true);
@@ -638,102 +652,109 @@ impl Page for FavoritesPage {
         }
 
         // 处理输入事件 || Handle input events
-        if let Some((id, text)) = take_input() {
-            match id.as_str() {
-                "fav_create" => {
-                    let name = text.trim().to_string();
-                    if name.is_empty() {
-                        show_message(tl!("name-empty")).error();
-                    } else if let Err(err) = crate::censor::check_text(&name) {
-                        show_message(err.to_string()).error();
-                    } else {
-                        get_data_mut().push_collection(LocalCollection::new(name))?;
-                        let _ = save_data();
-                        show_message(tl!("created")).ok();
-                        self.rebuild_folders();
-                    }
-                }
-                "fav_rename" => {
-                    let new_name = text.trim().to_string();
-                    if new_name.is_empty() {
-                        show_message(tl!("name-empty")).error();
-                    } else if let Err(err) = crate::censor::check_text(&new_name) {
-                        show_message(err.to_string()).error();
-                    } else if let Some(index) = self.active_folder {
-                        let data = get_data();
-                        let uuid = data.collection_uuids()[index];
-                        let col = data.collection_info(&uuid);
-                        let new_col = LocalCollection {
-                            name: new_name,
-                            ..col.as_ref().clone()
-                        };
-                        data.set_collection_info(&uuid, new_col)?;
-                        let _ = save_data();
-                        show_message(tl!("updated")).ok();
-                        self.rebuild_folders();
-                        if col.id.is_some() && !data.config.offline_mode {
-                            self.sync_to_cloud(false);
-                        }
-                    }
-                }
-                "fav_description" => {
-                    let new_description = text.trim().to_string();
-                    if let Err(err) = crate::censor::check_text(&new_description) {
-                        show_message(err.to_string()).error();
-                    } else if let Some(index) = self.active_folder {
-                        let data = get_data();
-                        let uuid = data.collection_uuids()[index];
-                        let col = data.collection_info(&uuid);
-                        let new_col = LocalCollection {
-                            description: new_description,
-                            ..col.as_ref().clone()
-                        };
-                        data.set_collection_info(&uuid, new_col)?;
-                        let _ = save_data();
-                        show_message(tl!("updated")).ok();
-                        self.rebuild_folders();
-                        if col.id.is_some() && !data.config.offline_mode {
-                            self.sync_to_cloud(false);
-                        }
-                    }
-                }
-                "fav_import" => {
-                    if !self.try_import(text) {
-                        show_message(tl!("invalid-import")).error();
-                    }
-                }
-                "fav_batch_import" => {
-                    let data = get_data();
-                    let col = data.collection_by_index(self.active_folder.unwrap());
-                    let local_chart_ids = Self::collect_chart_ids(&col, true).unwrap().into_iter().collect::<HashSet<_>>();
-                    let Ok(mut chart_ids) = text
-                        .split([',', ' '])
-                        .map(|s| s.trim())
-                        .filter(|s| !s.is_empty())
-                        .map(|it| it.parse::<i32>())
-                        .collect::<Result<Vec<_>, _>>()
-                    else {
-                        show_message(tl!("invalid-import")).error();
-                        return Ok(());
-                    };
-                    chart_ids.retain(|id| !local_chart_ids.contains(id));
-                    if chart_ids.is_empty() {
-                        return Ok(());
-                    }
-                    self.batch_import_task = Some(Task::new(async move {
-                        let mut ids_str = String::new();
-                        for id in &chart_ids {
-                            ids_str.push_str(&id.to_string());
-                            ids_str.push(',');
-                        }
-                        ids_str.pop();
-
-                        let resp: Vec<Chart> = recv_raw(Client::get(format!("/chart/multi-get?ids={ids_str}"))).await?.json().await?;
-                        Ok(resp)
-                    }));
-                }
-                _ => {}
+        if let Some(text) = self.create_input.confirm() {
+            let name = text.trim().to_string();
+            if name.is_empty() {
+                show_message(tl!("name-empty")).error();
+            } else if let Err(err) = crate::censor::check_text(&name) {
+                show_message(err.to_string()).error();
+            } else {
+                get_data_mut().push_collection(LocalCollection::new(name))?;
+                let _ = save_data();
+                show_message(tl!("created")).ok();
+                self.rebuild_folders();
             }
+        }
+        self.create_input.update();
+        if self.rename_input.need_confirm() {
+            let new_name = self.rename_input.confirm().trim().to_string();
+            if new_name.is_empty() {
+                show_message(tl!("name-empty")).error();
+            } else if let Err(err) = crate::censor::check_text(&new_name) {
+                show_message(err.to_string()).error();
+            } else if let Some(index) = self.active_folder {
+                let data = get_data();
+                let uuid = data.collection_uuids()[index];
+                let col = data.collection_info(&uuid);
+                let new_col = LocalCollection {
+                    name: new_name,
+                    ..col.as_ref().clone()
+                };
+                data.set_collection_info(&uuid, new_col)?;
+                let _ = save_data();
+                show_message(tl!("updated")).ok();
+                self.rebuild_folders();
+                if col.id.is_some() && !data.config.offline_mode {
+                    self.sync_to_cloud(false);
+                }
+            }
+        }
+        if self.rename_input.is_active() {
+            self.rename_input.update();
+        }
+        if self.desc_input.need_confirm() {
+            let new_description = self.desc_input.confirm().trim().to_string();
+            if let Err(err) = crate::censor::check_text(&new_description) {
+                show_message(err.to_string()).error();
+            } else if let Some(index) = self.active_folder {
+                let data = get_data();
+                let uuid = data.collection_uuids()[index];
+                let col = data.collection_info(&uuid);
+                let new_col = LocalCollection {
+                    description: new_description,
+                    ..col.as_ref().clone()
+                };
+                data.set_collection_info(&uuid, new_col)?;
+                let _ = save_data();
+                show_message(tl!("updated")).ok();
+                self.rebuild_folders();
+                if col.id.is_some() && !data.config.offline_mode {
+                    self.sync_to_cloud(false);
+                }
+            }
+        }
+        if self.desc_input.is_active() {
+            self.desc_input.update();
+        }
+        if let Some(text) = self.import_input.confirm() {
+            if !self.try_import(text) {
+                show_message(tl!("invalid-import")).error();
+            }
+        }
+        self.import_input.update();
+        if self.batch_import_input.need_confirm() {
+            let text = self.batch_import_input.confirm();
+            let data = get_data();
+            let col = data.collection_by_index(self.active_folder.unwrap());
+            let local_chart_ids = Self::collect_chart_ids(&col, true).unwrap().into_iter().collect::<HashSet<_>>();
+            let Ok(mut chart_ids) = text
+                .split([',', ' '])
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|it| it.parse::<i32>())
+                .collect::<Result<Vec<_>, _>>()
+            else {
+                show_message(tl!("invalid-import")).error();
+                return Ok(());
+            };
+            chart_ids.retain(|id| !local_chart_ids.contains(id));
+            if chart_ids.is_empty() {
+                return Ok(());
+            }
+            self.batch_import_task = Some(Task::new(async move {
+                let mut ids_str = String::new();
+                for id in &chart_ids {
+                    ids_str.push_str(&id.to_string());
+                    ids_str.push(',');
+                }
+                ids_str.pop();
+
+                let resp: Vec<Chart> = recv_raw(Client::get(format!("/chart/multi-get?ids={ids_str}"))).await?.json().await?;
+                Ok(resp)
+            }));
+        }
+        if self.batch_import_input.is_active() {
+            self.batch_import_input.update();
         }
 
         if let Some(index) = self.active_folder {
@@ -742,10 +763,10 @@ impl Page for FavoritesPage {
             if self.edit_menu.changed() {
                 match self.edit_options[self.edit_menu.selected()] {
                     "rename" => {
-                        request_input("fav_rename", InputBox::new().default_text(&col.name));
+                        self.rename_input.activate(&col.name);
                     }
                     "set-description" => {
-                        request_input("fav_description", InputBox::new().default_text(&col.description).mode(InputMode::Multiline));
+                        self.desc_input.activate(&col.description);
                     }
                     "set-cover" => {
                         if col.charts.is_empty() {
@@ -788,7 +809,7 @@ impl Page for FavoritesPage {
                         self.rebuild_folders();
                     }
                     "batch-import" => {
-                        request_input("fav_batch_import", InputBox::new());
+                        self.batch_import_input.activate("");
                     }
                     _ => {}
                 }
@@ -1121,7 +1142,7 @@ impl Page for FavoritesPage {
                     ui.dy(-ui.top + 0.03);
                     let s = 0.08;
                     let r = Rect::new(-s, 0., s, s);
-                    ui.fill_rect(r, (*self.icons.menu, r, ScaleType::Fit, WHITE));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.menu), r, ScaleType::Fit, WHITE));
                     self.operations_menu_btn.set(ui, r);
                     if self.need_show_operations_menu {
                         self.need_show_operations_menu = false;
@@ -1133,7 +1154,7 @@ impl Page for FavoritesPage {
                     }
                     if get_data().collection_by_index(index).is_owned() {
                         ui.dx(-r.w - 0.03);
-                        ui.fill_rect(r, (*self.icons.edit, r, ScaleType::Fit, WHITE));
+                        ui.fill_rect(r, (Texture2D::clone(&self.icons.edit), r, ScaleType::Fit, WHITE));
                         self.edit_btn.set(ui, r);
                         if self.need_show_edit_menu {
                             self.need_show_edit_menu = false;
@@ -1149,9 +1170,9 @@ impl Page for FavoritesPage {
                         r,
                         (
                             if get_data().collection_by_index(index).id.is_some() {
-                                *self.icons.cloud_check
+                                Texture2D::clone(&self.icons.cloud_check)
                             } else {
-                                *self.icons.cloud_none
+                                Texture2D::clone(&self.icons.cloud_none)
                             },
                             r,
                             ScaleType::Fit,
@@ -1167,12 +1188,12 @@ impl Page for FavoritesPage {
                         self.cloud_menu.show(ui, t, Rect::new(r.x - d, r.bottom() + 0.02, r.w + d, h));
                     }
                     ui.dx(-r.w - 0.03);
-                    ui.fill_rect(r, (*self.icons.info, r, ScaleType::Fit));
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.info), r, ScaleType::Fit));
                     self.info_btn.set(ui, r);
 
                     ui.dx(-r.w - 0.03);
                     if self.fetch_like_task.is_some() {
-                        ui.fill_rect(r, (*self.icons.heart_outline, r, ScaleType::Fit, semi_white(0.4)));
+                        ui.fill_rect(r, (Texture2D::clone(&self.icons.heart_outline), r, ScaleType::Fit, semi_white(0.4)));
                         let ct = r.center();
                         ui.loading(
                             ct.x,
@@ -1187,7 +1208,7 @@ impl Page for FavoritesPage {
                         );
                     } else if get_data().collection_by_index(index).id.is_some() {
                         let icon = if self.liked { &self.icons.heart } else { &self.icons.heart_outline };
-                        ui.fill_rect(r, (**icon, r, ScaleType::Fit, if self.liked { ORANGE } else { WHITE }));
+                        ui.fill_rect(r, (Texture2D::clone(icon), r, ScaleType::Fit, if self.liked { ORANGE } else { WHITE }));
                         self.like_btn.set(ui, r);
                     }
                 });
@@ -1269,30 +1290,38 @@ impl Page for FavoritesPage {
             let btn_w = 0.28;
             let btn_h = 0.1;
             let mut btn_r = Rect::new(1.0 - btn_w - 0.04, bottom - btn_h - 0.02, btn_w, btn_h);
-            let ct = btn_r.center();
-            self.create_btn.render_shadow(ui, btn_r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.5));
-            });
-            ui.text(tl!("create"))
-                .pos(ct.x, ct.y)
-                .anchor(0.5, 0.5)
-                .no_baseline()
-                .size(0.45)
-                .color(semi_white(0.9))
-                .draw();
+            if self.create_input.is_active() {
+                self.create_input.input.render(ui, btn_r, 1., &tl!("info-name"));
+            } else {
+                let ct = btn_r.center();
+                self.create_input.btn.render_shadow(ui, btn_r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.5));
+                });
+                ui.text(tl!("create"))
+                    .pos(ct.x, ct.y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.45)
+                    .color(semi_white(0.9))
+                    .draw();
+            }
 
             btn_r.x -= btn_w + 0.02;
-            let ct = btn_r.center();
-            self.import_btn.render_shadow(ui, btn_r, t, |ui, path| {
-                ui.fill_path(&path, semi_black(0.5));
-            });
-            ui.text(tl!("import"))
-                .pos(ct.x, ct.y)
-                .anchor(0.5, 0.5)
-                .no_baseline()
-                .size(0.45)
-                .color(semi_white(0.9))
-                .draw();
+            if self.import_input.is_active() {
+                self.import_input.input.render(ui, btn_r, 1., &tl!("import"));
+            } else {
+                let ct = btn_r.center();
+                self.import_input.btn.render_shadow(ui, btn_r, t, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.5));
+                });
+                ui.text(tl!("import"))
+                    .pos(ct.x, ct.y)
+                    .anchor(0.5, 0.5)
+                    .no_baseline()
+                    .size(0.45)
+                    .color(semi_white(0.9))
+                    .draw();
+            }
         });
 
         let rt = s.rt;
@@ -1315,6 +1344,20 @@ impl Page for FavoritesPage {
         self.edit_menu.render(ui, t, 1.);
         self.operations_menu.render(ui, t, 1.);
         self.cloud_menu.render(ui, t, 1.);
+
+        if self.rename_input.is_active() {
+            ui.fill_rect(ui.screen_rect(), semi_black(0.5));
+            self.rename_input.render(ui, Rect::new(-0.35, -0.06, 0.7, 0.12), 1., &tl!("rename"));
+        }
+        if self.desc_input.is_active() {
+            ui.fill_rect(ui.screen_rect(), semi_black(0.5));
+            self.desc_input.render(ui, Rect::new(-0.4, -0.2, 0.8, 0.4), 1., &tl!("info-description"));
+        }
+        if self.batch_import_input.is_active() {
+            ui.fill_rect(ui.screen_rect(), semi_black(0.5));
+            self.batch_import_input
+                .render(ui, Rect::new(-0.4, -0.2, 0.8, 0.4), 1., &tl!("batch-import"));
+        }
 
         if self.has_task() {
             ui.full_loading_simple(t);

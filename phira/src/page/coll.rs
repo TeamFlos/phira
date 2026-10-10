@@ -205,7 +205,7 @@ impl Page for CollectionPage {
             let r = tr.r;
             let r = Rect::new(f32::tween(&r.x, &sr.x, xp), f32::tween(&r.y, &sr.y, yp), f32::tween(&r.w, &sr.w, xp), f32::tween(&r.h, &sr.h, yp));
             let ir = Rect::tween(&tr.ir, &sr, xp);
-            ui.fill_rect(r, (*tr.illu, ir));
+            ui.fill_rect(r, (Texture2D::clone(&tr.illu), ir));
             ui.fill_rect(r, semi_black(0.2 + 0.1 * p));
             if p >= 1. && tr.t > 0. {
                 self.ok_to_transit = true;

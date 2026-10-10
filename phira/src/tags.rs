@@ -1,32 +1,29 @@
 prpr_l10n::tl_file!("tags");
 
 use crate::{client::Permissions, page::Fader};
-use inputbox::InputBox;
 use macroquad::prelude::*;
 use prpr::{
     core::BOLD_FONT,
     ext::{semi_black, RectExt},
-    scene::{request_input, return_input, show_message, take_input},
-    ui::{DRectButton, Scroll, Ui},
+    scene::show_message,
+    ui::{DRectButton, InlineInputBtn, Scroll, Ui},
 };
 use smallvec::{smallvec, SmallVec};
 
 const DIVISION_TAGS: &[&str] = &["regular", "troll", "plain", "visual"];
 
 pub struct Tags {
-    input_id: &'static str,
     tags: Vec<String>,
     btns: Vec<DRectButton>,
-    add: DRectButton,
+    add_input: InlineInputBtn,
 }
 
 impl Tags {
-    pub fn new(input_id: &'static str) -> Self {
+    pub fn new() -> Self {
         Self {
-            input_id,
             tags: Vec::new(),
             btns: Vec::new(),
-            add: DRectButton::new(),
+            add_input: InlineInputBtn::new(),
         }
     }
 
@@ -63,6 +60,7 @@ impl Tags {
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> bool {
+        self.add_input.touch(touch);
         for (index, btn) in self.btns.iter_mut().enumerate() {
             if btn.touch(touch, t) {
                 self.tags.remove(index);
@@ -70,11 +68,30 @@ impl Tags {
                 return true;
             }
         }
-        if self.add.touch(touch, t) {
-            request_input(self.input_id, InputBox::new());
-            return true;
-        }
+        self.add_input.activate(touch, t, "");
         false
+    }
+
+    /// Advances the pending tag input, adding the tag once the player
+    /// finishes editing (tap outside or Enter).
+    pub fn update_input(&mut self) {
+        if let Some(text) = self.add_input.confirm() {
+            self.try_add(text.trim());
+        }
+        self.add_input.update();
+    }
+
+    /// Applies the pending tag input immediately.
+    pub fn finish_input(&mut self) {
+        if self.add_input.is_active() {
+            let text = self.add_input.input.confirm();
+            self.try_add(text.trim());
+        }
+    }
+
+    /// Drops the pending tag input without adding it.
+    pub fn cancel_input(&mut self) {
+        self.add_input.input.cancel();
     }
 
     pub fn render(&mut self, ui: &mut Ui, mw: f32, t: f32) -> f32 {
@@ -86,19 +103,31 @@ impl Tags {
 
         let mut h = 0.;
         let mut x = 0.;
-        let mut draw = |btn: &mut DRectButton, text: &str| {
-            let w = ui.text(text).size(sz).measure().w.clamp(0.08, tmw);
+        let mut next_rect = |w: f32| {
+            let w = w.clamp(0.08, tmw);
             if x + w + (margin + pad) * 2. > mw {
                 x = 0.;
                 h += row_height;
             }
-            btn.render_text(ui, Rect::new(x, h, w + (margin + pad) * 2., row_height).feather(-pad), t, text, sz, true);
-            x += w + (margin + pad) * 2.;
+            let r = Rect::new(x, h, w + (margin + pad) * 2., row_height);
+            x += r.w;
+            r
         };
         for (tag, btn) in self.tags.iter().zip(self.btns.iter_mut()) {
-            draw(btn, tag);
+            let r = next_rect(ui.text(tag).size(sz).measure().w);
+            btn.render_text(ui, r.feather(-pad), t, tag, sz, true);
         }
-        draw(&mut self.add, "+");
+        if self.add_input.is_active() {
+            if x + 0.2 > mw {
+                x = 0.;
+                h += row_height;
+            }
+            let r = Rect::new(x, h, (mw - x).max(0.2), row_height).feather(-pad);
+            self.add_input.input.render(ui, r, 1., "");
+        } else {
+            let r = next_rect(ui.text("+").size(sz).measure().w);
+            self.add_input.btn.render_text(ui, r.feather(-pad), t, "+", sz, true);
+        }
         h + row_height
     }
 
@@ -146,8 +175,8 @@ impl TagsDialog {
             show: false,
 
             scroll: Scroll::new(),
-            tags: Tags::new("add_tag"),
-            unwanted: if search_mode { Some(Tags::new("add_tag_unwanted")) } else { None },
+            tags: Tags::new(),
+            unwanted: if search_mode { Some(Tags::new()) } else { None },
 
             division: DIVISION_TAGS[0],
             div_btns: DIVISION_TAGS.iter().map(|_| DRectButton::new()).collect(),
@@ -181,6 +210,10 @@ impl TagsDialog {
     }
 
     pub fn dismiss(&mut self, t: f32) {
+        self.tags.finish_input();
+        if let Some(unwanted) = &mut self.unwanted {
+            unwanted.finish_input();
+        }
         self.show = false;
         self.fader.back(t);
     }
@@ -234,6 +267,10 @@ impl TagsDialog {
                 return true;
             }
             if self.btn_cancel.touch(touch, t) {
+                self.tags.cancel_input();
+                if let Some(unwanted) = &mut self.unwanted {
+                    unwanted.cancel_input();
+                }
                 self.confirmed = Some(false);
                 self.dismiss(t);
                 return true;
@@ -258,18 +295,9 @@ impl TagsDialog {
             self.show = !done;
         }
         self.scroll.update(t);
-        if let Some((id, text)) = take_input() {
-            match id.as_str() {
-                "add_tag" => {
-                    self.tags.try_add(text.trim());
-                }
-                "add_tag_unwanted" => {
-                    self.unwanted.as_mut().unwrap().try_add(text.trim());
-                }
-                _ => {
-                    return_input(id, text);
-                }
-            }
+        self.tags.update_input();
+        if let Some(unwanted) = &mut self.unwanted {
+            unwanted.update_input();
         }
     }
 

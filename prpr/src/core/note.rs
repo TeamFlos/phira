@@ -106,9 +106,15 @@ fn draw_tex_pts(res: &Resource, texture: Texture2D, order: i8, p: [Point; 4], co
         Vertex::new(p[2].x, p[2].y, 0., sx + sw, sy + sh, color),
         Vertex::new(p[3].x, p[3].y, 0., sx     , sy + sh, color),
     ];
-    res.note_buffer
-        .borrow_mut()
-        .push((order, texture.raw_miniquad_texture_handle().gl_internal_id()), vertices);
+    res.note_buffer.borrow_mut().push(
+        (
+            order,
+            match unsafe { get_internal_gl().quad_context.texture_raw_id(texture.raw_miniquad_id()) } {
+                miniquad::RawId::OpenGl(id) => id,
+            },
+        ),
+        vertices,
+    );
 }
 
 fn draw_center(res: &Resource, tex: Texture2D, order: i8, scale: f32, color: Color) {
@@ -265,7 +271,7 @@ impl Note {
         };
         match self.kind {
             NoteKind::Click => {
-                draw(res, *style.click);
+                draw(res, Texture2D::clone(&style.click));
             }
             NoteKind::Hold { end_time, end_height } => {
                 res.with_model(self.now_transform(res, ctrl_obj, 0., 0.), |res| {
@@ -293,7 +299,7 @@ impl Note {
                     // TODO (end_height - height) is not always total height
                     draw_tex(
                         res,
-                        **(if res.res_pack.info.hold_repeat {
+                        Texture2D::clone(if res.res_pack.info.hold_repeat {
                             style.hold_body.as_ref().unwrap()
                         } else {
                             tex
@@ -324,7 +330,7 @@ impl Note {
                         let hf = vec2(scale, r.h / r.w * scale * ratio);
                         draw_tex(
                             res,
-                            **tex,
+                            Texture2D::clone(tex),
                             order,
                             -scale,
                             bottom - if res.res_pack.info.hold_compact { hf.y } else { hf.y * 2. },
@@ -342,7 +348,7 @@ impl Note {
                     let hf = vec2(scale, r.h / r.w * scale * ratio);
                     draw_tex(
                         res,
-                        **tex,
+                        Texture2D::clone(tex),
                         order,
                         -scale,
                         top - if res.res_pack.info.hold_compact { hf.y } else { 0. },
@@ -357,10 +363,10 @@ impl Note {
                 });
             }
             NoteKind::Flick => {
-                draw(res, *style.flick);
+                draw(res, Texture2D::clone(&style.flick));
             }
             NoteKind::Drag => {
-                draw(res, *style.drag);
+                draw(res, Texture2D::clone(&style.drag));
             }
         }
     }
@@ -382,9 +388,9 @@ impl BadNote {
             draw_center(
                 res,
                 match &self.kind {
-                    NoteKind::Click => *style.click,
-                    NoteKind::Drag => *style.drag,
-                    NoteKind::Flick => *style.flick,
+                    NoteKind::Click => Texture2D::clone(&style.click),
+                    NoteKind::Drag => Texture2D::clone(&style.drag),
+                    NoteKind::Flick => Texture2D::clone(&style.flick),
                     _ => unreachable!(),
                 },
                 self.kind.order(),

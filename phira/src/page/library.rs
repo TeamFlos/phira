@@ -16,15 +16,14 @@ use crate::{
 };
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
-use inputbox::InputBox;
 #[cfg(target_os = "android")]
 use jni::{jni_sig, jni_str, objects::JObject, refs::Global, vm::JavaVM, EnvUnowned};
 use macroquad::prelude::*;
 use prpr::{
     ext::{poll_future, semi_black, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType},
-    scene::{request_file, request_input, return_input, show_error, show_message, take_input, NextScene},
+    scene::{request_file, show_error, show_message, NextScene},
     task::Task,
-    ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
+    ui::{button_hit, DRectButton, Dialog, InlineInputBox, InlineInputBtn, RectButton, Ui},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -108,7 +107,7 @@ pub struct LibraryPage {
 
     import_btn: DRectButton,
 
-    search_btn: DRectButton,
+    search_input: InlineInputBtn,
     search_str: String,
     search_clr_btn: RectButton,
 
@@ -156,6 +155,7 @@ pub struct LibraryPage {
     multi_select_cancel_btn: DRectButton,
     delete_multi: Arc<AtomicBool>,
     multi_create_fav_task: Option<Task<Result<CreateFavorite>>>,
+    new_fav_input: InlineInputBox,
 
     next_page: Option<NextPage>,
     next_page_task: LocalTask<Result<NextPage>>,
@@ -193,7 +193,7 @@ impl LibraryPage {
 
             import_btn: DRectButton::new(),
 
-            search_btn: DRectButton::new(),
+            search_input: InlineInputBtn::new(),
             search_str: String::new(),
             search_clr_btn: RectButton::new(),
 
@@ -243,6 +243,7 @@ impl LibraryPage {
             multi_select_cancel_btn: DRectButton::new(),
             delete_multi: Arc::default(),
             multi_create_fav_task: None,
+            new_fav_input: InlineInputBox::new(),
 
             next_page: None,
             next_page_task: None,
@@ -685,6 +686,11 @@ impl Page for LibraryPage {
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
+        if self.new_fav_input.is_active() {
+            self.new_fav_input.touch(touch);
+            return Ok(true);
+        }
+        self.search_input.touch(touch);
         if self.sync_fav_task.is_some()
             || self.export_task.is_some()
             || self.multi_create_fav_task.is_some()
@@ -776,9 +782,8 @@ impl Page for LibraryPage {
                     self.sync_local(s);
                     return Ok(true);
                 }
-                if !self.search_clr_btn.contains(touch.position) && self.search_btn.touch(touch, t) {
-                    request_input("search", InputBox::new().default_text(&self.search_str));
-                    return Ok(true);
+                if !self.search_clr_btn.contains(touch.position) {
+                    self.search_input.activate(touch, t, &self.search_str);
                 }
             }
             ChartListType::Ranked | ChartListType::Special | ChartListType::Unstable => {
@@ -789,9 +794,8 @@ impl Page for LibraryPage {
                     self.load_online();
                     return Ok(true);
                 }
-                if !self.search_clr_btn.contains(touch.position) && self.search_btn.touch(touch, t) {
-                    request_input("search", InputBox::new().default_text(&self.search_str));
-                    return Ok(true);
+                if !self.search_clr_btn.contains(touch.position) {
+                    self.search_input.activate(touch, t, &self.search_str);
                 }
                 if self.filter_btn.touch(touch, t) {
                     if self.filter_show_tag {
@@ -968,55 +972,57 @@ impl Page for LibraryPage {
             s.reload_local_charts();
             self.sync_local(s);
         }
-        if let Some((id, text)) = take_input() {
-            if id == "search" {
-                self.search_str = text;
-                if is_local {
-                    self.sync_local(s);
-                } else {
-                    self.current_page = 0;
-                    self.load_online();
-                }
-            } else if id == "new_fav" {
-                if text.is_empty() {
-                    use crate::page::favorites::{tl as ftl, L10N_LOCAL};
-                    show_message(ftl!("name-empty")).error();
-                } else if let Err(err) = crate::censor::check_text(&text) {
-                    show_message(err.to_string()).error();
-                } else {
-                    let charts_view = &mut self.tabs.selected_mut().view;
-                    if let Some(mut selected) = charts_view.multi_select.clone() {
-                        self.multi_create_fav_task = Some(Task::new(async move {
-                            let mut ids_str = String::new();
-                            for chart in &selected {
-                                if let Some(id) = chart.id() {
-                                    ids_str.push_str(&id.to_string());
-                                    ids_str.push(',');
-                                }
-                            }
-                            if !ids_str.is_empty() {
-                                ids_str.pop();
-                                let resp: Vec<Chart> = recv_raw(Client::get(format!("/chart/multi-get?ids={ids_str}"))).await?.json().await?;
-                                let mut id_to_chart = HashMap::new();
-                                for chart in resp {
-                                    id_to_chart.insert(chart.id, Box::new(chart));
-                                }
-                                for chart in &mut selected {
-                                    if let Some(id) = chart.id() {
-                                        chart.info = Some(Box::new(ChartRefChartInfo::from_chart(id_to_chart.get(&id).unwrap())));
-                                    }
-                                }
-                            }
-                            Ok(CreateFavorite {
-                                name: text,
-                                charts: selected,
-                            })
-                        }));
-                    }
-                }
+        if let Some(text) = self.search_input.confirm() {
+            self.search_str = text;
+            if is_local {
+                self.sync_local(s);
             } else {
-                return_input(id, text);
+                self.current_page = 0;
+                self.load_online();
             }
+        }
+        self.search_input.update();
+        if self.new_fav_input.need_confirm() {
+            let text = self.new_fav_input.confirm();
+            if text.is_empty() {
+                use crate::page::favorites::{tl as ftl, L10N_LOCAL};
+                show_message(ftl!("name-empty")).error();
+            } else if let Err(err) = crate::censor::check_text(&text) {
+                show_message(err.to_string()).error();
+            } else {
+                let charts_view = &mut self.tabs.selected_mut().view;
+                if let Some(mut selected) = charts_view.multi_select.clone() {
+                    self.multi_create_fav_task = Some(Task::new(async move {
+                        let mut ids_str = String::new();
+                        for chart in &selected {
+                            if let Some(id) = chart.id() {
+                                ids_str.push_str(&id.to_string());
+                                ids_str.push(',');
+                            }
+                        }
+                        if !ids_str.is_empty() {
+                            ids_str.pop();
+                            let resp: Vec<Chart> = recv_raw(Client::get(format!("/chart/multi-get?ids={ids_str}"))).await?.json().await?;
+                            let mut id_to_chart = HashMap::new();
+                            for chart in resp {
+                                id_to_chart.insert(chart.id, Box::new(chart));
+                            }
+                            for chart in &mut selected {
+                                if let Some(id) = chart.id() {
+                                    chart.info = Some(Box::new(ChartRefChartInfo::from_chart(id_to_chart.get(&id).unwrap())));
+                                }
+                            }
+                        }
+                        Ok(CreateFavorite {
+                            name: text,
+                            charts: selected,
+                        })
+                    }));
+                }
+            }
+        }
+        if self.new_fav_input.is_active() {
+            self.new_fav_input.update();
         }
         if let Some(task) = &mut self.multi_create_fav_task {
             if let Some(res) = task.take() {
@@ -1105,7 +1111,7 @@ impl Page for LibraryPage {
                 }
                 "multi-create-fav" => {
                     self.multi_operation_menu.dismiss(t);
-                    request_input("new_fav", InputBox::new());
+                    self.new_fav_input.activate("");
                 }
                 "multi-manage-fav" => {
                     if let Some(options) = self.get_move_fav_menu_options() {
@@ -1428,7 +1434,7 @@ impl Page for LibraryPage {
                     self.multi_operation_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, WHITE);
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.r#mod, cr, ScaleType::Fit, BLACK));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.r#mod), cr, ScaleType::Fit, BLACK));
                     });
                     if self.need_show_multi_operation_menu {
                         self.need_show_multi_operation_menu = false;
@@ -1447,7 +1453,7 @@ impl Page for LibraryPage {
                     self.multi_select_btn.render_shadow(ui, sr, t, |ui, path| {
                         ui.fill_path(&path, WHITE);
                         let ir = Rect::new(sr.x + 0.04, sr.center().y, 0., 0.).feather(0.025);
-                        ui.fill_rect(ir, (*self.icons.select, ir, ScaleType::Fit, BLACK));
+                        ui.fill_rect(ir, (Texture2D::clone(&self.icons.select), ir, ScaleType::Fit, BLACK));
                         ui.text(text)
                             .pos((ir.right() + sr.right() - 0.01) / 2., sr.center().y)
                             .size(0.5)
@@ -1469,7 +1475,7 @@ impl Page for LibraryPage {
                     self.multi_select_cancel_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, WHITE);
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.close, cr, ScaleType::Fit, BLACK));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.close), cr, ScaleType::Fit, BLACK));
                     });
                     r.x -= r.w + 0.02;
                 }
@@ -1478,7 +1484,7 @@ impl Page for LibraryPage {
                     self.import_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.plus, cr, ScaleType::Fit));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.plus), cr, ScaleType::Fit));
                     });
                     r.x -= r.w + 0.02;
                 }
@@ -1487,7 +1493,7 @@ impl Page for LibraryPage {
                     self.filter_btn.render_shadow(ui, r, t, |ui, path| {
                         ui.fill_path(&path, semi_black(0.4));
                         let cr = r.feather(-0.01);
-                        ui.fill_rect(cr, (*self.icons.filter, cr, ScaleType::Fit));
+                        ui.fill_rect(cr, (Texture2D::clone(&self.icons.filter), cr, ScaleType::Fit));
                     });
                     r.x -= r.w + 0.02;
                 } else if !multi_select {
@@ -1496,9 +1502,9 @@ impl Page for LibraryPage {
                         ui.fill_path(&path, if active { WHITE } else { semi_black(0.4) });
                         let cr = r.feather(-0.01);
                         if active {
-                            ui.fill_rect(cr, (*self.icons.star, cr, ScaleType::Fit, Color::from_rgba(255, 193, 7, 255)));
+                            ui.fill_rect(cr, (Texture2D::clone(&self.icons.star), cr, ScaleType::Fit, Color::from_rgba(255, 193, 7, 255)));
                         } else {
-                            ui.fill_rect(cr, (*self.icons.star_outline, cr, ScaleType::Fit));
+                            ui.fill_rect(cr, (Texture2D::clone(&self.icons.star_outline), cr, ScaleType::Fit));
                         }
                     });
                     r.x -= r.w + 0.02;
@@ -1507,7 +1513,7 @@ impl Page for LibraryPage {
                 self.order_btn.render_shadow(ui, r, t, |ui, path| {
                     ui.fill_path(&path, semi_black(0.4));
                     let cr = r.feather(-0.01);
-                    ui.fill_rect(cr, (*self.icons.order, cr, ScaleType::Fit));
+                    ui.fill_rect(cr, (Texture2D::clone(&self.icons.order), cr, ScaleType::Fit));
                 });
                 if self.need_show_order_meta_menu {
                     self.need_show_order_meta_menu = false;
@@ -1532,25 +1538,29 @@ impl Page for LibraryPage {
                     r.x += r.h;
                     r.w -= r.h;
                 }
-                let rt = r.right();
-                self.search_btn.render_shadow(ui, r, t, |ui, path| {
-                    ui.fill_path(&path, semi_black(0.4));
-                });
-                let mut r = r.feather(-0.01);
-                r.w = r.h;
-                if !empty {
-                    ui.fill_rect(r, (*self.icons.close, r, ScaleType::Fit));
-                    self.search_clr_btn.set(ui, r);
-                    r.x += r.w;
+                if self.search_input.is_active() {
+                    self.search_input.input.render(ui, r, 1., "");
+                } else {
+                    let rt = r.right();
+                    self.search_input.btn.render_shadow(ui, r, t, |ui, path| {
+                        ui.fill_path(&path, semi_black(0.4));
+                    });
+                    let mut r = r.feather(-0.01);
+                    r.w = r.h;
+                    if !empty {
+                        ui.fill_rect(r, (Texture2D::clone(&self.icons.close), r, ScaleType::Fit));
+                        self.search_clr_btn.set(ui, r);
+                        r.x += r.w;
+                    }
+                    ui.fill_rect(r, (Texture2D::clone(&self.icons.search), r, ScaleType::Fit));
+                    ui.text(&self.search_str)
+                        .pos(r.right() + 0.01, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.6)
+                        .max_width(rt - r.right() - 0.02)
+                        .draw();
                 }
-                ui.fill_rect(r, (*self.icons.search, r, ScaleType::Fit));
-                ui.text(&self.search_str)
-                    .pos(r.right() + 0.01, r.center().y)
-                    .anchor(0., 0.5)
-                    .no_baseline()
-                    .size(0.6)
-                    .max_width(rt - r.right() - 0.02)
-                    .draw();
             });
         }
         if chosen != ChartListType::Local {
@@ -1608,6 +1618,11 @@ impl Page for LibraryPage {
         self.manage_fav_menu.render(ui, t, 1.);
         self.tags.render(ui, t);
         self.rating.render(ui, t);
+        if self.new_fav_input.is_active() {
+            ui.fill_rect(ui.screen_rect(), semi_black(0.5));
+            self.new_fav_input
+                .render(ui, Rect::new(-0.35, -0.06, 0.7, 0.12), 1., &tl!("multi-create-fav"));
+        }
         Ok(())
     }
 

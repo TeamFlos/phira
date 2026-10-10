@@ -199,7 +199,7 @@ impl Illustration {
     }
 
     pub fn shading(&self, r: Rect, t: f32) -> impl Shading {
-        (*self.texture.0, r, ScaleType::CropCenter, semi_white(self.alpha(t))).into_shading()
+        (Texture2D::clone(&self.texture.0), r, ScaleType::CropCenter, semi_white(self.alpha(t))).into_shading()
     }
 }
 

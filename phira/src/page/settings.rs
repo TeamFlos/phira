@@ -11,15 +11,14 @@ use crate::{
 };
 use anyhow::Result;
 use bytesize::ByteSize;
-use inputbox::InputBox;
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
-    scene::{request_input, return_input, show_error, show_message, take_input},
+    scene::{show_error, show_message},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
+    ui::{DRectButton, InlineInputBtn, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
@@ -289,7 +288,7 @@ fn render_about(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let ct = r.center();
     let s = 0.1;
     let ir = Rect::new(ct.x - s, r.y + 0.05, s * 2., s * 2.);
-    ui.fill_path(&ir.rounded(0.02), (**icon, ir));
+    ui.fill_path(&ir.rounded(0.02), (Texture2D::clone(icon), ir));
 
     let staff = &*STAFF_LIST;
     let text = tl!(
@@ -396,13 +395,13 @@ struct GeneralList {
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
-    mp_addr_btn: DRectButton,
+    mp_addr_input: InlineInputBtn,
     #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
     prefer_reduced_motion_btn: DRectButton,
     insecure_btn: DRectButton,
     enable_anys_btn: DRectButton,
-    anys_gateway_btn: DRectButton,
+    anys_gateway_input: InlineInputBtn,
 
     cache_size: Option<u64>,
     cache_task: Option<Task<Result<u64>>>,
@@ -432,13 +431,13 @@ impl GeneralList {
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
-            mp_addr_btn: DRectButton::new(),
+            mp_addr_input: InlineInputBtn::new().set_centered(),
             #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
             prefer_reduced_motion_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
             enable_anys_btn: DRectButton::new(),
-            anys_gateway_btn: DRectButton::new(),
+            anys_gateway_input: InlineInputBtn::new().set_centered(),
 
             cache_size: None,
             cache_task: None,
@@ -480,6 +479,11 @@ impl GeneralList {
     pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
         let data = get_data_mut();
         let config = &mut data.config;
+        self.mp_addr_input.touch(touch);
+        self.mp_addr_input.activate(touch, t, &config.mp_address);
+        self.anys_gateway_input.touch(touch);
+        self.anys_gateway_input.activate(touch, t, &data.anys_gateway);
+
         if self.lang_btn.touch(touch, t) {
             return Ok(Some(false));
         }
@@ -512,10 +516,6 @@ impl GeneralList {
             config.mp_enabled ^= true;
             return Ok(Some(true));
         }
-        if self.mp_addr_btn.touch(touch, t) {
-            request_input("mp_addr", InputBox::new().default_text(&config.mp_address));
-            return Ok(Some(true));
-        }
         #[cfg(not(target_env = "ohos"))]
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
@@ -534,41 +534,30 @@ impl GeneralList {
             data.enable_anys ^= true;
             return Ok(Some(true));
         }
-        if self.anys_gateway_btn.touch(touch, t) {
-            request_input("anys_gateway", InputBox::new().default_text(&data.anys_gateway));
-            return Ok(Some(true));
-        }
         Ok(None)
     }
 
     pub fn update(&mut self, t: f32) -> Result<bool> {
         self.lang_btn.update(t);
         let data = get_data_mut();
+        if let Some(text) = self.mp_addr_input.confirm() {
+            data.config.mp_address = text;
+            return Ok(true);
+        }
+        if let Some(text) = self.anys_gateway_input.confirm() {
+            if let Err(err) = Url::parse(&text) {
+                show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
+                return Ok(false);
+            }
+            data.anys_gateway = text.trim_end_matches('/').to_string();
+            return Ok(true);
+        }
+        self.mp_addr_input.update();
+        self.anys_gateway_input.update();
         if self.lang_btn.changed() {
             data.language = Some(LANG_IDENTS[self.lang_btn.selected()].to_string());
             sync_data();
             return Ok(true);
-        }
-        if let Some((id, text)) = take_input() {
-            if id == "mp_addr" {
-                if let Err(err) = text.parse::<http::uri::Authority>() {
-                    show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
-                    return Ok(false);
-                } else {
-                    data.config.mp_address = text;
-                    return Ok(true);
-                }
-            } else if id == "anys_gateway" {
-                if let Err(err) = Url::parse(&text) {
-                    show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
-                    return Ok(false);
-                } else {
-                    data.anys_gateway = text.trim_end_matches('/').to_string();
-                    return Ok(true);
-                }
-            } else {
-                return_input(id, text);
-            }
         }
         if let Some(task) = &mut self.cache_task {
             if let Some(size) = task.take() {
@@ -597,7 +586,7 @@ impl GeneralList {
             let rt = render_title(ui, tl!("item-lang"), None);
             let w = 0.06;
             let r = Rect::new(rt + 0.01, (ITEM_HEIGHT - w) / 2., w, w);
-            ui.fill_rect(r, (*self.icon_lang, r));
+            ui.fill_rect(r, (Texture2D::clone(&self.icon_lang), r));
             self.lang_btn.render(ui, rr, t);
         }
 
@@ -622,7 +611,7 @@ impl GeneralList {
         }
         item! {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
-            self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
+            self.mp_addr_input.render(ui, rr, t, WHITE, &tl!("item-mp-addr"), &config.mp_address);
         }
         item! {
             render_title(ui, tl!("item-prefer-reduced-motion"), Some(tl!("item-prefer-reduced-motion-sub")));
@@ -654,7 +643,7 @@ impl GeneralList {
         }
         item! {
             render_title(ui, tl!("item-anys-gateway"), Some(tl!("item-anys-gateway-sub")));
-            self.anys_gateway_btn.render_text(ui, rr, t, &data.anys_gateway, 0.4, false);
+            self.anys_gateway_input.render(ui, rr, t, WHITE, &tl!("item-anys-gateway"), &data.anys_gateway);
         }
         self.lang_btn.render_top(ui, t, 1.);
         (w, h)
