@@ -29,7 +29,6 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use core::f32;
 use futures_util::StreamExt;
-use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
@@ -44,12 +43,15 @@ use prpr::{
     info::ChartInfo,
     judge::{icon_index, Judge},
     scene::{
-        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
+        request_file, return_file, show_error, show_message, take_file, BasicPlayer, GameMode, LoadingScene, LocalSceneTask, NextScene,
+        RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
     },
     task::Task,
     time::TimeManager,
-    ui::{button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, LoadingParams, LongTouchState, RectButton, Scroll, Ui, UI_AUDIO},
+    ui::{
+        button_hit, render_chart_info, ChartInfoEdit, DRectButton, Dialog, InlineInputBox, LoadingParams, LongTouchState, RectButton, Scroll, Ui,
+        UI_AUDIO,
+    },
 };
 use regex::Regex;
 use reqwest::Method;
@@ -364,6 +366,8 @@ pub struct SongScene {
     need_show_fav_menu: bool,
 
     review_task: Option<Task<Result<String>>>,
+    review_input: InlineInputBox,
+    review_action: Option<&'static str>,
     chart_should_delete: Arc<AtomicBool>,
     should_review_approve: Arc<AtomicBool>,
 
@@ -407,6 +411,10 @@ pub struct SongScene {
     toggle_fav_task: Option<Task<Result<(Collection, bool)>>>,
 
     confirm_cancel_edit: Arc<AtomicBool>,
+    /// Deferred save/cancel request from the edit panel's bottom bar. Handled in
+    /// `update` so an inline field still being edited commits its text first.
+    should_save_edit: bool,
+    should_hide_side: bool,
 
     collaborators: BTreeMap<i32, (Option<String>, RectButton)>,
     autocomplete_task: Option<Task<Result<String>>>,
@@ -542,6 +550,8 @@ impl SongScene {
             need_show_fav_menu: false,
 
             review_task: None,
+            review_input: InlineInputBox::new().set_multiline(),
+            review_action: None,
             chart_should_delete: Arc::default(),
             should_review_approve: Arc::default(),
 
@@ -597,6 +607,8 @@ impl SongScene {
             toggle_fav_task: None,
 
             confirm_cancel_edit: Arc::default(),
+            should_save_edit: false,
+            should_hide_side: false,
 
             collaborators: BTreeMap::new(),
             autocomplete_task: None,
@@ -1109,11 +1121,7 @@ impl SongScene {
         let dx = width / if is_owner { 3. } else { 2. };
         let mut r = Rect::new(hpad, ui.top * 2. - h + vpad, dx - hpad * 2., h - vpad * 2.);
         if ui.button("cancel", r, tl!("edit-cancel")) {
-            if self.info_edit.as_ref().is_some_and(|it| it.updated) {
-                confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
-            } else {
-                self.hide_side(rt);
-            }
+            self.should_hide_side = true;
         }
         if is_owner {
             r.x += dx;
@@ -1159,7 +1167,7 @@ impl SongScene {
         }
         r.x += dx;
         if ui.button("save", r, tl!("edit-save")) {
-            self.try_save_with_autocomplete();
+            self.should_save_edit = true;
         }
 
         ui.ensure_touches()
@@ -1678,6 +1686,10 @@ impl Scene for SongScene {
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
         let t = tm.now() as f32;
+        if self.review_input.is_active() {
+            self.review_input.touch(touch);
+            return Ok(true);
+        }
         if self.scene_task.is_some()
             || self.save_task.is_some()
             || self.upload_task.is_some()
@@ -1728,11 +1740,7 @@ impl Scene for SongScene {
                             }
                         }
                     }
-                    if matches!(self.side_content, SideContent::Edit) && self.info_edit.as_ref().is_some_and(|it| it.updated) {
-                        confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
-                    } else {
-                        self.hide_side(rt);
-                    }
+                    self.should_hide_side = true;
                     return Ok(true);
                 }
                 match self.side_content {
@@ -2084,7 +2092,8 @@ impl Scene for SongScene {
                     confirm_dialog(tl!("warn"), tl!("review-approve-confirm"), Arc::clone(&self.should_review_approve));
                 }
                 "review-deny" => {
-                    request_input("deny-reason", InputBox::new().mode(InputMode::Multiline));
+                    self.review_action = Some("deny-reason");
+                    self.review_input.activate("");
                 }
                 "review-del" => {
                     confirm_delete(self.chart_should_delete.clone());
@@ -2107,10 +2116,12 @@ impl Scene for SongScene {
                     confirm_dialog(tl!("warn"), tl!("stabilize-approve-confirm"), Arc::clone(&self.should_stabilize_approve_ranked));
                 }
                 "stabilize-comment" => {
-                    request_input("stabilize-comment", InputBox::new().mode(InputMode::Multiline));
+                    self.review_action = Some("stabilize-comment");
+                    self.review_input.activate("");
                 }
                 "stabilize-deny" => {
-                    request_input("stabilize-deny-reason", InputBox::new().mode(InputMode::Multiline));
+                    self.review_action = Some("stabilize-deny-reason");
+                    self.review_input.activate("");
                 }
                 "export" => {
                     request_export(format!("{}.zip", sanitize(&self.info.name)));
@@ -2421,9 +2432,10 @@ impl Scene for SongScene {
                 self.ldb_task = None;
             }
         }
-        if let Some((id, text)) = take_input() {
-            match id.as_str() {
-                "deny-reason" => {
+        if self.review_input.need_confirm() {
+            let text = self.review_input.confirm();
+            match self.review_action.take() {
+                Some("deny-reason") => {
                     let id = self.info.id.unwrap();
                     self.review_task = Some(Task::new(async move {
                         recv_raw(Client::post(
@@ -2437,7 +2449,7 @@ impl Scene for SongScene {
                         Ok(tl!("review-denied").into_owned())
                     }));
                 }
-                "stabilize-comment" => {
+                Some("stabilize-comment") => {
                     let id = self.info.id.unwrap();
                     self.review_task = Some(Task::new(async move {
                         recv_raw(Client::post(
@@ -2450,7 +2462,7 @@ impl Scene for SongScene {
                         Ok(tl!("stabilize-commented").into())
                     }));
                 }
-                "stabilize-deny-reason" => {
+                Some("stabilize-deny-reason") => {
                     let id = self.info.id.unwrap();
                     self.review_task = Some(Task::new(async move {
                         let resp: StableR = recv_raw(Client::post(
@@ -2471,9 +2483,10 @@ impl Scene for SongScene {
                         .into())
                     }));
                 }
-                _ => return_input(id, text),
+                _ => {}
             }
         }
+        self.review_input.update();
         if let Some((id, file)) = take_file() {
             if id == "overwrite" {
                 self.overwrite_from = Some(file);
@@ -2629,6 +2642,16 @@ impl Scene for SongScene {
                     }
                 }
                 self.toggle_fav_task = None;
+            }
+        }
+        if std::mem::take(&mut self.should_save_edit) {
+            self.try_save_with_autocomplete();
+        }
+        if std::mem::take(&mut self.should_hide_side) {
+            if matches!(self.side_content, SideContent::Edit) && self.info_edit.as_ref().is_some_and(|it| it.updated) {
+                confirm_dialog(tl!("warn"), tl!("cancel-not-saved"), self.confirm_cancel_edit.clone());
+            } else {
+                self.hide_side(rt);
             }
         }
         if self.confirm_cancel_edit.swap(false, Ordering::Relaxed) {
@@ -2872,6 +2895,11 @@ impl Scene for SongScene {
         }
 
         self.sf.render(ui, t);
+
+        if self.review_input.is_active() {
+            ui.fill_rect(ui.screen_rect(), semi_black(0.5));
+            self.review_input.render(ui, Rect::new(-0.4, -0.2, 0.8, 0.4), 1., "");
+        }
 
         Ok(())
     }

@@ -10,7 +10,7 @@ mod dialog;
 pub use dialog::Dialog;
 
 mod scroll;
-use inputbox::{InputBox, InputMode};
+use inputbox::InputMode;
 pub use scroll::*;
 
 mod offset_analysis;
@@ -34,7 +34,7 @@ use crate::{
     core::{Matrix, Point, Vector},
     ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
-    scene::{request_input, return_input, show_error, take_input},
+    scene::show_error,
 };
 use core::f32;
 use lyon::{
@@ -624,6 +624,7 @@ impl Slider {
 
 thread_local! {
     static STATE: RefCell<HashMap<String, Option<u64>>> = RefCell::new(HashMap::new());
+    static INPUT_STATE: RefCell<HashMap<String, InlineInputBox>> = RefCell::new(HashMap::new());
 }
 
 pub struct InputParams<'a> {
@@ -1053,26 +1054,53 @@ impl<'a> Ui<'a> {
         let label = label.into();
         let params = params.into();
         let id = format!("input#{label}");
-        let r = self.text(label).anchor(1., 0.).size(0.47).draw();
+        let r = self.text(&label).anchor(1., 0.).size(0.47).draw();
         let lf = r.x;
         let r = Rect::new(0.02, r.y - 0.01, params.length, r.h + 0.02);
-        if if params.mode == InputMode::Password {
-            self.button(&id, r, "*".repeat(value.chars().count()))
-        } else {
-            self.button(&id, r, value.lines().next().unwrap_or_default())
-        } {
-            request_input(&id, InputBox::new().default_text(value.as_str()).mode(params.mode));
-        }
-        if let Some((its_id, text)) = take_input() {
-            if its_id == id {
-                if let Some(changed) = params.changed {
-                    *changed = true;
+        INPUT_STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            let input = state.entry(id.clone()).or_insert_with(|| {
+                let mut it = InlineInputBox::new();
+                if params.mode == InputMode::Password {
+                    it = it.set_password();
                 }
-                *value = text;
-            } else {
-                return_input(its_id, text);
+                if params.mode == InputMode::Multiline {
+                    it = it.set_multiline();
+                }
+                it
+            });
+            if input.is_active() {
+                // While a field is focused it is effectively modal: it must see
+                // every touch, even ones already consumed by other widgets
+                // (e.g. a save button processed earlier in the frame), so the
+                // edited text is committed before those widgets act.
+                for touch in Judge::get_touches() {
+                    if touch.phase == TouchPhase::Stationary {
+                        continue;
+                    }
+                    input.touch(&touch);
+                }
+                if input.need_confirm() {
+                    if let Some(changed) = params.changed {
+                        *changed = true;
+                    }
+                    *value = input.confirm();
+                } else {
+                    input.update();
+                    input.render(self, r, 1., &label);
+                }
+            } else if self.button(
+                &id,
+                r,
+                if params.mode == InputMode::Password {
+                    "*".repeat(value.chars().count())
+                } else {
+                    value.lines().next().unwrap_or_default().to_owned()
+                },
+            ) {
+                input.activate(value);
             }
-        }
+        });
         Rect::new(lf, r.y, r.right() - lf, r.h)
     }
 

@@ -3220,7 +3220,6 @@ dependencies = [
  "hex",
  "http",
  "image",
- "inputbox",
  "jni 0.22.4",
  "logos",
  "lru",

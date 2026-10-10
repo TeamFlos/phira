@@ -6,7 +6,7 @@ use super::{
     draw_background,
     ending::RecordUpdateState,
     loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn},
-    request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
+    show_message, EndingScene, NextScene, Scene,
 };
 use crate::{
     bin::BinaryReader,
@@ -19,11 +19,10 @@ use crate::{
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
-    ui::{OffsetAnalysisPanel, OffsetPanelAction, OffsetPanelLabels, RectButton, TextPainter, Ui},
+    ui::{InlineInputBtn, OffsetAnalysisPanel, OffsetPanelAction, OffsetPanelLabels, RectButton, TextPainter, Ui},
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
-use inputbox::InputBox;
 use macroquad::{prelude::*, window::InternalGlContext};
 use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
@@ -132,7 +131,8 @@ pub struct GameScene {
     first_in: bool,
     exercise_range: Range<f64>,
     exercise_press: Option<(i8, u64)>,
-    exercise_btns: (RectButton, RectButton),
+    exercise_start_input: InlineInputBtn,
+    exercise_end_input: InlineInputBtn,
 
     pub music: Music,
 
@@ -325,7 +325,8 @@ impl GameScene {
             first_in: false,
             exercise_range,
             exercise_press: None,
-            exercise_btns: (RectButton::new(), RectButton::new()),
+            exercise_start_input: InlineInputBtn::new(),
+            exercise_end_input: InlineInputBtn::new(),
 
             music,
 
@@ -752,10 +753,14 @@ impl GameScene {
                     .size(0.8)
                     .color(BLACK);
                 let re = tx.measure();
-                self.exercise_btns.0.set(tx.ui, re);
-                tx.ui
-                    .fill_rect(re.feather(0.01), Color::new(1., 1., 1., if self.exercise_btns.0.touching() { 0.5 } else { 1. }));
-                tx.draw();
+                if self.exercise_start_input.is_active() {
+                    self.exercise_start_input.input.render(tx.ui, re.feather(0.05), 1., "");
+                } else {
+                    self.exercise_start_input.btn.inner.set(tx.ui, re);
+                    tx.ui
+                        .fill_rect(re.feather(0.01), Color::new(1., 1., 1., if self.exercise_start_input.btn.inner.touching() { 0.5 } else { 1. }));
+                    tx.draw();
+                }
 
                 let mut tx = ui
                     .text(fmt_time(self.exercise_range.end as f32))
@@ -763,10 +768,14 @@ impl GameScene {
                     .size(0.8)
                     .color(BLACK);
                 let re = tx.measure();
-                self.exercise_btns.1.set(tx.ui, re);
-                tx.ui
-                    .fill_rect(re.feather(0.01), Color::new(1., 1., 1., if self.exercise_btns.1.touching() { 0.5 } else { 1. }));
-                tx.draw();
+                if self.exercise_end_input.is_active() {
+                    self.exercise_end_input.input.render(tx.ui, re.feather(0.05), 1., "");
+                } else {
+                    self.exercise_end_input.btn.inner.set(tx.ui, re);
+                    tx.ui
+                        .fill_rect(re.feather(0.01), Color::new(1., 1., 1., if self.exercise_end_input.btn.inner.touching() { 0.5 } else { 1. }));
+                    tx.draw();
+                }
                 for touch in ui.ensure_touches() {
                     touch.position /= asp;
                 }
@@ -1072,36 +1081,34 @@ impl Scene for GameScene {
         for e in &mut self.effects {
             e.update(&self.res);
         }
-        if let Some((id, text)) = take_input() {
-            let offset = self.offset().min(0.);
-            match id.as_str() {
-                "exercise_start" => {
-                    if let Some(t) = parse_time(&text) {
-                        if !(offset as f64..self.res.track_length.min(self.exercise_range.end - 3.).max(offset as f64)).contains(&t) {
-                            show_message(tl!("ex-time-out-of-range")).error();
-                        } else {
-                            self.exercise_range.start = t;
-                            show_message(tl!("ex-time-set")).ok();
-                        }
-                    } else {
-                        show_message(tl!("ex-invalid-format")).error();
-                    }
+        if let Some(text) = self.exercise_start_input.confirm() {
+            if let Some(t) = parse_time(&text) {
+                let offset = self.offset().min(0.);
+                if !(offset as f64..self.res.track_length.min(self.exercise_range.end - 3.).max(offset as f64)).contains(&t) {
+                    show_message(tl!("ex-time-out-of-range")).error();
+                } else {
+                    self.exercise_range.start = t;
+                    show_message(tl!("ex-time-set")).ok();
                 }
-                "exercise_end" => {
-                    if let Some(t) = parse_time(&text) {
-                        if !((self.exercise_range.start + 3.).max(offset as f64).min(self.res.track_length)..self.res.track_length).contains(&t) {
-                            show_message(tl!("ex-time-out-of-range")).error();
-                        } else {
-                            self.exercise_range.end = t;
-                            show_message(tl!("ex-time-set")).ok();
-                        }
-                    } else {
-                        show_message(tl!("ex-invalid-format")).error();
-                    }
-                }
-                _ => return_input(id, text),
+            } else {
+                show_message(tl!("ex-invalid-format")).error();
             }
         }
+        if let Some(text) = self.exercise_end_input.confirm() {
+            if let Some(t) = parse_time(&text) {
+                let offset = self.offset().min(0.);
+                if !((self.exercise_range.start + 3.).max(offset as f64).min(self.res.track_length)..self.res.track_length).contains(&t) {
+                    show_message(tl!("ex-time-out-of-range")).error();
+                } else {
+                    self.exercise_range.end = t;
+                    show_message(tl!("ex-time-set")).ok();
+                }
+            } else {
+                show_message(tl!("ex-invalid-format")).error();
+            }
+        }
+        self.exercise_start_input.update();
+        self.exercise_end_input.update();
         Ok(())
     }
 
@@ -1114,12 +1121,12 @@ impl Scene for GameScene {
                 position: touch.position * self.touch_scale(),
                 ..touch.clone()
             };
-            if self.exercise_btns.0.touch(&touch) {
-                request_input("exercise_start", InputBox::new().default_text(fmt_time(self.exercise_range.start as f32)));
-                return Ok(true);
-            }
-            if self.exercise_btns.1.touch(&touch) {
-                request_input("exercise_end", InputBox::new().default_text(fmt_time(self.exercise_range.end as f32)));
+            let t = tm.now() as f32;
+            self.exercise_start_input.touch(&touch);
+            self.exercise_end_input.touch(&touch);
+            self.exercise_start_input.activate(&touch, t, &fmt_time(self.exercise_range.start as f32));
+            self.exercise_end_input.activate(&touch, t, &fmt_time(self.exercise_range.end as f32));
+            if self.exercise_start_input.is_active() || self.exercise_end_input.is_active() {
                 return Ok(true);
             }
         }

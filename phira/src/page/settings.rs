@@ -11,13 +11,12 @@ use crate::{
 };
 use anyhow::Result;
 use bytesize::ByteSize;
-use inputbox::InputBox;
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
-    scene::{request_input, return_input, show_error, show_message, take_input},
+    scene::{show_error, show_message},
     task::Task,
     ui::{DRectButton, InlineInputBtn, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
@@ -402,7 +401,7 @@ struct GeneralList {
     prefer_reduced_motion_btn: DRectButton,
     insecure_btn: DRectButton,
     enable_anys_btn: DRectButton,
-    anys_gateway_btn: DRectButton,
+    anys_gateway_input: InlineInputBtn,
 
     cache_size: Option<u64>,
     cache_task: Option<Task<Result<u64>>>,
@@ -438,7 +437,7 @@ impl GeneralList {
             prefer_reduced_motion_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
             enable_anys_btn: DRectButton::new(),
-            anys_gateway_btn: DRectButton::new(),
+            anys_gateway_input: InlineInputBtn::new().set_centered(),
 
             cache_size: None,
             cache_task: None,
@@ -482,6 +481,8 @@ impl GeneralList {
         let config = &mut data.config;
         self.mp_addr_input.touch(touch);
         self.mp_addr_input.activate(touch, t, &config.mp_address);
+        self.anys_gateway_input.touch(touch);
+        self.anys_gateway_input.activate(touch, t, &data.anys_gateway);
 
         if self.lang_btn.touch(touch, t) {
             return Ok(Some(false));
@@ -533,10 +534,6 @@ impl GeneralList {
             data.enable_anys ^= true;
             return Ok(Some(true));
         }
-        if self.anys_gateway_btn.touch(touch, t) {
-            request_input("anys_gateway", InputBox::new().default_text(&data.anys_gateway));
-            return Ok(Some(true));
-        }
         Ok(None)
     }
 
@@ -547,32 +544,20 @@ impl GeneralList {
             data.config.mp_address = text;
             return Ok(true);
         }
+        if let Some(text) = self.anys_gateway_input.confirm() {
+            if let Err(err) = Url::parse(&text) {
+                show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
+                return Ok(false);
+            }
+            data.anys_gateway = text.trim_end_matches('/').to_string();
+            return Ok(true);
+        }
         self.mp_addr_input.update();
+        self.anys_gateway_input.update();
         if self.lang_btn.changed() {
             data.language = Some(LANG_IDENTS[self.lang_btn.selected()].to_string());
             sync_data();
             return Ok(true);
-        }
-        if let Some((id, text)) = take_input() {
-            if id == "mp_addr" {
-                if let Err(err) = text.parse::<http::uri::Authority>() {
-                    show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
-                    return Ok(false);
-                } else {
-                    data.config.mp_address = text;
-                    return Ok(true);
-                }
-            } else if id == "anys_gateway" {
-                if let Err(err) = Url::parse(&text) {
-                    show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
-                    return Ok(false);
-                } else {
-                    data.anys_gateway = text.trim_end_matches('/').to_string();
-                    return Ok(true);
-                }
-            } else {
-                return_input(id, text);
-            }
         }
         if let Some(task) = &mut self.cache_task {
             if let Some(size) = task.take() {
@@ -658,7 +643,7 @@ impl GeneralList {
         }
         item! {
             render_title(ui, tl!("item-anys-gateway"), Some(tl!("item-anys-gateway-sub")));
-            self.anys_gateway_btn.render_text(ui, rr, t, &data.anys_gateway, 0.4, false);
+            self.anys_gateway_input.render(ui, rr, t, WHITE, &tl!("item-anys-gateway"), &data.anys_gateway);
         }
         self.lang_btn.render_top(ui, t, 1.);
         (w, h)
