@@ -32,7 +32,7 @@ pub use glyph_brush::ab_glyph::FontArc;
 
 use crate::{
     core::{Matrix, Point, Vector},
-    ext::{get_viewport, nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
+    ext::{nalgebra_to_glm, semi_black, semi_white, source_of_image, RectExt, SafeTexture, ScaleType},
     judge::Judge,
     scene::show_error,
 };
@@ -913,10 +913,22 @@ impl<'a> Ui<'a> {
         let igl = unsafe { get_internal_gl() };
         let gl = igl.quad_gl;
         let rect = self.rect_to_global(rect);
-        let vp = get_viewport();
+        let vp = gl.get_viewport();
         let pt = (
             vp.0 as f32 + (rect.x + 1.) / 2. * vp.2 as f32,
-            (screen_height() - (vp.1 + vp.3) as f32) + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32,
+            match gl.get_active_render_pass() {
+                Some(pass) => {
+                    let texture = igl.quad_context.render_pass_texture(pass);
+                    let target_height = igl.quad_context.texture_size(texture).1 as f32;
+                    target_height
+                        - (vp.1 as f32
+                            + ((rect.y + rect.h) * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32)
+                }
+                None => {
+                    (screen_height() - (vp.1 + vp.3) as f32)
+                        + (rect.y * vp.2 as f32 / vp.3 as f32 + 1.) / 2. * vp.3 as f32
+                }
+            },
         );
 
         let old = self.scissor;
