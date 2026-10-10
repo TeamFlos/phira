@@ -325,8 +325,8 @@ impl GameScene {
             first_in: false,
             exercise_range,
             exercise_press: None,
-            exercise_start_input: InlineInputBtn::new(),
-            exercise_end_input: InlineInputBtn::new(),
+            exercise_start_input: InlineInputBtn::new().set_centered(),
+            exercise_end_input: InlineInputBtn::new().set_centered(),
 
             music,
 
@@ -744,17 +744,17 @@ impl GameScene {
                         }
                     }
                 }
-                ui.dy(0.2);
-                let r = ui.text(tl!("to")).size(0.8).anchor(0.5, 0.).draw();
+                ui.dy(-0.06);
+                let r = ui.text(tl!("to")).size(0.8).pos(0.0, 0.2).anchor(0.5, 0.0).draw();
                 let mut tx = ui
                     .text(fmt_time(self.exercise_range.start as f32))
-                    .pos(r.x - 0.02, 0.)
+                    .pos(r.x - 0.02, 0.2)
                     .anchor(1., 0.)
                     .size(0.8)
                     .color(BLACK);
                 let re = tx.measure();
                 if self.exercise_start_input.is_active() {
-                    self.exercise_start_input.input.render(tx.ui, re.feather(0.05), 1., "");
+                    self.exercise_start_input.input.render(tx.ui, re.feather(0.01), 1., "hh:mm:ss.ms");
                 } else {
                     self.exercise_start_input.btn.inner.set(tx.ui, re);
                     tx.ui
@@ -764,12 +764,12 @@ impl GameScene {
 
                 let mut tx = ui
                     .text(fmt_time(self.exercise_range.end as f32))
-                    .pos(r.right() + 0.02, 0.)
+                    .pos(r.right() + 0.02, 0.2)
                     .size(0.8)
                     .color(BLACK);
                 let re = tx.measure();
                 if self.exercise_end_input.is_active() {
-                    self.exercise_end_input.input.render(tx.ui, re.feather(0.05), 1., "");
+                    self.exercise_end_input.input.render(tx.ui, re.feather(0.01), 1., "hh:mm:ss.ms");
                 } else {
                     self.exercise_end_input.btn.inner.set(tx.ui, re);
                     tx.ui
@@ -1291,11 +1291,6 @@ impl Scene for GameScene {
             });
             if self.mode == GameMode::TweakOffset {
                 self.tweak_offset(ui, Self::interactive(&self.res, &self.state));
-            }
-            if self.res.config.touch_debug {
-                for touch in Judge::get_touches() {
-                    ui.fill_circle(touch.position.x, touch.position.y, 0.04, Color { a: 0.4, ..RED });
-                }
             }
         }
 
