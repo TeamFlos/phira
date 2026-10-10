@@ -20,6 +20,12 @@ pub struct InlineInputBtn {
     pub btn: DRectButton,
 }
 
+impl Default for InlineInputBtn {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InlineInputBtn {
     pub fn new() -> Self {
         Self {
@@ -165,6 +171,12 @@ struct State {
     manual_scroll: bool,
 
     need_confirm: bool,
+}
+
+impl Default for InlineInputBox {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InlineInputBox {
@@ -660,13 +672,12 @@ impl InlineInputBox {
             self.update_ime_state();
         } else if let Some(arrow_time) = self.state.right_arrow_time {
             if is_key_down(KeyCode::Right) {
-                if now - arrow_time > 0.5 {
-                    if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
+                if now - arrow_time > 0.5
+                    && self.state.last_cursor_time.is_none_or(|t| now - t > 0.02) {
                         self.state.last_cursor_time = Some(now);
                         self.cursor_right(shift);
                         self.update_ime_state();
                     }
-                }
             } else {
                 self.state.right_arrow_time = None;
             }
@@ -678,13 +689,12 @@ impl InlineInputBox {
             self.update_ime_state();
         } else if let Some(arrow_time) = self.state.left_arrow_time {
             if is_key_down(KeyCode::Left) {
-                if now - arrow_time > 0.5 {
-                    if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
+                if now - arrow_time > 0.5
+                    && self.state.last_cursor_time.is_none_or(|t| now - t > 0.02) {
                         self.state.last_cursor_time = Some(now);
                         self.cursor_left(shift);
                         self.update_ime_state();
                     }
-                }
             } else {
                 self.state.left_arrow_time = None;
             }
@@ -697,13 +707,12 @@ impl InlineInputBox {
                 self.update_ime_state();
             } else if let Some(arrow_time) = self.state.up_arrow_time {
                 if is_key_down(KeyCode::Up) {
-                    if now - arrow_time > 0.5 {
-                        if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
+                    if now - arrow_time > 0.5
+                        && self.state.last_cursor_time.is_none_or(|t| now - t > 0.02) {
                             self.state.last_cursor_time = Some(now);
                             self.cursor_up(shift);
                             self.update_ime_state();
                         }
-                    }
                 } else {
                     self.state.up_arrow_time = None;
                 }
@@ -715,13 +724,12 @@ impl InlineInputBox {
                 self.update_ime_state();
             } else if let Some(arrow_time) = self.state.down_arrow_time {
                 if is_key_down(KeyCode::Down) {
-                    if now - arrow_time > 0.5 {
-                        if self.state.last_cursor_time.map_or(true, |t| now - t > 0.02) {
+                    if now - arrow_time > 0.5
+                        && self.state.last_cursor_time.is_none_or(|t| now - t > 0.02) {
                             self.state.last_cursor_time = Some(now);
                             self.cursor_down(shift);
                             self.update_ime_state();
                         }
-                    }
                 } else {
                     self.state.down_arrow_time = None;
                 }
@@ -788,32 +796,29 @@ impl InlineInputBox {
             }
         }
 
-        let block_remove = self.state.last_preedit_time.map_or(false, |t| now - t < 0.25);
+        let block_remove = self.state.last_preedit_time.is_some_and(|t| now - t < 0.25);
 
         if is_key_pressed(KeyCode::Backspace) && !block_remove {
             self.state.backspace_time = Some(now);
-            if !self.delete_selection() {
-                if self.state.cursor > 0 {
+            if !self.delete_selection()
+                && self.state.cursor > 0 {
                     self.state.cursor -= 1;
                     self.remove_char_at(self.state.cursor);
                     self.state.manual_scroll = false;
                     self.update_ime_state();
                 }
-            }
         } else if let Some(backspace_time) = self.state.backspace_time {
             if is_key_down(KeyCode::Backspace) {
-                if now - backspace_time > 0.5 {
-                    if self.state.last_pop_time.map_or(true, |t| now - t > 0.02) {
+                if now - backspace_time > 0.5
+                    && self.state.last_pop_time.is_none_or(|t| now - t > 0.02) {
                         self.state.last_pop_time = Some(now);
-                        if !self.delete_selection() {
-                            if self.state.cursor > 0 {
+                        if !self.delete_selection()
+                            && self.state.cursor > 0 {
                                 self.state.cursor -= 1;
                                 self.remove_char_at(self.state.cursor);
                                 self.update_ime_state();
                             }
-                        }
                     }
-                }
             } else {
                 self.state.backspace_time = None;
             }
@@ -822,26 +827,23 @@ impl InlineInputBox {
         // Delete key
         if is_key_pressed(KeyCode::Delete) && !block_remove {
             self.state.delete_time = Some(now);
-            if !self.delete_selection() {
-                if self.state.cursor < self.buffer.chars().count() {
+            if !self.delete_selection()
+                && self.state.cursor < self.buffer.chars().count() {
                     self.remove_char_at(self.state.cursor);
                     self.state.manual_scroll = false;
                     self.update_ime_state();
                 }
-            }
         } else if let Some(delete_time) = self.state.delete_time {
             if is_key_down(KeyCode::Delete) {
-                if now - delete_time > 0.5 {
-                    if self.state.last_pop_time.map_or(true, |t| now - t > 0.02) {
+                if now - delete_time > 0.5
+                    && self.state.last_pop_time.is_none_or(|t| now - t > 0.02) {
                         self.state.last_pop_time = Some(now);
-                        if !self.delete_selection() {
-                            if self.state.cursor < self.buffer.chars().count() {
+                        if !self.delete_selection()
+                            && self.state.cursor < self.buffer.chars().count() {
                                 self.remove_char_at(self.state.cursor);
                                 self.update_ime_state();
                             }
-                        }
                     }
-                }
             } else {
                 self.state.delete_time = None;
             }
@@ -859,8 +861,8 @@ impl InlineInputBox {
                 self.update_ime_state();
             } else if let Some(line_time) = self.state.line_time {
                 if is_key_down(KeyCode::Enter) {
-                    if now - line_time > 0.5 {
-                        if self.state.last_line_time.map_or(true, |t| now - t > 0.02) {
+                    if now - line_time > 0.5
+                        && self.state.last_line_time.is_none_or(|t| now - t > 0.02) {
                             self.state.last_line_time = Some(now);
                             self.delete_selection();
                             let byte_pos = self.byte_at(self.state.cursor);
@@ -868,7 +870,6 @@ impl InlineInputBox {
                             self.state.cursor += 1;
                             self.update_ime_state();
                         }
-                    }
                 } else {
                     self.state.line_time = None;
                 }
