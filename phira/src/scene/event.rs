@@ -461,10 +461,10 @@ impl Scene for EventScene {
                     if Utc::now() > self.event.time_end {
                         draw(tl!("btn-ended"), semi_black(0.4));
                     } else if Utc::now() < self.event.time_start {
-                        draw(tl!("btn-not-started"), Color::from_hex(0xe3f2fd));
+                        draw(tl!("btn-not-started"), Color::from_hex_rgb(0xe3f2fd));
                     } else {
                         self.btn_join
-                            .render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, Color::from_hex(0xf57c00)));
+                            .render_shadow(ui, r, t, |ui, path| ui.fill_path(&path, Color::from_hex_rgb(0xf57c00)));
                         let mut text = ui.text(format!("#{}", status.rank.unwrap())).anchor(0., 0.5).no_baseline().size(0.7);
                         let w = text.measure().w;
                         let mut ir = Rect::new(ct.x, ct.y, 0., 0.).feather(r.h / 2. - 0.02);

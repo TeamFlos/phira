@@ -43,7 +43,7 @@ impl Difficulty {
     }
 
     pub fn color(&self) -> Color {
-        Color::from_hex(match self {
+        Color::from_hex_rgb(match self {
             Self::Easy => 0x16a34a,
             Self::Hard => 0xf97316,
             Self::Extreme => 0xdc2626,

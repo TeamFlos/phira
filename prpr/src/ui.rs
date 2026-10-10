@@ -1006,11 +1006,11 @@ impl<'a> Ui<'a> {
     }
 
     pub fn accent(&self) -> Color {
-        Color::from_hex(0x2196f3)
+        Color::from_hex_rgb(0x2196f3)
     }
 
     pub fn background(&self) -> Color {
-        Color::from_hex(0x2a323c)
+        Color::from_hex_rgb(0x2a323c)
     }
 
     pub fn button(&mut self, id: &str, rect: Rect, text: impl Into<String>) -> bool {

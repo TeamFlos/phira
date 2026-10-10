@@ -414,12 +414,12 @@ impl Scene for EndingScene {
                         .text(format!("-{}", res.early_kind[id]))
                         .pos(x + 0.03, y)
                         .size(s)
-                        .color(Color::from_hex(0x81d4fa))
+                        .color(Color::from_hex_rgb(0x81d4fa))
                         .draw_using(&BOLD_FONT);
                     ui.text(format!("+{}", res.late_kind[id]))
                         .pos(r.right() + 0.01, y)
                         .size(s)
-                        .color(Color::from_hex(0xffab91))
+                        .color(Color::from_hex_rgb(0xffab91))
                         .draw_using(&BOLD_FONT)
                 } else {
                     ui.text(res.counts[id].to_string()).pos(x + 0.06, y).size(s).draw_using(&BOLD_FONT)
@@ -514,7 +514,7 @@ impl Scene for EndingScene {
             r.x -= r.w;
             r.y -= r.h;
             self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex(0x3f51b5));
+                ui.fill_path(&path, Color::from_hex_rgb(0x3f51b5));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
                 ui.fill_rect(ir, ((*self.icon_proceed).clone(), ir));
                 ui.text(tl!("proceed"))
@@ -527,7 +527,7 @@ impl Scene for EndingScene {
 
             r.x -= r.w + 0.02;
             self.btn_retry.render_shadow(ui, r, t, |ui, path| {
-                ui.fill_path(&path, Color::from_hex(0x78909c));
+                ui.fill_path(&path, Color::from_hex_rgb(0x78909c));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
                 ui.fill_rect(ir, ((*self.icon_retry).clone(), ir));
                 ui.text(tl!("retry"))
