@@ -36,7 +36,7 @@ inputbox = "0.1.5"
 lru = "0.16.3"
 lyon = "1.0.19"
 
-macroquad = { git = "https://github.com/2278535805/macroquad" }
+macroquad = { git = "https://github.com/2278535805/macroquad", default-features = false }
 nalgebra = "0.34.1"
 
 objc2 = "0.6.4"
