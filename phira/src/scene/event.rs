@@ -275,7 +275,7 @@ impl Scene for EventScene {
                 if item.btn.touch(touch) {
                     button_hit();
                     self.sf
-                        .goto(t, ProfileScene::new(item.player, self.icons.user.clone(), self.rank_icons.clone()));
+                        .goto(t, ProfileScene::new(item.player, self.icons.clone(), self.rank_icons.clone()));
                     return Ok(true);
                 }
             }

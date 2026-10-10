@@ -2,11 +2,14 @@ prpr_l10n::tl_file!("profile");
 
 #[cfg(feature = "hykb")]
 use super::confirm_dialog;
-use super::{TEX_BACKGROUND, TEX_ICON_BACK};
+use super::{SongScene, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
+    charts_view::NEED_UPDATE,
     client::{recv_raw, Client, Record, User, UserManager},
-    get_data, get_data_mut, hykb_logout,
-    page::{Fader, Illustration, SFader},
+    deeplink::{start_chart_opening, DeepLinkChartOpening},
+    dir, get_data, get_data_mut, hykb_logout,
+    icons::Icons,
+    page::{ChartItem, Fader, Illustration, SFader},
     save_data, sync_data,
 };
 use anyhow::Result;
@@ -25,9 +28,13 @@ use prpr::{
     ui::{button_hit, rounded_rect_shadow, DRectButton, Dialog, RectButton, Scroll, ShadowConfig, Ui},
 };
 use serde_json::json;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    any::Any,
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use tokio::sync::Notify;
 
@@ -48,7 +55,7 @@ pub struct ProfileScene {
     background: SafeTexture,
 
     icon_back: SafeTexture,
-    icon_user: SafeTexture,
+    icons: Arc<Icons>,
 
     btn_back: RectButton,
     btn_name: RectButton,
@@ -79,6 +86,8 @@ pub struct ProfileScene {
     scroll: Scroll,
     record_task: Option<Task<Result<Vec<RecordItem>>>>,
     record_items: Option<Vec<RecordItem>>,
+    chart_opening: Option<DeepLinkChartOpening>,
+    opened_chart_path: Option<String>,
 
     sf: SFader,
     fader: Fader,
@@ -87,7 +96,7 @@ pub struct ProfileScene {
 }
 
 impl ProfileScene {
-    pub fn new(id: i32, icon_user: SafeTexture, rank_icons: [SafeTexture; 8]) -> Self {
+    pub fn new(id: i32, icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Self {
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
         Self {
@@ -100,7 +109,7 @@ impl ProfileScene {
             background: TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap()),
 
             icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
-            icon_user,
+            icons,
 
             btn_back: RectButton::new(),
             btn_name: RectButton::new(),
@@ -162,6 +171,8 @@ impl ProfileScene {
                     .collect())
             })),
             record_items: None,
+            chart_opening: None,
+            opened_chart_path: None,
 
             sf: SFader::new(),
             fader: Fader::new().with_distance(0.12),
@@ -172,7 +183,27 @@ impl ProfileScene {
 }
 
 impl Scene for ProfileScene {
+    fn on_result(&mut self, _tm: &mut TimeManager, result: Box<dyn Any>) -> Result<()> {
+        if result.downcast::<bool>().is_ok_and(|delete| *delete) {
+            if let Some(path) = self.opened_chart_path.take() {
+                let chart_dir = format!("{}/{path}", dir::charts()?);
+                if Path::new(&chart_dir).exists() {
+                    std::fs::remove_dir_all(chart_dir)?;
+                }
+                let data = get_data_mut();
+                if let Some(index) = data.find_chart_by_path(&path) {
+                    data.charts.remove(index);
+                }
+                save_data()?;
+                NEED_UPDATE.store(true, Ordering::SeqCst);
+            }
+        }
+        Ok(())
+    }
+
     fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
+        self.chart_opening = None;
+        self.opened_chart_path = None;
         self.sf.enter(tm.now() as _);
         Ok(())
     }
@@ -318,6 +349,33 @@ impl Scene for ProfileScene {
             }
         }
 
+        if let Some(res) = self.chart_opening.as_mut().and_then(|it| it.take_result()) {
+            match res {
+                Err(err) => {
+                    use crate::scene::L10N_LOCAL;
+                    show_error(err.context(itl!("deeplink-open-failed")));
+                    self.chart_opening = None;
+                }
+                Ok(chart) => {
+                    let mut item = ChartItem::from_remote(&chart);
+                    let mods = if let Some(local) = get_data().charts.iter().find(|it| it.info.id == Some(chart.id)) {
+                        // SongScene compares these local timestamps with the remote version.
+                        item.info = local.info.clone();
+                        item.local_path = Some(local.local_path.clone());
+                        local.mods
+                    } else {
+                        Default::default()
+                    };
+                    let local_path = item.local_path.clone();
+                    self.opened_chart_path = Some(local_path.clone().unwrap_or_else(|| format!("download/{}", chart.id)));
+                    // Keep the loading overlay until the scene transition finishes,
+                    // so the profile does not flash through between the two.
+                    self.sf
+                        .goto(t, SongScene::new(item, local_path, Arc::clone(&self.icons), self.rank_icons.clone(), mods));
+                }
+            }
+        }
+
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.delete_task = Some(Task::new(async move {
                 Client::post("/delete-account", &()).send().await?.error_for_status()?;
@@ -353,6 +411,12 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         let t = tm.now() as f32;
+        if let Some(opening) = &mut self.chart_opening {
+            if opening.touch(touch, t) {
+                self.chart_opening = None;
+            }
+            return Ok(true);
+        }
         if self.pf_scroll.touch(touch, t) {
             return Ok(true);
         }
@@ -428,14 +492,24 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
 
-        if self.scroll.touch(touch, t) {
-            return Ok(true);
+        let scrolled = self.scroll.touch(touch, t);
+        if scrolled || !self.scroll.contains(touch) {
+            let cancelled = Touch {
+                phase: TouchPhase::Cancelled,
+                ..touch.clone()
+            };
+            if let Some(items) = &mut self.record_items {
+                for item in items {
+                    item.btn.touch(&cancelled, t);
+                }
+            }
+            return Ok(scrolled);
         }
         if let Some(items) = &mut self.record_items {
             for item in items {
                 if item.btn.touch(touch, t) {
                     self.scroll.y_scroller.halt();
-
+                    self.chart_opening = Some(start_chart_opening(item.record.chart.id));
                     return Ok(true);
                 }
             }
@@ -481,7 +555,7 @@ impl Scene for ProfileScene {
                     let mw = r.w - pad * 2.;
                     let cx = r.center().x;
                     let radius = 0.12;
-                    let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icon_user));
+                    let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icons.user));
                     self.avatar_btn.set(ui, r);
                     let r = ui
                         .text(&user.name)
@@ -584,6 +658,7 @@ impl Scene for ProfileScene {
                                 let Some(item) = iter.next() else { unreachable!() };
                                 f.render(ui, t, |ui| {
                                     let r = Rect::new(j as f32 * r.w / 2. + pad, r.y + ui.top + i as f32 * h, r.w / 2. - pad * 2., h - pad * 2.);
+                                    item.btn.invalidate();
                                     if r.y - o > ui.top * 2. || r.bottom() - o < 0. {
                                         return;
                                     }
@@ -622,6 +697,9 @@ impl Scene for ProfileScene {
             ui.loading(ct.x, ct.y, t, WHITE, ());
         }
 
+        if let Some(opening) = &mut self.chart_opening {
+            opening.render(ui, t);
+        }
         self.sf.render(ui, t);
 
         if self.avatar_task.is_some() {
