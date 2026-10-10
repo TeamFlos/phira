@@ -12,7 +12,7 @@ use macroquad::{
     prelude::*,
 };
 
-const CONTEXT_MENU_MENU_W: f32 = 0.12;
+const CONTEXT_MENU_MENU_W: f32 = 0.20;
 const CONTEXT_MENU_ITEM_Y: f32 = 0.04;
 
 pub struct InlineInputBtn {
