@@ -92,9 +92,9 @@ pub struct ResPackInfo {
 
 fn parse_color_guess_alpha(c: u32) -> Color {
     if c > 0xffffff {
-        Color::from_hex(c)
+        Color::from_hex_argb(c)
     } else {
-        Color::from_hex(c)
+        Color::from_hex_rgb(c)
     }
 }
 

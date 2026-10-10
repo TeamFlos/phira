@@ -1420,7 +1420,7 @@ dependencies = [
 [[package]]
 name = "hms-opengtx-binding"
 version = "0.1.4"
-source = "git+https://github.com/ohos-rs/ohos-native-bindings#c9f97f4fb09e75252ffa37e6d3862cde1edd0818"
+source = "git+https://github.com/ohos-rs/ohos-native-bindings#36f8aae47c33cd722e0573a0250101fad2bb2d7c"
 dependencies = [
  "hms-opengtx-sys",
  "ohos-enum-derive 0.1.2",
@@ -1429,7 +1429,7 @@ dependencies = [
 [[package]]
 name = "hms-opengtx-sys"
 version = "0.1.4"
-source = "git+https://github.com/ohos-rs/ohos-native-bindings#c9f97f4fb09e75252ffa37e6d3862cde1edd0818"
+source = "git+https://github.com/ohos-rs/ohos-native-bindings#36f8aae47c33cd722e0573a0250101fad2bb2d7c"
 
 [[package]]
 name = "http"
@@ -2112,7 +2112,7 @@ dependencies = [
 [[package]]
 name = "macroquad"
 version = "0.4.16"
-source = "git+https://github.com/2278535805/macroquad#aa952e87a2bcf435553b7c6b56b286755fa5b02e"
+source = "git+https://github.com/2278535805/macroquad#8eb1102a04cc78c9b38e4dfa0485987e4609d7fc"
 dependencies = [
  "fontdue",
  "glam 0.27.0",
@@ -2125,7 +2125,7 @@ dependencies = [
 [[package]]
 name = "macroquad_macro"
 version = "0.1.8"
-source = "git+https://github.com/2278535805/macroquad#aa952e87a2bcf435553b7c6b56b286755fa5b02e"
+source = "git+https://github.com/2278535805/macroquad#8eb1102a04cc78c9b38e4dfa0485987e4609d7fc"
 
 [[package]]
 name = "malloc_buf"
@@ -2854,7 +2854,7 @@ dependencies = [
 [[package]]
 name = "ohos-enum-derive"
 version = "0.1.2"
-source = "git+https://github.com/ohos-rs/ohos-native-bindings#c9f97f4fb09e75252ffa37e6d3862cde1edd0818"
+source = "git+https://github.com/ohos-rs/ohos-native-bindings#36f8aae47c33cd722e0573a0250101fad2bb2d7c"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
