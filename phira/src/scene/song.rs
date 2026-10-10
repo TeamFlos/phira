@@ -1666,6 +1666,40 @@ impl Scene for SongScene {
             self.first_in = false;
             tm.seek_to(-fade_in_time().unwrap_or_default() as _);
             self.load_ldb();
+        } else if self
+            .local_path
+            .as_ref()
+            .is_some_and(|path| !path.starts_with(':') && get_data().find_chart_by_path(path).is_none())
+        {
+            // A nested song scene may have deleted this chart while we were covered.
+            self.local_path = None;
+            if let Some(preview) = &mut self.preview {
+                preview.pause()?;
+            }
+            self.preview = None;
+            self.illu.task = None;
+            self.preview_task = self.info.id.map(|id| {
+                Task::new(async move {
+                    let chart = Ptr::<Chart>::new(id).fetch().await?;
+                    with_effects(AudioClip::decode(chart.preview.fetch().await?.to_vec())?, None)
+                })
+            });
+            self.record = None;
+            self.fetch_best_task = if get_data().me.is_some() {
+                self.info.id.map(|id| Task::new(Client::best_record(id)))
+            } else {
+                None
+            };
+            self.mods = Mods::default();
+            self.mod_btns.clear();
+            self.info_edit = None;
+            if matches!(self.side_content, SideContent::Edit | SideContent::Mods) {
+                self.side_enter_time = f32::INFINITY;
+            }
+            self.should_update.store(false, Ordering::Relaxed);
+            if let Some(entity) = &self.entity {
+                self.info = entity.to_info();
+            }
         }
         if let Some(music) = &mut self.preview {
             music.seek_to(0.)?;
@@ -1755,7 +1789,7 @@ impl Scene for SongScene {
                                 if item.btn.touch(touch) {
                                     button_hit();
                                     self.sf
-                                        .goto(t, ProfileScene::new(item.inner.player.id, self.icons.user.clone(), self.rank_icons.clone()));
+                                        .goto(t, ProfileScene::new(item.inner.player.id, self.icons.clone(), self.rank_icons.clone()));
                                     return Ok(true);
                                 }
                             }
@@ -1767,16 +1801,14 @@ impl Scene for SongScene {
                         }
                         if self.uploader_btn.touch(touch) {
                             button_hit();
-                            self.sf.goto(
-                                t,
-                                ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
-                            );
+                            self.sf
+                                .goto(t, ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.clone(), self.rank_icons.clone()));
                             return Ok(true);
                         }
                         for (id, (_, btn)) in &mut self.collaborators {
                             if btn.touch(touch) {
                                 button_hit();
-                                self.sf.goto(t, ProfileScene::new(*id, self.icons.user.clone(), self.rank_icons.clone()));
+                                self.sf.goto(t, ProfileScene::new(*id, self.icons.clone(), self.rank_icons.clone()));
                                 return Ok(true);
                             }
                         }
