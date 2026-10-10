@@ -285,9 +285,16 @@ impl MPPanel {
         if !(self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + ENTER_TRANSIT) {
             return true;
         }
-        self.chat_input.touch(touch);
-        self.create_room_input.touch(touch);
-        self.join_room_input.touch(touch);
+        let disconnect_hit =
+            self.client.as_ref().is_some_and(|client| client.blocking_state().is_none()) && self.disconnect_btn.inner.contains(touch.position);
+        if disconnect_hit {
+            self.create_room_input.input.cancel();
+            self.join_room_input.input.cancel();
+        } else {
+            self.chat_input.touch(touch);
+            self.create_room_input.touch(touch);
+            self.join_room_input.touch(touch);
+        }
         if self.has_task() {
             return true;
         }

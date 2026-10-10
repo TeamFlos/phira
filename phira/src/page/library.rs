@@ -1021,7 +1021,9 @@ impl Page for LibraryPage {
                 }
             }
         }
-        self.new_fav_input.update();
+        if self.new_fav_input.is_active() {
+            self.new_fav_input.update();
+        }
         if let Some(task) = &mut self.multi_create_fav_task {
             if let Some(res) = task.take() {
                 match res {

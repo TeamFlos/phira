@@ -2486,7 +2486,9 @@ impl Scene for SongScene {
                 _ => {}
             }
         }
-        self.review_input.update();
+        if self.review_input.is_active() {
+            self.review_input.update();
+        }
         if let Some((id, file)) = take_file() {
             if id == "overwrite" {
                 self.overwrite_from = Some(file);

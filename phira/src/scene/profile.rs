@@ -290,7 +290,9 @@ impl Scene for ProfileScene {
             }
         }
         #[cfg(feature = "hykb")]
-        self.transfer_input.update();
+        if self.transfer_input.is_active() {
+            self.transfer_input.update();
+        }
 
         #[cfg(feature = "hykb")]
         if let Some(task) = &mut self.transfer_task {

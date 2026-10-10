@@ -689,7 +689,9 @@ impl Page for FavoritesPage {
                 }
             }
         }
-        self.rename_input.update();
+        if self.rename_input.is_active() {
+            self.rename_input.update();
+        }
         if self.desc_input.need_confirm() {
             let new_description = self.desc_input.confirm().trim().to_string();
             if let Err(err) = crate::censor::check_text(&new_description) {
@@ -711,7 +713,9 @@ impl Page for FavoritesPage {
                 }
             }
         }
-        self.desc_input.update();
+        if self.desc_input.is_active() {
+            self.desc_input.update();
+        }
         if let Some(text) = self.import_input.confirm() {
             if !self.try_import(text) {
                 show_message(tl!("invalid-import")).error();
@@ -749,7 +753,9 @@ impl Page for FavoritesPage {
                 Ok(resp)
             }));
         }
-        self.batch_import_input.update();
+        if self.batch_import_input.is_active() {
+            self.batch_import_input.update();
+        }
 
         if let Some(index) = self.active_folder {
             let data = get_data_mut();
