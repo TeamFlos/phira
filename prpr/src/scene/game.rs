@@ -573,7 +573,7 @@ impl GameScene {
             );
             let r = Rect::new(0., o, 0., 0.).feather(s);
             let disabled_color = semi_white(res.alpha * 0.4);
-            ui.fill_rect(r, ((*res.icon_retry).clone(), r.feather(0.02), ScaleType::Fit, if no_retry { disabled_color } else { c }));
+            ui.fill_rect(r, (Texture2D::clone(&res.icon_retry), r.feather(0.02), ScaleType::Fit, if no_retry { disabled_color } else { c }));
             draw_texture_ex(
                 &res.icon_resume,
                 s + w,

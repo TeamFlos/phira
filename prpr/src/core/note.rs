@@ -271,7 +271,7 @@ impl Note {
         };
         match self.kind {
             NoteKind::Click => {
-                draw(res, (*style.click).clone());
+                draw(res, Texture2D::clone(&style.click));
             }
             NoteKind::Hold { end_time, end_height } => {
                 res.with_model(self.now_transform(res, ctrl_obj, 0., 0.), |res| {
@@ -363,10 +363,10 @@ impl Note {
                 });
             }
             NoteKind::Flick => {
-                draw(res, (*style.flick).clone());
+                draw(res, Texture2D::clone(&style.flick));
             }
             NoteKind::Drag => {
-                draw(res, (*style.drag).clone());
+                draw(res, Texture2D::clone(&style.drag));
             }
         }
     }
@@ -388,9 +388,9 @@ impl BadNote {
             draw_center(
                 res,
                 match &self.kind {
-                    NoteKind::Click => (*style.click).clone(),
-                    NoteKind::Drag => (*style.drag).clone(),
-                    NoteKind::Flick => (*style.flick).clone(),
+                    NoteKind::Click => Texture2D::clone(&style.click),
+                    NoteKind::Drag => Texture2D::clone(&style.drag),
+                    NoteKind::Flick => Texture2D::clone(&style.flick),
                     _ => unreachable!(),
                 },
                 self.kind.order(),

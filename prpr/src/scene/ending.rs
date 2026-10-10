@@ -516,7 +516,7 @@ impl Scene for EndingScene {
             self.btn_proceed.render_shadow(ui, r, t, |ui, path| {
                 ui.fill_path(&path, Color::from_hex_rgb(0x3f51b5));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                ui.fill_rect(ir, ((*self.icon_proceed).clone(), ir));
+                ui.fill_rect(ir, (Texture2D::clone(&self.icon_proceed), ir));
                 ui.text(tl!("proceed"))
                     .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
                     .anchor(0.5, 0.5)
@@ -529,7 +529,7 @@ impl Scene for EndingScene {
             self.btn_retry.render_shadow(ui, r, t, |ui, path| {
                 ui.fill_path(&path, Color::from_hex_rgb(0x78909c));
                 let ir = Rect::new(r.x + 0.05, r.center().y, 0., 0.).feather(0.03);
-                ui.fill_rect(ir, ((*self.icon_retry).clone(), ir));
+                ui.fill_rect(ir, (Texture2D::clone(&self.icon_retry), ir));
                 ui.text(tl!("retry"))
                     .pos((ir.right() + r.right() - 0.01) / 2., r.center().y)
                     .anchor(0.5, 0.5)
@@ -618,17 +618,17 @@ impl Scene for EndingScene {
                     let icon_x = current_x + (para_w - icon_size) / 2. + skew_offset / 2.;
                     let icon_y = ty - icon_size / 2.;
                     let icon_rect = Rect::new(icon_x, icon_y, icon_size, icon_size);
-                    ui.fill_rect(icon_rect, ((*self.mod_icons[mod_idx]).clone(), icon_rect, ScaleType::Fit, semi_black(0.6)));
+                    ui.fill_rect(icon_rect, (Texture2D::clone(&self.mod_icons[mod_idx]), icon_rect, ScaleType::Fit, semi_black(0.6)));
                     current_x = para_right + 0.02;
                 }
             }
         }
         clip_sector(ui, ct, sector_start, sector_start + center_angle, |ui| {
-            ui.fill_rect(sr, ((*self.illustration).clone(), sr));
+            ui.fill_rect(sr, (Texture2D::clone(&self.illustration), sr));
         });
         let sector_start = (p * 1.4 - 0.3).max(0.) * (angle_end - angle_start - center_angle) + angle_start;
         clip_sector(ui, ct, sector_start, sector_start + center_angle * 0.5, |ui| {
-            ui.fill_rect(sr, ((*self.illustration).clone(), sr.feather(0.15)));
+            ui.fill_rect(sr, (Texture2D::clone(&self.illustration), sr.feather(0.15)));
         });
 
         ui.alpha(pf, |ui| {

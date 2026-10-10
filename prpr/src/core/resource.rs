@@ -320,7 +320,7 @@ impl ParticleEmitter {
             scale: res_pack.info.hit_fx_scale,
             emitter: Emitter::new(EmitterConfig {
                 local_coords: false,
-                texture: Some((*res_pack.hit_fx).clone()),
+                texture: Some(Texture2D::clone(&res_pack.hit_fx)),
                 lifetime: res_pack.info.hit_fx_duration,
                 lifetime_randomness: 0.0,
                 initial_rotation_randomness: 0.0,
