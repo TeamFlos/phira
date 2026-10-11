@@ -252,6 +252,8 @@ impl InlineInputBox {
         self.state.selection_anchor = None;
         self.state.backspace_time = None;
         self.context_menu.visible = false;
+        self.state.need_confirm = false;
+        clear_ime_state();
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
         miniquad::window::update_text_input_state(String::new(), 0, 0, false, false, 0, 0);
@@ -263,6 +265,7 @@ impl InlineInputBox {
         self.state.backspace_time = None;
         self.context_menu.visible = false;
         self.state.need_confirm = false;
+        clear_ime_state();
         miniquad::window::set_ime_enabled(false);
         miniquad::window::show_keyboard(false);
         miniquad::window::update_text_input_state(String::new(), 0, 0, false, false, 0, 0);
@@ -302,6 +305,10 @@ impl InlineInputBox {
 
     fn delete_selection(&mut self) -> bool {
         if let Some((start, end)) = self.selection_range() {
+            if start == end {
+                self.state.selection_anchor = None;
+                return false;
+            }
             let start_byte = self.byte_at(start);
             let end_byte = self.byte_at(end);
             self.buffer.replace_range(start_byte..end_byte, "");
