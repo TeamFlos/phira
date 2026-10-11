@@ -87,16 +87,13 @@ static PENDING_TEXTURE_DELETIONS: Lazy<Mutex<Vec<Texture2D>>> = Lazy::new(|| Mut
 
 /// Deletes all textures queued up by `SafeTexture` drops so far.
 ///
-/// Deleting a GL texture from a thread other than the one owning the GL
-/// context crashes, so `SafeTextureInner::drop` cannot call `delete`
-/// directly (it may run on any thread, e.g. when a background task drops
+/// Dropping a `Texture2D` frees its GPU texture, which must happen on the
+/// thread owning the GL context, so `SafeTextureInner::drop` cannot drop
+/// it directly (it may run on any thread, e.g. when a background task drops
 /// the last `Arc`). Instead it queues the texture here, and this must be
 /// called periodically from the main (rendering) thread.
 pub fn flush_pending_texture_deletions() {
-    let textures = std::mem::take(&mut *PENDING_TEXTURE_DELETIONS.lock().unwrap());
-    for texture in textures {
-        texture.delete();
-    }
+    PENDING_TEXTURE_DELETIONS.lock().unwrap().clear();
 }
 
 /// Queues a texture for deletion on the main thread instead of deleting it
@@ -108,7 +105,10 @@ pub fn queue_texture_deletion(texture: Texture2D) {
 struct SafeTextureInner(Texture2D);
 impl Drop for SafeTextureInner {
     fn drop(&mut self) {
-        queue_texture_deletion(self.0);
+        // A `Texture2D` cannot be moved out of `&mut self`; clone the handle so
+        // the clone (now the last strong reference) gets dropped by the queue
+        // on the main thread.
+        queue_texture_deletion(self.0.clone());
     }
 }
 
@@ -116,16 +116,17 @@ pub struct SafeTexture(Arc<SafeTextureInner>);
 impl SafeTexture {
     pub fn into_inner(self) -> Texture2D {
         let arc = self.0;
-        let res = arc.0;
+        let res = arc.0.clone();
         std::mem::forget(arc);
         res
     }
 
     pub fn with_mipmap(self) -> Self {
-        let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
+        let id = self.0 .0.raw_miniquad_id();
+        let miniquad::RawId::OpenGl(gl_id) = unsafe { get_internal_gl().quad_context.texture_raw_id(id) };
         unsafe {
             use miniquad::gl::*;
-            glBindTexture(GL_TEXTURE_2D, id);
+            glBindTexture(GL_TEXTURE_2D, gl_id);
             glGenerateMipmap(GL_TEXTURE_2D);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as _);
         }
@@ -133,10 +134,11 @@ impl SafeTexture {
     }
 
     pub fn with_filter(self, filter: GLenum) -> Self {
-        let id = self.0 .0.raw_miniquad_texture_handle().gl_internal_id();
+        let id = self.0 .0.raw_miniquad_id();
+        let miniquad::RawId::OpenGl(gl_id) = unsafe { get_internal_gl().quad_context.texture_raw_id(id) };
         unsafe {
             use miniquad::gl::*;
-            glBindTexture(GL_TEXTURE_2D, id);
+            glBindTexture(GL_TEXTURE_2D, gl_id);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter as _);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter as _);
         }
@@ -193,17 +195,7 @@ pub fn nalgebra_to_glm(mat: &Matrix) -> Mat4 {
 
 pub fn get_viewport() -> (i32, i32, i32, i32) {
     let gl = unsafe { get_internal_gl() };
-    gl.quad_gl.get_viewport().unwrap_or_else(|| {
-        let (w, h) = gl
-            .quad_gl
-            .get_active_render_pass()
-            .map(|it| {
-                let tex = it.texture(gl.quad_context);
-                (tex.width as i32, tex.height as i32)
-            })
-            .unwrap_or_else(|| (screen_width() as _, screen_height() as _));
-        (0, 0, w, h)
-    })
+    gl.quad_gl.get_viewport()
 }
 
 #[inline]
@@ -248,8 +240,8 @@ pub fn source_of_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) -> Op
     }
 }
 
-pub fn draw_image(tex: Texture2D, rect: Rect, scale_type: ScaleType) {
-    let source = source_of_image(&tex, rect, scale_type);
+pub fn draw_image(tex: &Texture2D, rect: Rect, scale_type: ScaleType) {
+    let source = source_of_image(tex, rect, scale_type);
     let (w, h) = (tex.width(), tex.height());
     draw_texture_ex(
         tex,
@@ -281,7 +273,7 @@ pub fn draw_parallelogram_ex(rect: Rect, texture: Option<(Texture2D, Rect)>, top
     ];
     let v = if let Some((tex, tex_rect)) = texture {
         let lt = tex_rect.h * tex.height() * PARALLELOGRAM_SLOPE / tex.width();
-        gl.texture(Some(tex));
+        gl.texture(Some(&tex));
         [
             Vertex::new(p[0].x, p[0].y, 0., tex_rect.x + lt, tex_rect.y, top),
             Vertex::new(p[1].x, p[1].y, 0., tex_rect.right(), tex_rect.y, top),
@@ -448,8 +440,10 @@ pub fn make_pipeline(write_color: bool, pass_op: StencilOp, test_func: CompareFu
     } = unsafe { get_internal_gl() };
     gl.make_pipeline(
         context,
-        shader::VERTEX,
-        shader::FRAGMENT,
+        ShaderSource::Glsl {
+            vertex: shader::VERTEX,
+            fragment: shader::FRAGMENT,
+        },
         PipelineParams {
             color_write: (write_color, write_color, write_color, write_color),
             color_blend: Some(BlendState::new(

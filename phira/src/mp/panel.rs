@@ -5,7 +5,6 @@ use crate::{
     scene::{Downloading, SongScene, RECORD_ID},
 };
 use anyhow::{anyhow, Context, Result};
-use inputbox::InputBox;
 use macroquad::prelude::*;
 use phira_mp_client::Client;
 use phira_mp_common::{RoomId, RoomState};
@@ -14,10 +13,10 @@ use prpr::{
     core::{Smooth, Tweenable},
     ext::{poll_future, semi_black, semi_white, LocalTask, RectExt, SafeTexture},
     info::ChartInfo,
-    scene::{request_input, return_input, show_error, show_message, take_input, GameMode, NextScene},
+    scene::{show_error, show_message, GameMode, NextScene},
     task::Task,
     time::TimeManager,
-    ui::{DRectButton, DrawText},
+    ui::{DRectButton, DrawText, InlineInputBtn},
     ui::{Scroll, Ui},
 };
 use smallvec::SmallVec;
@@ -69,9 +68,9 @@ pub struct MPPanel {
     connect_btn: DRectButton,
     connect_task: Option<Task<Result<Client>>>,
 
-    create_room_btn: DRectButton,
+    create_room_input: InlineInputBtn,
     create_room_task: Option<Task<Result<()>>>,
-    join_room_btn: DRectButton,
+    join_room_input: InlineInputBtn,
     join_room_task: Option<Task<Result<RoomState>>>,
     leave_room_btn: DRectButton,
 
@@ -85,7 +84,7 @@ pub struct MPPanel {
     cancel_ready_btn: DRectButton,
 
     chat_text: String,
-    chat_btn: DRectButton,
+    chat_input: InlineInputBtn,
     chat_send_btn: DRectButton,
     chat_task: Option<Task<Result<()>>>,
 
@@ -126,9 +125,9 @@ impl MPPanel {
             connect_btn: DRectButton::new(),
             connect_task: None,
 
-            create_room_btn: DRectButton::new(),
+            create_room_input: InlineInputBtn::new(),
             create_room_task: None,
-            join_room_btn: DRectButton::new(),
+            join_room_input: InlineInputBtn::new(),
             join_room_task: None,
             leave_room_btn: DRectButton::new(),
 
@@ -142,7 +141,7 @@ impl MPPanel {
             cancel_ready_btn: DRectButton::new(),
 
             chat_text: String::new(),
-            chat_btn: DRectButton::new().with_delta(-0.002),
+            chat_input: InlineInputBtn::new(),
             chat_send_btn: DRectButton::new(),
             chat_task: None,
 
@@ -286,6 +285,16 @@ impl MPPanel {
         if !(self.side_enter_time > 0. && tm.real_time() as f32 > self.side_enter_time + ENTER_TRANSIT) {
             return true;
         }
+        let disconnect_hit =
+            self.client.as_ref().is_some_and(|client| client.blocking_state().is_none()) && self.disconnect_btn.inner.contains(touch.position);
+        if disconnect_hit {
+            self.create_room_input.input.cancel();
+            self.join_room_input.input.cancel();
+        } else {
+            self.chat_input.touch(touch);
+            self.create_room_input.touch(touch);
+            self.join_room_input.touch(touch);
+        }
         if self.has_task() {
             return true;
         }
@@ -296,6 +305,15 @@ impl MPPanel {
             }
         }
         if touch.position.x + 1. > WIDTH {
+            if self.chat_input.is_active() {
+                self.chat_input.input.cancel();
+            }
+            if self.create_room_input.is_active() {
+                self.create_room_input.input.cancel();
+            }
+            if self.join_room_input.is_active() {
+                self.join_room_input.input.cancel();
+            }
             self.side_enter_time = -tm.real_time() as f32;
             return true;
         }
@@ -308,11 +326,11 @@ impl MPPanel {
                 return true;
             }
             if let Some(state) = client.blocking_state() {
-                if self.chat_btn.touch(touch, t) {
-                    request_input("chat", InputBox::new().default_text(&self.chat_text));
-                    return true;
-                }
+                self.chat_input.activate(touch, t, &self.chat_text);
                 if self.chat_send_btn.touch(touch, t) {
+                    if let Some(text) = self.chat_input.confirm() {
+                        self.chat_text = text;
+                    }
                     if self.chat_text.is_empty() {
                         show_message(mtl!("chat-empty")).error();
                     } else {
@@ -369,14 +387,8 @@ impl MPPanel {
                     client.blocking_state().unwrap().users.keys().copied().for_each(UserManager::request);
                 }
             } else {
-                if self.create_room_btn.touch(touch, t) {
-                    request_input("room_id", InputBox::new());
-                    return true;
-                }
-                if self.join_room_btn.touch(touch, t) {
-                    request_input("join_room", InputBox::new());
-                    return true;
-                }
+                self.create_room_input.activate(touch, t, "");
+                self.join_room_input.activate(touch, t, "");
                 if self.disconnect_btn.touch(touch, t) {
                     self.client = None;
                     self.msgs.clear();
@@ -598,28 +610,26 @@ impl MPPanel {
                 self.task = None;
             }
         }
-        if let Some((id, text)) = take_input() {
-            match id.as_str() {
-                "chat" => {
-                    self.chat_text = text;
-                }
-                "room_id" => {
-                    self.create_room(text.try_into().with_context(|| mtl!("create-invalid-id"))?);
-                }
-                "join_room" => {
-                    let client = self.clone_client();
-                    if let Ok(id) = text.try_into() {
-                        self.join_room_task = Some(Task::new(async move {
-                            client.join_room(id, false).await?;
-                            client.room_state().await.ok_or_else(|| anyhow!("expected room state"))
-                        }));
-                    } else {
-                        show_message(mtl!("join-room-invalid-id")).error();
-                    }
-                }
-                _ => return_input(id, text),
+        if let Some(text) = self.chat_input.confirm() {
+            self.chat_text = text;
+        }
+        self.chat_input.update();
+        if let Some(text) = self.create_room_input.confirm() {
+            self.create_room(text.try_into().with_context(|| mtl!("create-invalid-id"))?);
+        }
+        self.create_room_input.update();
+        if let Some(text) = self.join_room_input.confirm() {
+            let client = self.clone_client();
+            if let Ok(id) = text.try_into() {
+                self.join_room_task = Some(Task::new(async move {
+                    client.join_room(id, false).await?;
+                    client.room_state().await.ok_or_else(|| anyhow!("expected room state"))
+                }));
+            } else {
+                show_message(mtl!("join-room-invalid-id")).error();
             }
         }
+        self.join_room_input.update();
         if let Some(task) = &mut self.scene_task {
             if let Some(res) = poll_future(task.as_mut()) {
                 match res {
@@ -737,7 +747,13 @@ impl MPPanel {
             let lw = 0.16;
             let h = 0.09;
             let br = Rect::new(r.x, r.bottom() - h, mr.w - lw - 0.02, h);
-            self.chat_btn.render_input(ui, br, t, &self.chat_text, mtl!("chat-placeholder"), 0.5);
+            if self.chat_input.is_active() {
+                self.chat_input.input.render(ui, br, 1., &mtl!("chat-placeholder"));
+            } else {
+                self.chat_input
+                    .btn
+                    .render_input(ui, br, t, &self.chat_text, mtl!("chat-placeholder"), 0.5);
+            }
             let br = Rect::new(mr.right() - lw, br.y, lw, br.h);
             self.chat_send_btn.render_text(ui, br, t, mtl!("chat-send"), 0.5, true);
         }
@@ -765,8 +781,18 @@ impl MPPanel {
             }
             btns.push((&mut self.user_list_btn, mtl!("user-list").into_owned()));
         } else {
-            btns.push((&mut self.create_room_btn, mtl!("create-room").into_owned()));
-            btns.push((&mut self.join_room_btn, mtl!("join-room").into_owned()));
+            if self.create_room_input.is_active() {
+                self.create_room_input.input.render(ui, br, 1., "");
+            } else {
+                self.create_room_input.btn.render_text(ui, br, t, mtl!("create-room"), 0.5, true);
+            }
+            br.y += br.h + 0.02;
+            if self.join_room_input.is_active() {
+                self.join_room_input.input.render(ui, br, 1., "");
+            } else {
+                self.join_room_input.btn.render_text(ui, br, t, mtl!("join-room"), 0.5, true);
+            }
+            br.y += br.h + 0.02;
             btns.push((&mut self.disconnect_btn, mtl!("disconnect").into_owned()));
         }
         for (btn, text) in btns {

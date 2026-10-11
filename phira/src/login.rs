@@ -9,7 +9,6 @@ use crate::{
     scene::{check_read_tos_and_policy, confirm_dialog, dispatch_tos_task, JUST_ACCEPTED_TOS},
 };
 use anyhow::Result;
-use inputbox::{InputBox, InputMode};
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 #[cfg(feature = "hykb")]
@@ -17,9 +16,9 @@ use prpr::ext::ScaleType;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, semi_black, semi_white, RectExt},
-    scene::{request_input, return_input, show_error, show_message, take_input},
+    scene::{show_error, show_message},
     task::Task,
-    ui::{button_hit, DRectButton, Dialog, RectButton, Ui},
+    ui::{button_hit, DRectButton, Dialog, InlineInputBtn, RectButton, Ui},
 };
 use regex::Regex;
 use std::{future::Future, sync::atomic::AtomicBool, sync::atomic::Ordering, sync::Arc};
@@ -33,9 +32,15 @@ const PWD_LEN_MAX: usize = 32;
 #[cfg(feature = "hykb")]
 use crate::{client::HykbLoginOutcome, obtain_hykb_credential};
 #[cfg(feature = "hykb")]
-use prpr::scene::take_input_cancelled;
-#[cfg(feature = "hykb")]
 use std::sync::Mutex;
+
+fn render_input_btn(ui: &mut Ui, input: &mut InlineInputBtn, r: Rect, t: f32, text: &str, hint: &str, size: f32) {
+    if input.is_active() {
+        input.input.render(ui, r, 1., hint);
+    } else {
+        input.btn.render_input(ui, r, t, text, hint, size);
+    }
+}
 
 /// The user's choice in the HYKB "register or claim" dialog.
 #[cfg(feature = "hykb")]
@@ -98,11 +103,11 @@ pub struct Login {
     #[cfg(feature = "hykb")]
     btn_method_hykb: DRectButton,
 
-    input_email: DRectButton,
-    input_pwd: DRectButton,
-    input_reg_email: DRectButton,
-    input_reg_name: DRectButton,
-    input_reg_pwd: DRectButton,
+    input_email: InlineInputBtn,
+    input_pwd: InlineInputBtn,
+    input_reg_email: InlineInputBtn,
+    input_reg_name: InlineInputBtn,
+    input_reg_pwd: InlineInputBtn,
 
     btn_to_reg: DRectButton,
     btn_to_login: DRectButton,
@@ -143,15 +148,15 @@ pub struct Login {
     #[cfg(feature = "hykb")]
     hykb_choice: Arc<Mutex<Option<HykbChoice>>>,
 
-    /// The in-app "choose your username" panel shown for a new HYKB account,
-    /// in place of popping the native InputBox directly. The InputBox only
-    /// appears when the player taps the input slot inside this panel.
+    /// The in-app "choose your username" panel shown for a new HYKB account.
+    /// The inline input inside the panel is only focused when the player taps
+    /// the input slot.
     #[cfg(feature = "hykb")]
     reg_name_fader: Fader,
     #[cfg(feature = "hykb")]
     reg_name_show: bool,
     #[cfg(feature = "hykb")]
-    input_hykb_name: DRectButton,
+    input_hykb_name: InlineInputBtn,
     #[cfg(feature = "hykb")]
     btn_hykb_name_confirm: DRectButton,
     #[cfg(feature = "hykb")]
@@ -190,11 +195,11 @@ impl Login {
             #[cfg(feature = "hykb")]
             btn_method_hykb: DRectButton::new().with_radius(0.012).with_elevation(0.004),
 
-            input_email: DRectButton::new().with_delta(-0.002),
-            input_pwd: DRectButton::new().with_delta(-0.002),
-            input_reg_email: DRectButton::new().with_delta(-0.002),
-            input_reg_name: DRectButton::new().with_delta(-0.002),
-            input_reg_pwd: DRectButton::new().with_delta(-0.002),
+            input_email: InlineInputBtn::new(),
+            input_pwd: InlineInputBtn::new().set_password(),
+            input_reg_email: InlineInputBtn::new(),
+            input_reg_name: InlineInputBtn::new(),
+            input_reg_pwd: InlineInputBtn::new().set_password(),
 
             btn_to_reg: DRectButton::new(),
             btn_to_login: DRectButton::new(),
@@ -231,7 +236,7 @@ impl Login {
             #[cfg(feature = "hykb")]
             reg_name_show: false,
             #[cfg(feature = "hykb")]
-            input_hykb_name: DRectButton::new().with_delta(-0.002),
+            input_hykb_name: InlineInputBtn::new(),
             #[cfg(feature = "hykb")]
             btn_hykb_name_confirm: DRectButton::new().with_radius(0.012).with_elevation(0.004),
             #[cfg(feature = "hykb")]
@@ -381,6 +386,7 @@ impl Login {
     /// Dismiss the username panel.
     #[cfg(feature = "hykb")]
     fn dismiss_reg_name(&mut self, t: f32) {
+        self.input_hykb_name.input.cancel();
         self.reg_name_show = false;
         self.reg_name_fader.back(t);
     }
@@ -427,17 +433,12 @@ impl Login {
                 }
                 return true;
             }
-            if self.input_hykb_name.touch(touch, t) {
-                request_input(
-                    "hykb_reg_name",
-                    InputBox::new()
-                        .title(tl!("username"))
-                        .prompt(tl!("hykb-reg-name-prompt", "min" => USERNAME_LEN_MIN, "max" => USERNAME_LEN_MAX))
-                        .default_text(&self.t_hykb_name),
-                );
-                return true;
-            }
+            self.input_hykb_name.touch(touch);
+            self.input_hykb_name.activate(touch, t, &self.t_hykb_name);
             if self.btn_hykb_name_confirm.touch(touch, t) {
+                if let Some(text) = self.input_hykb_name.confirm() {
+                    self.t_hykb_name = text;
+                }
                 if let Some(error) = validate_username(&self.t_hykb_name) {
                     show_message(error).error();
                 } else {
@@ -507,31 +508,22 @@ impl Login {
                 self.dismiss(t);
                 return true;
             }
-            if self.input_email.touch(touch, t) {
-                request_input("email", InputBox::new().default_text(&self.t_email));
-                return true;
-            }
-            if self.input_pwd.touch(touch, t) {
-                request_input("pwd", InputBox::new().default_text(&self.t_pwd).mode(InputMode::Password));
-                return true;
-            }
-            if self.input_reg_email.touch(touch, t) {
-                request_input("reg_email", InputBox::new().default_text(&self.t_reg_email));
-                return true;
-            }
-            if self.input_reg_name.touch(touch, t) {
-                request_input("reg_name", InputBox::new().default_text(&self.t_reg_name));
-                return true;
-            }
-            if self.input_reg_pwd.touch(touch, t) {
-                request_input("reg_pwd", InputBox::new().default_text(&self.t_reg_pwd).mode(InputMode::Password));
-                return true;
-            }
+            self.input_email.touch(touch);
+            self.input_pwd.touch(touch);
+            self.input_reg_email.touch(touch);
+            self.input_reg_name.touch(touch);
+            self.input_reg_pwd.touch(touch);
+            self.input_email.activate(touch, t, &self.t_email);
+            self.input_pwd.activate(touch, t, &self.t_pwd);
+            self.input_reg_email.activate(touch, t, &self.t_reg_email);
+            self.input_reg_name.activate(touch, t, &self.t_reg_name);
+            self.input_reg_pwd.activate(touch, t, &self.t_reg_pwd);
             if self.btn_to_reg.touch(touch, t) || self.btn_to_login.touch(touch, t) {
                 self.start_time = t;
                 return true;
             }
             if self.btn_reg.touch(touch, t) {
+                self.flush_inputs();
                 if !check_read_tos_and_policy(true, true) {
                     self.after_accept_tos = Some(NextAction::Register);
                     return true;
@@ -542,6 +534,7 @@ impl Login {
                 return true;
             }
             if self.btn_login.touch(touch, t) {
+                self.flush_inputs();
                 // A pending HYKB claim already accepted TOS in the picker; only
                 // gate a plain email login on the TOS check.
                 #[cfg(feature = "hykb")]
@@ -562,6 +555,30 @@ impl Login {
             return true;
         }
         false
+    }
+
+    /// Commits the text of any focused field, so a form submission reads the
+    /// latest input even when a field still has focus.
+    fn flush_inputs(&mut self) {
+        if let Some(text) = self.input_email.confirm() {
+            self.t_email = text;
+        }
+        if let Some(text) = self.input_pwd.confirm() {
+            self.t_pwd = text;
+        }
+        if let Some(text) = self.input_reg_email.confirm() {
+            self.t_reg_email = text;
+        }
+        if let Some(text) = self.input_reg_name.confirm() {
+            self.t_reg_name = text;
+        }
+        if let Some(text) = self.input_reg_pwd.confirm() {
+            self.t_reg_pwd = text;
+        }
+        #[cfg(feature = "hykb")]
+        if let Some(text) = self.input_hykb_name.confirm() {
+            self.t_hykb_name = text;
+        }
     }
 
     /// Submit the email login form. When a HYKB token is pending (the user chose
@@ -626,35 +643,14 @@ impl Login {
             self.reg_name_show = !done;
         }
         dispatch_tos_task();
-        if let Some((id, text)) = take_input() {
-            'tmp: {
-                // The HYKB register username feeds the in-app panel's input slot
-                // rather than being stored into one of the email-form fields.
-                #[cfg(feature = "hykb")]
-                if id == "hykb_reg_name" {
-                    self.t_hykb_name = text;
-                    break 'tmp;
-                }
-                let tmp = match id.as_str() {
-                    "email" => &mut self.t_email,
-                    "pwd" => &mut self.t_pwd,
-                    "reg_email" => &mut self.t_reg_email,
-                    "reg_name" => &mut self.t_reg_name,
-                    "reg_pwd" => &mut self.t_reg_pwd,
-                    _ => {
-                        return_input(id, text);
-                        break 'tmp;
-                    }
-                };
-                *tmp = text;
-            }
-        }
-        // Cancelling the username InputBox simply returns to the in-app username
-        // panel (still shown); consume the event so it doesn't leak to others.
+        self.flush_inputs();
+        self.input_email.update();
+        self.input_pwd.update();
+        self.input_reg_email.update();
+        self.input_reg_name.update();
+        self.input_reg_pwd.update();
         #[cfg(feature = "hykb")]
-        if let Some(id) = take_input_cancelled() {
-            let _ = id;
-        }
+        self.input_hykb_name.update();
         if JUST_ACCEPTED_TOS.fetch_and(false, Ordering::Relaxed) {
             match self.after_accept_tos {
                 Some(NextAction::Login) => {
@@ -829,12 +825,12 @@ impl Login {
                         let r = ui.text(tl!("register")).pos(wr.x + 0.045, wr.y + 0.037).size(1.1).draw_using(&BOLD_FONT);
                         let pad = 0.035;
                         let mut r = Rect::new(wr.x + pad, r.bottom() + 0.05, wr.w - pad * 2., 0.1);
-                        self.input_reg_email.render_input(ui, r, t, &self.t_reg_email, tl!("email"), 0.62);
+                        render_input_btn(ui, &mut self.input_reg_email, r, t, &self.t_reg_email, &tl!("email"), 0.62);
                         r.y += r.h + 0.02;
-                        self.input_reg_name.render_input(ui, r, t, &self.t_reg_name, tl!("username"), 0.62);
+                        render_input_btn(ui, &mut self.input_reg_name, r, t, &self.t_reg_name, &tl!("username"), 0.62);
                         r.y += r.h + 0.02;
-                        self.input_reg_pwd
-                            .render_input(ui, r, t, "*".repeat(self.t_reg_pwd.len()), tl!("password"), 0.62);
+                        let pwd_text = "*".repeat(self.t_reg_pwd.len());
+                        render_input_btn(ui, &mut self.input_reg_pwd, r, t, &pwd_text, &tl!("password"), 0.62);
                         let h = 0.09;
                         let pad = 0.05;
                         let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
@@ -854,9 +850,10 @@ impl Login {
                             .draw();
                         let pad = 0.037;
                         let mut r = Rect::new(wr.x + pad, r.bottom() + 0.06, wr.w - pad * 2., 0.1);
-                        self.input_email.render_input(ui, r, t, &self.t_email, tl!("email"), 0.62);
+                        render_input_btn(ui, &mut self.input_email, r, t, &self.t_email, &tl!("email"), 0.62);
                         r.y += r.h + 0.04;
-                        self.input_pwd.render_input(ui, r, t, "*".repeat(self.t_pwd.len()), tl!("password"), 0.62);
+                        let pwd_text = "*".repeat(self.t_pwd.len());
+                        render_input_btn(ui, &mut self.input_pwd, r, t, &pwd_text, &tl!("password"), 0.62);
 
                         let r = ui
                             .text(tl!("forget-password"))
@@ -970,8 +967,8 @@ impl Login {
         Rect::new(-hw, -hh, hw * 2., hh * 2.)
     }
 
-    /// Render the "choose your username" panel: a title, a hint line, a tappable
-    /// input slot (which opens the native InputBox) and a confirm button.
+    /// Render the "choose your username" panel: a title, a hint line, an inline
+    /// input slot and a confirm button.
     #[cfg(feature = "hykb")]
     fn render_reg_name(&mut self, ui: &mut Ui, t: f32) {
         if !self.reg_name_show && !self.reg_name_fader.transiting() {
@@ -997,7 +994,7 @@ impl Login {
                     .draw();
 
                 let r = Rect::new(wr.x + pad, r.bottom() + 0.04, wr.w - pad * 2., 0.1);
-                self.input_hykb_name.render_input(ui, r, t, &self.t_hykb_name, tl!("username"), 0.62);
+                render_input_btn(ui, &mut self.input_hykb_name, r, t, &self.t_hykb_name, &tl!("username"), 0.62);
 
                 let h = 0.09;
                 let bpad = 0.05;
