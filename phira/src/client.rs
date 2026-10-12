@@ -21,7 +21,7 @@ use tracing::{debug, warn};
 pub static CLIENT_TOKEN: Lazy<ArcSwap<Option<String>>> = Lazy::new(|| ArcSwap::from_pointee(None));
 
 static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_pointee(basic_client_builder().build().unwrap()));
-static SESSION: Lazy<ArcSwapOption<Session>> = Lazy::new(|| ArcSwapOption::empty());
+static SESSION: Lazy<ArcSwapOption<Session>> = Lazy::new(ArcSwapOption::empty);
 static SESSION_UPDATE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub struct Client;
