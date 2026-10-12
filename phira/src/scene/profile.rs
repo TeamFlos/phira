@@ -5,10 +5,11 @@ use super::confirm_dialog;
 use super::{TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
     client::{recv_raw, Client, Record, User, UserManager},
-    get_data, get_data_mut, hykb_logout,
+    get_data,
     page::{Fader, Illustration, SFader},
-    save_data, sync_data,
 };
+#[cfg(feature = "hykb")]
+use crate::{get_data_mut, save_data};
 use anyhow::Result;
 use chrono::Local;
 #[cfg(feature = "hykb")]
@@ -320,7 +321,7 @@ impl Scene for ProfileScene {
 
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.delete_task = Some(Task::new(async move {
-                Client::post("/delete-account", &()).send().await?.error_for_status()?;
+                recv_raw(Client::post("/delete-account", &())).await?;
                 Ok(())
             }));
         }
@@ -377,12 +378,7 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_logout.touch(touch, t) {
-            hykb_logout();
-            crate::request_hykb_fcm_stop();
-            get_data_mut().me = None;
-            get_data_mut().tokens = None;
-            let _ = save_data();
-            sync_data();
+            crate::force_logout();
             show_message(tl!("logged-out")).ok();
             self.sf.next(t, NextScene::Pop);
             return Ok(true);
