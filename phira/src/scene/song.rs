@@ -18,6 +18,7 @@ use crate::{
         local_illustration, request_export, resolve_export, take_export, thumbnail_path, ChartItem, ChartType, Fader, Illustration, SFader,
         FAV_UPDATED,
     },
+    play_upload::ApiUploader,
     popup::Popup,
     rate::RateDialog,
     save_data,
@@ -25,7 +26,6 @@ use crate::{
 };
 use ::rand::{thread_rng, Rng};
 use anyhow::{bail, Context, Error, Result};
-use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use core::f32;
 use futures_util::StreamExt;
@@ -43,10 +43,10 @@ use prpr::{
     fs::{self},
     info::ChartInfo,
     judge::icon_index,
-    play_record::{PlayRecord, TouchRecorder, TouchSampling},
+    play_record::{TouchRecorder, TouchSampling},
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
+        LocalSceneTask, NextScene, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
     },
     task::Task,
     time::TimeManager,
@@ -56,7 +56,7 @@ use regex::Regex;
 use reqwest::Method;
 use sanitize_filename::sanitize;
 use sasa::{AudioClip, Frame, Music, MusicParams};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
@@ -1007,49 +1007,7 @@ impl SongScene {
                 rks: it.rks,
                 historic_best: record.map_or(0, |it| it.score as u32),
             });
-            let upload_fn: Option<UploadFn> = Some(Arc::new(move |data: Vec<u8>, play_record: Option<Arc<PlayRecord>>| {
-                Task::new(async move {
-                    #[derive(Serialize)]
-                    #[serde(rename_all = "camelCase")]
-                    struct Req<'a> {
-                        chart: i32,
-                        token: String,
-                        chart_updated: Option<DateTime<Utc>>,
-                        // Borrowed out of the `Arc` rather than held by it, so
-                        // that serde's `rc` feature isn't needed workspace-wide.
-                        #[serde(skip_serializing_if = "Option::is_none")]
-                        play_record: Option<&'a PlayRecord>,
-                    }
-                    #[derive(Deserialize)]
-                    #[serde(rename_all = "camelCase")]
-                    struct Resp {
-                        id: i32,
-                        exp_delta: f64,
-                        new_best: bool,
-                        improvement: u32,
-                        new_rks: f32,
-                    }
-                    let resp: Resp = recv_raw(Client::post(
-                        "/play/upload",
-                        &Req {
-                            chart: id.unwrap(),
-                            token: STANDARD.encode(data),
-                            chart_updated,
-                            play_record: play_record.as_deref(),
-                        },
-                    ))
-                    .await?
-                    .json()
-                    .await?;
-                    RECORD_ID.store(resp.id, Ordering::Relaxed);
-                    Ok(RecordUpdateState {
-                        best: resp.new_best,
-                        improvement: resp.improvement,
-                        gain_exp: resp.exp_delta as f32,
-                        new_rks: Some(resp.new_rks),
-                    })
-                })
-            }));
+            let upload_fn: Option<UploadFn> = id.map(|chart| Arc::new(ApiUploader { chart, chart_updated }) as UploadFn);
             if is_unlock {
                 #[cfg(not(feature = "video"))]
                 {

@@ -10,7 +10,7 @@ mod game;
 pub use game::{GameMode, GameScene, SimpleRecord};
 
 mod loading;
-pub use loading::{BasicPlayer, LoadingScene, SaveFn, UpdateFn, UploadFn};
+pub use loading::{BasicPlayer, LoadingScene, SaveFn, UpdateFn, UploadFn, Uploader};
 
 use crate::{
     ext::{draw_image, screen_aspect, LocalTask, SafeTexture, ScaleType},

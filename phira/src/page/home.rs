@@ -149,6 +149,7 @@ impl HomePage {
             Ok(Ok(flavor)) => flavor.trim().to_owned(),
             _ => "none".to_owned(),
         };
+        crate::play_upload::set_flavor(flavor.clone());
 
         let mut res = Self {
             icons: Arc::clone(&icons),

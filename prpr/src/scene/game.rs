@@ -5,7 +5,7 @@ prpr_l10n::tl_file!("game");
 use super::{
     draw_background,
     ending::RecordUpdateState,
-    loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn},
+    loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn, Uploader},
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
 };
 use crate::{
@@ -152,6 +152,9 @@ pub struct GameScene {
 
     best_record: Option<SimpleRecord>,
 
+    /// The server session of the current attempt, see [`Uploader::open_session`].
+    session: Option<Task<Result<Vec<u8>>>>,
+
     pub touch_points: Vec<(f32, f32)>,
     fps_frame_count: u32,
     fps_total_time: f64,
@@ -165,6 +168,7 @@ macro_rules! reset {
         $self.bad_notes.clear();
         $self.judge.reset();
         $self.chart.reset();
+        $self.session = None;
         $res.judge_line_color = $res.res_pack.info.color_perfect();
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
@@ -344,6 +348,8 @@ impl GameScene {
             save_fn,
 
             best_record: None,
+
+            session: None,
 
             touch_points: Vec::new(),
 
@@ -820,6 +826,11 @@ impl GameScene {
             && self.res.config.speed >= 1.0 - 1e-3
     }
 
+    /// Whether this attempt will be uploaded, and so needs a server session.
+    fn should_open_session(&self) -> bool {
+        self.should_record() && !self.res.config.offline_mode && self.player.is_some() && self.res.info.id.is_some()
+    }
+
     fn tweak_offset(&mut self, ui: &mut Ui, ita: bool) {
         let labels = OffsetPanelLabels {
             adjust_offset: tl!("adjust-offset"),
@@ -905,6 +916,12 @@ impl Scene for GameScene {
                 if time >= Self::BEFORE_TIME {
                     self.res.alpha = 1.;
                     self.state = State::BeforeMusic;
+                    // The attempt starts here, after every reset, so this is
+                    // where it gets its session. The request runs while the
+                    // chart plays rather than holding up the start.
+                    if self.should_open_session() {
+                        self.session = self.upload_fn.as_ref().map(|it| it.open_session());
+                    }
                     tm.reset();
                     tm.seek_to(if self.mode == GameMode::Exercise {
                         self.exercise_range.start
@@ -976,6 +993,17 @@ impl Scene for GameScene {
                         }
                     }
                     let result = self.judge.result();
+                    let session = self.session.take().and_then(|mut task| match task.take() {
+                        Some(Ok(nonce)) => Some(nonce),
+                        Some(Err(err)) => {
+                            warn!(?err, "failed to open play session");
+                            None
+                        }
+                        None => {
+                            warn!("play session still pending at the end of the attempt");
+                            None
+                        }
+                    });
                     let play_record = self.should_record().then(|| {
                         let meta = PlayMeta {
                             judge_version: JUDGE_VERSION,
@@ -1036,6 +1064,7 @@ impl Scene for GameScene {
                                 historic_best,
                                 record_data,
                                 play_record,
+                                session,
                                 self.best_record.clone(),
                                 if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
                             )?)))

@@ -15,6 +15,7 @@ mod images;
 mod login;
 mod mp;
 mod page;
+mod play_upload;
 mod popup;
 mod rate;
 mod resource;

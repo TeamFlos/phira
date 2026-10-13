@@ -182,6 +182,13 @@ impl Client {
     }
 
     #[inline]
+    pub fn post_binary(path: impl AsRef<str>, body: Vec<u8>) -> RequestBuilder {
+        Self::request(Method::POST, path)
+            .header(header::CONTENT_TYPE, "application/octet-stream")
+            .body(body)
+    }
+
+    #[inline]
     pub fn delete(path: impl AsRef<str>) -> RequestBuilder {
         Self::request(Method::DELETE, path)
     }

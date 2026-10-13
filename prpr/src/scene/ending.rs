@@ -55,6 +55,7 @@ pub struct EndingScene {
     upload_task: Option<(Task<Result<RecordUpdateState>>, MessageHandle)>,
     record_data: Option<Vec<u8>>,
     play_record: Option<Arc<PlayRecord>>,
+    session: Option<Vec<u8>>,
     best_record: Option<SimpleRecord>,
 
     btn_retry: DRectButton,
@@ -86,6 +87,7 @@ impl EndingScene {
         historic_best: u32,
         record_data: Option<Vec<u8>>,
         play_record: Option<Arc<PlayRecord>>,
+        session: Option<Vec<u8>>,
         best_record: Option<SimpleRecord>,
         avg_fps: Option<f32>,
     ) -> Result<Self> {
@@ -101,7 +103,7 @@ impl EndingScene {
         let upload_task = upload_fn.as_ref().and_then(|f| {
             record_data
                 .clone()
-                .map(|data| (f(data, play_record.clone()), show_message(tl!("uploading")).handle()))
+                .map(|data| (f.upload(data, play_record.clone(), session.clone()), show_message(tl!("uploading")).handle()))
         });
         Ok(Self {
             background,
@@ -145,6 +147,7 @@ impl EndingScene {
             upload_task,
             record_data,
             play_record,
+            session,
             best_record,
             detail_mode: false,
 
@@ -217,10 +220,15 @@ impl Scene for EndingScene {
             self.bgm.play()?;
         }
         if RE_UPLOAD.with(|it| std::mem::replace(it.borrow_mut().deref_mut(), false)) && self.upload_task.is_none() {
-            self.upload_task = self
-                .record_data
-                .clone()
-                .map(|data| ((self.upload_fn.as_ref().unwrap())(data, self.play_record.clone()), show_message(tl!("uploading")).handle()));
+            // A retry reuses the attempt's nonce: it is the same attempt.
+            self.upload_task = self.record_data.clone().map(|data| {
+                let task = self
+                    .upload_fn
+                    .as_ref()
+                    .unwrap()
+                    .upload(data, self.play_record.clone(), self.session.clone());
+                (task, show_message(tl!("uploading")).handle())
+            });
         }
         if let Some((task, handle)) = &mut self.upload_task {
             if let Some(result) = task.take() {

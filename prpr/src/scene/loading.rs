@@ -22,7 +22,20 @@ use tracing::warn;
 const BEFORE_TIME: f32 = 1.;
 const FADE_IN_TIME: f32 = 0.6;
 
-pub type UploadFn = Arc<dyn Fn(Vec<u8>, Option<Arc<PlayRecord>>) -> Task<Result<RecordUpdateState>>>;
+/// Sends a play's result to the server. Implemented by the game crate, which
+/// owns the API client.
+pub trait Uploader {
+    /// Opens a server-side session for one play attempt, resolving to the
+    /// nonce the server issued. Called as each attempt begins, retries
+    /// included, so that the nonce proves the attempt started after it.
+    fn open_session(&self) -> Task<Result<Vec<u8>>>;
+
+    /// Uploads a finished attempt. `session` is the nonce
+    /// [`Self::open_session`] resolved to, if it did so in time.
+    fn upload(&self, token: Vec<u8>, play_record: Option<Arc<PlayRecord>>, session: Option<Vec<u8>>) -> Task<Result<RecordUpdateState>>;
+}
+
+pub type UploadFn = Arc<dyn Uploader>;
 pub type UpdateFn = Box<dyn FnMut(f64, &mut Resource, &mut Judge)>;
 pub type SaveFn = Box<dyn Fn(SimpleRecord) -> Result<()>>;
 
