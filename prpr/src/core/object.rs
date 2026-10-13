@@ -50,10 +50,15 @@ impl Object {
     }
 
     #[inline]
-    pub fn now_translation(&self, res: &Resource) -> Vector {
+    pub fn now_translation_with(&self, aspect_ratio: f32) -> Vector {
         let mut tr = self.translation.now();
-        tr.y /= res.aspect_ratio;
+        tr.y /= aspect_ratio;
         tr
+    }
+
+    #[inline]
+    pub fn now_translation(&self, res: &Resource) -> Vector {
+        self.now_translation_with(res.aspect_ratio)
     }
 
     pub fn new_rotation_wrt_point(rot: Rotation2<f32>, pt: Vector) -> Matrix {
