@@ -15,9 +15,9 @@ use crate::{
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
-    judge::Judge,
+    judge::{Judge, JUDGE_VERSION},
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
-    play_record::{PlayMeta, PlayRecorder},
+    play_record::{PlayMeta, PlayRecord},
     task::Task,
     time::TimeManager,
     ui::{OffsetAnalysisPanel, OffsetPanelAction, OffsetPanelLabels, RectButton, TextPainter, Ui},
@@ -152,8 +152,6 @@ pub struct GameScene {
 
     best_record: Option<SimpleRecord>,
 
-    play_recorder: PlayRecorder,
-
     pub touch_points: Vec<(f32, f32)>,
     fps_frame_count: u32,
     fps_total_time: f64,
@@ -167,7 +165,6 @@ macro_rules! reset {
         $self.bad_notes.clear();
         $self.judge.reset();
         $self.chart.reset();
-        $self.play_recorder.reset();
         $res.judge_line_color = $res.res_pack.info.color_perfect();
         $self.music.pause()?;
         $self.music.seek_to(0.)?;
@@ -347,8 +344,6 @@ impl GameScene {
             save_fn,
 
             best_record: None,
-
-            play_recorder: PlayRecorder::new(),
 
             touch_points: Vec::new(),
 
@@ -813,12 +808,15 @@ impl GameScene {
     }
 
     /// Whether this play is a genuine attempt worth recording in detail.
-    /// Exercise can seek backwards (which breaks the monotonic touch stream),
-    /// tweaking the offset and viewing are not attempts at all, and an unrated
-    /// play (autoplay above all, which judges nothing) has nothing to record.
+    /// Exercise can seek backwards (which the recorded input stream handles,
+    /// but a loopy attempt is not one worth analyzing), tweaking the offset
+    /// and viewing are not attempts at all, an unrated play (autoplay above
+    /// all, which judges nothing) has nothing to record, and keyboard hits
+    /// are not part of the stream.
     fn should_record(&self) -> bool {
         matches!(self.mode, GameMode::Normal | GameMode::NoRetry)
             && !self.res.config.mods.intersects(Mods::UNRATED)
+            && !self.res.config.use_keyboard
             && self.res.config.speed >= 1.0 - 1e-3
     }
 
@@ -980,6 +978,7 @@ impl Scene for GameScene {
                     let result = self.judge.result();
                     let play_record = self.should_record().then(|| {
                         let meta = PlayMeta {
+                            judge_version: JUDGE_VERSION,
                             chart_id: self.res.info.id,
                             chart_hash: Some(Sha256::digest(&self.chart_bytes).encode_hex()),
                             mods: self.res.config.mods,
@@ -989,8 +988,9 @@ impl Scene for GameScene {
                             use_keyboard: self.res.config.use_keyboard,
                             aspect_ratio: self.res.aspect_ratio,
                             track_length: self.res.track_length as f32,
+                            avg_fps: self.get_avg_fps(),
                         };
-                        Arc::new(std::mem::take(&mut self.play_recorder).finish(meta, &self.chart, &self.judge.hit_events))
+                        Arc::new(PlayRecord::finish(meta, &self.chart, &self.judge.hit_events, std::mem::take(&mut self.judge.inputs)))
                     });
                     let record = if self.res.config.mods.intersects(Mods::UNRATED) || self.res.config.speed < 1.0 - 1e-3 {
                         None
@@ -1053,7 +1053,6 @@ impl Scene for GameScene {
         if !tm.paused() && self.pause_rewind.is_none() && self.mode != GameMode::View {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
             self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
-            self.play_recorder.record_touches(self.res.time, self.res.aspect_ratio);
             self.gl.quad_gl.viewport(None);
         }
         if let Some(update) = &mut self.update_fn {
@@ -1174,7 +1173,8 @@ impl Scene for GameScene {
     }
 
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
-        if self.res.config.show_avg_fps {
+        // Tracked regardless of `show_avg_fps`: the play record carries it too.
+        {
             let current_time = tm.real_time();
             if matches!(self.state, State::Playing) && !tm.paused() {
                 let frame_delta = current_time - self.fps_last_frame_time;

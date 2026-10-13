@@ -43,7 +43,7 @@ use prpr::{
     fs::{self},
     info::ChartInfo,
     judge::icon_index,
-    play_record::{PlayRecord, TouchRecorder},
+    play_record::{PlayRecord, TouchRecorder, TouchSampling},
     scene::{
         request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
         LocalSceneTask, NextScene, RecordUpdateState, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
@@ -876,7 +876,7 @@ impl SongScene {
             let mut reconnect_task: Option<Task<Result<phira_mp_client::Client>>> = None;
             let update_fn: Option<UpdateFn> = if live {
                 Some(Box::new({
-                    let mut touch_recorder = TouchRecorder::new();
+                    let mut touch_recorder = TouchRecorder::new(TouchSampling::LIVE);
                     let mut touches: VecDeque<TouchFrame> = VecDeque::new();
                     let mut judges: VecDeque<JudgeEvent> = VecDeque::new();
                     let mut last_send_touch_time: f32 = 0.;
@@ -906,7 +906,9 @@ impl SongScene {
                             }
                         }
                         let points: Vec<_> = touch_recorder
-                            .poll(t, res.aspect_ratio)
+                            // The precise start/end times are dropped here: the mp wire format carries
+                            // only the frame time, and live viewing doesn't need more.
+                            .poll(t, res.aspect_ratio, res.config.speed as f64)
                             .into_iter()
                             // `poll` has already scaled `y` by the aspect ratio.
                             .map(|it| (it.id, CompactPos::new(it.x, it.y)))

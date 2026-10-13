@@ -224,6 +224,7 @@ mod tests {
     fn note(time: f32, kind: NoteKindTag, judgement: Judgement, diff: Option<f32>) -> NoteRecord {
         NoteRecord {
             line: 0,
+            note: 0,
             time,
             kind,
             judgement,
@@ -237,7 +238,7 @@ mod tests {
             version: PLAY_RECORD_VERSION,
             meta: PlayMeta::default(),
             notes,
-            touch_frames: Vec::new(),
+            inputs: Vec::new(),
         }
     }
 
