@@ -1,0 +1,1163 @@
+//! Tests for the precise judge: live-vs-replay equality, frame-rate
+//! independence, and the input collector's canonicalization. Charts are
+//! built inline with the pure parsers; the live path is driven through
+//! `update_with`, which needs no graphics context.
+//!
+//! All times in these tests are dyadic rationals and the synthetic uptime
+//! starts at zero, so `t - (uptime - stamp)` is computed exactly and event
+//! times are bit-identical no matter which frame delivered them.
+
+use super::{
+    input::{InputEvent, RawFrame, RawTouch},
+    Judge, JudgeEnv, Judgement, MovePoint, JUDGE_VERSION, LIMIT_BAD, LIMIT_GOOD, LIMIT_PERFECT, MOVE_DEADBAND,
+};
+use crate::{
+    core::{Chart, ChartExtra, Point},
+    parse::parse_phigros,
+};
+use macroquad::prelude::TouchPhase;
+use std::iter::once;
+use std::time::Instant;
+
+const ASPECT: f32 = 16. / 9.;
+
+fn env() -> JudgeEnv {
+    JudgeEnv {
+        aspect_ratio: ASPECT,
+        speed: 1.,
+        flip_x: false,
+    }
+}
+
+/// bpm 1.875 makes the parser's time factor exactly 1, so chart seconds are
+/// the JSON's time values.
+fn chart_of(lines: Vec<serde_json::Value>) -> Chart {
+    let source = serde_json::json!({
+        "formatVersion": 3,
+        "offset": 0.,
+        "judgeLineList": lines,
+    })
+    .to_string();
+    parse_phigros(&source, ChartExtra::default()).unwrap()
+}
+
+fn line_json(notes: Vec<serde_json::Value>) -> serde_json::Value {
+    serde_json::json!({
+        "bpm": 1.875,
+        "judgeLineDisappearEvents": [{"startTime": 0., "endTime": 0., "start": 1., "end": 1.}],
+        "judgeLineRotateEvents": [{"startTime": 0., "endTime": 0., "start": 0., "end": 0.}],
+        "judgeLineMoveEvents": [{"startTime": 0., "endTime": 0., "start": 0.5, "end": 0.5, "start2": 0.5, "end2": 0.5}],
+        "speedEvents": [{"startTime": 0., "endTime": 64., "value": 1.0}],
+        "notesAbove": notes,
+        "notesBelow": [],
+    })
+}
+
+fn note(kind: u8, time: f64, position_x: f32, hold_time: f64) -> serde_json::Value {
+    serde_json::json!({
+        "type": kind,
+        "time": time,
+        "positionX": position_x,
+        "holdTime": hold_time,
+        "speed": 1.0,
+        "floorPosition": 0.0,
+    })
+}
+
+/// click at 1, hold 2..3, drag at 4, flick at 5, all at x = 0 on a
+/// centered line.
+fn basic_chart() -> Chart {
+    chart_of(vec![line_json(vec![
+        note(1, 1., 0., 0.),
+        note(3, 2., 0., 1.),
+        note(2, 4., 0., 0.),
+        note(4, 5., 0., 0.),
+    ])])
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Action {
+    Down { id: u64, at: f64, pos: (f32, f32) },
+    Move { id: u64, at: f64, pos: (f32, f32) },
+    Up { id: u64, at: f64 },
+}
+
+impl Action {
+    fn time(&self) -> f64 {
+        match self {
+            Action::Down { at, .. } | Action::Move { at, .. } | Action::Up { at, .. } => *at,
+        }
+    }
+}
+
+fn raw(id: u64, phase: TouchPhase, time: f64, (x, y): (f32, f32)) -> RawTouch {
+    RawTouch { id, phase, time, x, y }
+}
+
+/// Delivers each action in the first frame whose time reaches it, with its
+/// OS timestamp set to its own time (the synthetic uptime runs from zero),
+/// and keeps the live set in sync — the way a well-behaved OS would.
+fn drive(judge: &mut Judge, chart: &mut Chart, env: &JudgeEnv, schedule: &[f64], actions: &[Action]) {
+    let mut prev = f64::NEG_INFINITY;
+    let mut state: Vec<(u64, f32, f32)> = Vec::new();
+    for &t in schedule {
+        let mut events = Vec::new();
+        for action in actions.iter().filter(|it| prev < it.time() && it.time() <= t) {
+            match *action {
+                Action::Down { id, at, pos } => {
+                    state.retain(|it| it.0 != id);
+                    state.push((id, pos.0, pos.1));
+                    events.push(raw(id, TouchPhase::Started, at, pos));
+                }
+                Action::Move { id, at, pos } => {
+                    if let Some(entry) = state.iter_mut().find(|it| it.0 == id) {
+                        entry.1 = pos.0;
+                        entry.2 = pos.1;
+                        events.push(raw(id, TouchPhase::Moved, at, pos));
+                    }
+                }
+                Action::Up { id, at } => {
+                    state.retain(|it| it.0 != id);
+                    events.push(raw(id, TouchPhase::Ended, at, (0., 0.)));
+                }
+            }
+        }
+        let mut effects = Vec::new();
+        judge.update_with(
+            chart,
+            env,
+            RawFrame {
+                t,
+                uptime: t,
+                speed: 1.,
+                aspect: ASPECT,
+                raw: &events,
+                live: &state,
+            },
+            0,
+            &mut effects,
+        );
+        prev = t;
+    }
+}
+
+fn fps(n: usize, step: f64) -> Vec<f64> {
+    (0..n).map(|it| it as f64 * step).collect()
+}
+
+/// 60fps with one 300ms stall in the middle: the frame due at 40/64 arrives
+/// 300ms late, and every later frame shifts with it.
+fn stalled() -> Vec<f64> {
+    let mut times = fps(400, 1. / 64.);
+    for time in times.iter_mut().skip(41) {
+        *time += 0.3;
+    }
+    times
+}
+
+fn play(actions: &[Action], schedule: &[f64]) -> (Chart, Judge) {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    drive(&mut judge, &mut chart, &env(), schedule, actions);
+    (chart, judge)
+}
+
+/// A full basic play: a perfect tap, a good hold held to its end, a drag
+/// covered by a resting finger, and a flick swiped right through.
+fn full_actions() -> Vec<Action> {
+    vec![
+        Action::Down {
+            id: 1,
+            at: 1.,
+            pos: (0., 0.),
+        },
+        Action::Up { id: 1, at: 1.0625 },
+        Action::Down {
+            id: 2,
+            at: 61. / 32.,
+            pos: (0., 0.),
+        },
+        Action::Up { id: 2, at: 3.0625 },
+        Action::Down {
+            id: 3,
+            at: 3.875,
+            pos: (0., 0.),
+        },
+        Action::Up { id: 3, at: 4.125 },
+        Action::Down {
+            id: 4,
+            at: 317. / 64.,
+            pos: (0., 0.),
+        },
+        Action::Move {
+            id: 4,
+            at: 4.96875,
+            pos: (0.05, 0.),
+        },
+        Action::Move {
+            id: 4,
+            at: 4.984375,
+            pos: (0.1, 0.),
+        },
+        Action::Move {
+            id: 4,
+            at: 5.,
+            pos: (0.15, 0.),
+        },
+        Action::Up { id: 4, at: 5.046875 },
+    ]
+}
+
+/// The hit event of the note with the given head time. The chart reorders
+/// its notes for rendering, so tests must not hardcode note ids.
+fn event_at<'a>(judge: &'a Judge, chart: &Chart, time: f64) -> &'a super::HitEvent {
+    let (line, note) = chart
+        .lines
+        .iter()
+        .enumerate()
+        .find_map(|(li, line)| line.notes.iter().position(|it| it.time == time).map(|ni| (li as u32, ni as u32)))
+        .unwrap();
+    judge.hit_events.iter().find(|it| it.line_id == line && it.note_id == note).unwrap()
+}
+
+fn events_of(judge: &Judge) -> String {
+    judge
+        .hit_events
+        .iter()
+        .map(|it| format!("{:?}/{:?}/{:?}/{:?}", it.line_id, it.note_id, it.judgement, it.diff))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn judge_version_is_bumped() {
+    assert_eq!(JUDGE_VERSION, 2);
+}
+
+#[test]
+fn a_replay_reproduces_a_live_run_note_for_note() {
+    let schedule = fps(400, 1. / 64.);
+    let (_, judge) = play(&full_actions(), &schedule);
+
+    let mut chart = basic_chart();
+    let replayed = Judge::replay(&mut chart, &env(), &judge.inputs, 5.);
+    assert_eq!(replayed.hit_events, judge.hit_events, "{}\nvs\n{}", events_of(&replayed), events_of(&judge));
+    assert_eq!(replayed.result().counts, judge.result().counts);
+    assert!(replayed.inputs.is_empty(), "a replay must not log a stream");
+}
+
+#[test]
+fn results_do_not_depend_on_the_frame_rate() {
+    let actions = full_actions();
+    let (chart60, judge60) = play(&actions, &fps(400, 1. / 64.));
+    let (chart144, judge144) = play(&actions, &fps(800, 1. / 128.));
+    let (chart_stall, judge_stall) = play(&actions, &stalled());
+
+    assert_eq!(judge60.inputs, judge144.inputs);
+    assert_eq!(judge60.hit_events, judge144.hit_events, "{}\nvs\n{}", events_of(&judge60), events_of(&judge144));
+    assert_eq!(judge60.inputs, judge_stall.inputs);
+    assert_eq!(judge60.hit_events, judge_stall.hit_events);
+    drop(chart60);
+    drop(chart144);
+    drop(chart_stall);
+}
+
+#[test]
+fn candidate_line_filtering_changes_nothing() {
+    let actions = full_actions();
+    let mut chart = basic_chart();
+    let mut filtered = Judge::new(&chart);
+    drive(&mut filtered, &mut chart, &env(), &fps(400, 1. / 64.), &actions);
+
+    let mut chart = basic_chart();
+    let mut plain = Judge::new(&chart);
+    plain.set_candidate_filter(false);
+    drive(&mut plain, &mut chart, &env(), &fps(400, 1. / 64.), &actions);
+
+    assert_eq!(filtered.hit_events, plain.hit_events, "{}\nvs\n{}", events_of(&filtered), events_of(&plain));
+}
+
+#[test]
+fn an_on_time_tap_is_perfect_with_no_error() {
+    let (_, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 1.,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 1.0625 },
+        ],
+        &fps(80, 1. / 64.),
+    );
+    let event = &judge.hit_events[0];
+    assert_eq!(event.judgement, Judgement::Perfect);
+    assert!(event.diff.unwrap().abs() < 1e-9, "{:?}", event.diff);
+}
+
+#[test]
+fn a_bad_carries_the_click_time_not_the_frame_time() {
+    // 200ms early: past the good window, inside the click search.
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 0.8,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 1. },
+        ],
+        &fps(80, 1. / 64.),
+    );
+    let event = event_at(&judge, &chart, 1.);
+    assert_eq!(event.judgement, Judgement::Bad);
+    let diff = event.diff.expect("a bad must be timed now");
+    assert!((diff + 0.2).abs() < 1e-9, "{diff}");
+}
+
+#[test]
+fn a_hold_survives_a_short_absence_and_breaks_on_a_long_one() {
+    let hold = |away: f64| {
+        let away_start = 2.5;
+        let back = away_start + away;
+        let actions = vec![
+            Action::Down {
+                id: 1,
+                at: 61. / 32.,
+                pos: (0., 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: away_start,
+                pos: (0.9, 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: back,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 3.0625 },
+        ];
+        play(&actions, &fps(512, 1. / 128.))
+    };
+    let (chart, short) = hold(30. / 1000.);
+    let hold_event = event_at(&short, &chart, 2.);
+    assert_eq!(hold_event.judgement, Judgement::Good, "{:?}", short.hit_events);
+    assert!(!hold_event.hold_broken);
+
+    let (chart, long) = hold(100. / 1000.);
+    let hold_event = event_at(&long, &chart, 2.);
+    assert_eq!(hold_event.judgement, Judgement::Miss);
+    assert!(hold_event.hold_broken);
+}
+
+#[test]
+fn a_resting_finger_judges_a_drag() {
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 3.875,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 4.125 },
+        ],
+        &fps(320, 1. / 64.),
+    );
+    let event = event_at(&judge, &chart, 4.);
+    assert_eq!(event.judgement, Judgement::Perfect);
+    assert_eq!(event.diff, None, "a drag is judged by contact, not timing");
+}
+
+#[test]
+fn a_note_past_its_window_misses_before_any_click() {
+    // 281.25ms late: past bad, so the tap arriving at 1.28125 cannot hit.
+    let (_, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 41. / 32.,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 1.5 },
+        ],
+        &fps(120, 1. / 64.),
+    );
+    assert_eq!(judge.hit_events.len(), 1);
+    assert_eq!(judge.hit_events[0].judgement, Judgement::Miss);
+}
+
+#[test]
+fn a_child_of_a_moving_parent_line_is_judged_where_it_actually_is() {
+    let mut chart = chart_of(vec![
+        // a parent rotating from 0 to 90 degrees over seconds 1..2
+        serde_json::json!({
+            "bpm": 1.875,
+            "judgeLineDisappearEvents": [{"startTime": 0., "endTime": 0., "start": 1., "end": 1.}],
+            "judgeLineRotateEvents": [
+                {"startTime": 0., "endTime": 1., "start": 0., "end": 0.},
+                {"startTime": 1., "endTime": 2., "start": 0., "end": 90.},
+                {"startTime": 2., "endTime": 4., "start": 90., "end": 90.},
+            ],
+            "judgeLineMoveEvents": [{"startTime": 0., "endTime": 0., "start": 0.5, "end": 0.5, "start2": 0.5, "end2": 0.5}],
+            "speedEvents": [{"startTime": 0., "endTime": 64., "value": 1.0}],
+            "notesAbove": [],
+            "notesBelow": [],
+        }),
+        line_json(vec![note(1, 1.5, 32. / 9., 0.)]),
+    ]);
+    chart.lines[1].parent = Some(0);
+    chart.lines[1].rot_with_parent = true;
+
+    let env = env();
+    // Where the note actually is at 1.5s, by the chart's own transforms.
+    let tap = {
+        let tau = 1.5;
+        for line in &mut chart.lines {
+            line.object.set_time(tau);
+        }
+        let tr = chart.lines[1].now_transform_with(env.aspect_ratio, &chart.lines);
+        let note = &chart.lines[1].notes[0];
+        let world = tr.transform_point(&Point::new(note.object.translation.0.now(), 0.));
+        (world.x, -world.y * env.aspect_ratio)
+    };
+    let mut judge = Judge::new(&chart);
+    drive(&mut judge, &mut chart, &env, &fps(128, 1. / 64.), &[Action::Down { id: 1, at: 1.5, pos: tap }, Action::Up { id: 1, at: 1.5625 }]);
+    assert_eq!(judge.hit_events.len(), 1);
+    assert_eq!(judge.hit_events[0].judgement, Judgement::Perfect, "{}", events_of(&judge));
+}
+
+#[test]
+fn reconciliation_ends_disappeared_touches_and_appears_unseen_ones() {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    let env = env();
+    let mut effects = Vec::new();
+
+    // a touch starts, then the OS reports it gone without an End event
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 0.5,
+            uptime: 0.5,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[raw(7, TouchPhase::Started, 0.5, (0., 0.))],
+            live: &[(7, 0., 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 1.,
+            uptime: 1.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[],
+            live: &[],
+        },
+        0,
+        &mut effects,
+    );
+    assert!(matches!(judge.inputs.last(), Some(InputEvent::End { id: 0, .. })), "{:?}", judge.inputs);
+
+    // a touch first seen already pressed appears, and does not click: the
+    // click at 1 has missed long ago, and nothing else may be judged
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 2.,
+            uptime: 2.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[],
+            live: &[(9, 0., 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    assert!(matches!(judge.inputs.last(), Some(InputEvent::Appear { .. })), "{:?}", judge.inputs);
+    assert_eq!(judge.hit_events.len(), 1, "{:?}", judge.hit_events);
+    assert_eq!(judge.hit_events[0].judgement, Judgement::Miss);
+
+    // an OS id starting again while mapped closes the old slot first
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 3.,
+            uptime: 3.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[raw(9, TouchPhase::Started, 3., (0.5, 0.))],
+            live: &[(9, 0.5, 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    let tail: Vec<&InputEvent> = judge.inputs.iter().rev().take(2).collect();
+    assert!(matches!(tail[0], InputEvent::Start { .. }), "{:?}", judge.inputs);
+    assert!(matches!(tail[1], InputEvent::End { .. }), "{:?}", judge.inputs);
+}
+
+#[test]
+fn moves_below_the_deadband_are_not_sampled() {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    let env = env();
+    let mut effects = Vec::new();
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 0.,
+            uptime: 0.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[raw(1, TouchPhase::Started, 0., (0., 0.))],
+            live: &[(1, 0., 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    let mut pos = (0f32, 0f32);
+    for step in 1..=90 {
+        // oscillating halfway below the deadband: every sample stays within
+        // it of the last emitted position, so nothing may ever be sampled
+        pos.0 = if step % 2 == 0 { MOVE_DEADBAND / 2. } else { 0. };
+        let t = step as f64 / 64.;
+        judge.update_with(
+            &mut chart,
+            &env,
+            RawFrame {
+                t,
+                uptime: t,
+                speed: 1.,
+                aspect: ASPECT,
+                raw: &[raw(1, TouchPhase::Moved, t, pos)],
+                live: &[(1, pos.0, pos.1)],
+            },
+            0,
+            &mut effects,
+        );
+    }
+    let moves: Vec<_> = judge.inputs.iter().filter(|it| matches!(it, InputEvent::Move { .. })).cloned().collect();
+    assert!(moves.is_empty(), "{moves:?}");
+}
+
+#[test]
+fn stale_event_times_are_clamped_to_the_stream_clock() {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    let env = env();
+    let mut effects = Vec::new();
+    // ticks advance the clock to 1.0, then a start stamped 0.5 arrives late
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 1.,
+            uptime: 1.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[],
+            live: &[],
+        },
+        0,
+        &mut effects,
+    );
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 2.,
+            uptime: 2.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[raw(1, TouchPhase::Started, 0.5, (0., 0.))],
+            live: &[(1, 0., 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    assert!(matches!(judge.inputs[0], InputEvent::Start { time, .. } if time == 1.), "{:?}", judge.inputs);
+}
+
+#[test]
+fn a_backward_clock_produces_a_seek() {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    let env = env();
+    let mut effects = Vec::new();
+    // a touch moving every frame, so its position is sampled at every tick
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 0.,
+            uptime: 0.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[raw(1, TouchPhase::Started, 0., (0., 0.))],
+            live: &[(1, 0., 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 1.,
+            uptime: 1.,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[],
+            live: &[(1, 0., 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    judge.update_with(
+        &mut chart,
+        &env,
+        RawFrame {
+            t: 0.5,
+            uptime: 0.5,
+            speed: 1.,
+            aspect: ASPECT,
+            raw: &[],
+            live: &[(1, 0., 0.)],
+        },
+        0,
+        &mut effects,
+    );
+    assert!(matches!(judge.inputs.last(), Some(InputEvent::Seek { from: 1., to: 0.5 })), "{:?}", judge.inputs);
+    // the grid restarts strictly after the seek target: ticks 15 (0.5) is
+    // not repeated, the next move lands on tick 16
+    let mut x = 0.;
+    for step in 1..=8 {
+        x += 0.01;
+        let t = 0.5 + step as f64 / 64.;
+        judge.update_with(
+            &mut chart,
+            &env,
+            RawFrame {
+                t,
+                uptime: t,
+                speed: 1.,
+                aspect: ASPECT,
+                raw: &[raw(1, TouchPhase::Moved, t, (x, 0.))],
+                live: &[(1, x, 0.)],
+            },
+            0,
+            &mut effects,
+        );
+    }
+    let ticks: Vec<u32> = judge
+        .inputs
+        .iter()
+        .filter_map(|it| match it {
+            InputEvent::Move { tick, .. } => Some(*tick),
+            _ => None,
+        })
+        .collect();
+    // nothing at or before tick 15 (0.5) may repeat
+    assert_eq!(ticks.first(), Some(&16), "{ticks:?}");
+}
+
+#[test]
+fn input_events_round_trip_through_serde() {
+    let events = vec![
+        InputEvent::Start {
+            id: 3,
+            time: 1.25,
+            x: -0.5,
+            y: 0.25,
+        },
+        InputEvent::Appear {
+            id: 0,
+            time: 0.,
+            x: 0.,
+            y: 0.,
+        },
+        InputEvent::End { id: 3, time: 2.5 },
+        InputEvent::Move {
+            tick: 900,
+            points: vec![MovePoint { id: 3, x: 1., y: -1. }],
+        },
+        InputEvent::Swipe {
+            id: 1,
+            time: 3.5,
+            new: true,
+            x0: -0.2,
+            y0: 0.05,
+            x1: 0.2,
+            y1: -0.05,
+        },
+        InputEvent::Seek { from: 10., to: 7.5 },
+    ];
+    let json = serde_json::to_string(&events).unwrap();
+    assert_eq!(serde_json::from_str::<Vec<InputEvent>>(&json).unwrap(), events);
+}
+
+/// Plays `actions` on a custom chart.
+fn play_on(chart: Chart, actions: &[Action], schedule: &[f64]) -> (Chart, Judge) {
+    let mut chart = chart;
+    let mut judge = Judge::new(&chart);
+    drive(&mut judge, &mut chart, &env(), schedule, actions);
+    (chart, judge)
+}
+
+#[test]
+fn tap_windows_are_symmetric_with_no_late_bad() {
+    let cases = [
+        (1. - 0.10, Judgement::Good),
+        (1. + 0.10, Judgement::Good),
+        (1. + 0.17, Judgement::Good),
+        (1. + 0.19, Judgement::Miss),
+    ];
+    for (at, expected) in cases {
+        let (chart, judge) = play(&[Action::Down { id: 1, at, pos: (0., 0.) }, Action::Up { id: 1, at: at + 0.0625 }], &fps(80, 1. / 64.));
+        assert_eq!(event_at(&judge, &chart, 1.).judgement, expected, "tap at {at}");
+    }
+}
+
+#[test]
+fn an_early_tap_at_the_lateral_edge_is_not_matched() {
+    // 0.2 early and 0.19 off the note's center: inside the click width, but
+    // past the bad window shrunk by that offset, so nothing is judged and
+    // the note eventually misses
+    let (_, judge) = play_on(
+        chart_of(vec![line_json(vec![note(1, 1., 8. / 3., 0.)])]),
+        &[
+            Action::Down {
+                id: 1,
+                at: 0.8,
+                pos: (0.49, 0.),
+            },
+            Action::Up { id: 1, at: 0.9 },
+        ],
+        &fps(80, 1. / 64.),
+    );
+    assert_eq!(judge.hit_events.len(), 1, "{}", events_of(&judge));
+    assert_eq!(judge.hit_events[0].judgement, Judgement::Miss);
+}
+
+#[test]
+fn drag_protection_eats_one_press() {
+    // a drag and a 50ms-later tap on one line: an early press at the tap's
+    // position is eaten by the drag (which that same finger goes on to
+    // touch), and only the second press reaches the tap
+    let chart = chart_of(vec![line_json(vec![note(2, 2., 8. / 3., 0.), note(1, 2.05, 32. / 9., 0.)])]);
+    let (chart, judge) = play_on(
+        chart,
+        &[
+            Action::Down {
+                id: 1,
+                at: 1.98,
+                pos: (0.4, 0.),
+            },
+            Action::Up { id: 1, at: 1.99 },
+            Action::Down {
+                id: 2,
+                at: 2.05,
+                pos: (0.4, 0.),
+            },
+            Action::Up { id: 2, at: 2.109375 },
+        ],
+        &fps(160, 1. / 64.),
+    );
+    let tap = event_at(&judge, &chart, 2.05);
+    assert_eq!(tap.judgement, Judgement::Perfect, "{}", events_of(&judge));
+    assert!(tap.diff.unwrap().abs() < 1e-9, "hit by the second press, not the first: {:?}", tap.diff);
+    let drag = event_at(&judge, &chart, 2.);
+    assert_eq!(drag.judgement, Judgement::Perfect);
+
+    // 5ms apart instead: the tap is within the simultaneity tolerance, so
+    // the very first press already goes to it
+    let chart = chart_of(vec![line_json(vec![note(2, 2., 8. / 3., 0.), note(1, 2.005, 32. / 9., 0.)])]);
+    let (chart, judge) = play_on(
+        chart,
+        &[
+            Action::Down {
+                id: 1,
+                at: 1.98,
+                pos: (0.4, 0.),
+            },
+            Action::Up { id: 1, at: 2.0625 },
+        ],
+        &fps(160, 1. / 64.),
+    );
+    let tap = event_at(&judge, &chart, 2.005);
+    assert_eq!(tap.judgement, Judgement::Perfect, "{}", events_of(&judge));
+    assert!((tap.diff.unwrap() + 0.025).abs() < 1e-9, "hit by the first press: {:?}", tap.diff);
+    assert_eq!(event_at(&judge, &chart, 2.).judgement, Judgement::Perfect);
+}
+
+#[test]
+fn simultaneous_taps_go_to_the_closer_line() {
+    // #871: two lines, one tap each at the same time; the press sits nearer
+    // line A (weighted dx + |dy|/2.2), and which line comes first in the
+    // chart must not matter
+    let chart_with = |second: serde_json::Value, swap: bool| {
+        let mut lines = vec![line_json(vec![note(1, 2., 8. / 3., 0.)]), second];
+        if swap {
+            lines.swap(0, 1);
+        }
+        chart_of(lines)
+    };
+    let line_b = serde_json::json!({
+        "bpm": 1.875,
+        "judgeLineDisappearEvents": [{"startTime": 0., "endTime": 0., "start": 1., "end": 1.}],
+        "judgeLineRotateEvents": [{"startTime": 0., "endTime": 0., "start": 0., "end": 0.}],
+        "judgeLineMoveEvents": [{"startTime": 0., "endTime": 0., "start": 0.5, "end": 0.5, "start2": 0.6, "end2": 0.6}],
+        "speedEvents": [{"startTime": 0., "endTime": 64., "value": 1.0}],
+        "notesAbove": [note(1, 2., 8. / 3., 0.)],
+        "notesBelow": [],
+    });
+    let actions = |id: u64| {
+        vec![
+            Action::Down {
+                id,
+                at: 2.,
+                pos: (0.3, -0.01 * ASPECT),
+            },
+            Action::Up { id, at: 2.0625 },
+        ]
+    };
+    for (order, chart) in [(0, chart_with(line_b.clone(), false)), (1, chart_with(line_b, true))] {
+        let (chart, judge) = play_on(chart, &actions(1), &fps(192, 1. / 64.));
+        // line ids: whichever way the chart lists them, the press is nearer
+        // the line sitting at the screen's center line (y = 0)
+        let near = chart
+            .lines
+            .iter()
+            .position(|line| line.object.translation.1.now_opt().unwrap_or(0.).abs() < 1e-3)
+            .unwrap() as u32;
+        let hit = judge.hit_events.iter().find(|it| it.judgement != Judgement::Miss).unwrap();
+        assert_eq!(hit.line_id, near, "order {order}: {}", events_of(&judge));
+        assert_eq!(hit.judgement, Judgement::Perfect);
+    }
+}
+
+#[test]
+fn an_early_hold_press_enters_the_hold_as_good() {
+    // 0.2 early is inside the head's early window: no bad, the hold simply
+    // starts as a good one
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 1.8,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 3.0625 },
+        ],
+        &fps(320, 1. / 64.),
+    );
+    let hold = event_at(&judge, &chart, 2.);
+    assert_eq!(hold.judgement, Judgement::Good, "{}", events_of(&judge));
+    assert!(!hold.hold_broken);
+    assert!((hold.diff.unwrap() + 0.2).abs() < 1e-9);
+}
+
+#[test]
+fn drag_contact_has_a_tenth_of_a_second() {
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 4.09,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 4.1875 },
+        ],
+        &fps(320, 1. / 64.),
+    );
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Perfect);
+
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 4.125,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 4.25 },
+        ],
+        &fps(320, 1. / 64.),
+    );
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Miss);
+}
+
+#[test]
+fn pressing_on_a_flick_and_swiping_immediately_hits_it() {
+    // #736: the first step of the gesture starts at the press point, so a
+    // flick can be judged by a swipe that begins on it
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 4.98,
+                pos: (0., 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 4.984375,
+                pos: (0.05, 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 5.,
+                pos: (0.1, 0.),
+            },
+            Action::Up { id: 1, at: 5.046875 },
+        ],
+        &fps(352, 1. / 64.),
+    );
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+}
+
+#[test]
+fn a_fast_swipe_crossing_the_whole_band_still_hits() {
+    // #863: the swipe is fast enough that no grid point lands inside the
+    // flick's band; the segment between two points still covers it
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 4.93,
+                pos: (-0.3, 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 4.94,
+                pos: (-0.25, 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 4.97,
+                pos: (0.3, 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 4.99,
+                pos: (0.5, 0.),
+            },
+            Action::Up { id: 1, at: 5.046875 },
+        ],
+        &fps(352, 1. / 64.),
+    );
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+}
+
+#[test]
+fn one_gesture_judges_one_flick_and_turning_back_judges_another() {
+    let two_flicks = || chart_of(vec![line_json(vec![note(4, 4., -4. / 3., 0.), note(4, 4.05, 4. / 3., 0.)])]);
+    // one long rightward swipe over both
+    let actions: Vec<Action> = once(Action::Down {
+        id: 1,
+        at: 3.95,
+        pos: (-0.35, 0.),
+    })
+    .chain((1..=7).map(|k| Action::Move {
+        id: 1,
+        at: 3.95 + 0.015625 * k as f64,
+        pos: (-0.35 + 0.1 * k as f32, 0.),
+    }))
+    .chain(once(Action::Up { id: 1, at: 4.109375 }))
+    .collect();
+    let (chart, judge) = play_on(two_flicks(), &actions, &fps(352, 1. / 64.));
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+    assert_eq!(event_at(&judge, &chart, 4.05).judgement, Judgement::Miss, "{}", events_of(&judge));
+
+    // the same swipe, then back through the second flick: the turn starts a
+    // new gesture and judges it
+    let mut actions = actions.clone();
+    actions.pop();
+    let back: Vec<Action> = (1..=6)
+        .map(|k| Action::Move {
+            id: 1,
+            at: 4.0625 + 0.015625 * k as f64,
+            pos: (0.35 - 0.1 * k as f32, 0.),
+        })
+        .chain(once(Action::Up { id: 1, at: 4.203125 }))
+        .collect();
+    actions.extend(back);
+    let (chart, judge) = play_on(two_flicks(), &actions, &fps(352, 1. / 64.));
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+    assert_eq!(event_at(&judge, &chart, 4.05).judgement, Judgement::Perfect, "{}", events_of(&judge));
+}
+
+#[test]
+fn flick_windows_close_at_140ms() {
+    let swipe_at = |at: f64| {
+        vec![
+            Action::Down { id: 1, at, pos: (0., 0.) },
+            Action::Move {
+                id: 1,
+                at: at + 0.015625,
+                pos: (0.06, 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: at + 0.03125,
+                pos: (0.12, 0.),
+            },
+            Action::Up { id: 1, at: at + 0.078125 },
+        ]
+    };
+    let (chart, judge) = play(&swipe_at(5.125), &fps(352, 1. / 64.));
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+
+    let (chart, judge) = play(&swipe_at(5.15625), &fps(352, 1. / 64.));
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Miss, "{}", events_of(&judge));
+}
+
+/// ~500 lines with a few notes each, three moving touches, five seconds of
+/// chart at 60fps. Run with `cargo test -p prpr --release -- --ignored`.
+#[test]
+#[ignore]
+fn advance_stays_fast_on_a_large_chart() {
+    let lines: Vec<_> = (0..500)
+        .map(|l| {
+            line_json(
+                (0..4)
+                    .map(|n| note(1, 0.5 + l as f64 / 100. + n as f64, (l % 17) as f32 / 8. - 1., 0.))
+                    .collect(),
+            )
+        })
+        .collect();
+    let mut chart = chart_of(lines);
+    let env = env();
+    let mut judge = Judge::new(&chart);
+
+    let schedule = fps(320, 1. / 64.);
+    let mut state: Vec<(u64, f32, f32)> = vec![(1, 0., 0.), (2, 0.2, 0.1), (3, -0.3, -0.2)];
+    for (id, x, y) in &mut state {
+        let _ = (id, x, y);
+    }
+    let mut total = std::time::Duration::ZERO;
+    let mut prev = f64::NEG_INFINITY;
+    for &t in &schedule {
+        let mut events: Vec<RawTouch> = Vec::new();
+        if prev.is_finite() {
+            for (i, entry) in state.iter_mut().enumerate() {
+                let id = (i + 1) as u64;
+                if prev == 0. {
+                    events.push(raw(id, TouchPhase::Started, t, (entry.1, entry.2)));
+                } else {
+                    entry.1 += 0.001;
+                    events.push(raw(id, TouchPhase::Moved, t, (entry.1, entry.2)));
+                }
+            }
+        }
+        let mut effects = Vec::new();
+        let start = Instant::now();
+        judge.update_with(
+            &mut chart,
+            &env,
+            RawFrame {
+                t,
+                uptime: t,
+                speed: 1.,
+                aspect: ASPECT,
+                raw: &events,
+                live: &state,
+            },
+            0,
+            &mut effects,
+        );
+        total += start.elapsed();
+        prev = t;
+    }
+    let per_frame = total.as_secs_f64() / schedule.len() as f64 * 1e6;
+    println!("advance: {per_frame:.1}µs per frame over {} frames", schedule.len());
+    eprintln!("advance: {per_frame:.1}µs per frame over {} frames", schedule.len());
+}
+
+// keep the windows honest: these bounds are what the tests above rely on
+const _: () = {
+    assert!(LIMIT_PERFECT < LIMIT_GOOD && LIMIT_GOOD < LIMIT_BAD);
+};
+
+#[test]
+fn a_replay_reproduces_a_rewind() {
+    // The click at 1 expires while the frames run on to 1.3; the clock then
+    // rewinds to 1 (a resume) and a late tap lands at 1.05. Live, the note
+    // is already a miss. The replay must have processed the same ticks
+    // before applying the seek, or the tap would hit it.
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    drive(&mut judge, &mut chart, &env(), &fps(84, 1. / 64.), &[]);
+    let actions = [
+        Action::Down {
+            id: 1,
+            at: 1.046875,
+            pos: (0., 0.),
+        },
+        Action::Up { id: 1, at: 1.125 },
+    ];
+    let rewound: Vec<f64> = (0..80).map(|it| 1. + it as f64 / 64.).collect();
+    drive(&mut judge, &mut chart, &env(), &rewound, &actions);
+    assert!(judge.inputs.iter().any(|it| matches!(it, InputEvent::Seek { .. })), "{:?}", judge.inputs);
+    assert_eq!(judge.hit_events[0].judgement, Judgement::Miss);
+
+    let mut chart = basic_chart();
+    let replayed = Judge::replay(&mut chart, &env(), &judge.inputs, 3.);
+    assert_eq!(replayed.hit_events, judge.hit_events, "{}\nvs\n{}", events_of(&replayed), events_of(&judge));
+}
+
+#[test]
+fn swiping_far_off_a_flick_right_after_pressing_on_it_hits() {
+    // #736, the hard case: the first grid point after the press already
+    // finds the finger well outside the band; the segment from the press
+    // point still crosses the flick
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 4.990234375,
+                pos: (0., 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 5.009765625,
+                pos: (0.5, 0.),
+            },
+            Action::Up { id: 1, at: 5.0625 },
+        ],
+        &fps(352, 1. / 64.),
+    );
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+}
+
+#[test]
+fn touch_down_jitter_is_not_a_flick() {
+    // a few pixels of drift a millisecond after touching down must not read
+    // as a swipe just because the first step is short
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 4.9990234375,
+                pos: (0., 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 5.,
+                pos: (0.003, 0.),
+            },
+            Action::Up { id: 1, at: 5.0625 },
+        ],
+        &fps(352, 1. / 64.),
+    );
+    assert!(!judge.inputs.iter().any(|it| matches!(it, InputEvent::Swipe { .. })), "{:?}", judge.inputs);
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Miss, "{}", events_of(&judge));
+}
