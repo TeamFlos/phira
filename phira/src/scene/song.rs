@@ -631,6 +631,7 @@ impl SongScene {
             atomicity: atomicity.clone(),
             task: Task::new({
                 let path = format!("{}/{}", dir::downloaded_charts()?, Uuid::new_v4());
+                let def_illu = BLACK_TEXTURE.clone();
                 async move {
                     let path = std::path::Path::new(&path);
                     tokio::fs::create_dir(path).await?;
@@ -705,7 +706,7 @@ impl SongScene {
                         std::fs::rename(path, to_path)?;
                     }
 
-                    let tuple = load_local_tuple(&local_path, BLACK_TEXTURE.clone(), info).await?;
+                    let tuple = load_local_tuple(&local_path, def_illu, info).await?;
 
                     Ok((
                         LocalChart {
