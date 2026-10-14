@@ -294,7 +294,14 @@ fn render_about(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let staff = &*STAFF_LIST;
     let text = tl!(
         "about-content",
-        "version" => format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")),
+        "version" => format!(
+            "{} ({})",
+            env!("CARGO_PKG_VERSION"),
+            match option_env!("BUILD_ID") {
+                Some(build_id) => format!("{}, build {}", env!("GIT_HASH"), build_id),
+                None => env!("GIT_HASH").to_string(),
+            },
+        ),
 
         "development" => &staff.development.0,
         "operations" => &staff.operations.0,
