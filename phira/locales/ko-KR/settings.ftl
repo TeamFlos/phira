@@ -47,6 +47,8 @@ item-prefer-reduced-motion = 애니메이션 줄이기
 item-prefer-reduced-motion-sub = 애니메이션과 시각 효과를 줄입니다
 item-speed = 노트 속도
 item-note-size = 노트 크기
+item-noise-no-jitter = 노이즈 영역 고정
+item-noise-no-jitter-sub = 노이즈 영역 가장자리의 흔들림을 멈춥니다.
 
 item-chart-debug = 비트맵 디버그 모드
 item-chart-debug-sub = 라인 번호 및 방향 표시

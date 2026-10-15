@@ -214,6 +214,7 @@ pub async fn parse_extra(source: &str, fs: &mut dyn FileSystem) -> Result<ChartE
     Ok(ChartExtra {
         effects,
         global_effects,
+        block_areas: Vec::new(),
         #[cfg(feature = "video")]
         videos,
     })
