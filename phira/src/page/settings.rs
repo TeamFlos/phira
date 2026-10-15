@@ -19,16 +19,30 @@ use prpr::{
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
+    ui::{DRectButton, Dialog, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use serde::Deserialize;
-use std::{borrow::Cow, fs, io, path::PathBuf, sync::atomic::Ordering};
+use std::{
+    borrow::Cow,
+    fs, io,
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
 const STATUS_PAGE: &str = "https://status.phira.cn";
+static CRASH_TEST_PENDING: AtomicBool = AtomicBool::new(false);
+
+fn request_crash_test() {
+    CRASH_TEST_PENDING.store(true, Ordering::SeqCst);
+}
+
+fn take_crash_test() -> bool {
+    CRASH_TEST_PENDING.swap(false, Ordering::SeqCst)
+}
 
 struct NameList(String);
 impl<'de> Deserialize<'de> for NameList {
@@ -946,6 +960,7 @@ impl ChartList {
 struct DebugList {
     chart_debug_btn: DRectButton,
     touch_debug_btn: DRectButton,
+    crash_test_btn: DRectButton,
 }
 
 impl DebugList {
@@ -953,6 +968,7 @@ impl DebugList {
         Self {
             chart_debug_btn: DRectButton::new(),
             touch_debug_btn: DRectButton::new(),
+            crash_test_btn: DRectButton::new(),
         }
     }
 
@@ -971,10 +987,25 @@ impl DebugList {
             config.touch_debug ^= true;
             return Ok(Some(true));
         }
+        if self.crash_test_btn.touch(touch, t) {
+            Dialog::plain(tl!("item-crash-test"), tl!("crash-test-warning"))
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .listener(|_dialog, id| {
+                    if id == 1 {
+                        request_crash_test();
+                    }
+                    false
+                })
+                .show();
+            return Ok(Some(false));
+        }
         Ok(None)
     }
 
     pub fn update(&mut self, _t: f32) -> Result<bool> {
+        if take_crash_test() {
+            panic!("crash test requested");
+        }
         Ok(false)
     }
 
@@ -1000,6 +1031,38 @@ impl DebugList {
             render_title(ui, tl!("item-touch-debug"), Some(tl!("item-touch-debug-sub")));
             render_switch(ui, rr, t, &mut self.touch_debug_btn, config.touch_debug);
         }
+        item! {
+            render_title(ui, tl!("item-crash-test"), Some(tl!("item-crash-test-sub")));
+            self.crash_test_btn.render_text_color(
+                ui,
+                rr,
+                t,
+                tl!("item-crash-test-button"),
+                0.5,
+                false,
+                Color::new(1., 0., 0., 1.),
+            );
+        }
         (w, h)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn crash_test_warning_matches_the_safety_notice() {
+        let settings = include_str!("../../locales/zh-CN/settings.ftl");
+        assert!(settings.contains("crash-test-warning ="));
+        assert!(settings.contains("除非你知道你在做什么，否则请不要点击此按钮，此按钮造成的任何影响不予修复"));
+    }
+    #[test]
+    fn crash_test_request_is_consumed_once_after_dialog_can_close() {
+        super::CRASH_TEST_PENDING.store(false, Ordering::SeqCst);
+        super::request_crash_test();
+
+        assert!(super::take_crash_test());
+        assert!(!super::take_crash_test());
     }
 }

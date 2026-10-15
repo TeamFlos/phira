@@ -21,3 +21,4 @@ open-in-web = Вэбээр нээх
 hykb-login-cancelled = 3839 Games рүү нэвтрэх үйл цуцлагдлаа
 favorites-online-only = Зөвхөн онлайн chart-ыг онлайн дуртай жагсаалтад нэмэх боломжтой. Орон нутгийн chart-ууд: { $charts }
 favorites = Дуртай
+

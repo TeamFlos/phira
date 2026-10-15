@@ -27,3 +27,4 @@ favorites-online-only = Yalnızca çevrimiçi bölümler çevrimiçi sevdiklerin
 contains-banned-words = Girdiniz izin verilmeyen kelimeler içeriyor. Lütfen kontrol edin.
 hykb-not-bound-logout = Hesabınız herhangi bir 3839 Games hesabına bağlı değil, çıkış yapıldı.
 hykb-login-cancelled = 3839 Games için oturum açma iptal edildi.
+

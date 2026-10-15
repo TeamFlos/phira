@@ -31,3 +31,4 @@ open-in-web = 웹에서 열기
 main-character-name = Shee
 main-character-intro = TODO
 
+

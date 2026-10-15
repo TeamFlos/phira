@@ -12,3 +12,4 @@ list-empty = Nada aqui
 tos-and-policy = Termos de serviço e política de privacidade
 tos-and-policy-desc = Você deve ler e concordar com nossos Termos de Serviço e Política de Privacidade antes de usar os serviços online Phira fornecidos pela TeamFlos.
 open-in-web = Abrir no navegador
+

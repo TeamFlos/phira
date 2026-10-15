@@ -30,3 +30,4 @@ favorites-online-only = Hanya chart online yang dapat ditambahkan ke favorit onl
 contains-banned-words = Input Anda mengandung kata-kata terlarang. Mohon periksa dan kirim ulang.
 hykb-not-bound-logout = Akun Anda tidak terhubung ke akun HYKB; Anda telah keluar.
 hykb-login-cancelled = Login hykb dibatalkan
+

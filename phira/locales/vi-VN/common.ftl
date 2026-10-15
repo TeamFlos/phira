@@ -30,3 +30,4 @@ hykb-not-bound-logout = Tài khoản của bạn chưa liên kết với hykb, �
 hykb-login-cancelled = Đã hủy đăng nhập hykb
 favorites-online-only = Bộ sưu tập online chỉ lưu được chart online. Chart cục bộ: { $charts }
 default-fav-folder = Bộ sưu tập mặc định
+

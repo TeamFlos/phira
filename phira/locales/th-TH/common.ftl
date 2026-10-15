@@ -27,3 +27,4 @@ main-character-intro =
 favorites = Favorites
 default-fav-folder = Favorites
 favorites-online-only = มีแค่ Chart online เท่านั้นที่จะเพิ่มไปยัง Online favorites เท่านั้น. Local charts：{ $charts }
+

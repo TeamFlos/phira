@@ -65,6 +65,10 @@ item-chart-debug = Show Line ID
 item-chart-debug-sub = Display the IDs and orientation of lines.
 item-touch-debug = Show Touch Points
 item-touch-debug-sub = Display user touch points.
+item-crash-test = Crash Test
+item-crash-test-sub = Test the crash recovery page.
+item-crash-test-button = Crash Test
+crash-test-warning = Unless you know what you are doing, please do not click this button. Any consequences caused by this button will not be fixed.
 
 load-cali-failed = Failed to load calibration audio.
 

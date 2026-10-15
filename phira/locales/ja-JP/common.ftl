@@ -11,3 +11,4 @@ switch-on = オン
 switch-off = オフ
 
 list-empty = まだ何もありません
+
