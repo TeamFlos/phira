@@ -423,6 +423,10 @@ impl ChartsView {
                             format!("download/{}", item.chart.as_ref().unwrap().info.id.unwrap())
                         };
                         std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
+                        // The chart's replays belong to it alone
+                        if let Err(err) = crate::replay::remove_chart(&path) {
+                            warn!("failed to remove the chart's replays: {err:?}");
+                        }
 
                         if let Some(chart) = data.find_chart_by_path(path.as_str()) {
                             data.charts.remove(chart);

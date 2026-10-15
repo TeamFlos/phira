@@ -9,15 +9,15 @@
 
 use super::{
     input::{InputEvent, RawFrame, RawTouch},
-    Judge, JudgeEnv, Judgement, MovePoint, JUDGE_VERSION, LIMIT_BAD, LIMIT_GOOD, LIMIT_PERFECT, MOVE_DEADBAND,
+    Judge, JudgeEnv, Judgement, MovePoint, ReplayPlayer, JUDGE_TICK_HZ, JUDGE_VERSION, LIMIT_BAD, LIMIT_GOOD, LIMIT_PERFECT, MOVE_DEADBAND,
 };
 use crate::{
     core::{Chart, ChartExtra, Point},
     parse::parse_phigros,
+    play_record::{PlayMeta, PlayRecord, PLAY_RECORD_VERSION},
 };
 use macroquad::prelude::TouchPhase;
-use std::iter::once;
-use std::time::Instant;
+use std::{iter::once, sync::Arc, time::Instant};
 
 const ASPECT: f32 = 16. / 9.;
 
@@ -1160,4 +1160,163 @@ fn touch_down_jitter_is_not_a_flick() {
     );
     assert!(!judge.inputs.iter().any(|it| matches!(it, InputEvent::Swipe { .. })), "{:?}", judge.inputs);
     assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Miss, "{}", events_of(&judge));
+}
+
+/// A recorded stream wrapped in a [`PlayRecord`] a [`ReplayPlayer`] can
+/// drive, with a meta matching the test env: 16:9, speed 1, no mods.
+fn record_of(inputs: Vec<InputEvent>) -> Arc<PlayRecord> {
+    Arc::new(PlayRecord {
+        version: PLAY_RECORD_VERSION,
+        meta: PlayMeta {
+            aspect_ratio: ASPECT,
+            speed: 1.,
+            ..Default::default()
+        },
+        notes: Vec::new(),
+        inputs,
+    })
+}
+
+/// A stream with a rewind in it, the shape a resume after a pause produces:
+/// the clock runs on to 1.3, rewinds to 1, and a late tap lands at 1.05 —
+/// long after the note it aimed at had already missed in live play.
+fn rewind_stream() -> Vec<InputEvent> {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    drive(&mut judge, &mut chart, &env(), &fps(84, 1. / 64.), &[]);
+    let actions = [
+        Action::Down {
+            id: 1,
+            at: 1.046875,
+            pos: (0., 0.),
+        },
+        Action::Up { id: 1, at: 1.125 },
+    ];
+    let rewound: Vec<f64> = (0..80).map(|it| 1. + it as f64 / 64.).collect();
+    drive(&mut judge, &mut chart, &env(), &rewound, &actions);
+    assert!(judge.inputs.iter().any(|it| matches!(it, InputEvent::Seek { .. })), "{:?}", judge.inputs);
+    judge.inputs
+}
+
+/// Drives a recorded stream through the judge the way GameScene replays it:
+/// one advance per frame at the given step, the clock jumping to each
+/// recorded seek's target as it fires. Frame times never pass `end` and the
+/// last one sits exactly on it, so precisely the points a one-shot
+/// [`Judge::replay`] to `end` judges are judged, whichever the step.
+fn replay_frames(judge: &mut Judge, chart: &mut Chart, player: &mut ReplayPlayer, end: f64, step: f64) {
+    let mut t = 0.;
+    let mut effects = Vec::new();
+    loop {
+        let target = (t + step).min(end);
+        t = judge.replay_update_with(chart, player, target, &mut effects).unwrap_or(target);
+        if t >= end {
+            break;
+        }
+    }
+    judge.replay_update_with(chart, player, end, &mut effects);
+}
+
+/// Replays `inputs` to `end` entirely through per-frame advances at `step`.
+fn replayed_by_frames(inputs: &[InputEvent], end: f64, step: f64) -> Judge {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    judge.set_replaying(true);
+    let mut player = ReplayPlayer::new(record_of(inputs.to_vec()));
+    replay_frames(&mut judge, &mut chart, &mut player, end, step);
+    judge
+}
+
+#[test]
+fn an_incremental_replay_matches_a_one_shot_one() {
+    // The full run covers the plain case; the rewind stream covers a seek
+    // firing mid-play, where the frame it lands on must stop and hand the
+    // clock jump to the driver. Steps finer and coarser than the tick grid,
+    // and one off any grid at all, show the result is the stream's, not the
+    // frame schedule's.
+    let (_, live) = play(&full_actions(), &fps(400, 1. / 64.));
+    let cases = [(live.inputs.clone(), 5.5), (rewind_stream(), 3.)];
+    for (inputs, end) in cases {
+        let mut chart = basic_chart();
+        let one_shot = Judge::replay(&mut chart, &env(), &inputs, end);
+        for step in [1. / 60., 1. / 144., 0.029, 0.1] {
+            let incremental = replayed_by_frames(&inputs, end, step);
+            assert_eq!(incremental.hit_events, one_shot.hit_events, "step {step}:\n{}\nvs\n{}", events_of(&incremental), events_of(&one_shot));
+            assert_eq!(incremental.result().counts, one_shot.result().counts, "step {step}");
+            assert!(incremental.inputs.is_empty(), "a replay must not log a stream");
+        }
+    }
+}
+
+#[test]
+fn replay_seek_then_continue_matches_a_one_shot_replay() {
+    // Scrubbing throws away the run so far and re-judges from the top to the
+    // target; continuing from there must be indistinguishable from never
+    // having interrupted the replay — backwards and forwards, before and
+    // after a recorded seek.
+    let (_, live) = play(&full_actions(), &fps(400, 1. / 64.));
+    for (inputs, end, mid) in [
+        (live.inputs.clone(), 5.5, 1.7),
+        (live.inputs.clone(), 5.5, 4.2),
+        (rewind_stream(), 3., 0.8),
+        (rewind_stream(), 3., 2.2),
+    ] {
+        let mut chart = basic_chart();
+        let one_shot = Judge::replay(&mut chart, &env(), &inputs, end);
+
+        let mut chart = basic_chart();
+        let mut judge = Judge::new(&chart);
+        judge.set_replaying(true);
+        let mut player = ReplayPlayer::new(record_of(inputs.clone()));
+        replay_frames(&mut judge, &mut chart, &mut player, 2.4, 1. / 64.);
+        chart.reset();
+        judge.replay_seek(&mut chart, &mut player, mid);
+        replay_frames(&mut judge, &mut chart, &mut player, end, 1. / 96.);
+        assert_eq!(judge.hit_events, one_shot.hit_events, "seek to {mid}:\n{}\nvs\n{}", events_of(&judge), events_of(&one_shot));
+        assert_eq!(judge.result().counts, one_shot.result().counts, "seek to {mid}");
+        assert!(judge.inputs.is_empty(), "a replay must not log a stream");
+    }
+}
+
+#[test]
+fn replayed_fingers_slide_into_their_next_recorded_move() {
+    // A finger pressed at 0.5 that stays put until it moves at tick 20 and
+    // again at tick 21: drawn, it holds still until the tick interval before
+    // a move, slides across that interval, and is gone once lifted.
+    let tick = |it: u32| it as f64 / JUDGE_TICK_HZ;
+    let inputs = vec![
+        InputEvent::Start {
+            id: 0,
+            time: 0.5,
+            x: 0.,
+            y: 0.,
+        },
+        InputEvent::Move {
+            tick: 20,
+            points: vec![MovePoint { id: 0, x: 0.3, y: 0. }],
+        },
+        InputEvent::Move {
+            tick: 21,
+            points: vec![MovePoint { id: 0, x: 0.6, y: 0.3 }],
+        },
+        InputEvent::End { id: 0, time: 0.8 },
+    ];
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    judge.set_replaying(true);
+    let mut player = ReplayPlayer::new(record_of(inputs));
+    let mut effects = Vec::new();
+    let mut at = |judge: &mut Judge, t: f64| {
+        judge.replay_update_with(&mut chart, &mut player, t, &mut effects);
+        judge.replay_touches_at(&player, t)
+    };
+    let close = |got: Vec<(u8, f32, f32)>, x: f32, y: f32| {
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!((got[0].1 - x).abs() < 1e-4 && (got[0].2 - y).abs() < 1e-4, "{got:?} vs ({x}, {y})");
+    };
+    close(at(&mut judge, 0.55), 0., 0.);
+    close(at(&mut judge, (tick(19) + tick(20)) / 2.), 0.15, 0.);
+    close(at(&mut judge, (tick(20) + tick(21)) / 2.), 0.45, 0.15);
+    // Past the last move nothing lies ahead to slide toward.
+    close(at(&mut judge, 0.75), 0.6, 0.3);
+    assert!(at(&mut judge, 0.85).is_empty());
 }

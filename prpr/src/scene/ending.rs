@@ -1,6 +1,6 @@
 prpr_l10n::tl_file!("ending");
 
-use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene};
+use super::{draw_background, game::SimpleRecord, loading::UploadFn, NextScene, Scene, StartReplay};
 use crate::{
     config::{Config, Mods},
     core::{BOLD_FONT, PGR_FONT},
@@ -47,9 +47,13 @@ pub struct EndingScene {
     use_keyboard: bool,
     speed: f32,
     mods: Mods,
-    next: u8, // 0 -> none, 1 -> pop, 2 -> exit
+    next: u8, // 0 -> none, 1 -> pop, 2 -> exit, 3 -> replay the run
     update_state: Option<RecordUpdateState>,
     rated: bool,
+    /// This ending screens a replay rather than a live attempt: nothing was
+    /// uploaded, nothing is compared against the player's own records, and
+    /// retry means whatever the replay's origin says.
+    is_replay: bool,
 
     upload_fn: Option<UploadFn>,
     upload_task: Option<(Task<Result<RecordUpdateState>>, MessageHandle)>,
@@ -61,6 +65,7 @@ pub struct EndingScene {
     btn_retry: DRectButton,
     btn_proceed: DRectButton,
     btn_detail: RectButton,
+    btn_replay: RectButton,
     detail_mode: bool,
 
     tr_start: f32,
@@ -90,6 +95,7 @@ impl EndingScene {
         session: Option<Vec<u8>>,
         best_record: Option<SimpleRecord>,
         avg_fps: Option<f32>,
+        is_replay: bool,
     ) -> Result<Self> {
         let mut audio = create_audio_manger(config)?;
         let bgm = audio.create_music(
@@ -116,7 +122,10 @@ impl EndingScene {
             target: None,
             audio,
             bgm,
-            update_state: if upload_task.is_some() {
+            // A replay has no record of the player's own to compare against:
+            // no new best, no score over it, no rks change — the re-judged
+            // numbers stand for themselves.
+            update_state: if upload_task.is_some() || is_replay {
                 None
             } else {
                 let (best, improvement) = if result.score > historic_best {
@@ -132,6 +141,7 @@ impl EndingScene {
                 })
             },
             rated: upload_task.is_some(),
+            is_replay,
 
             info,
             result,
@@ -154,6 +164,7 @@ impl EndingScene {
             btn_retry: DRectButton::new(),
             btn_proceed: DRectButton::new(),
             btn_detail: RectButton::new(),
+            btn_replay: RectButton::new(),
 
             tr_start: f32::NAN,
 
@@ -203,6 +214,18 @@ impl Scene for EndingScene {
             } else {
                 self.tr_start = t;
                 self.next = 2;
+            }
+            return Ok(true);
+        }
+        if self.btn_replay.touch(touch) {
+            // Watching the run again needs the record this screen holds; an
+            // upload in flight owns it too, so it waits like a retry does.
+            if self.upload_task.is_some() {
+                show_message(tl!("still-uploading"));
+            } else if self.play_record.is_some() && !self.is_replay {
+                button_hit();
+                self.tr_start = t;
+                self.next = 3;
             }
             return Ok(true);
         }
@@ -291,6 +314,26 @@ impl Scene for EndingScene {
             let br = Rect::new(-1., y, 2., 0.34);
             ui.fill_rect(br, (c, (-1., y), Color { a: 0.1, ..c }, (1., y + 0.3)));
 
+            // Where "detail" will sit, so the replay button can be placed
+            // left of it without holding the text builder.
+            let detail_r = ui
+                .text(tl!("detail"))
+                .pos(1. - 0.02, br.bottom() + 0.02)
+                .anchor(1., 0.)
+                .size(0.5)
+                .measure_using(&BOLD_FONT);
+            if self.play_record.is_some() && !self.is_replay {
+                // The run this screen reports is on record — offer to watch
+                // it again, in the same quiet text style as "detail".
+                let r = ui
+                    .text(tl!("watch-replay"))
+                    .pos(detail_r.x - 0.1, br.bottom() + 0.02)
+                    .anchor(1., 0.)
+                    .size(0.5)
+                    .color(WHITE)
+                    .draw_using(&BOLD_FONT);
+                self.btn_replay.set(ui, r.feather(0.02));
+            }
             let r = ui
                 .text(tl!("detail"))
                 .pos(1. - 0.02, br.bottom() + 0.02)
@@ -557,7 +600,7 @@ impl Scene for EndingScene {
             } else {
                 format!("{:.2}x", self.speed)
             };
-            let status_text = if !self.rated && !self.autoplay && !self.use_keyboard {
+            let status_text = if !self.rated && !self.autoplay && !self.use_keyboard && !self.is_replay {
                 if spd.is_empty() {
                     "UNRATED".to_string()
                 } else {
@@ -677,7 +720,8 @@ impl Scene for EndingScene {
             let mut r = sr;
             r.y -= r.h * (1. - p);
             rect_shadow(r, 0.01, 0.5);
-            let (tex, alpha) = if self.next == 1 {
+            let (tex, alpha) = if self.next == 1 || self.next == 3 {
+                // a retry and a replay both dive back into the game scene
                 (&self.background, 0.3)
             } else {
                 (&self.illustration, 0.55)
@@ -699,6 +743,9 @@ impl Scene for EndingScene {
         match self.next {
             0 => NextScene::None,
             1 => NextScene::Pop,
+            // The game scene below holds the record of the run it just
+            // judged; this tells it to replay that record.
+            3 => NextScene::PopWithResult(Box::new(StartReplay)),
             2 => {
                 if let Some(rec) = &self.best_record {
                     NextScene::PopNWithResult(2, Box::new(rec.clone()))

@@ -16,3 +16,5 @@ upload-cancel = Cancel Upload
 upload-retry = Retry Upload
 
 still-uploading = Uploading record to leaderboard…
+
+watch-replay = WATCH REPLAY

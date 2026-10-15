@@ -12,6 +12,9 @@ pub use game::{GameMode, GameScene, SimpleRecord};
 mod loading;
 pub use loading::{BasicPlayer, LoadingScene, SaveFn, UpdateFn, UploadFn, Uploader};
 
+mod replay;
+pub use replay::{ReplayRequest, ReplaySaveFn, StartReplay};
+
 use crate::{
     ext::{draw_image, screen_aspect, LocalTask, SafeTexture, ScaleType},
     judge::Judge,

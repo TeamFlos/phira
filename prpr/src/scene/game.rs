@@ -6,7 +6,8 @@ use super::{
     draw_background,
     ending::RecordUpdateState,
     loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn, Uploader},
-    request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene,
+    replay::{ReplayRequest, ReplaySaveFn},
+    request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene, StartReplay,
 };
 use crate::{
     bin::BinaryReader,
@@ -15,9 +16,9 @@ use crate::{
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
-    judge::{Judge, JUDGE_VERSION},
+    judge::{Judge, ReplayPlayer, JUDGE_VERSION},
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
-    play_record::{PlayMeta, PlayRecord},
+    play_record::{PlayMeta, PlayRecord, PLAY_RECORD_VERSION},
     task::Task,
     time::TimeManager,
     ui::{OffsetAnalysisPanel, OffsetPanelAction, OffsetPanelLabels, RectButton, TextPainter, Ui},
@@ -108,6 +109,104 @@ pub enum GameMode {
     View,
 }
 
+/// Where a replay was started from, deciding what its ending screen's retry
+/// means: going back to playing for real, or watching again.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ReplayOrigin {
+    /// Off the ending screen of the run itself — the scene keeps its
+    /// player's config, so retry leaves replay mode and plays for real.
+    Live,
+    /// Off a saved record — retry simply plays it again.
+    Standalone,
+}
+
+/// Everything `GameScene` tracks on top of normal play while replaying a
+/// record: the stream player, the control bar, and the display state to put
+/// back when a live replay gives way to a real retry.
+struct ReplayState {
+    player: ReplayPlayer,
+    player_name: String,
+    origin: ReplayOrigin,
+    /// The replay has run to its end; the next `enter` then restarts it, or
+    /// leaves replay mode for a real retry.
+    finished: bool,
+    /// `info.force_aspect_ratio` / `config.aspect_ratio` as they were before
+    /// the replay forced the recorded ratio, restored on leaving.
+    saved_aspect: (bool, Option<f32>),
+    /// The pause menu is up — the pause button opens it, where a tap on the
+    /// screen only pauses. While it is, the menu takes the touches.
+    menu: bool,
+    /// How far the HUD's progress bar has slid down into the draggable one,
+    /// from 0 (the plain bar) to 1.
+    bar_anim: f32,
+    /// The touch dragging the progress bar.
+    bar_drag: Option<BarDrag>,
+    /// Real time of the last interaction with the bar, which slides back up
+    /// [`BAR_HIDE_DELAY`] after it.
+    last_touch: f32,
+    /// The touch the pause button took this frame, which must not also
+    /// toggle playback.
+    pause_touch: Option<u64>,
+}
+
+/// A touch on the replay's progress bar. The position it previews, in chart
+/// time, is only seeked to when the finger lifts.
+#[derive(Clone, Copy)]
+struct BarDrag {
+    id: u64,
+    pos: f32,
+    x0: f32,
+    /// A touch that merely brought the bar down does not seek, unless it
+    /// goes on to slide along it.
+    live: bool,
+}
+
+const BAR_HIDE_DELAY: f32 = 3.;
+/// The band the slid-down bar occupies, measured from the top of the chart.
+const BAR_BAND: Range<f32> = 0.085..0.205;
+/// How far down the top edge a touch still brings the bar down.
+const BAR_GRAB: f32 = 0.08;
+
+impl ReplayState {
+    fn new(req: ReplayRequest, origin: ReplayOrigin, saved_aspect: (bool, Option<f32>)) -> Self {
+        Self {
+            player: ReplayPlayer::new(req.record),
+            player_name: req.player_name,
+            origin,
+            finished: false,
+            saved_aspect,
+            menu: false,
+            bar_anim: 0.,
+            bar_drag: None,
+            last_touch: f32::NEG_INFINITY,
+            pause_touch: None,
+        }
+    }
+
+    /// Back to the state a fresh start of the replay is in.
+    fn restart(&mut self) {
+        self.player.restart();
+        self.menu = false;
+        // The drag cannot survive a restart — the touch that owned it is
+        // gone, and would read as a release.
+        self.bar_drag = None;
+    }
+
+    /// The progress bar's track, `anim` of the way from the HUD's thin bar
+    /// along the top edge to the slid-down one.
+    fn track(top: f32, eps: f32, anim: f32) -> Rect {
+        let lerp = |a: f32, b: f32| a + (b - a) * anim;
+        let cy = top + (BAR_BAND.start + BAR_BAND.end) / 2.;
+        let h = lerp(eps, 0.012);
+        Rect::new(lerp(-1., -0.7), lerp(top, cy - h / 2.), lerp(2., 1.4), h)
+    }
+}
+
+fn fmt_mmss(t: f32) -> String {
+    let t = t.max(0.) as u32;
+    format!("{:02}:{:02}", t / 60, t % 60)
+}
+
 #[derive(Clone)]
 enum State {
     Starting,
@@ -149,6 +248,14 @@ pub struct GameScene {
     upload_fn: Option<UploadFn>,
     update_fn: Option<UpdateFn>,
     save_fn: Option<SaveFn>,
+    replay_save_fn: Option<ReplaySaveFn>,
+
+    /// Some while this scene replays a record instead of judging live input.
+    replay: Option<ReplayState>,
+    /// The record of the run that just ended, for replaying it off its
+    /// ending screen. Kept across the replay, so the ending screen of the
+    /// replay itself can offer it again.
+    last_record: Option<Arc<PlayRecord>>,
 
     best_record: Option<SimpleRecord>,
 
@@ -243,7 +350,7 @@ impl GameScene {
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         mode: GameMode,
-        info: ChartInfo,
+        mut info: ChartInfo,
         mut config: Config,
         mut fs: Box<dyn FileSystem>,
         player: Option<BasicPlayer>,
@@ -252,6 +359,8 @@ impl GameScene {
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
         save_fn: Option<SaveFn>,
+        replay: Option<ReplayRequest>,
+        replay_save_fn: Option<ReplaySaveFn>,
     ) -> Result<Self> {
         match mode {
             GameMode::TweakOffset => {
@@ -261,6 +370,19 @@ impl GameScene {
                 config.mods.remove(Mods::AUTOPLAY);
             }
             _ => {}
+        }
+
+        // A standalone replay recreates the run it replays: the mods it was
+        // played with (autoplay can never have been recorded, but a stray
+        // one must not desync playback), the speed it ran at — NIGHTCORE's
+        // multiplier is applied further below, so divide it back out here —
+        // and the player it belongs to.
+        if let Some(req) = &replay {
+            let meta = &req.record.meta;
+            config.mods = meta.mods;
+            config.mods.remove(Mods::AUTOPLAY);
+            config.speed = meta.speed / if meta.mods.contains(Mods::NIGHTCORE) { 1.5 } else { 1. };
+            config.player_name = req.player_name.clone();
         }
 
         let (mut chart, chart_bytes, chart_format) = Self::load_chart(fs.deref_mut(), &info).await?;
@@ -287,6 +409,38 @@ impl GameScene {
                 .push(Effect::new(0.0..f64::INFINITY, include_str!("rainbow.glsl"), Vec::new(), false).unwrap());
         }
 
+        // A replay must run under the very conditions it was recorded under,
+        // or the re-judged notes drift off the music and the fingers. Check
+        // the record against this chart before anything expensive happens, so
+        // a bad one dies on the loading screen with a reason.
+        let replay_state = if let Some(req) = replay {
+            let meta = &req.record.meta;
+            if req.record.version != PLAY_RECORD_VERSION {
+                bail!("{}", tl!("replay-version-mismatch"));
+            }
+            if meta.judge_version != JUDGE_VERSION {
+                bail!("{}", tl!("replay-judge-mismatch"));
+            }
+            if let Some(expected) = &meta.chart_hash {
+                if Sha256::digest(&chart_bytes).encode_hex::<String>() != *expected {
+                    bail!("{}", tl!("replay-chart-changed"));
+                }
+            }
+            // The run's clock ran `meta.offset` ahead of its music; restore
+            // exactly that, whatever the local settings say.
+            config.offset = meta.offset - chart.offset - info.offset;
+            // And the chart must fill the aspect ratio the stream was
+            // recorded in — letterboxed if the screen disagrees — or the
+            // fingers would not sit where they did. The previous values are
+            // kept to restore should this replay end in a real retry.
+            let saved_aspect = (info.force_aspect_ratio, config.aspect_ratio);
+            info.force_aspect_ratio = true;
+            config.aspect_ratio = Some(meta.aspect_ratio);
+            Some(ReplayState::new(req, ReplayOrigin::Standalone, saved_aspect))
+        } else {
+            None
+        };
+
         let info_offset = info.offset;
         let mut res = Resource::new(
             config,
@@ -309,7 +463,8 @@ impl GameScene {
 
         let exercise_range = (chart.offset + info_offset + res.config.offset) as f64..res.track_length;
 
-        let judge = Judge::new(&chart);
+        let mut judge = Judge::new(&chart);
+        judge.set_replaying(replay_state.is_some());
 
         let music = Self::new_music(&mut res)?;
         Ok(Self {
@@ -346,6 +501,10 @@ impl GameScene {
             upload_fn,
             update_fn,
             save_fn,
+            replay_save_fn,
+
+            replay: replay_state,
+            last_record: None,
 
             best_record: None,
 
@@ -378,6 +537,7 @@ impl GameScene {
 
     fn ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
         let time = tm.now();
+        let replay_tag = self.replay.as_ref().map(|it| format!("REPLAY · {}", it.player_name));
         let p = match self.state {
             State::Starting => {
                 if time <= Self::BEFORE_TIME {
@@ -399,17 +559,20 @@ impl GameScene {
         let pause_w = 0.015;
         let pause_h = pause_w * 3.2;
         let pause_center = Point::new(pause_w * 4.0 - 1., top + eps * 3.5 - (1. - p) * 0.4 + pause_h / 2.);
-        if res.config.interactive
-            && !tm.paused()
-            && self.pause_rewind.is_none()
-            && Judge::get_touches().iter().any(|touch| {
-                touch.phase == TouchPhase::Started && {
-                    let p = touch.position;
-                    let p = Point::new(p.x, p.y);
-                    (pause_center - p).norm() < 0.05
-                }
-            })
-        {
+        let pause_touch = Judge::get_touches()
+            .into_iter()
+            .find(|touch| touch.phase == TouchPhase::Started && (pause_center - Point::new(touch.position.x, touch.position.y)).norm() < 0.05)
+            .map(|it| it.id);
+        // A replay is paused by any tap on the screen, so its pause button
+        // instead brings up the menu, paused or not.
+        let can_pause = match &mut self.replay {
+            Some(replay) => {
+                replay.pause_touch = pause_touch;
+                !replay.menu
+            }
+            None => !tm.paused(),
+        };
+        if res.config.interactive && can_pause && self.pause_rewind.is_none() && pause_touch.is_some() {
             let t = tm.now() as f32;
             if t - self.pause_first_time > PAUSE_CLICK_INTERVAL && res.config.double_click_to_pause {
                 self.pause_first_time = t;
@@ -418,7 +581,13 @@ impl GameScene {
                 if !self.music.paused() {
                     self.music.pause()?;
                 }
-                tm.pause();
+                if !tm.paused() {
+                    tm.pause();
+                }
+                if let Some(replay) = &mut self.replay {
+                    replay.menu = true;
+                    replay.bar_drag = None;
+                }
                 #[cfg(target_env = "ohos")]
                 miniquad::native::set_interceptor_state(false);
             }
@@ -474,6 +643,17 @@ impl GameScene {
                     ui.fill_rect(r, c);
                 },
             );
+            if let Some(tag) = &replay_tag {
+                // Whose run is on screen — the one thing a replay must say
+                // about itself up front.
+                ui.text(tag)
+                    .pos(pause_center.x + pause_w * 3.5, pause_center.y)
+                    .anchor(0., 0.5)
+                    .no_baseline()
+                    .size(0.4)
+                    .color(semi_white(0.8))
+                    .draw();
+            }
             if self.judge.combo() >= 3 {
                 if legacy_aui {
                     let combo_top = top + eps * 2. - (1. - p) * 0.4;
@@ -551,19 +731,27 @@ impl GameScene {
             let hw = 0.003;
             let height = eps * 1.0;
             let dest = (2. * res.time / res.track_length).clamp(0., 2.) as f32;
-            self.chart
-                .with_element(ui, res, UIElement::Bar, Some((-1., top + height / 2.)), (-1., top + height / 2.), |ui, color| {
-                    ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
-                    ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
-                });
+            // Once a replay's bar starts sliding down, `replay_ui` draws it.
+            if self.replay.as_ref().is_none_or(|it| it.bar_anim == 0.) {
+                self.chart
+                    .with_element(ui, res, UIElement::Bar, Some((-1., top + height / 2.)), (-1., top + height / 2.), |ui, color| {
+                        ui.fill_rect(Rect::new(-1., top, dest, height), semi_white(0.6));
+                        ui.fill_rect(Rect::new(-1. + dest - hw, top, hw * 2., height), WHITE);
+                    });
+            }
         });
         Ok(())
     }
 
     fn overlay_ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
+        // The touch that closes a replay's pause menu must not reach the
+        // replay's own controls too.
+        let replay_menu = self.replay.as_ref().is_some_and(|it| it.menu);
         let c = semi_white(self.res.alpha);
         let res = &mut self.res;
-        if tm.paused() {
+        // A replay paused by a tap on the screen shows no menu, only the
+        // pause button opens it.
+        if tm.paused() && self.replay.as_ref().is_none_or(|it| it.menu) {
             let h = 1. / res.aspect_ratio;
             draw_rectangle(-1., -h, 2., h * 2., Color::new(0., 0., 0., 0.6));
             let o = if self.mode == GameMode::Exercise { -0.3 } else { 0. };
@@ -639,8 +827,21 @@ impl GameScene {
                         if self.mode == GameMode::Exercise {
                             self.judge.advance_to(&mut self.chart, self.exercise_range.start);
                         }
+                        // A replay's retry watches it again from the top.
+                        if let Some(replay) = &mut self.replay {
+                            replay.restart();
+                        }
                         #[cfg(target_env = "ohos")]
                         miniquad::native::set_interceptor_state(true);
+                    }
+                    // A replay picks up right where it stopped: there is no
+                    // one to give the three seconds to.
+                    Some(1) if self.replay.is_some() => {
+                        self.replay.as_mut().unwrap().menu = false;
+                        if matches!(self.state, State::Playing) {
+                            self.music.play()?;
+                        }
+                        tm.resume();
                     }
                     Some(1) => {
                         if self.mode == GameMode::Exercise && (tm.now() > self.exercise_range.end || tm.now() < self.exercise_range.start) {
@@ -802,6 +1003,195 @@ impl GameScene {
         for pos in &self.touch_points {
             ui.fill_circle(pos.0, pos.1, 0.04, Color { a: 0.4, ..BLUE });
         }
+        if let Some(replay) = &self.replay {
+            // The replayed run's fingers, where they were: stream y carries
+            // the aspect-ratio scaling and stream x is never flipped, so
+            // both come back through the recorded ratio. They are relative
+            // to the chart viewport, which is the space drawn in here. Drawn
+            // the way touch debugging draws live fingers.
+            let ar = replay.player.env().aspect_ratio;
+            for (_, x, y) in self.judge.replay_touches_at(&replay.player, self.res.time) {
+                ui.fill_circle(x, y / ar, 0.04, Color { a: 0.4, ..RED });
+            }
+        }
+        if self.replay.is_some() {
+            self.replay_ui(ui, tm, !replay_menu)?;
+        }
+        Ok(())
+    }
+
+    /// The replay's controls. A tap on the screen pauses or resumes; the
+    /// HUD's progress bar slides down when touched, to be dragged along, and
+    /// back up [`BAR_HIDE_DELAY`] after the last touch. Dragging previews the
+    /// position; the seek itself happens when the finger lifts, through the
+    /// same path as the keyboard shortcuts. The pause button, handled in
+    /// [`Self::ui`], opens the regular pause menu instead.
+    fn replay_ui(&mut self, ui: &mut Ui, tm: &mut TimeManager, input: bool) -> Result<()> {
+        let top = -1. / self.res.aspect_ratio;
+        let eps = 2e-2 / self.res.aspect_ratio;
+        let total = self.res.track_length as f32;
+        let alpha = self.res.alpha;
+        let now = tm.real_time() as f32;
+        let active = self.res.config.interactive && matches!(self.state, State::Playing | State::BeforeMusic);
+        let res_time = self.res.time as f32;
+        let icon_resume = self.res.icon_resume.clone();
+
+        let replay = self.replay.as_mut().unwrap();
+        let anim = replay.bar_anim;
+        let track = ReplayState::track(top, eps, anim);
+        // The bar runs in chart time, like the HUD's.
+        let to_time = |x: f32| ((x - track.x) / track.w).clamp(0., 1.) * total;
+
+        let mut toggle = false;
+        let mut commit = None;
+        if input && active && !replay.menu {
+            let touches = Judge::get_touches();
+            if let Some(mut drag) = replay.bar_drag.take() {
+                replay.last_touch = now;
+                match touches.iter().rfind(|it| it.id == drag.id) {
+                    Some(touch) if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) => {
+                        if drag.live {
+                            commit = Some(drag.pos);
+                        }
+                    }
+                    Some(touch) => {
+                        if !drag.live && (touch.position.x - drag.x0).abs() > 0.02 {
+                            drag.live = true;
+                        }
+                        if drag.live {
+                            drag.pos = to_time(touch.position.x);
+                        }
+                        replay.bar_drag = Some(drag);
+                    }
+                    // A finger held still sends nothing.
+                    None => replay.bar_drag = Some(drag),
+                }
+            } else {
+                for touch in &touches {
+                    if touch.phase != TouchPhase::Started || Some(touch.id) == replay.pause_touch {
+                        continue;
+                    }
+                    let pos = touch.position;
+                    let on_bar = if anim > 0.5 {
+                        // Down, the bar owns its band and everything above
+                        // it, but only the track itself drags.
+                        if pos.y < top + BAR_BAND.end {
+                            if (pos.y - track.center().y).abs() < 0.05 && (track.x - 0.03..track.right() + 0.03).contains(&pos.x) {
+                                replay.bar_drag = Some(BarDrag {
+                                    id: touch.id,
+                                    pos: to_time(pos.x),
+                                    x0: pos.x,
+                                    live: true,
+                                });
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    } else if pos.y < top + BAR_GRAB {
+                        // Up, a touch brings it down, and drags only once it
+                        // slides.
+                        replay.bar_drag = Some(BarDrag {
+                            id: touch.id,
+                            pos: res_time,
+                            x0: pos.x,
+                            live: false,
+                        });
+                        true
+                    } else {
+                        false
+                    };
+                    if on_bar {
+                        replay.last_touch = now;
+                        break;
+                    }
+                    toggle = true;
+                }
+            }
+        }
+
+        let target = if replay.bar_drag.is_some() || now - replay.last_touch < BAR_HIDE_DELAY {
+            1.
+        } else {
+            0.
+        };
+        replay.bar_anim += (target - anim) * (1. - (-get_frame_time() * 14.).exp());
+        if (replay.bar_anim - target).abs() < 1e-3 {
+            replay.bar_anim = target;
+        }
+        let preview = replay.bar_drag.filter(|it| it.live).map(|it| it.pos);
+        let paused_alone = tm.paused() && !replay.menu;
+
+        if anim > 0. {
+            let band = Rect::new(-1., top + BAR_BAND.start, 2., BAR_BAND.end - BAR_BAND.start);
+            ui.fill_rect(band, Color::new(0., 0., 0., 0.5 * anim * alpha));
+            let pos = preview.unwrap_or(res_time);
+            let p = (pos / total).clamp(0., 1.);
+            ui.fill_rect(track, semi_white(0.25 * anim * alpha));
+            ui.fill_rect(Rect { w: track.w * p, ..track }, semi_white((0.6 + 0.3 * anim) * alpha));
+            // The thin bar's tip grows into the knob.
+            let hw = 0.003 * (1. - anim);
+            ui.fill_rect(Rect::new(track.x + track.w * p - hw, track.y, hw * 2., track.h), semi_white(alpha));
+            ui.fill_circle(track.x + track.w * p, track.center().y, 0.018 * anim, semi_white(alpha));
+            let c = semi_white(anim * alpha);
+            ui.text(fmt_mmss(pos))
+                .pos(track.x - 0.03, track.center().y)
+                .anchor(1., 0.5)
+                .no_baseline()
+                .size(0.35)
+                .color(c)
+                .draw();
+            ui.text(fmt_mmss(total))
+                .pos(track.right() + 0.03, track.center().y)
+                .anchor(0., 0.5)
+                .no_baseline()
+                .size(0.35)
+                .color(c)
+                .draw();
+        }
+        if paused_alone && active {
+            let r = Rect::new(0., 0., 0., 0.).feather(0.07);
+            ui.fill_rect(r, (*icon_resume, r, ScaleType::Fit, semi_white(0.7 * alpha)));
+        }
+
+        if toggle {
+            self.replay_set_paused(tm, !tm.paused())?;
+        }
+        if let Some(pos) = commit {
+            let p = (pos + self.offset()).min(total) as f64;
+            self.replay_seek_to(tm, p)?;
+        }
+        Ok(())
+    }
+
+    /// Pauses or resumes a replay without its menu — a tap on the screen,
+    /// or space. Pausing brings the progress bar down, ready to be dragged;
+    /// resuming sends it back up.
+    fn replay_set_paused(&mut self, tm: &mut TimeManager, pause: bool) -> Result<()> {
+        if !matches!(self.state, State::Playing | State::BeforeMusic) {
+            return Ok(());
+        }
+        let now = tm.real_time() as f32;
+        let replay = self.replay.as_mut().unwrap();
+        replay.menu = false;
+        if pause == tm.paused() {
+            return Ok(());
+        }
+        if pause {
+            replay.last_touch = now;
+            if !self.music.paused() {
+                self.music.pause()?;
+            }
+            tm.pause();
+        } else {
+            replay.last_touch = f32::NEG_INFINITY;
+            // Scrubbing can leave a paused replay before the music starts;
+            // BeforeMusic starts it once the clock gets there.
+            if matches!(self.state, State::Playing) {
+                self.music.play()?;
+            }
+            tm.resume();
+        }
         Ok(())
     }
 
@@ -818,9 +1208,11 @@ impl GameScene {
     /// but a loopy attempt is not one worth analyzing), tweaking the offset
     /// and viewing are not attempts at all, an unrated play (autoplay above
     /// all, which judges nothing) has nothing to record, and keyboard hits
-    /// are not part of the stream.
+    /// are not part of the stream. A replay is the re-judging of a stream
+    /// already recorded — recording it again would only duplicate it.
     fn should_record(&self) -> bool {
-        matches!(self.mode, GameMode::Normal | GameMode::NoRetry)
+        self.replay.is_none()
+            && matches!(self.mode, GameMode::Normal | GameMode::NoRetry)
             && !self.res.config.mods.intersects(Mods::UNRATED)
             && !self.res.config.use_keyboard
             && self.res.config.speed >= 1.0 - 1e-3
@@ -855,6 +1247,64 @@ impl GameScene {
             None
         }
     }
+
+    /// Starts replaying `record` — the run that just ended, straight off its
+    /// ending screen. The scene is about to `enter` again, which resets the
+    /// judge and chart; the player starts from the top of the stream. The
+    /// run's own config is kept as is, since it is what the record was made
+    /// under; only the display must follow the recorded aspect ratio.
+    fn enter_replay(&mut self, record: Arc<PlayRecord>) {
+        let saved_aspect = (self.res.info.force_aspect_ratio, self.res.config.aspect_ratio);
+        self.res.info.force_aspect_ratio = true;
+        self.res.config.aspect_ratio = Some(record.meta.aspect_ratio);
+        // The new ratio only takes effect on a viewport update; force one.
+        self.res.last_vp = (-1, -1, -1, -1);
+        self.judge.set_replaying(true);
+        let player_name = self.res.config.player_name.clone();
+        self.replay = Some(ReplayState::new(ReplayRequest { record, player_name }, ReplayOrigin::Live, saved_aspect));
+    }
+
+    /// Leaves replay mode for a real retry: the display goes back to the
+    /// player's own settings and the judge back to recording.
+    fn exit_replay(&mut self) {
+        let Some(replay) = self.replay.take() else {
+            return;
+        };
+        self.res.info.force_aspect_ratio = replay.saved_aspect.0;
+        self.res.config.aspect_ratio = replay.saved_aspect.1;
+        self.res.last_vp = (-1, -1, -1, -1);
+        self.judge.set_replaying(false);
+    }
+
+    /// Jumps the replay to `p` (music time): everything judged so far is
+    /// undone and the stream re-judged from the top to there, the way the
+    /// exercise bar scrubs. Allowed only while music-time playback makes
+    /// sense; the ending fade plays itself out unseekable.
+    fn replay_seek_to(&mut self, tm: &mut TimeManager, p: f64) -> Result<()> {
+        if !matches!(self.state, State::Playing | State::BeforeMusic) {
+            return Ok(());
+        }
+        let offset = self.offset() as f64;
+        let Some(replay) = &mut self.replay else {
+            return Ok(());
+        };
+        self.bad_notes.clear();
+        self.chart.reset();
+        self.judge.replay_seek(&mut self.chart, &mut replay.player, (p - offset).max(0.));
+        self.res.judge_line_color = self.res.res_pack.info.color_perfect();
+        if p < 0. {
+            self.music.pause()?;
+            self.state = State::BeforeMusic;
+        } else {
+            self.music.seek_to(p)?;
+            if !tm.paused() && self.music.paused() {
+                self.music.play()?;
+            }
+            self.state = State::Playing;
+        }
+        tm.seek_to(p);
+        Ok(())
+    }
 }
 
 impl Scene for GameScene {
@@ -867,9 +1317,33 @@ impl Scene for GameScene {
         self.res.camera.render_target = target;
         tm.speed = self.res.config.speed as _;
         tm.adjust_time = self.res.config.adjust_time;
+        if self.replay.as_ref().is_some_and(|it| it.finished) {
+            // A retry off a replay's ending screen: watch it again when it
+            // came from a saved record, go back to playing for real when it
+            // came off this scene's own run.
+            if self.replay.as_ref().unwrap().origin == ReplayOrigin::Live {
+                self.exit_replay();
+            } else {
+                let replay = self.replay.as_mut().unwrap();
+                replay.finished = false;
+                replay.restart();
+            }
+        }
         reset!(self, self.res, tm);
         set_camera(&self.res.camera);
         self.first_in = true;
+        Ok(())
+    }
+
+    fn on_result(&mut self, _tm: &mut TimeManager, result: Box<dyn Any>) -> Result<()> {
+        // The ending screen's "watch replay": replay the run that just
+        // ended. `enter`, which Main calls right after, resets judge and
+        // chart and the replay starts from the top.
+        if result.downcast_ref::<StartReplay>().is_some() {
+            if let Some(record) = self.last_record.clone() {
+                self.enter_replay(record);
+            }
+        }
         Ok(())
     }
 
@@ -968,6 +1442,11 @@ impl Scene for GameScene {
             State::Playing => {
                 if time > self.res.track_length + WAIT_TIME {
                     self.state = State::Ending;
+                    // The next `enter` — a retry off the ending screen — then
+                    // knows whether to restart or leave the replay.
+                    if let Some(replay) = &mut self.replay {
+                        replay.finished = true;
+                    }
                     #[cfg(target_env = "ohos")]
                     miniquad::native::set_interceptor_state(false);
                 }
@@ -980,7 +1459,10 @@ impl Scene for GameScene {
                     // TODO strengthen the protection
                     #[cfg(closed)]
                     if let Some(upload_fn) = &self.upload_fn {
-                        if !self.res.config.offline_mode
+                        // A replay re-judges a run that was already uploaded
+                        // (or deliberately wasn't); it is never a score.
+                        if self.replay.is_none()
+                            && !self.res.config.offline_mode
                             && !self.res.config.mods.intersects(Mods::UNRATED)
                             && !self.res.config.use_keyboard
                             && self.res.config.speed >= 1.0 - 1e-3
@@ -1020,7 +1502,19 @@ impl Scene for GameScene {
                         };
                         Arc::new(PlayRecord::finish(meta, &self.chart, &self.judge.hit_events, std::mem::take(&mut self.judge.inputs)))
                     });
-                    let record = if self.res.config.mods.intersects(Mods::UNRATED) || self.res.config.speed < 1.0 - 1e-3 {
+                    // Keep the run's record around for watching it again off
+                    // its ending screen, and hand it to whoever persists
+                    // records locally — their failure costs a warning, not
+                    // the run.
+                    if let Some(play_record) = &play_record {
+                        self.last_record = Some(play_record.clone());
+                        if let Some(save) = &self.replay_save_fn {
+                            if let Err(err) = save(play_record.clone(), &result) {
+                                warn!(?err, "failed to save the play record");
+                            }
+                        }
+                    }
+                    let record = if self.replay.is_some() || self.res.config.mods.intersects(Mods::UNRATED) || self.res.config.speed < 1.0 - 1e-3 {
                         None
                     } else {
                         Some(SimpleRecord {
@@ -1059,7 +1553,7 @@ impl Scene for GameScene {
                                 self.judge.result(),
                                 &self.res.config,
                                 self.res.res_pack.ending.clone(),
-                                self.upload_fn.as_ref().map(Arc::clone),
+                                self.upload_fn.as_ref().filter(|_| self.replay.is_none()).map(Arc::clone),
                                 self.player.as_ref().map(|it| it.rks),
                                 historic_best,
                                 record_data,
@@ -1067,6 +1561,7 @@ impl Scene for GameScene {
                                 session,
                                 self.best_record.clone(),
                                 if self.res.config.show_avg_fps { self.get_avg_fps() } else { None },
+                                self.replay.is_some(),
                             )?)))
                         }
                         GameMode::TweakOffset => Some(NextScene::PopWithResult(Box::new(None::<f32>))),
@@ -1081,8 +1576,29 @@ impl Scene for GameScene {
         self.res.time = time;
         if !tm.paused() && self.pause_rewind.is_none() && self.mode != GameMode::View {
             self.gl.quad_gl.viewport(self.res.camera.viewport);
-            self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
+            let seek = match &mut self.replay {
+                Some(replay) => self
+                    .judge
+                    .replay_update(&mut self.res, &mut self.chart, &mut self.bad_notes, &mut replay.player),
+                None => {
+                    self.judge.update(&mut self.res, &mut self.chart, &mut self.bad_notes);
+                    None
+                }
+            };
             self.gl.quad_gl.viewport(None);
+            if let Some(to) = seek {
+                // The run being replayed paused and resumed; its clock jumped
+                // back to `to`, and music and clock must follow before
+                // judging goes on, exactly as they did live.
+                let dst = to + self.offset() as f64;
+                if dst < 0. {
+                    self.music.pause()?;
+                    self.state = State::BeforeMusic;
+                } else {
+                    self.music.seek_to(dst)?;
+                }
+                tm.seek_to(dst);
+            }
         }
         if let Some(update) = &mut self.update_fn {
             update(self.res.time, &mut self.res, &mut self.judge);
@@ -1098,6 +1614,7 @@ impl Scene for GameScene {
             WHITE
         };
         if !self.dead
+            && self.replay.is_none()
             && matches!(self.state, State::Playing)
             && (self.res.config.mods.contains(Mods::INSTANT_DEATH_AP) && counts[1] + counts[2] + counts[3] > 0
                 || self.res.config.mods.contains(Mods::INSTANT_DEATH_FC) && counts[2] + counts[3] > 0)
@@ -1113,9 +1630,10 @@ impl Scene for GameScene {
         }
         self.res.judge_line_color.a *= self.res.alpha;
         self.chart.update(&mut self.res);
-        let res = &mut self.res;
-        if res.config.interactive && is_key_pressed(KeyCode::Space) {
-            if tm.paused() {
+        if self.res.config.interactive && is_key_pressed(KeyCode::Space) {
+            if self.replay.is_some() {
+                self.replay_set_paused(tm, !tm.paused())?;
+            } else if tm.paused() {
                 if matches!(self.state, State::Playing) {
                     self.music.play()?;
                     tm.resume();
@@ -1127,18 +1645,31 @@ impl Scene for GameScene {
                 tm.pause();
             }
         }
+        let res = &mut self.res;
         if Self::interactive(res, &self.state) {
-            if is_key_pressed(KeyCode::Left) && res.config.use_keyboard {
-                res.time -= 1.;
-                let dst = (self.music.position() - 1.).max(0.);
-                self.music.seek_to(dst)?;
-                tm.seek_to(dst);
-            }
-            if is_key_pressed(KeyCode::Right) && res.config.use_keyboard {
-                res.time += 5.;
-                let dst = (self.music.position() + 5.).min(res.track_length);
-                self.music.seek_to(dst)?;
-                tm.seek_to(dst);
+            if self.replay.is_some() {
+                // The arrows scrub a replay — ±5s through the same seek the
+                // progress bar uses — instead of the keyboard's own seeking,
+                // which a replay has no keyboard for.
+                let base = self.offset().min(0.) as f64;
+                if is_key_pressed(KeyCode::Left) {
+                    self.replay_seek_to(tm, (tm.now() - 5.).max(base))?;
+                } else if is_key_pressed(KeyCode::Right) {
+                    self.replay_seek_to(tm, (tm.now() + 5.).min(self.res.track_length))?;
+                }
+            } else {
+                if is_key_pressed(KeyCode::Left) && res.config.use_keyboard {
+                    res.time -= 1.;
+                    let dst = (self.music.position() - 1.).max(0.);
+                    self.music.seek_to(dst)?;
+                    tm.seek_to(dst);
+                }
+                if is_key_pressed(KeyCode::Right) && res.config.use_keyboard {
+                    res.time += 5.;
+                    let dst = (self.music.position() + 5.).min(res.track_length);
+                    self.music.seek_to(dst)?;
+                    tm.seek_to(dst);
+                }
             }
             if is_key_pressed(KeyCode::Q) {
                 self.should_exit = true;

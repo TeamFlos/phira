@@ -17,9 +17,10 @@
 //! eaten by a drag aimed at a later tap.
 
 use crate::{
-    config::Config,
+    config::{Config, Mods},
     core::{BadNote, Chart, Matrix, NoteKind, Point, Resource, Vector},
     ext::{get_viewport, NotNanExt},
+    play_record::PlayRecord,
 };
 use input::{InputCollector, InputSource, RawFrame, RawTouch, ReplaySource};
 use macroquad::prelude::{
@@ -36,6 +37,7 @@ use std::{
     collections::{BinaryHeap, HashSet},
     mem,
     num::FpCategory,
+    sync::Arc,
 };
 use tracing::debug;
 
@@ -729,7 +731,7 @@ impl Judge {
         }
         {
             let mut collector = mem::take(&mut self.collector);
-            self.advance(chart, env, &mut collector, t, effects);
+            let _ = self.advance(chart, env, &mut collector, t, effects, false);
             self.collector = collector;
         }
         // Keyboard hits are the one input the stream does not carry. They
@@ -752,7 +754,20 @@ impl Judge {
     /// evaluation point: fixed grid ticks, scheduled commits and input
     /// events, in that order at equal times. This — and only this — is what
     /// both live play and replays judge by.
-    fn advance(&mut self, chart: &mut Chart, env: &JudgeEnv, src: &mut dyn InputSource, until: f64, effects: &mut Vec<JudgeEffect>) {
+    ///
+    /// With `stop_after_seek`, the first [`InputEvent::Seek`] that applies
+    /// rewinds the judge's clock floor to its target and returns it instead
+    /// of judging on through: the world above — music, notes, effects — has
+    /// to jump back with it before judging may continue. `None` otherwise.
+    fn advance(
+        &mut self,
+        chart: &mut Chart,
+        env: &JudgeEnv,
+        src: &mut dyn InputSource,
+        until: f64,
+        effects: &mut Vec<JudgeEffect>,
+        stop_after_seek: bool,
+    ) -> Option<f64> {
         loop {
             let sched = self.peek_sched(chart);
             let tick_time = self.next_tick as f64 / JUDGE_TICK_HZ;
@@ -767,6 +782,9 @@ impl Judge {
                 };
                 self.judged_until = to;
                 self.next_tick = tick_after(to);
+                if stop_after_seek {
+                    return Some(to);
+                }
                 continue;
             }
             let tau = [Some(tick_time), sched.map(|it| it.time), src.peek_time()]
@@ -821,6 +839,7 @@ impl Judge {
             }
             self.judged_until = tau;
         }
+        None
     }
 
     /// Processes one evaluation point at `tau`: applies the cause to the
@@ -1633,9 +1652,118 @@ impl Judge {
         judge.replaying = true;
         let mut source = ReplaySource::new(inputs);
         let mut effects = Vec::new();
-        judge.advance(chart, env, &mut source, end, &mut effects);
+        let _ = judge.advance(chart, env, &mut source, end, &mut effects, false);
         judge
     }
+
+    /// Marks this judge as replaying a recorded stream, so that `log`
+    /// records nothing. `reset` deliberately leaves the flag alone: a
+    /// replayed run stays one across the resets of seeking and retrying.
+    pub fn set_replaying(&mut self, on: bool) {
+        self.replaying = on;
+    }
+
+    /// One frame of a replay: re-judges the recorded stream up to the
+    /// current chart time — the counterpart of [`Judge::update`] — and
+    /// applies the effects the same way. Returns the target of the recorded
+    /// seek the replay just reached, if any: the caller must jump its clock
+    /// and music there before the next frame, as the original run's pause
+    /// did.
+    pub fn replay_update(&mut self, res: &mut Resource, chart: &mut Chart, bad_notes: &mut Vec<BadNote>, player: &mut ReplayPlayer) -> Option<f64> {
+        let mut effects = Vec::new();
+        let seek = self.replay_update_with(chart, player, res.time, &mut effects);
+        self.apply_effects(res, chart, bad_notes, effects);
+        seek
+    }
+
+    /// One frame of replay judging, free of anything macroquad-global: the
+    /// entry the tests drive directly, mirroring [`Judge::update_with`].
+    fn replay_update_with(&mut self, chart: &mut Chart, player: &mut ReplayPlayer, t: f64, effects: &mut Vec<JudgeEffect>) -> Option<f64> {
+        // The cursor lives in the player between frames; each frame builds
+        // its source from it and writes back where it got to.
+        let mut source = ReplaySource::with_cursor(&player.record.inputs, player.cursor);
+        let seek = self.advance(chart, &player.env, &mut source, t, effects, true);
+        player.cursor = source.cursor();
+        self.last_time = t / player.env.speed;
+        seek
+    }
+
+    /// Jumps a replay to chart time `t` — a drag of the progress bar.
+    /// Everything judged so far is undone and the stream re-judged from the
+    /// top, stopping inside the first segment that contains `t` (the seeks
+    /// recorded in the stream apply as they are reached, which lands there
+    /// by construction). The skipped-over effects are dropped: nothing
+    /// happened on screen at times the play jumped past. Resetting the
+    /// chart is the caller's to do.
+    pub fn replay_seek(&mut self, chart: &mut Chart, player: &mut ReplayPlayer, t: f64) {
+        self.reset();
+        player.restart();
+        let mut source = ReplaySource::new(&player.record.inputs);
+        let mut effects = Vec::new();
+        let _ = self.advance(chart, &player.env, &mut source, t, &mut effects, false);
+        player.cursor = source.cursor();
+        self.last_time = t / player.env.speed;
+    }
+
+    /// The touches the judge currently holds, in the stream's coordinate
+    /// space — slot, x, and y scaled by the aspect ratio. A replay draws
+    /// them to show the recorded run's fingers where they were.
+    pub fn live_touches(&self) -> impl Iterator<Item = (u8, f32, f32)> + '_ {
+        self.live.iter().copied()
+    }
+
+    /// [`Self::live_touches`] at chart time `t` of a replay, each finger slid
+    /// toward where the stream has it next. Recorded positions change only
+    /// on the tick grid, which drawn as is looks choppy; this interpolates
+    /// linearly over the tick interval leading up to the next recorded move.
+    /// For display only — judging never sees it.
+    pub fn replay_touches_at(&self, player: &ReplayPlayer, t: f64) -> Vec<(u8, f32, f32)> {
+        let step = 1. / JUDGE_TICK_HZ;
+        let ahead = player.record.inputs.get(player.cursor..).unwrap_or_default();
+        let next_move = |id: u8| {
+            for event in ahead {
+                let time = match event {
+                    InputEvent::Start { time, .. }
+                    | InputEvent::Appear { time, .. }
+                    | InputEvent::End { time, .. }
+                    | InputEvent::Swipe { time, .. } => *time,
+                    InputEvent::Move { tick, .. } => *tick as f64 / JUDGE_TICK_HZ,
+                    InputEvent::Seek { from, .. } => *from,
+                };
+                if time > t + step {
+                    break;
+                }
+                match event {
+                    InputEvent::Move { points, .. } => {
+                        if let Some(point) = points.iter().find(|it| it.id == id) {
+                            return Some((time, point.x, point.y));
+                        }
+                    }
+                    // The finger lifts or the timeline jumps first: nothing
+                    // to slide toward.
+                    InputEvent::Start { id: other, .. } | InputEvent::Appear { id: other, .. } | InputEvent::End { id: other, .. }
+                        if *other == id =>
+                    {
+                        break
+                    }
+                    InputEvent::Seek { .. } => break,
+                    _ => {}
+                }
+            }
+            None
+        };
+        self.live
+            .iter()
+            .map(|&(id, x, y)| match next_move(id) {
+                Some((time, nx, ny)) => {
+                    let f = ((t - (time - step)) / step).clamp(0., 1.) as f32;
+                    (id, x + (nx - x) * f, y + (ny - y) * f)
+                }
+                None => (id, x, y),
+            })
+            .collect()
+    }
+
     fn auto_play_update(&mut self, res: &mut Resource, chart: &mut Chart) {
         let t = res.time;
         let mut judgements = Vec::new();
@@ -1706,6 +1834,46 @@ impl Judge {
     #[inline]
     pub fn counts(&self) -> [u32; 4] {
         self.inner.counts()
+    }
+}
+
+/// A recorded play being played back frame by frame: owns the stream cursor
+/// between frames, and the [`JudgeEnv`] the stream was recorded under — the
+/// one it must be replayed under. [`Judge::replay_update`] advances through
+/// it; [`Judge::replay_seek`] rewinds it to the top.
+pub struct ReplayPlayer {
+    record: Arc<PlayRecord>,
+    cursor: usize,
+    env: JudgeEnv,
+}
+
+impl ReplayPlayer {
+    pub fn new(record: Arc<PlayRecord>) -> Self {
+        let meta = &record.meta;
+        Self {
+            env: JudgeEnv {
+                aspect_ratio: meta.aspect_ratio,
+                speed: meta.speed as f64,
+                flip_x: meta.mods.contains(Mods::FLIP_X),
+            },
+            record,
+            cursor: 0,
+        }
+    }
+
+    /// The record being played back.
+    pub fn record(&self) -> &Arc<PlayRecord> {
+        &self.record
+    }
+
+    /// The env the stream was recorded under.
+    pub fn env(&self) -> &JudgeEnv {
+        &self.env
+    }
+
+    /// Back to the top of the stream, for playing the record again.
+    pub fn restart(&mut self) {
+        self.cursor = 0;
     }
 }
 

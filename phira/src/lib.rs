@@ -18,6 +18,7 @@ mod page;
 mod play_upload;
 mod popup;
 mod rate;
+mod replay;
 mod resource;
 mod scene;
 mod tabs;
@@ -170,6 +171,10 @@ mod dir {
 
     pub fn respacks() -> Result<String> {
         ensure("data/respack")
+    }
+
+    pub fn replays() -> Result<String> {
+        ensure("data/replays")
     }
 }
 

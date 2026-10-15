@@ -21,12 +21,13 @@ use crate::{
     play_upload::ApiUploader,
     popup::Popup,
     rate::RateDialog,
+    replay::{self, ReplayEntry, ReplayFile, ReplayInfo},
     save_data,
     tags::TagsDialog,
 };
 use ::rand::{thread_rng, Rng};
-use anyhow::{bail, Context, Error, Result};
-use chrono::{DateTime, Utc};
+use anyhow::{bail, ensure, Context, Error, Result};
+use chrono::{DateTime, Local, Utc};
 use core::f32;
 use futures_util::StreamExt;
 use inputbox::{InputBox, InputMode};
@@ -35,7 +36,7 @@ use once_cell::sync::Lazy;
 use phira_mp_common::{ClientCommand, CompactPos, JudgeEvent, TouchFrame};
 use prpr::{
     config::Mods,
-    core::{Tweenable, BOLD_FONT},
+    core::{Tweenable, BOLD_FONT, PGR_FONT},
     ext::{
         open_url, poll_future, rect_shadow, semi_black, semi_white, unzip_into, JoinToString, LocalTask, RectExt, SafeTexture, ScaleType,
         BLACK_TEXTURE,
@@ -45,8 +46,8 @@ use prpr::{
     judge::icon_index,
     play_record::{TouchRecorder, TouchSampling},
     scene::{
-        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, LoadingScene,
-        LocalSceneTask, NextScene, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
+        request_file, request_input, return_file, return_input, show_error, show_message, take_file, take_input, BasicPlayer, GameMode, GameScene,
+        LoadingScene, LocalSceneTask, NextScene, ReplayRequest, ReplaySaveFn, SaveFn, Scene, SimpleRecord, UpdateFn, UploadFn,
     },
     task::Task,
     time::TimeManager,
@@ -65,7 +66,7 @@ use std::{
     collections::{BTreeMap, VecDeque},
     fs::File,
     io::{BufWriter, Cursor, Seek, Write},
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicI32, Ordering},
         mpsc, Arc, Mutex, Weak,
@@ -270,6 +271,7 @@ enum SideContent {
     Leaderboard,
     Info,
     Mods,
+    Replays,
 }
 
 impl SideContent {
@@ -279,6 +281,7 @@ impl SideContent {
             Self::Leaderboard => 0.94,
             Self::Info => 0.75,
             Self::Mods => 0.8,
+            Self::Replays => 0.94,
         }
     }
 }
@@ -412,6 +415,18 @@ pub struct SongScene {
     autocomplete_task: Option<Task<Result<String>>>,
 
     export_task: Option<mpsc::Receiver<Result<()>>>,
+
+    // Local replays of this chart
+    replays: Option<Vec<ReplayEntry>>,
+    replays_task: Option<Task<Result<Vec<ReplayEntry>>>>,
+    replay_scroll: Scroll,
+    replay_import_btn: DRectButton,
+    replay_row_btns: Vec<(DRectButton, DRectButton, DRectButton)>,
+    replay_import_task: Option<Task<Result<Vec<ReplayEntry>>>>,
+    replay_play_task: Option<Task<Result<ReplayFile>>>,
+    replay_delete_pending: Option<PathBuf>,
+    replay_should_delete: Arc<AtomicBool>,
+    pending_replay_export: Option<PathBuf>,
 }
 
 impl SongScene {
@@ -602,6 +617,17 @@ impl SongScene {
             autocomplete_task: None,
 
             export_task: None,
+
+            replays: None,
+            replays_task: None,
+            replay_scroll: Scroll::new(),
+            replay_import_btn: DRectButton::new(),
+            replay_row_btns: Vec::new(),
+            replay_import_task: None,
+            replay_play_task: None,
+            replay_delete_pending: None,
+            replay_should_delete: Arc::default(),
+            pending_replay_export: None,
         }
     }
 
@@ -788,6 +814,7 @@ impl SongScene {
             {
                 self.menu_options.push("unlock");
             }
+            self.menu_options.push("replays");
         }
         let perms = get_data().me.as_ref().map(|it| it.perms()).unwrap_or_default();
         let is_uploader = get_data()
@@ -837,10 +864,49 @@ impl SongScene {
                     .find(|it| it.local_path == *local_path)
                     .is_some_and(|it| it.info.has_unlock && !it.played_unlock));
 
-        self.scene_task =
-            Self::global_launch(self.info.id, local_path, self.mods, mode, None, Some(self.background.clone()), self.record.clone(), is_unlock)?;
+        self.scene_task = Self::global_launch(
+            self.info.id,
+            local_path,
+            self.mods,
+            mode,
+            None,
+            Some(self.background.clone()),
+            self.record.clone(),
+            is_unlock,
+            None,
+        )?;
 
         Ok(())
+    }
+
+    /// Starts playing back one of the chart's saved replays. The game scene
+    /// restores the recorded mods, speed, offset and aspect ratio itself, so
+    /// the launch config hardly matters here.
+    fn launch_replay(&mut self, file: ReplayFile) -> Result<()> {
+        let local_path = self.local_path.as_deref().unwrap();
+        self.scene_task = Self::global_launch(
+            self.info.id,
+            local_path,
+            Mods::default(),
+            GameMode::Normal,
+            None,
+            Some(self.background.clone()),
+            self.record.clone(),
+            false,
+            Some(ReplayRequest {
+                record: Arc::new(file.record),
+                player_name: file.info.player_name,
+            }),
+        )?;
+        Ok(())
+    }
+
+    /// (Re)loads this chart's replay list in the background, showing the
+    /// panel's loading state meanwhile.
+    fn reload_replays(&mut self) {
+        let Some(local_path) = self.local_path.clone() else { return };
+        self.replays = None;
+        self.replays_task = Some(Task::new(async move { replay::list(&local_path) }));
     }
 
     #[must_use = "futures do nothing unless you `.await` or poll them"]
@@ -854,6 +920,7 @@ impl SongScene {
         background_output: Option<Arc<Mutex<Option<SafeTexture>>>>,
         record: Option<SimpleRecord>,
         is_unlock: bool,
+        replay: Option<ReplayRequest>,
     ) -> Result<LocalSceneTask> {
         let mut fs = fs_from_path(local_path)?;
         let can_rated = id.is_some() || local_path.starts_with(':');
@@ -866,7 +933,9 @@ impl SongScene {
         };
         #[cfg(not(closed))]
         let rated = false;
-        if !rated && can_rated && mode == GameMode::Normal {
+        // A replay re-runs a play that was already judged; there is nothing
+        // left to rate.
+        if !rated && can_rated && mode == GameMode::Normal && replay.is_none() {
             show_message(tl!("warn-unrated")).warn();
         }
         let update_fn = client.and_then(|mut client| {
@@ -978,6 +1047,9 @@ impl SongScene {
             }
         }));
 
+        // An owned copy for the replay saver below: the async block must not
+        // borrow from this call's arguments.
+        let replay_local_path = local_path.to_owned();
         Ok(Some(Box::pin(async move {
             let mut info = fs::load_info(fs.as_mut()).await?;
             info.id = id;
@@ -1008,11 +1080,37 @@ impl SongScene {
                 historic_best: record.map_or(0, |it| it.score as u32),
             });
             let upload_fn: Option<UploadFn> = id.map(|chart| Arc::new(ApiUploader { chart, chart_updated }) as UploadFn);
+            // Persists every recorded run as a local replay. Built here,
+            // after the chart info is at hand; the game scene treats a
+            // failure as a warning, never the run's.
+            let replay_save_fn: Option<ReplaySaveFn> = Some(Box::new({
+                let local_path = replay_local_path.clone();
+                let chart_name = info.name.clone();
+                let player_name = config.player_name.clone();
+                let player_id = get_data().me.as_ref().map(|it| it.id);
+                move |record, result| {
+                    replay::save(
+                        &local_path,
+                        &ReplayFile {
+                            info: ReplayInfo {
+                                player_name: player_name.clone(),
+                                player_id,
+                                played_at: Utc::now(),
+                                score: result.score,
+                                accuracy: result.accuracy as f32,
+                                full_combo: result.max_combo == result.num_of_notes,
+                                chart_name: chart_name.clone(),
+                            },
+                            record: (*record).clone(),
+                        },
+                    )
+                }
+            }));
             if is_unlock {
                 #[cfg(not(feature = "video"))]
                 {
                     warn!("this build does not support unlock video.");
-                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
+                    LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, replay, replay_save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
@@ -1024,12 +1122,12 @@ impl SongScene {
                         save_data()?;
                     }
 
-                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
+                    UnlockScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, replay, replay_save_fn, Some(preload))
                         .await
                         .map(|it| NextScene::Overlay(Box::new(it)))
                 }
             } else {
-                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, Some(preload))
+                LoadingScene::new(mode, info, config, fs, player, upload_fn, update_fn, save_fn, replay, replay_save_fn, Some(preload))
                     .await
                     .map(|it| NextScene::Overlay(Box::new(it)))
             }
@@ -1363,6 +1461,107 @@ impl SongScene {
         });
     }
 
+    fn side_replays(&mut self, ui: &mut Ui, rt: f32) {
+        let pad = 0.03;
+        let width = self.side_content.width() - pad;
+        ui.dy(0.03);
+        self.replay_import_btn
+            .render_text(ui, Rect::new(width - 0.24, 0.01, 0.23, 0.08), rt, tl!("replays-import"), 0.6, true);
+        ui.dy(0.01);
+        let r = ui.text(tl!("replays")).size(0.9).draw_using(&BOLD_FONT);
+        ui.dy(r.h + 0.05);
+        let sh = ui.top * 2. - r.h - 0.12;
+        let Some(entries) = self.replays.as_ref() else {
+            ui.loading(width / 2., sh / 2., rt, WHITE, ());
+            return;
+        };
+        if entries.is_empty() {
+            ui.text(tl!("replays-empty"))
+                .pos(width / 2., sh / 2.)
+                .anchor(0.5, 0.5)
+                .no_baseline()
+                .size(0.5)
+                .color(semi_white(0.6))
+                .draw();
+            return;
+        }
+        let icons = self.icons.clone();
+        self.replay_row_btns
+            .resize_with(entries.len(), || (DRectButton::new().with_radius(0.015), DRectButton::new(), DRectButton::new()));
+        self.replay_scroll.size((width, sh));
+        self.replay_scroll.render(ui, |ui| {
+            const S: f32 = 0.14;
+            let rh = S - 0.015;
+            // The text buttons at the right of each row, apart from the
+            // card so that pressing one never presses the other
+            let (bw, bh, gap) = (0.12, 0.075, 0.015);
+            let mut h = 0.;
+            for (entry, (row, export, delete)) in entries.iter().zip(&mut self.replay_row_btns) {
+                let del_r = Rect::new(width - 0.02 - bw, (rh - bh) / 2., bw, bh);
+                delete.render_text(ui, del_r, rt, tl!("delete"), 0.5, false);
+                let exp_r = Rect::new(del_r.x - gap - bw, del_r.y, bw, bh);
+                export.render_text(ui, exp_r, rt, tl!("export"), 0.5, false);
+
+                // The card itself plays the replay; its play icon says so
+                let card = Rect::new(0.01, 0., exp_r.x - gap - 0.01, rh);
+                row.render_shadow(ui, card, rt, |ui, path| {
+                    ui.fill_path(&path, semi_black(0.3));
+                    let rad = 0.04;
+                    let ct = (card.x + 0.025 + rad, card.center().y);
+                    ui.fill_circle(ct.0, ct.1, rad, semi_white(0.3));
+                    let ir = Rect::new(ct.0, ct.1, 0., 0.).feather(rad * 0.55);
+                    ui.fill_rect(ir, (*icons.play, ir, ScaleType::Fit));
+
+                    let lf = ct.0 + rad + 0.03;
+                    let r = ui
+                        .text(format!("{:07}", entry.info.score))
+                        .pos(lf, rh * 0.34)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.48)
+                        .draw_using(&PGR_FONT);
+                    let r = ui
+                        .text(format!("{:.2}%", entry.info.accuracy * 100.))
+                        .pos(r.right() + 0.02, r.center().y)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.35)
+                        .color(semi_white(0.7))
+                        .draw();
+                    if entry.info.full_combo {
+                        ui.text("FC")
+                            .pos(r.right() + 0.02, r.center().y)
+                            .anchor(0., 0.5)
+                            .no_baseline()
+                            .size(0.35)
+                            .color(GOLD)
+                            .draw_using(&BOLD_FONT);
+                    }
+                    // Second line: when the play happened, and whose it was
+                    // when the replay was imported
+                    let date = entry.info.played_at.with_timezone(&Local).format("%Y-%m-%d %H:%M");
+                    let sub = if entry.imported {
+                        format!("{} · {date}", entry.info.player_name)
+                    } else {
+                        date.to_string()
+                    };
+                    ui.text(sub)
+                        .pos(lf, rh * 0.74)
+                        .anchor(0., 0.5)
+                        .no_baseline()
+                        .size(0.32)
+                        .color(semi_white(0.55))
+                        .max_width(card.right() - lf - 0.02)
+                        .draw();
+                });
+
+                ui.dy(S);
+                h += S;
+            }
+            (width, h)
+        });
+    }
+
     fn save_edit(&mut self) {
         let Some(edit) = &self.info_edit else { unreachable!() };
         let info = edit.info.clone();
@@ -1621,6 +1820,11 @@ impl Scene for SongScene {
             music.play()?;
         }
         self.update_menu();
+        // A play may have ended (and been auto-saved) while the panel was
+        // hidden behind the game scene.
+        if matches!(self.side_content, SideContent::Replays) && self.local_path.is_some() {
+            self.reload_replays();
+        }
         Ok(())
     }
 
@@ -1637,6 +1841,9 @@ impl Scene for SongScene {
             || self.toggle_fav_task.is_some()
             || self.export_task.is_some()
             || self.autocomplete_task.is_some()
+            || self.replays_task.is_some()
+            || self.replay_import_task.is_some()
+            || self.replay_play_task.is_some()
         {
             return Ok(true);
         }
@@ -1743,6 +1950,40 @@ impl Scene for SongScene {
                             if btn.touch(touch, rt) {
                                 *clicked = true;
                                 return Ok(true);
+                            }
+                        }
+                    }
+                    SideContent::Replays => {
+                        if self.replay_import_btn.touch(touch, rt) {
+                            button_hit();
+                            request_file("replay");
+                            return Ok(true);
+                        }
+                        if self.replay_scroll.touch(touch, t) {
+                            return Ok(true);
+                        }
+                        // Each field is touched through a distinct borrow of
+                        // `self`, so this may freely mix them.
+                        if let Some(entries) = self.replays.as_ref() {
+                            for (index, entry) in entries.iter().enumerate() {
+                                let Some((row, export, delete)) = self.replay_row_btns.get_mut(index) else {
+                                    break;
+                                };
+                                if delete.touch(touch, rt) {
+                                    self.replay_delete_pending = Some(entry.path.clone());
+                                    confirm_dialog(tl!("warn"), tl!("replays-delete-confirm"), Arc::clone(&self.replay_should_delete));
+                                    return Ok(true);
+                                }
+                                if export.touch(touch, rt) {
+                                    self.pending_replay_export = Some(entry.path.clone());
+                                    request_export(replay_export_name(&self.info.name, &entry.info));
+                                    return Ok(true);
+                                }
+                                if row.touch(touch, rt) {
+                                    let path = entry.path.clone();
+                                    self.replay_play_task = Some(Task::new(async move { replay::decode_file(&path) }));
+                                    return Ok(true);
+                                }
                             }
                         }
                     }
@@ -2028,6 +2269,11 @@ impl Scene for SongScene {
                 "unlock" => {
                     self.launch(GameMode::Normal, true)?;
                 }
+                "replays" => {
+                    self.side_content = SideContent::Replays;
+                    self.side_enter_time = tm.real_time() as _;
+                    self.reload_replays();
+                }
                 "review-approve" => {
                     confirm_dialog(tl!("warn"), tl!("review-approve-confirm"), Arc::clone(&self.should_review_approve));
                 }
@@ -2061,6 +2307,10 @@ impl Scene for SongScene {
                     request_input("stabilize-deny-reason", InputBox::new().mode(InputMode::Multiline));
                 }
                 "export" => {
+                    // Cancelled export dialogs never reach `take_export`, so
+                    // drop a replay export that never landed to keep the
+                    // next one from being misread as such.
+                    self.pending_replay_export = None;
                     request_export(format!("{}.zip", sanitize(&self.info.name)));
                 }
                 _ => {}
@@ -2074,7 +2324,31 @@ impl Scene for SongScene {
             }
 
             match config {
-                Err(err) => show_error(err.into()),
+                Err(err) => {
+                    self.pending_replay_export = None;
+                    show_error(err.into());
+                }
+                Ok(mut config) if self.pending_replay_export.is_some() => {
+                    // A single replay file: a plain copy, quick enough to do
+                    // without a worker thread.
+                    let path = self.pending_replay_export.take().unwrap();
+                    let result = (|| -> Result<()> {
+                        let mut src = File::open(&path).with_context(|| tl!("replay-load-failed"))?;
+                        let mut dst = BufWriter::new(&mut config.file);
+                        std::io::copy(&mut src, &mut dst)?;
+                        dst.flush()?;
+                        Ok(())
+                    })();
+                    match result {
+                        Ok(()) => resolve_export(),
+                        Err(err) => {
+                            if let Err(e) = (config.deleter)() {
+                                warn!("failed to delete export file: {e:?}");
+                            }
+                            show_error(err);
+                        }
+                    }
+                }
                 Ok(config) => {
                     let path = self.local_path.clone().unwrap();
                     let (tx, rx) = mpsc::sync_channel(1);
@@ -2105,6 +2379,55 @@ impl Scene for SongScene {
                 Err(mpsc::TryRecvError::Disconnected) => {
                     show_error(Error::msg("Export thread panicked"));
                     self.export_task = None;
+                }
+            }
+        }
+        if let Some(task) = &mut self.replays_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => {
+                        show_error(err.context(tl!("replays-load-failed")));
+                        // An empty list rather than an eternal spinner
+                        self.replays = Some(Vec::new());
+                    }
+                    Ok(entries) => self.replays = Some(entries),
+                }
+                self.replay_row_btns.clear();
+                self.replays_task = None;
+            }
+        }
+        if let Some(task) = &mut self.replay_import_task {
+            if let Some(res) = task.take() {
+                self.replay_import_task = None;
+                match res {
+                    Err(err) => show_error(err.context(tl!("replay-import-failed"))),
+                    Ok(entries) => {
+                        self.replays = Some(entries);
+                        self.replay_row_btns.clear();
+                        show_message(tl!("replay-imported")).ok();
+                    }
+                }
+            }
+        }
+        if let Some(task) = &mut self.replay_play_task {
+            if let Some(res) = task.take() {
+                self.replay_play_task = None;
+                match res {
+                    Err(err) => show_error(err.context(tl!("replay-load-failed"))),
+                    Ok(file) => self.launch_replay(file)?,
+                }
+            }
+        }
+        if self.replay_should_delete.fetch_and(false, Ordering::SeqCst) {
+            if let Some(path) = self.replay_delete_pending.take() {
+                match replay::delete(&path) {
+                    Err(err) => show_error(err.context(tl!("replays-delete-failed"))),
+                    Ok(()) => {
+                        if let Some(entries) = &mut self.replays {
+                            entries.retain(|it| it.path != path);
+                            self.replay_row_btns.truncate(entries.len());
+                        }
+                    }
                 }
             }
         }
@@ -2239,6 +2562,9 @@ impl Scene for SongScene {
             }
             SideContent::Mods => {
                 self.mod_scroll.update(t);
+            }
+            SideContent::Replays => {
+                self.replay_scroll.update(t);
             }
         }
         if CONFIRM_UPLOAD.fetch_and(false, Ordering::Relaxed) {
@@ -2435,6 +2761,27 @@ impl Scene for SongScene {
                         false
                     })
                     .show();
+            } else if id == "replay" {
+                let Some(local_path) = self.local_path.clone() else {
+                    return_file(id, file);
+                    return Ok(());
+                };
+                self.replays = None;
+                self.replay_import_task = Some(Task::new(async move {
+                    let replay = replay::decode(&std::fs::read(&file)?)?;
+                    // The replay must belong to this exact chart, the same
+                    // way the game scene will check it on playback.
+                    let mut fs = fs_from_path(&local_path)?;
+                    let info = fs::load_info(fs.as_mut()).await?;
+                    let chart = GameScene::load_chart_bytes(fs.as_mut(), &info).await?;
+                    if let Some(expected) = &replay.record.meta.chart_hash {
+                        use hex::ToHex;
+                        let cksum: String = Sha256::digest(&chart).encode_hex();
+                        ensure!(cksum == *expected, "{}", tl!("replay-chart-mismatch"));
+                    }
+                    replay::save_imported(&local_path, &replay)?;
+                    replay::list(&local_path)
+                }));
             } else {
                 return_file(id, file);
             }
@@ -2771,6 +3118,10 @@ impl Scene for SongScene {
                             self.side_mods(ui, rt);
                             Ok(())
                         }
+                        SideContent::Replays => {
+                            self.side_replays(ui, rt);
+                            Ok(())
+                        }
                     }
                 })?;
             }
@@ -2838,6 +3189,11 @@ impl Scene for SongScene {
             NextScene::None
         }
     }
+}
+
+/// The suggested `.phrp` filename for exporting one replay.
+fn replay_export_name(chart: &str, info: &ReplayInfo) -> String {
+    format!("{}-{}-{}.phrp", sanitize(chart), sanitize(&info.player_name), info.played_at.with_timezone(&Local).format("%Y%m%d-%H%M"))
 }
 
 pub fn compress_folder<W: Write + Seek>(src: &Path, dst: &mut W) -> Result<()> {

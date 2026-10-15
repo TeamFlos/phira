@@ -132,3 +132,14 @@ fav-added = 已收藏（長按以選擇其他收藏夾）
 still-loading = 仍在載入，請稍候…
 export = 匯出
 exporting = 匯出中…
+
+replays = 回放
+replays-import = 匯入
+replays-empty = 暫無回放
+replays-delete-confirm = 確定要刪除這條回放嗎？
+replays-delete-failed = 刪除回放失敗
+replays-load-failed = 載入回放列表失敗
+replay-import-failed = 匯入回放失敗
+replay-imported = 回放已匯入
+replay-chart-mismatch = 回放與目前譜面不符
+replay-load-failed = 讀取回放失敗

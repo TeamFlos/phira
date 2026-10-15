@@ -154,3 +154,14 @@ still-loading = 仍在加载中…
 
 export = 导出
 exporting = 导出中…
+
+replays = 回放
+replays-import = 导入
+replays-empty = 暂无回放
+replays-delete-confirm = 确定要删除这条回放吗？
+replays-delete-failed = 删除回放失败
+replays-load-failed = 加载回放列表失败
+replay-import-failed = 导入回放失败
+replay-imported = 回放已导入
+replay-chart-mismatch = 回放与当前谱面不匹配
+replay-load-failed = 读取回放失败

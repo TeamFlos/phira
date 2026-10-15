@@ -115,6 +115,18 @@ impl<'a> ReplaySource<'a> {
         Self { events, cursor: 0 }
     }
 
+    /// Resumes the stream where an earlier source left it, at `cursor` —
+    /// what an incremental replay builds every frame from its saved cursor.
+    pub fn with_cursor(events: &'a [InputEvent], cursor: usize) -> Self {
+        Self { events, cursor }
+    }
+
+    /// How far the stream has been consumed, to be handed to the next
+    /// [`Self::with_cursor`].
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
+
     fn peek(&self) -> Option<&InputEvent> {
         self.events.get(self.cursor).filter(|it| !matches!(it, InputEvent::Move { .. }))
     }

@@ -1049,6 +1049,10 @@ impl Page for LibraryPage {
                         Err(err) if err.kind() == io::ErrorKind::NotFound => {}
                         Err(err) => return Err(err.into()),
                     }
+                    // The chart's replays belong to it alone
+                    if let Err(err) = crate::replay::remove_chart(&path) {
+                        warn!("failed to remove the chart's replays: {err:?}");
+                    }
                     local_paths.insert(path);
                 }
             }

@@ -133,3 +133,14 @@ fav-added = Added to favorites (long press to manage)
 still-loading = Still loading...
 export = Export
 exporting = Exporting...
+
+replays = Replays
+replays-import = Import
+replays-empty = No replays yet
+replays-delete-confirm = Delete this replay?
+replays-delete-failed = Failed to delete the replay
+replays-load-failed = Failed to load the replay list
+replay-import-failed = Failed to import the replay
+replay-imported = Replay imported
+replay-chart-mismatch = This replay does not match the current chart
+replay-load-failed = Failed to read the replay

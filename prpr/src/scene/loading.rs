@@ -1,4 +1,4 @@
-use super::{draw_background, ending::RecordUpdateState, game::GameMode, GameScene, NextScene, Scene};
+use super::{draw_background, ending::RecordUpdateState, game::GameMode, replay::ReplayRequest, GameScene, NextScene, ReplaySaveFn, Scene};
 use crate::{
     config::Config,
     core::{Resource, BOLD_FONT},
@@ -114,6 +114,8 @@ impl LoadingScene {
         upload_fn: Option<UploadFn>,
         update_fn: Option<UpdateFn>,
         save_fn: Option<SaveFn>,
+        replay: Option<ReplayRequest>,
+        replay_save_fn: Option<ReplaySaveFn>,
 
         preloaded: Option<(SafeTexture, SafeTexture, Color)>,
     ) -> Result<Self> {
@@ -132,8 +134,20 @@ impl LoadingScene {
         if info.tip.is_none() {
             info.tip = Some(crate::config::TIPS.choose(&mut thread_rng()).unwrap().to_owned());
         }
-        let future =
-            Box::pin(GameScene::new(mode, info.clone(), config, fs, player, background.clone(), illustration.clone(), upload_fn, update_fn, save_fn));
+        let future = Box::pin(GameScene::new(
+            mode,
+            info.clone(),
+            config,
+            fs,
+            player,
+            background.clone(),
+            illustration.clone(),
+            upload_fn,
+            update_fn,
+            save_fn,
+            replay,
+            replay_save_fn,
+        ));
         let charter = Regex::new(r"\[!:[0-9]+:([^:]*)\]").unwrap().replace_all(&info.charter, "$1").to_string();
 
         Ok(Self {

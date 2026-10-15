@@ -16,3 +16,5 @@ upload-cancel = 取消上傳
 upload-retry = 重試
 
 still-uploading = 仍在上傳成績，請稍候…
+
+watch-replay = 觀看回放
