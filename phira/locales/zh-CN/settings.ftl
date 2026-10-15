@@ -65,9 +65,14 @@ item-chart-debug = 谱面调试
 item-chart-debug-sub = 显示判定线编号和朝向
 item-touch-debug = 触摸调试
 item-touch-debug-sub = 游玩过程中显示触摸点
+item-export-logs = 导出日志
+item-export-logs-sub = 将最近七天的日志导出为 ZIP 压缩包以便反馈问题
+item-export-logs-button = 导出
+log-exporting = 正在导出日志…
+log-export-failed = 导出日志失败
 item-crash-test = 崩溃测试
-item-crash-test-sub = 测试崩溃恢复页面
-item-crash-test-button = 崩溃测试
+item-crash-test-sub = 让游戏崩溃
+item-crash-test-button = 起爆！
 crash-test-warning = 除非你知道你在做什么，否则请不要点击此按钮，此按钮造成的任何影响不予修复
 
 load-cali-failed = 加载音频失败

@@ -4,7 +4,7 @@ use chrono::{Duration, Local, NaiveDate};
 use colored::Colorize;
 use miniquad::{debug, error, info, trace, warn};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{self, Seek, Write},
     path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock},
@@ -103,9 +103,13 @@ impl LogManager {
                 continue;
             };
             if date >= first_kept && date <= today {
+                // Logging rewrites the daily file when trimming it. Snapshot it before compressing.
+                let bytes = {
+                    let _guard = self.write_lock.lock().unwrap_or_else(|it| it.into_inner());
+                    fs::read(&path)?
+                };
                 zip.start_file(name, options)?;
-                let mut file = File::open(path)?;
-                io::copy(&mut file, &mut zip)?;
+                zip.write_all(&bytes)?;
             }
         }
         zip.start_file("crash.txt", options)?;
@@ -405,5 +409,63 @@ mod tests {
         let mut crash = String::new();
         std::io::Read::read_to_string(&mut archive.by_name("crash.txt").unwrap(), &mut crash).unwrap();
         assert_eq!(crash, "panic details");
+    }
+
+    #[test]
+    fn exports_a_complete_snapshot_when_the_log_changes_during_compression() {
+        struct TruncateLogOnWrite {
+            output: Cursor<Vec<u8>>,
+            log_path: std::path::PathBuf,
+            truncated: bool,
+        }
+
+        impl std::io::Write for TruncateLogOnWrite {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                if !self.truncated && bytes.len() >= 1024 {
+                    std::fs::write(&self.log_path, [])?;
+                    self.truncated = true;
+                }
+                std::io::Write::write(&mut self.output, bytes)
+            }
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        impl std::io::Seek for TruncateLogOnWrite {
+            fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
+                std::io::Seek::seek(&mut self.output, position)
+            }
+        }
+
+        let dir = tempdir().unwrap();
+        let manager = LogManager::new(dir.path()).unwrap();
+        let date = Local::now().date_naive();
+        let mut seed = 0x12345678_u32;
+        let mut expected: String = (0..256 * 1024)
+            .map(|_| {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                char::from(b' ' + (seed % 95) as u8)
+            })
+            .collect();
+        expected.push('\n');
+        manager.append_line_at(date, &expected).unwrap();
+        let mut output = TruncateLogOnWrite {
+            output: Cursor::new(Vec::new()),
+            log_path: manager.path_for_date(date),
+            truncated: false,
+        };
+
+        manager.write_zip(&mut output, "manual export").unwrap();
+
+        assert!(output.truncated);
+        let mut archive = ZipArchive::new(Cursor::new(output.output.into_inner())).unwrap();
+        let mut actual = String::new();
+        std::io::Read::read_to_string(&mut archive.by_name(&format!("{date}.log")).unwrap(), &mut actual).unwrap();
+        assert_eq!(actual.len(), expected.len());
+        assert_eq!(actual, expected);
     }
 }

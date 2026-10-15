@@ -52,6 +52,15 @@ item-chart-debug = Отладка чарта
 item-chart-debug-sub = Отображаются номера и направление линий
 item-touch-debug = Отладка касаний
 item-touch-debug-sub = Точки нажатия отображаются
+item-export-logs = Экспорт журналов
+item-export-logs-sub = Экспортировать журналы за последние семь дней в ZIP-архив для сообщения о проблеме.
+item-export-logs-button = Экспорт
+log-exporting = Экспорт журналов…
+log-export-failed = Не удалось экспортировать журналы
+item-crash-test = Проверка сбоя
+item-crash-test-sub = Вызвать сбой игры.
+item-crash-test-button = Взорвать!
+crash-test-warning = Не нажимайте эту кнопку, если не знаете, что делаете. Любые последствия нажатия этой кнопки не будут исправлены.
 load-cali-failed = Ошибка загрузки аудио
 about-content =
     Phira v{ $version }

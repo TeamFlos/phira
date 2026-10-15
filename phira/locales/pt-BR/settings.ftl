@@ -44,6 +44,15 @@ item-chart-debug = Modo de depuração de Beatmap
 item-chart-debug-sub = Exibir número de linha e orientação
 item-touch-debug = Mostrar toques na tela
 item-touch-debug-sub = Irá exibir toques na tela
+item-export-logs = Exportar logs
+item-export-logs-sub = Exporte os logs dos últimos sete dias como um arquivo ZIP para relatar problemas.
+item-export-logs-button = Exportar
+log-exporting = Exportando logs…
+log-export-failed = Falha ao exportar logs
+item-crash-test = Teste de falha
+item-crash-test-sub = Faça o jogo falhar.
+item-crash-test-button = Detonar!
+crash-test-warning = Não clique neste botão a menos que saiba o que está fazendo. Quaisquer consequências causadas por este botão não serão corrigidas.
 
 load-cali-failed = Falha ao carregar áudio
 

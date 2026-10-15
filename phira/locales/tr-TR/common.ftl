@@ -28,3 +28,13 @@ contains-banned-words = Girdiniz izin verilmeyen kelimeler içeriyor. Lütfen ko
 hykb-not-bound-logout = Hesabınız herhangi bir 3839 Games hesabına bağlı değil, çıkış yapıldı.
 hykb-login-cancelled = 3839 Games için oturum açma iptal edildi.
 
+crash-title = Phira beklenmedik şekilde durdu
+crash-message = Oyun beklenmedik bir hatayla karşılaştı ve güvenli bir şekilde devam edemiyor. Sorunun nedenini bulmaya yardımcı olmak için son günlükleri dışa aktarabilirsiniz.
+crash-summary = Hata: { $error }
+crash-log-retention = Son yedi günün günlükleri saklanır. Hesap kimlik bilgileri ve önbellekteki kaynaklar dahil edilmez.
+crash-export = Günlükleri dışa aktar
+crash-exit = Güvenli çıkış
+crash-exporting = Günlükler hazırlanıyor...
+crash-exported = Günlükler paylaşılmaya hazır.
+crash-export-failed = Günlükler dışa aktarılamadı
+

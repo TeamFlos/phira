@@ -51,6 +51,15 @@ item-chart-debug = Linien-ID anzeigen
 item-chart-debug-sub = IDs und Ausrichtung der Linien anzeigen
 item-touch-debug = Berührungspunkte anzeigen
 item-touch-debug-sub = Zeigt die Nutzer-Touchpunkte an
+item-export-logs = Protokolle exportieren
+item-export-logs-sub = Protokolle der letzten sieben Tage als ZIP-Archiv für Fehlerberichte exportieren
+item-export-logs-button = Exportieren
+log-exporting = Protokolle werden exportiert…
+log-export-failed = Protokolle konnten nicht exportiert werden
+item-crash-test = Absturztest
+item-crash-test-sub = Das Spiel zum Absturz bringen
+item-crash-test-button = Zünden!
+crash-test-warning = Klicke nur auf diese Schaltfläche, wenn du weißt, was du tust. Folgen, die durch diese Schaltfläche entstehen, werden nicht behoben.
 load-cali-failed = Kalibrierungs-Audio konnte nicht geladen werden
 about-content =
     Phira v{ $version }
