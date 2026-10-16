@@ -549,9 +549,7 @@ pub fn hykb_logout() {}
 pub fn force_logout() {
     hykb_logout();
     request_hykb_fcm_stop();
-    get_data_mut().me = None;
-    get_data_mut().tokens = None;
-    let _ = save_data();
+    client::clear_session();
     sync_data();
 }
 

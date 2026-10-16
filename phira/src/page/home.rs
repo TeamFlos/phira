@@ -6,13 +6,12 @@ use super::{
 };
 use crate::{
     anim::Anim,
-    client::{recv_raw, Character, Client, ErrorCode, LoginParams, User, UserManager},
+    client::{recv_raw, send_raw, Character, Client, ErrorCode, SessionExpired, User, UserManager},
     dir, get_data, get_data_mut,
     icons::Icons,
     login::Login,
     save_data,
     scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
-    sync_data,
     threed::ThreeD,
 };
 use ::rand::{random, thread_rng, Rng};
@@ -125,11 +124,7 @@ impl HomePage {
         } else if let Some(u) = &get_data().me {
             UserManager::request(u.id);
             Some(Task::new(async {
-                Client::login(LoginParams::RefreshToken {
-                    token: &get_data().tokens.as_ref().unwrap().1,
-                    cancel_delete_request: false,
-                })
-                .await?;
+                Client::refresh_tokens(false).await?;
                 let me = Client::get_me().await?;
                 // On HYKB builds a restored session still requires anti-addiction
                 // coverage. Email-sourced sessions get it from the GTS SDK under
@@ -188,11 +183,7 @@ impl HomePage {
             check_bold_font_update_task: {
                 let cksum = BOLD_FONT_CKSUM.with(|it| it.borrow().clone());
                 Some(Task::new(async move {
-                    let resp = Client::get("/font-bold")
-                        .query(&[("cksum", cksum)])
-                        .query(&[("new_bold_font", "true")])
-                        .send()
-                        .await?;
+                    let resp = send_raw(Client::get("/font-bold").query(&[("cksum", cksum)]).query(&[("new_bold_font", "true")])).await?;
                     if resp.status() == StatusCode::NOT_MODIFIED {
                         info!("bold font not modified");
                         return Ok(None);
@@ -515,15 +506,12 @@ impl Page for HomePage {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
-                        // wtf bro
-                        if format!("{err:?}").contains("invalid token") {
-                            get_data_mut().me = None;
-                            get_data_mut().tokens = None;
-                            let _ = save_data();
-                            sync_data();
+                        let expired = err.downcast_ref::<SessionExpired>().is_some_and(SessionExpired::is_current);
+                        if expired {
+                            crate::force_logout();
                         } else {
-                            // The session survives this failure (only an invalid
-                            // token tears it down), so on HYKB builds it still
+                            // The session survives temporary refresh failures,
+                            // so on HYKB builds it still
                             // needs anti-addiction coverage: normally the task
                             // requests it after get_me, but a weak network can
                             // fail before that point, which used to leave the
@@ -553,8 +541,12 @@ impl Page for HomePage {
                                 })
                                 .show();
                         } else {
-                            // TODO: better error handling
-                            show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
+                            let mut message = tl!("failed-to-update").into_owned();
+                            if expired {
+                                message += "\n";
+                                message += &tl!("note-try-login-again");
+                            }
+                            show_error(err.context(message));
                         }
                     }
                     Ok(val) => {
@@ -568,13 +560,9 @@ impl Page for HomePage {
         match self.pending_delete_choice.swap(0, Ordering::Relaxed) {
             1 => {
                 let tokens = get_data().tokens.clone();
-                self.update_task = tokens.map(|(_, refresh)| {
+                self.update_task = tokens.map(|_| {
                     Task::new(async move {
-                        Client::login(LoginParams::RefreshToken {
-                            token: &refresh,
-                            cancel_delete_request: true,
-                        })
-                        .await?;
+                        Client::refresh_tokens(true).await?;
                         let me = Client::get_me().await?;
                         // Same coverage rule as the startup restore above: the
                         // GTS SDK backs email sessions, async teardown on failure.
