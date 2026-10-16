@@ -1,9 +1,12 @@
 prpr_l10n::tl_file!("settings");
 
+mod latency;
+
 use super::{Page, SharedState};
 use crate::{get_data, get_data_mut, popup::Popup, save_data, scene::confirm_dialog};
 use anyhow::Result;
 use inputbox::InputBox;
+use latency::{PingState, ServerPings};
 use macroquad::prelude::*;
 use prpr::{
     ext::{semi_black, semi_white, RectExt},
@@ -21,6 +24,46 @@ use std::{
 const INPUT_ID: &str = "mp_server_input";
 const ROW_HEIGHT: f32 = 0.14;
 const ROW_GAP: f32 = 0.014;
+
+fn latency_display(state: PingState, active: bool) -> (String, Color) {
+    let color = match state {
+        PingState::Ready(delay) if delay.as_millis() < 100 => {
+            if active {
+                Color::new(0., 0.43, 0.2, 1.)
+            } else {
+                Color::new(0.4, 0.9, 0.55, 1.)
+            }
+        }
+        PingState::Ready(delay) if delay.as_millis() < 200 => {
+            if active {
+                Color::new(0.55, 0.36, 0., 1.)
+            } else {
+                Color::new(1., 0.82, 0.25, 1.)
+            }
+        }
+        PingState::Ready(_) | PingState::TimedOut | PingState::Unreachable => {
+            if active {
+                Color::new(0.75, 0.13, 0.15, 1.)
+            } else {
+                Color::new(1., 0.45, 0.45, 1.)
+            }
+        }
+        PingState::Checking => {
+            if active {
+                Color::new(0.3, 0.3, 0.3, 0.75)
+            } else {
+                semi_white(0.65)
+            }
+        }
+    };
+    let text = match state {
+        PingState::Checking => tl!("mp-server-ping-checking").into_owned(),
+        PingState::Ready(delay) => tl!("mp-server-ping", "ms" => delay.as_millis().to_string()),
+        PingState::TimedOut => tl!("mp-server-ping-timeout").into_owned(),
+        PingState::Unreachable => tl!("mp-server-ping-unreachable").into_owned(),
+    };
+    (text, color)
+}
 
 fn validate_address(address: &str) -> Result<()> {
     let authority = address.parse::<http::uri::Authority>()?;
@@ -63,6 +106,7 @@ pub struct MpServerPage {
     scroll: Scroll,
     add_btn: DRectButton,
     server_btns: Vec<ServerButtons>,
+    pings: Option<ServerPings>,
 
     actions_menu: Popup,
     actions: Vec<ServerAction>,
@@ -80,6 +124,7 @@ impl MpServerPage {
             scroll: Scroll::new(),
             add_btn: DRectButton::new(),
             server_btns: Vec::new(),
+            pings: None,
 
             actions_menu: Popup::new().with_size(0.45),
             actions: Vec::new(),
@@ -251,6 +296,32 @@ impl Page for MpServerPage {
         tl!("mp-server-page")
     }
 
+    fn enter(&mut self, _s: &mut SharedState) -> Result<()> {
+        self.resume()
+    }
+
+    fn pause(&mut self) -> Result<()> {
+        self.pings = None;
+        Ok(())
+    }
+
+    fn resume(&mut self) -> Result<()> {
+        let mut pings = ServerPings::default();
+        pings.update(&get_data().config.mp_servers);
+        self.pings = Some(pings);
+        Ok(())
+    }
+
+    fn exit(&mut self) -> Result<()> {
+        self.pings = None;
+        Ok(())
+    }
+
+    fn on_back_pressed(&mut self, _s: &mut SharedState) -> bool {
+        self.pings = None;
+        false
+    }
+
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
         let t = s.t;
         if self.actions_menu.showing() {
@@ -311,6 +382,9 @@ impl Page for MpServerPage {
             }
         }
         self.sync_server_buttons();
+        if let Some(pings) = &mut self.pings {
+            pings.update(&get_data().config.mp_servers);
+        }
         Ok(())
     }
 
@@ -356,6 +430,8 @@ impl Page for MpServerPage {
                             let active = active_address == server.address;
                             let name = &server.name;
                             let address = &server.address;
+                            let state = self.pings.as_ref().map_or(PingState::Checking, |pings| pings.state(address));
+                            let (latency_text, latency_color) = latency_display(state, active);
                             buttons.select.render_shadow(ui, main, t, |ui, path| {
                                 ui.fill_path(&path, if active { WHITE } else { semi_black(0.35) });
                                 let color = if active { Color::new(0.3, 0.3, 0.3, 1.) } else { WHITE };
@@ -367,11 +443,20 @@ impl Page for MpServerPage {
                                     .size(0.46)
                                     .color(color)
                                     .draw();
+                                let latency_rect = ui
+                                    .text(latency_text)
+                                    .pos(main.right() - 0.02, main.y + 0.105)
+                                    .anchor(1., 0.5)
+                                    .no_baseline()
+                                    .max_width(main.w * 0.45)
+                                    .size(0.3)
+                                    .color(latency_color)
+                                    .draw();
                                 ui.text(address)
                                     .pos(main.x + 0.02, main.y + 0.105)
                                     .anchor(0., 0.5)
                                     .no_baseline()
-                                    .max_width(main.w - 0.04)
+                                    .max_width((latency_rect.x - main.x - 0.04).max(0.))
                                     .size(0.3)
                                     .color(if active { Color::new(0.3, 0.3, 0.3, 0.75) } else { semi_white(0.65) })
                                     .draw();
