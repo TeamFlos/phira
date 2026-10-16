@@ -68,6 +68,11 @@ impl Chart {
         }
     }
 
+    fn attached_ui_rotation(&self, id: usize, rotation_point: Vector) -> Matrix {
+        let rotation = self.lines[id].fetch_rot(&self.lines);
+        Object::new_rotation_wrt_point(Rotation2::new(-rotation.to_radians()), rotation_point)
+    }
+
     #[inline]
     pub fn with_element<R>(
         &self,
@@ -87,8 +92,7 @@ impl Chart {
             tr.y = -tr.y;
             let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
             let scale = obj.now_scale(Vector::new(scale_point.0, scale_point.1));
-            let ro =
-                Object::new_rotation_wrt_point(Rotation2::new(-obj.rotation.now().to_radians()), Vector::new(rotation_point.0, rotation_point.1));
+            let ro = self.attached_ui_rotation(id, Vector::new(rotation_point.0, rotation_point.1));
             ui.with(Matrix::new_translation(&tr) * ro * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
         } else {
             f(ui, WHITE)
