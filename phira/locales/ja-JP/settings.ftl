@@ -41,6 +41,15 @@ item-chart-debug = ビートマップデバッグモード
 item-chart-debug-sub = ラインナンバーや回転値を表示します
 item-touch-debug = タッチデバッグモード
 item-touch-debug-sub = タップした点を表示します
+item-export-logs = ログをエクスポート
+item-export-logs-sub = 不具合の報告用に直近7日間のログをZIP形式でエクスポートします
+item-export-logs-button = エクスポート
+log-exporting = ログをエクスポート中…
+log-export-failed = ログのエクスポートに失敗しました
+item-crash-test = クラッシュテスト
+item-crash-test-sub = ゲームをクラッシュさせます
+item-crash-test-button = 起爆！
+crash-test-warning = 何をしているか理解している場合を除き、このボタンを押さないでください。このボタンによって生じた影響については修復しません。
 
 load-cali-failed = オーディオの読み込みに失敗しました
 

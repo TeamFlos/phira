@@ -33,6 +33,15 @@ load-cali-failed = Nie załadowano plików audio
 item-chart-debug = Tryb debug
 item-chart-debug-sub = Pokazuje liczbe linii i orientację
 item-touch-debug-sub = Pokazuje dotknięcia
+item-export-logs = Eksportuj logi
+item-export-logs-sub = Eksportuj logi z ostatnich siedmiu dni do archiwum ZIP, aby zgłosić problem.
+item-export-logs-button = Eksportuj
+log-exporting = Eksportowanie logów…
+log-export-failed = Nie udało się wyeksportować logów
+item-crash-test = Test awarii
+item-crash-test-sub = Wywołaj awarię gry.
+item-crash-test-button = Odpal!
+crash-test-warning = Nie klikaj tego przycisku, chyba że wiesz, co robisz. Żadne skutki użycia tego przycisku nie zostaną naprawione.
 
 about-content =
   Phira v{ $version }

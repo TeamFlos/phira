@@ -1,6 +1,6 @@
 prpr_l10n::tl_file!("settings");
 
-use super::{NextPage, OffsetPage, Page, SharedState};
+use super::{request_export, resolve_export, take_export, ExportConfig, NextPage, OffsetPage, Page, SharedState};
 use crate::{
     dir, get_data, get_data_mut,
     popup::ChooseButton,
@@ -9,7 +9,7 @@ use crate::{
     sync_data,
     tabs::{Tabs, TitleFn},
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bytesize::ByteSize;
 use inputbox::InputBox;
 use macroquad::prelude::*;
@@ -17,18 +17,36 @@ use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
+    log::{self, LogManager},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
+    ui::{DRectButton, Dialog, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use serde::Deserialize;
-use std::{borrow::Cow, fs, io, path::PathBuf, sync::atomic::Ordering};
+use std::{
+    borrow::Cow,
+    fs, io,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    },
+};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
 const STATUS_PAGE: &str = "https://status.phira.cn";
+static CRASH_TEST_PENDING: AtomicBool = AtomicBool::new(false);
+
+fn request_crash_test() {
+    CRASH_TEST_PENDING.store(true, Ordering::SeqCst);
+}
+
+fn take_crash_test() -> bool {
+    CRASH_TEST_PENDING.swap(false, Ordering::SeqCst)
+}
 
 struct NameList(String);
 impl<'de> Deserialize<'de> for NameList {
@@ -190,6 +208,9 @@ impl Page for SettingsPage {
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
+        if self.list_debug.export_task.is_some() {
+            return Ok(true);
+        }
         let t = s.t;
         if match self.tabs.selected() {
             SettingListType::General => self.list_general.top_touch(touch, t),
@@ -225,6 +246,7 @@ impl Page for SettingsPage {
     }
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
+        self.list_debug.update_log_export();
         let t = s.t;
         let changed = match self.tabs.selected() {
             SettingListType::General => self.list_general.update(t)?,
@@ -269,7 +291,14 @@ impl Page for SettingsPage {
             })
         })?;
 
+        if self.list_debug.export_task.is_some() {
+            ui.full_loading(tl!("log-exporting"), t);
+        }
         Ok(())
+    }
+
+    fn on_back_pressed(&mut self, _s: &mut SharedState) -> bool {
+        self.list_debug.export_task.is_some()
     }
 
     fn next_page(&mut self) -> NextPage {
@@ -943,9 +972,36 @@ impl ChartList {
     }
 }
 
+fn export_metadata() -> String {
+    format!(
+        "Phira {}\nos={} arch={}\ntime={}\nexport=manual\n",
+        env!("VERSION_STRING"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        chrono::Local::now().to_rfc3339(),
+    )
+}
+
+fn export_logs(config: ExportConfig, manager: Option<Arc<LogManager>>) -> Result<()> {
+    let metadata = export_metadata();
+    let result = manager
+        .ok_or_else(|| anyhow!("log manager is unavailable"))
+        .and_then(|manager| manager.write_zip(config.file, &metadata).map_err(Into::into));
+    if result.is_err() {
+        if let Err(error) = (config.deleter)() {
+            tracing::warn!("failed to delete incomplete log export: {error}");
+        }
+    }
+    result
+}
+
 struct DebugList {
     chart_debug_btn: DRectButton,
     touch_debug_btn: DRectButton,
+    export_logs_btn: DRectButton,
+    crash_test_btn: DRectButton,
+    export_requested: bool,
+    export_task: Option<mpsc::Receiver<Result<()>>>,
 }
 
 impl DebugList {
@@ -953,6 +1009,10 @@ impl DebugList {
         Self {
             chart_debug_btn: DRectButton::new(),
             touch_debug_btn: DRectButton::new(),
+            export_logs_btn: DRectButton::new(),
+            crash_test_btn: DRectButton::new(),
+            export_requested: false,
+            export_task: None,
         }
     }
 
@@ -961,6 +1021,11 @@ impl DebugList {
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
+        if self.export_logs_btn.touch(touch, t) {
+            let name = format!("phira-logs-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+            self.export_requested = request_export(name);
+            return Ok(Some(false));
+        }
         let data = get_data_mut();
         let config = &mut data.config;
         if self.chart_debug_btn.touch(touch, t) {
@@ -971,10 +1036,60 @@ impl DebugList {
             config.touch_debug ^= true;
             return Ok(Some(true));
         }
+        if self.crash_test_btn.touch(touch, t) {
+            Dialog::plain(tl!("item-crash-test"), tl!("crash-test-warning"))
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .listener(|_dialog, id| {
+                    if id == 1 {
+                        request_crash_test();
+                    }
+                    false
+                })
+                .show();
+            return Ok(Some(false));
+        }
         Ok(None)
     }
 
+    fn update_log_export(&mut self) {
+        if self.export_requested {
+            if let Some(config) = take_export() {
+                self.export_requested = false;
+                match config {
+                    Ok(config) => {
+                        let manager = log::manager();
+                        let (tx, rx) = mpsc::sync_channel(1);
+                        std::thread::spawn(move || {
+                            let _ = tx.send(export_logs(config, manager));
+                        });
+                        self.export_task = Some(rx);
+                    }
+                    Err(error) => show_error(anyhow::Error::new(error).context(tl!("log-export-failed"))),
+                }
+            }
+        }
+        if let Some(task) = &self.export_task {
+            match task.try_recv() {
+                Ok(result) => {
+                    self.export_task = None;
+                    match result {
+                        Ok(()) => resolve_export(),
+                        Err(error) => show_error(error.context(tl!("log-export-failed"))),
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.export_task = None;
+                    show_error(anyhow!("log export thread disconnected").context(tl!("log-export-failed")));
+                }
+            }
+        }
+    }
+
     pub fn update(&mut self, _t: f32) -> Result<bool> {
+        if take_crash_test() {
+            panic!("crash test requested");
+        }
         Ok(false)
     }
 
@@ -1000,6 +1115,98 @@ impl DebugList {
             render_title(ui, tl!("item-touch-debug"), Some(tl!("item-touch-debug-sub")));
             render_switch(ui, rr, t, &mut self.touch_debug_btn, config.touch_debug);
         }
+        item! {
+            render_title(ui, tl!("item-export-logs"), Some(tl!("item-export-logs-sub")));
+            self.export_logs_btn.render_text(ui, rr, t, tl!("item-export-logs-button"), 0.5, true);
+        }
+        item! {
+            render_title(ui, tl!("item-crash-test"), Some(tl!("item-crash-test-sub")));
+            self.crash_test_btn.render_text_color(
+                ui,
+                rr,
+                t,
+                tl!("item-crash-test-button"),
+                0.5,
+                true,
+                Color::new(1., 0., 0., 1.),
+            );
+        }
         (w, h)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn manual_log_export_includes_recent_logs_without_a_crash() {
+        use std::{fs::File, io::Read, sync::Arc};
+
+        let dir = tempfile::tempdir().unwrap();
+        let manager = Arc::new(prpr::log::LogManager::new(dir.path().join("logs")).unwrap());
+        let today = chrono::Local::now().date_naive();
+        manager.append_line_at(today, "latest diagnostic message").unwrap();
+        manager
+            .append_line_at(today - chrono::Duration::days(6), "earlier diagnostic message")
+            .unwrap();
+        manager
+            .append_line_at(today - chrono::Duration::days(7), "expired diagnostic message")
+            .unwrap();
+        let output_path = dir.path().join("logs.zip");
+        let config = super::ExportConfig {
+            file: File::create(&output_path).unwrap(),
+            deleter: Box::new(|| panic!("a successful export must be kept")),
+        };
+
+        super::export_logs(config, Some(manager)).unwrap();
+
+        let mut archive = zip::ZipArchive::new(File::open(output_path).unwrap()).unwrap();
+        let mut latest = String::new();
+        archive.by_name(&format!("{today}.log")).unwrap().read_to_string(&mut latest).unwrap();
+        assert!(latest.contains("latest diagnostic message"));
+        assert!(archive.by_name(&format!("{}.log", today - chrono::Duration::days(6))).is_ok());
+        assert!(archive.by_name(&format!("{}.log", today - chrono::Duration::days(7))).is_err());
+        let mut metadata = String::new();
+        archive.by_name("crash.txt").unwrap().read_to_string(&mut metadata).unwrap();
+        assert!(metadata.contains("export=manual"));
+        assert_eq!(archive.len(), 3);
+    }
+
+    #[test]
+    fn failed_manual_log_export_removes_the_incomplete_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let output_path = dir.path().join("logs.zip");
+        let delete_path = output_path.clone();
+        let config = super::ExportConfig {
+            file: std::fs::File::create(&output_path).unwrap(),
+            deleter: Box::new(move || std::fs::remove_file(delete_path)),
+        };
+
+        assert!(super::export_logs(config, None).is_err());
+        assert!(!output_path.exists());
+    }
+
+    #[test]
+    fn manual_log_export_metadata_uses_the_injected_version_string() {
+        let metadata = super::export_metadata();
+
+        assert!(metadata.starts_with(&format!("Phira {}\n", env!("VERSION_STRING"))));
+        assert!(!metadata.contains("GIT_HASH"));
+    }
+
+    #[test]
+    fn crash_test_warning_matches_the_safety_notice() {
+        let settings = include_str!("../../locales/zh-CN/settings.ftl");
+        assert!(settings.contains("crash-test-warning ="));
+        assert!(settings.contains("除非你知道你在做什么，否则请不要点击此按钮，此按钮造成的任何影响不予修复"));
+    }
+    #[test]
+    fn crash_test_request_is_consumed_once_after_dialog_can_close() {
+        super::CRASH_TEST_PENDING.store(false, Ordering::SeqCst);
+        super::request_crash_test();
+
+        assert!(super::take_crash_test());
+        assert!(!super::take_crash_test());
     }
 }

@@ -51,6 +51,15 @@ item-chart-debug = Hiển thị line ID
 item-chart-debug-sub = Hiển thị ID và hướng của line
 item-touch-debug = Hiển thị điểm chạm
 item-touch-debug-sub = Hiển thị điểm chạm khi bạn chạm vào màn hình
+item-export-logs = Xuất nhật ký
+item-export-logs-sub = Xuất nhật ký của bảy ngày gần nhất thành tệp ZIP để báo cáo sự cố.
+item-export-logs-button = Xuất
+log-exporting = Đang xuất nhật ký…
+log-export-failed = Không thể xuất nhật ký
+item-crash-test = Kiểm tra sự cố
+item-crash-test-sub = Làm trò chơi bị lỗi và dừng hoạt động.
+item-crash-test-button = Kích nổ!
+crash-test-warning = Đừng nhấn nút này trừ khi bạn biết mình đang làm gì. Mọi ảnh hưởng do nút này gây ra sẽ không được khắc phục.
 load-cali-failed = Không thể tải âm thanh hiệu chỉnh
 about-content =
     Phira v{ $version }
