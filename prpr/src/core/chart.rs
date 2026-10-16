@@ -68,6 +68,11 @@ impl Chart {
         }
     }
 
+    fn attached_ui_rotation(&self, id: usize, rotation_point: Vector) -> Matrix {
+        let rotation = self.lines[id].fetch_rot(&self.lines);
+        Object::new_rotation_wrt_point(Rotation2::new(-rotation.to_radians()), rotation_point)
+    }
+
     #[inline]
     pub fn with_element<R>(
         &self,
@@ -87,8 +92,7 @@ impl Chart {
             tr.y = -tr.y;
             let color = self.lines[id].color.now_opt().unwrap_or(WHITE);
             let scale = obj.now_scale(Vector::new(scale_point.0, scale_point.1));
-            let ro =
-                Object::new_rotation_wrt_point(Rotation2::new(-obj.rotation.now().to_radians()), Vector::new(rotation_point.0, rotation_point.1));
+            let ro = self.attached_ui_rotation(id, Vector::new(rotation_point.0, rotation_point.1));
             ui.with(Matrix::new_translation(&tr) * ro * scale, |ui| ui.alpha(obj.now_alpha().max(0.), |ui| f(ui, color)))
         } else {
             f(ui, WHITE)
@@ -182,5 +186,62 @@ impl Chart {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::{Anim, AnimFloat, CtrlObject, JudgeLineCache, Note};
+    use nalgebra::Rotation2;
+
+    fn line(rotation: f32) -> JudgeLine {
+        JudgeLine {
+            object: Object {
+                rotation: AnimFloat::fixed(rotation),
+                ..Default::default()
+            },
+            ctrl_obj: RefCell::new(CtrlObject::default()),
+            kind: JudgeLineKind::Normal,
+            height: AnimFloat::default(),
+            incline: AnimFloat::default(),
+            notes: Vec::<Note>::new(),
+            color: Anim::default(),
+            parent: None,
+            rot_with_parent: false,
+            z_index: 0,
+            show_below: false,
+            attach_ui: None,
+            cache: JudgeLineCache::new(&mut []),
+        }
+    }
+
+    fn assert_matrix_close(actual: Matrix, expected: Matrix) {
+        for (actual, expected) in actual.iter().zip(expected.iter()) {
+            assert!((actual - expected).abs() < 1e-6, "{actual} != {expected}");
+        }
+    }
+
+    #[test]
+    fn attached_ui_rotation_includes_parent_rotation() {
+        let mut child = line(20.);
+        child.parent = Some(0);
+        child.rot_with_parent = true;
+        let chart = Chart::new(0., vec![line(30.), child], BpmList::default(), ChartSettings::default(), ChartExtra::default(), HashMap::new());
+
+        let actual = chart.attached_ui_rotation(1, Vector::new(0., 0.));
+        let expected = Rotation2::new((-50_f32).to_radians()).to_homogeneous();
+        assert_matrix_close(actual, expected);
+    }
+
+    #[test]
+    fn attached_ui_rotation_without_parent_rotation_is_unchanged() {
+        let mut child = line(20.);
+        child.parent = Some(0);
+        let chart = Chart::new(0., vec![line(30.), child], BpmList::default(), ChartSettings::default(), ChartExtra::default(), HashMap::new());
+
+        let actual = chart.attached_ui_rotation(1, Vector::new(0., 0.));
+        let expected = Rotation2::new((-20_f32).to_radians()).to_homogeneous();
+        assert_matrix_close(actual, expected);
     }
 }
