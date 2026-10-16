@@ -10,5 +10,6 @@ info-content =
   作者：{ $author }
   描述：{ $desc }
 
+export = 导出
 cant-delete-builtin = 不能删除内置资源包
 deleted = 已删除

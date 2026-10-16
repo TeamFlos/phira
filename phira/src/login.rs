@@ -600,17 +600,15 @@ impl Login {
             })
             .await?;
             let me = Client::get_me().await?;
-            // Every email login — bound or not — must complete a native HYKB
-            // login so the SDK's online anti-addiction enforcement runs (the
-            // limits are tied to a signed-in HYKB account, not to any separate
-            // "anti" entry point). We obtain the credential silently and tear
-            // the session down if the player cancels, but we do NOT send it to
-            // the server: the HYKB account is used purely for anti-addiction and
-            // is not bound to the Phira account here. An unbound player may bind
-            // HYKB later from the profile page; a bound account no longer has to
-            // match its stored `hykb_uid` — any successful HYKB login is accepted.
+            // Every email login must run the GTS anti-addiction instead of a
+            // HYKB login: the channel requires a login path that does not
+            // depend on a HYKB account, and the old forced silent HYKB sign-in
+            // violated that. The game's own server user id drives enforcement;
+            // GTS failures have no "started" signal and arrive asynchronously
+            // via `hykbFcmCallback`, which tears the session back down. A HYKB
+            // account may still be bound later from the profile page.
             #[cfg(feature = "hykb")]
-            crate::obtain_hykb_credential_silent().await?.ok_or_err()?;
+            crate::request_hykb_fcm(&me.id.to_string());
             Ok(Some(me))
         });
     }
@@ -714,6 +712,11 @@ impl Login {
                             self.start_time = t;
                         }
                         if *action == "login" || *action == "hykb-login" {
+                            if *action == "hykb-login" {
+                                // A HYKB session takes over: its own online
+                                // anti-addiction applies, stop the GTS one.
+                                crate::request_hykb_fcm_stop();
+                            }
                             self.dismiss(t);
                         }
                     }
@@ -743,6 +746,9 @@ impl Login {
                         UserManager::request(user.id);
                         get_data_mut().me = Some(*user);
                         save_data()?;
+                        // A HYKB session takes over: its own online
+                        // anti-addiction applies, stop the GTS one.
+                        crate::request_hykb_fcm_stop();
                         show_message(tl!("action-success", "action" => "hykb-login")).ok();
                         self.dismiss(t);
                     }
@@ -863,20 +869,10 @@ impl Login {
 
                         let h = 0.09;
                         let pad = 0.05;
-                        // Under the anti-addiction build, self-service email
-                        // registration is disabled: only offer login.
-                        #[cfg(feature = "hykb")]
-                        {
-                            let r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, wr.w - pad * 2., h);
-                            self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
-                        }
-                        #[cfg(not(feature = "hykb"))]
-                        {
-                            let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
-                            self.btn_to_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
-                            r.x += r.w + pad;
-                            self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
-                        }
+                        let mut r = Rect::new(wr.x + pad, wr.bottom() - h - 0.04, (wr.w - pad) / 2. - pad, h);
+                        self.btn_to_reg.render_text(ui, r, t, tl!("register"), 0.66, false);
+                        r.x += r.w + pad;
+                        self.btn_login.render_text(ui, r, t, tl!("login"), 0.66, false);
                     });
                 });
             });

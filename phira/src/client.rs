@@ -408,6 +408,18 @@ impl Client {
         Ok(())
     }
 
+    /// Mint a one-time ticket that logs a browser into the current account. The
+    /// client's own tokens never leave the app; the web redeems the ticket for
+    /// an independent session.
+    pub async fn create_web_ticket() -> Result<String> {
+        #[derive(Deserialize)]
+        struct Resp {
+            ticket: String,
+        }
+        let resp: Resp = recv_raw(Self::post("/me/web-ticket", &())).await?.json().await?;
+        Ok(resp.ticket)
+    }
+
     pub async fn get_me() -> Result<User> {
         // Accounts not bound to a HYKB account are valid: anti-addiction is
         // covered by a native HYKB login performed at sign-in (used for the

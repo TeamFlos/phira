@@ -145,6 +145,16 @@ impl Scene for LoadingScene {
         Ok(())
     }
 
+    fn pause(&mut self, tm: &mut TimeManager) -> Result<()> {
+        tm.pause();
+        Ok(())
+    }
+
+    fn resume(&mut self, tm: &mut TimeManager) -> Result<()> {
+        tm.resume();
+        Ok(())
+    }
+
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
         if let Some(future) = self.load_task.as_mut() {
             loop {

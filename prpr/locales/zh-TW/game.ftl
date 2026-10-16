@@ -8,3 +8,6 @@ game-over = 遊戲失敗
 ex-time-out-of-range = 時間不在範圍內
 ex-invalid-format = 格式有誤
 ex-time-set = 設定成功
+analysis-prompt = 點擊「分析」進行自動分析
+analysis-computing = 分析中…
+auto-offset-btn = 分析

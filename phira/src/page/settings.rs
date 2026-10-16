@@ -295,7 +295,7 @@ fn render_about(ui: &mut Ui, mut r: Rect, icon: &SafeTexture) -> (f32, f32) {
     let staff = &*STAFF_LIST;
     let text = tl!(
         "about-content",
-        "version" => format!("{} ({})", env!("CARGO_PKG_VERSION"), env!("GIT_HASH")),
+        "version" => env!("VERSION_STRING"),
 
         "development" => &staff.development.0,
         "operations" => &staff.operations.0,
@@ -390,6 +390,10 @@ struct GeneralList {
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
+    // Offline mode skips the online session restore entirely; the HYKB channel
+    // requires the online anti-addiction check for every restored session, so
+    // the switch does not exist there.
+    #[cfg(not(feature = "hykb"))]
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
@@ -426,6 +430,7 @@ impl GeneralList {
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
+            #[cfg(not(feature = "hykb"))]
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
@@ -497,6 +502,7 @@ impl GeneralList {
             show_message(tl!("item-cache-cleared")).ok();
             return Ok(Some(false));
         }
+        #[cfg(not(feature = "hykb"))]
         if self.offline_btn.touch(touch, t) {
             config.offline_mode ^= true;
             return Ok(Some(true));
@@ -596,6 +602,7 @@ impl GeneralList {
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
         }
 
+        #[cfg(not(feature = "hykb"))]
         item! {
             render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);

@@ -9,6 +9,7 @@ mod censor;
 mod charts_view;
 mod client;
 mod data;
+pub mod deeplink;
 mod icons;
 mod images;
 mod login;
@@ -45,6 +46,10 @@ use std::{
     sync::{mpsc, Mutex},
 };
 use tracing::{error, info};
+
+// Only used by the Android-only GTS anti-addiction callback below.
+#[cfg(target_os = "android")]
+use tracing::warn;
 
 #[cfg(target_os = "android")]
 use jni::{
@@ -219,6 +224,7 @@ async fn the_main() -> Result<()> {
         .quad_context
         .display_mut()
         .set_pause_resume_listener(on_pause_resume);
+    once_cell::sync::Lazy::force(&prpr::ext::BLACK_TEXTURE);
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
     PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font, None)));
@@ -236,9 +242,17 @@ async fn the_main() -> Result<()> {
     let mut last_frame_start = f32::NAN;
     let mut fps_time_sum = 0.;
 
-    let mut paused = false;
-
     'app: loop {
+        if main.paused() {
+            match rx.recv() {
+                Ok(false) => {
+                    main.resume()?;
+                }
+                Ok(true) => {}
+                Err(_) => break 'app,
+            }
+        }
+
         let frame_start = tm.real_time();
         if !last_frame_start.is_nan() {
             if fps_times.len() == FPS_BUF_SIZE {
@@ -250,22 +264,14 @@ async fn the_main() -> Result<()> {
         }
         last_frame_start = frame_start as f32;
         let res = || -> Result<()> {
-            let signal = if paused {
-                rx.recv_timeout(std::time::Duration::from_secs(1)).ok()
-            } else {
-                rx.try_recv().ok()
-            };
-            if let Some(msg) = signal {
-                paused = msg;
-                if msg {
+            main.update()?;
+            main.render(&mut painter)?;
+            if let Ok(paused) = rx.try_recv() {
+                if paused {
                     main.pause()?;
                 } else {
                     main.resume()?;
                 }
-            }
-            if !paused {
-                main.update()?;
-                main.render(&mut painter)?;
             }
             prpr::ext::flush_pending_texture_deletions();
             Ok(())
@@ -393,6 +399,12 @@ pub extern "C" fn Java_quad_1native_QuadNative_setChosenFile(_env: EnvUnowned, _
 
 #[cfg(target_os = "android")]
 #[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_setDeepLink(_env: EnvUnowned, _class: JClass, url: JString) {
+    deeplink::set_deeplink(url.to_string());
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_markImport(_env: EnvUnowned, _class: JClass) {
     use prpr::scene::CHOSEN_FILE;
 
@@ -485,6 +497,41 @@ fn request_hykb_login_silent() {
 #[cfg(not(all(target_os = "android", feature = "hykb")))]
 fn request_hykb_login_silent() {}
 
+/// Ask the Android shell to start the GTS anti-addiction for an email session
+/// under the game's own server user id (`MainActivity.hykbStartFcm`). This
+/// replaces the forced silent HYKB login that used to back the email path,
+/// keeping that path independent of any HYKB account. Fire-and-forget: the
+/// GTS listener exposes no "started" signal, so failures surface asynchronously
+/// through `hykbFcmCallback` and tear the session down there.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+pub fn request_hykb_fcm(uid: &str) {
+    use jni::{jni_sig, objects::JObject, vm::JavaVM};
+
+    JavaVM::singleton()
+        .unwrap()
+        .attach_current_thread(|env| -> jni::errors::Result<()> {
+            let ctx = unsafe { JObject::from_raw(env, ndk_context::android_context().context() as _) };
+            let uid = env.new_string(uid)?;
+            env.call_method(ctx, jni::jni_str!("hykbStartFcm"), jni_sig!("(Ljava/lang/String;)V"), &[(&uid).into()])?;
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+pub fn request_hykb_fcm(_uid: &str) {}
+
+/// Stop the GTS anti-addiction (`MainActivity.hykbStopFcm`). Called whenever a
+/// HYKB session takes over (its own anti-addiction then applies) or the
+/// session ends.
+#[cfg(all(target_os = "android", feature = "hykb"))]
+pub fn request_hykb_fcm_stop() {
+    call_activity_void(jni::jni_str!("hykbStopFcm"));
+}
+
+#[cfg(not(all(target_os = "android", feature = "hykb")))]
+pub fn request_hykb_fcm_stop() {}
+
 /// Tell the native HYKB SDK to sign out (`MainActivity.hykbLogout`). Called when the
 /// player logs out from their profile.
 #[cfg(all(target_os = "android", feature = "hykb"))]
@@ -501,6 +548,7 @@ pub fn hykb_logout() {}
 /// the player logging out from their profile.
 pub fn force_logout() {
     hykb_logout();
+    request_hykb_fcm_stop();
     get_data_mut().me = None;
     get_data_mut().tokens = None;
     let _ = save_data();
@@ -547,8 +595,8 @@ pub extern "C" fn Java_quad_1native_QuadNative_hykbLoginCallback(
     };
     if let Some(tx) = HYKB_TX.lock().unwrap().take() {
         let _ = tx.send(HykbCredential {
-            code: code as i32,
-            uid: uid as i64,
+            code,
+            uid,
             nick,
             access_token,
         });
@@ -560,6 +608,41 @@ pub extern "C" fn Java_quad_1native_QuadNative_hykbLoginCallback(
         // the SDK and need no response here. A request-less success (code 0, the
         // SDK switching accounts on its own) is likewise ignored: any signed-in
         // HYKB account is accepted, so a switch no longer tears the session down.
+    }
+}
+
+/// GTS anti-addiction events for the email session path (no login in flight).
+/// Besides the SDK listener events (2005 exit, -1 switch account, other =
+/// start failure), the Kotlin bridge sends -3 when GtsCore itself failed to
+/// initialize while an email session was waiting for coverage — typically a
+/// weak network at startup. Every non-2005 code tears the session back down,
+/// which is how a GTS failure blocks the email path.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_hykbFcmCallback(_env: EnvUnowned, _class: JClass, code: jint) {
+    match code {
+        2005 => {
+            // The player hit a play-time limit and tapped "exit game" on the
+            // GTS dialog: the same terminal action as the login SDK's 2005.
+            std::process::exit(0);
+        }
+        -1 => {
+            // "Switch account" on the GTS dialog: drop the email session so
+            // the forced login panel comes back.
+            force_logout();
+        }
+        -3 => {
+            // GtsCore failed to initialize while a session was waiting for
+            // coverage: fail closed — drop the session instead of leaving it
+            // unguarded. The login panel returns; retrying the login re-kicks
+            // the SDK init (HykbAuth.startFcm → initGts).
+            warn!("GTS SDK init failed, tearing the email session down");
+            force_logout();
+        }
+        code => {
+            warn!("GTS anti-addiction failed with code {code}, tearing the email session down");
+            force_logout();
+        }
     }
 }
 

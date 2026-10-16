@@ -11,6 +11,14 @@ fn git_stdout(args: &[&str]) -> Option<String> {
     }
 }
 
+fn version_string(v: &str, g: &str) -> String {
+    if let Some(b) = option_env!("BUILD_ID") {
+        format!("{} ({}, {})", v, g, b)
+    } else {
+        format!("{} ({})", v, g)
+    }
+}
+
 fn main() {
     dotenv_build::output(dotenv_build::Config::default()).unwrap();
 
@@ -23,5 +31,5 @@ fn main() {
     }
 
     let git_hash = git_stdout(&["rev-parse", "--short=7", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
-    println!("cargo:rustc-env=GIT_HASH={}", git_hash);
+    println!("cargo:rustc-env=VERSION_STRING={}", version_string(env!("CARGO_PKG_VERSION"), &git_hash));
 }

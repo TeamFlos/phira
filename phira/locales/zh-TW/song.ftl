@@ -32,7 +32,7 @@ edit-preview-invalid = 預覽時間超出範圍
 edit-tags = 編輯標籤
 edit-downloaded = 您無法編輯下載的譜面！
 edit-overwrite = 覆蓋
-edit-overwrite-confirm = 確定要使用外部的譜面覆蓋現有譜面嗎？（只有在點擊"更新"後才會同步到線上平臺）
+edit-overwrite-confirm = 確定要使用外部的譜面覆蓋現有譜面嗎？（只有在點擊「更新」後才會同步到線上平臺）
 edit-overwrite-success = 覆蓋成功
 edit-overwrite-failed = 覆蓋失敗
 edit-upload = 上傳
@@ -69,12 +69,10 @@ info-collaborators = 協作者
 info-rating = 評分
 info-type = 類型
 info-tags = 標籤
-
 collab-autocomplete-title = 協作者補全
 collab-autocomplete-content = 偵測到缺少使用者 ID 的協作者：{ $mentions }，是否自動補全？
 collab-autocomplete-failed = 無法解析「@{ $name }」：使用者不存在或有多個匹配。
 collab-autocomplete-done = 協作者已補全
-
 reviewed = 已審核
 unreviewed = 未審核
 review-approve = 通過
@@ -93,7 +91,7 @@ review-edit-tags-failed = 編輯標籤失敗
 review-edit-tags-done = 標籤已更新
 mods = Mods
 mods-autoplay = 自動遊玩 (Auto)
-mods-autoplay-sub = *啟用後將無法上傳成績*
+mods-autoplay-sub = { "*" }啟用後將無法上傳成績*
 mods-flip-x = X 軸翻轉 (Mirror)
 mods-flip-x-sub = 在 X 軸上翻轉譜面
 mods-fade-in = 漸顯 (Fade In)
@@ -110,7 +108,6 @@ mods-instant-death-fc = 突然死亡 (FC)
 mods-instant-death-fc-sub = 連擊中斷立即失敗
 mods-no-shader = 無著色器
 mods-no-shader-sub = 禁用著色器特效。*啟用此 Mod 後無法上傳成績*
-
 rate-failed = 評分失敗
 rate-done = 評分成功
 need-update = 譜面更新
@@ -133,6 +130,5 @@ stabilize-denied = 已拒絕
 stabilize-denied-passed = 已拒絕，譜面已退件
 fav-added = 已收藏（長按以選擇其他收藏夾）
 still-loading = 仍在載入，請稍候…
-
 export = 匯出
 exporting = 匯出中…

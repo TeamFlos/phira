@@ -271,6 +271,7 @@ impl Collection {
         let cid = config.cid;
         let mut charts_view = ChartsView::new(icons, rank_icons);
         charts_view.row_num = config.rn.0 as _;
+        charts_view.allow_multi_select = false;
         Self {
             config,
             state: RefCell::new(CollectionState {

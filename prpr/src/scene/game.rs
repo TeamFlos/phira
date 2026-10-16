@@ -19,12 +19,11 @@ use crate::{
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
-    ui::{RectButton, TextPainter, Ui},
+    ui::{OffsetAnalysisPanel, OffsetPanelAction, OffsetPanelLabels, RectButton, TextPainter, Ui},
 };
 use anyhow::{bail, Context, Result};
 use concat_string::concat_string;
 use inputbox::InputBox;
-use lyon::path::Path;
 use macroquad::{prelude::*, window::InternalGlContext};
 use sasa::{Music, MusicParams};
 use serde::{Deserialize, Serialize};
@@ -37,7 +36,7 @@ use std::{
     path::PathBuf,
     process::{Command, Stdio},
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::Arc,
     time::Duration,
 };
 use tracing::{debug, warn};
@@ -128,6 +127,7 @@ pub struct GameScene {
     chart_format: ChartFormat,
     info_offset: f32,
     effects: Vec<Effect>,
+    offset_analysis: OffsetAnalysisPanel,
 
     first_in: bool,
     exercise_range: Range<f64>,
@@ -319,6 +319,8 @@ impl GameScene {
             chart_format,
             effects,
             info_offset,
+
+            offset_analysis: OffsetAnalysisPanel::new(),
 
             first_in: false,
             exercise_range,
@@ -803,59 +805,21 @@ impl GameScene {
     }
 
     fn tweak_offset(&mut self, ui: &mut Ui, ita: bool) {
-        ui.scope(|ui| {
-            let width = 0.55;
-            let height = 0.4;
-            ui.dx(1. - width - 0.02);
-            ui.dy(ui.top - height - 0.02);
-            ui.fill_rect(Rect::new(0., 0., width, height), GRAY);
-            ui.dy(0.02);
-            ui.text(tl!("adjust-offset")).pos(width / 2., 0.).anchor(0.5, 0.).size(0.7).draw();
-            ui.dy(0.16);
-            let r = ui
-                .text(format!("{}ms", (self.info_offset * 1000.).round() as i32))
-                .pos(width / 2., 0.)
-                .anchor(0.5, 0.)
-                .size(0.6)
-                .no_baseline()
-                .draw();
-            let d = 0.14;
-            if ui.button("lg_sub", Rect::new(d, r.center().y, 0., 0.).feather(0.026), "-") && ita {
-                self.info_offset -= 0.05;
-            }
-            if ui.button("lg_add", Rect::new(width - d, r.center().y, 0., 0.).feather(0.026), "+") && ita {
-                self.info_offset += 0.05;
-            }
-            let d = 0.08;
-            if ui.button("sm_sub", Rect::new(d, r.center().y, 0., 0.).feather(0.022), "-") && ita {
-                self.info_offset -= 0.005;
-            }
-            if ui.button("sm_add", Rect::new(width - d, r.center().y, 0., 0.).feather(0.022), "+") && ita {
-                self.info_offset += 0.005;
-            }
-            let d = 0.03;
-            if ui.button("ti_sub", Rect::new(d, r.center().y, 0., 0.).feather(0.017), "-") && ita {
-                self.info_offset -= 0.001;
-            }
-            if ui.button("ti_add", Rect::new(width - d, r.center().y, 0., 0.).feather(0.017), "+") && ita {
-                self.info_offset += 0.001;
-            }
-            ui.dy(0.14);
-            let pad = 0.02;
-            let spacing = 0.01;
-            let mut r = Rect::new(pad, 0., (width - pad * 2. - spacing * 2.) / 3., 0.06);
-            if ui.button("cancel", r, tl!("offset-cancel")) {
-                self.next_scene = Some(NextScene::PopWithResult(Box::new(None::<f32>)));
-            }
-            r.x += r.w + spacing;
-            if ui.button("reset", r, tl!("offset-reset")) {
-                self.info_offset = 0.;
-            }
-            r.x += r.w + spacing;
-            if ui.button("save", r, tl!("offset-save")) {
-                self.next_scene = Some(NextScene::PopWithResult(Box::new(Some(self.info_offset))));
-            }
-        });
+        let labels = OffsetPanelLabels {
+            adjust_offset: tl!("adjust-offset"),
+            auto_offset: tl!("auto-offset-btn"),
+            analysis_prompt: tl!("analysis-prompt"),
+            analysis_computing: tl!("analysis-computing"),
+            cancel: tl!("offset-cancel"),
+            reset: tl!("offset-reset"),
+            save: tl!("offset-save"),
+        };
+        match self.offset_analysis.render(ui, &self.chart, &mut self.info_offset, ita, &labels) {
+            Some(OffsetPanelAction::Cancel) => self.next_scene = Some(NextScene::PopWithResult(Box::new(None::<f32>))),
+            Some(OffsetPanelAction::Reset) => self.info_offset = 0.,
+            Some(OffsetPanelAction::Save(offset)) => self.next_scene = Some(NextScene::PopWithResult(Box::new(Some(offset)))),
+            None => {}
+        }
     }
     pub fn get_avg_fps(&self) -> Option<f32> {
         if self.fps_frame_count > 0 && self.fps_total_time > 0.0 {
@@ -901,6 +865,9 @@ impl Scene for GameScene {
     }
 
     fn update(&mut self, tm: &mut TimeManager) -> Result<()> {
+        self.offset_analysis
+            .update(&self.chart, &self.res, self.info_offset, tm.real_time() as f32);
+
         self.res.audio.recover_if_needed()?;
         if matches!(self.state, State::Playing) {
             tm.update(self.music.position());
@@ -1152,6 +1119,9 @@ impl Scene for GameScene {
     }
 
     fn touch(&mut self, tm: &mut TimeManager, touch: &Touch) -> Result<bool> {
+        if self.mode == GameMode::TweakOffset {
+            self.offset_analysis.touch(touch, tm.real_time() as f32);
+        }
         if self.mode == GameMode::Exercise && tm.paused() {
             let touch = Touch {
                 position: touch.position * self.touch_scale(),

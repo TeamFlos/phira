@@ -102,6 +102,7 @@ pub struct ChartsView {
     pub clicked_special: bool,
 
     pub allow_edit: bool,
+    pub allow_multi_select: bool,
     editing_chart: Option<usize>,
     chart_menu: Popup,
     need_show_chart_menu: bool,
@@ -133,6 +134,7 @@ impl ChartsView {
             clicked_special: false,
 
             allow_edit: false,
+            allow_multi_select: true,
             editing_chart: None,
             chart_menu: Popup::new(),
             need_show_chart_menu: false,
@@ -305,7 +307,7 @@ impl ChartsView {
                         });
                         return Ok(true);
                     }
-                    if self.multi_select.is_none() && item.btn.long_touch(touch, t, &mut item.long_touch) {
+                    if self.allow_multi_select && self.multi_select.is_none() && item.btn.long_touch(touch, t, &mut item.long_touch) {
                         self.scroll.y_scroller.halt();
                         self.editing_chart = Some(id);
                         let mut options = vec![tl!("select").into_owned()];
@@ -356,7 +358,7 @@ impl ChartsView {
         let refreshed = self.can_refresh && self.scroll.y_scroller.pulled;
         self.chart_menu.update(t);
         self.scroll.update(t);
-        if self.multi_select.is_none() {
+        if self.allow_multi_select && self.multi_select.is_none() {
             if let Some(charts) = &mut self.charts {
                 for (id, item) in charts.iter_mut().enumerate() {
                     if item.chart.is_some() && item.btn.update_long_touch(t, &mut item.long_touch) {

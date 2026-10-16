@@ -10,5 +10,6 @@ info-content =
   Creator: { $author }
   Description: { $desc }
 
+export = Export
 cant-delete-builtin = The built-in respack can't be deleted.
 deleted = Successfully deleted.

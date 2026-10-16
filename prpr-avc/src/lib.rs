@@ -111,6 +111,7 @@ pub fn demux_audio(file: impl AsRef<str>) -> Result<Option<AudioClip>> {
                 frames.truncate(end + out_samples);
             }
         }
+        packet.unref();
     }
 
     Ok(Some(AudioClip::from_raw(frames, AUDIO_DECODING_SAMPLE_RATE as _)))

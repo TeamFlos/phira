@@ -32,6 +32,7 @@ pub struct Icons {
     pub cloud_check: SafeTexture,
     pub plus: SafeTexture,
     pub select: SafeTexture,
+    pub export: SafeTexture,
 
     #[cfg(feature = "hykb")]
     pub hykb: SafeTexture,
@@ -70,6 +71,7 @@ impl Icons {
             cloud_check: load_texture("cloud_check.png").await?.into(),
             plus: load_texture("plus.png").await?.into(),
             select: load_texture("select.png").await?.into(),
+            export: load_texture("export.png").await?.into(),
 
             #[cfg(feature = "hykb")]
             hykb: load_texture("hykb.png").await?.into(),

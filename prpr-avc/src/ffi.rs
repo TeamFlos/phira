@@ -55,6 +55,7 @@ extern "C" {
     pub fn avcodec_open2(avctx: *mut AVCodecContext, codec: *const AVCodec, options: *mut *mut c_void) -> ::std::os::raw::c_int;
     pub fn av_packet_alloc() -> *mut AVPacket;
     pub fn av_packet_free(pkt: *mut *mut AVPacket);
+    pub fn av_packet_unref(pkt: *mut AVPacket);
     pub fn avcodec_send_packet(avctx: *mut AVCodecContext, avpkt: *const AVPacket) -> ::std::os::raw::c_int;
     pub fn avcodec_receive_frame(avctx: *mut AVCodecContext, frame: *mut AVFrame) -> ::std::os::raw::c_int;
     pub fn avcodec_default_get_format(s: *mut AVCodecContext, fmt: *const AVPixelFormat) -> AVPixelFormat;
