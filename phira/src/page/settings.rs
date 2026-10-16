@@ -972,15 +972,18 @@ impl ChartList {
     }
 }
 
-fn export_logs(config: ExportConfig, manager: Option<Arc<LogManager>>) -> Result<()> {
-    let metadata = format!(
-        "Phira {} ({})\nos={} arch={}\ntime={}\nexport=manual\n",
-        env!("CARGO_PKG_VERSION"),
-        env!("GIT_HASH"),
+fn export_metadata() -> String {
+    format!(
+        "Phira {}\nos={} arch={}\ntime={}\nexport=manual\n",
+        env!("VERSION_STRING"),
         std::env::consts::OS,
         std::env::consts::ARCH,
         chrono::Local::now().to_rfc3339(),
-    );
+    )
+}
+
+fn export_logs(config: ExportConfig, manager: Option<Arc<LogManager>>) -> Result<()> {
+    let metadata = export_metadata();
     let result = manager
         .ok_or_else(|| anyhow!("log manager is unavailable"))
         .and_then(|manager| manager.write_zip(config.file, &metadata).map_err(Into::into));
@@ -1182,6 +1185,14 @@ mod tests {
 
         assert!(super::export_logs(config, None).is_err());
         assert!(!output_path.exists());
+    }
+
+    #[test]
+    fn manual_log_export_metadata_uses_the_injected_version_string() {
+        let metadata = super::export_metadata();
+
+        assert!(metadata.starts_with(&format!("Phira {}\n", env!("VERSION_STRING"))));
+        assert!(!metadata.contains("GIT_HASH"));
     }
 
     #[test]

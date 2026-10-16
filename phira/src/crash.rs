@@ -33,9 +33,8 @@ impl CrashScene {
 
     fn crash_metadata(&self) -> String {
         format!(
-            "Phira {} ({})\nos={} arch={}\ntime={:?}\nsummary={}\n\n{}",
-            env!("CARGO_PKG_VERSION"),
-            env!("GIT_HASH"),
+            "Phira {}\nos={} arch={}\ntime={:?}\nsummary={}\n\n{}",
+            env!("VERSION_STRING"),
             std::env::consts::OS,
             std::env::consts::ARCH,
             SystemTime::now(),
