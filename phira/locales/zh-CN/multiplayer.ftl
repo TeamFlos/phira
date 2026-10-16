@@ -3,6 +3,7 @@ multiplayer = 多人游戏
 
 connect = 连接
 connect-must-login = 登录后才能进入多人游戏
+connect-no-server = 请先添加并选择多人服务器
 connect-success = 连接成功
 connect-failed = 连接失败
 connect-authenticate-failed = 鉴权失败

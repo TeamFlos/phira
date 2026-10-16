@@ -1,6 +1,6 @@
 prpr_l10n::tl_file!("settings");
 
-use super::{NextPage, OffsetPage, Page, SharedState};
+use super::{MpServerPage, NextPage, OffsetPage, Page, SharedState};
 use crate::{
     dir, get_data, get_data_mut,
     popup::ChooseButton,
@@ -273,10 +273,11 @@ impl Page for SettingsPage {
     }
 
     fn next_page(&mut self) -> NextPage {
-        if matches!(self.tabs.selected(), SettingListType::Audio) {
-            return self.list_audio.next_page().unwrap_or_default();
+        match self.tabs.selected() {
+            SettingListType::General => self.list_general.next_page().unwrap_or_default(),
+            SettingListType::Audio => self.list_audio.next_page().unwrap_or_default(),
+            _ => NextPage::None,
         }
-        NextPage::None
     }
 }
 
@@ -396,7 +397,7 @@ struct GeneralList {
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
-    mp_addr_btn: DRectButton,
+    mp_server_btn: DRectButton,
     #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
     prefer_reduced_motion_btn: DRectButton,
@@ -406,6 +407,7 @@ struct GeneralList {
 
     cache_size: Option<u64>,
     cache_task: Option<Task<Result<u64>>>,
+    next_page: Option<NextPage>,
 }
 
 impl GeneralList {
@@ -432,7 +434,7 @@ impl GeneralList {
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
-            mp_addr_btn: DRectButton::new(),
+            mp_server_btn: DRectButton::new(),
             #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
             prefer_reduced_motion_btn: DRectButton::new(),
@@ -442,6 +444,7 @@ impl GeneralList {
 
             cache_size: None,
             cache_task: None,
+            next_page: None,
         };
         let _ = this.update_cache_size();
         this
@@ -512,9 +515,9 @@ impl GeneralList {
             config.mp_enabled ^= true;
             return Ok(Some(true));
         }
-        if self.mp_addr_btn.touch(touch, t) {
-            request_input("mp_addr", InputBox::new().default_text(&config.mp_address));
-            return Ok(Some(true));
+        if self.mp_server_btn.touch(touch, t) {
+            self.next_page = Some(NextPage::Overlay(Box::new(MpServerPage::new())));
+            return Ok(Some(false));
         }
         #[cfg(not(target_env = "ohos"))]
         if self.lowq_btn.touch(touch, t) {
@@ -550,15 +553,7 @@ impl GeneralList {
             return Ok(true);
         }
         if let Some((id, text)) = take_input() {
-            if id == "mp_addr" {
-                if let Err(err) = text.parse::<http::uri::Authority>() {
-                    show_error(anyhow::Error::new(err).context(tl!("item-mp-addr-invalid")));
-                    return Ok(false);
-                } else {
-                    data.config.mp_address = text;
-                    return Ok(true);
-                }
-            } else if id == "anys_gateway" {
+            if id == "anys_gateway" {
                 if let Err(err) = Url::parse(&text) {
                     show_error(anyhow::Error::new(err).context(tl!("item-anys-gateway-invalid")));
                     return Ok(false);
@@ -622,7 +617,13 @@ impl GeneralList {
         }
         item! {
             render_title(ui, tl!("item-mp-addr"), Some(tl!("item-mp-addr-sub")));
-            self.mp_addr_btn.render_text(ui, rr, t, &config.mp_address, 0.4, false);
+            let text = config
+                .mp_servers
+                .iter()
+                .find(|server| server.address == config.mp_address)
+                .map(|server| format!("{} - {}", server.name, server.address))
+                .unwrap_or_else(|| tl!("mp-server-none").into_owned());
+            self.mp_server_btn.render_text(ui, rr, t, text, 0.32, false);
         }
         item! {
             render_title(ui, tl!("item-prefer-reduced-motion"), Some(tl!("item-prefer-reduced-motion-sub")));
@@ -658,6 +659,10 @@ impl GeneralList {
         }
         self.lang_btn.render_top(ui, t, 1.);
         (w, h)
+    }
+
+    pub fn next_page(&mut self) -> Option<NextPage> {
+        self.next_page.take()
     }
 }
 

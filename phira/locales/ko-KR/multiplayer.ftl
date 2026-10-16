@@ -3,6 +3,7 @@ multiplayer = 멀티플레이어
 
 connect = 연결하기
 connect-must-login = 멀티플레이어 모드에 들어가려면 로그인해야 합니다.
+connect-no-server = 먼저 멀티플레이 서버를 추가하고 선택하세요.
 connect-success = 연결 성공
 connect-failed = 연결 실패
 connect-authenticate-failed = 인증 실패

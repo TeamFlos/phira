@@ -11,4 +11,3 @@ rustfft = "6.4.1"
 
 [dev-dependencies]
 prpr-avc = { workspace = true }
-

@@ -187,6 +187,10 @@ impl MPPanel {
             return;
         };
         let addr = get_data().config.mp_address.clone();
+        if addr.is_empty() {
+            show_message(mtl!("connect-no-server")).error();
+            return;
+        }
         self.connect_task = Some(Task::new(async move {
             let client = Client::from_address(&addr).await?;
             client

@@ -16,6 +16,9 @@ pub use library::{request_export, resolve_export, take_export, ExportInfo, Libra
 mod message;
 pub use message::MessagePage;
 
+mod mp_servers;
+pub use mp_servers::MpServerPage;
+
 mod offset;
 pub use offset::OffsetPage;
 

@@ -33,7 +33,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     ensure_static_lib(&libs_dir, &target, &version)?;
 
     println!("cargo:rustc-link-search={}", target_dir.display());
-    println!("cargo:rustc-link-lib=z");
+    // The prebuilt MSVC libraries do not depend on zlib.
+    if !target.ends_with("-windows-msvc") {
+        println!("cargo:rustc-link-lib=z");
+    }
     if env::var("CARGO_CFG_WINDOWS").is_ok() {
         println!("cargo:rustc-link-lib=bcrypt");
     }
