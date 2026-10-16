@@ -230,6 +230,7 @@ async fn the_main() -> Result<()> {
         .quad_context
         .display_mut()
         .set_pause_resume_listener(on_pause_resume);
+    once_cell::sync::Lazy::force(&prpr::ext::BLACK_TEXTURE);
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
     PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font, None)));

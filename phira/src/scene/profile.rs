@@ -90,6 +90,7 @@ impl ProfileScene {
     pub fn new(id: i32, icon_user: SafeTexture, rank_icons: [SafeTexture; 8]) -> Self {
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
+        once_cell::sync::Lazy::force(&BLACK_TEXTURE);
         Self {
             id,
             user: None,
