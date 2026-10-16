@@ -732,9 +732,10 @@ impl AudioList {
         }
         #[cfg(target_env = "ohos")]
         if self.audio_buffer_size_btn.touch(touch, t) {
-            let options = [128u32, 256u32, 512u32];
-            let current = config.audio_buffer_size.unwrap_or(256);
-            let selected = options.iter().position(|&r| r == current).unwrap_or(1);
+            let sample_rate = u64::from(config.preferred_sample_rate.unwrap_or(48000));
+            let options = [5, 10, 15, 20].map(|ms| (sample_rate * ms / 1000) as u32);
+            let current = config.audio_buffer_size.unwrap_or(options[0]);
+            let selected = options.iter().enumerate().min_by_key(|(_, size)| size.abs_diff(current)).unwrap().0;
             config.audio_buffer_size = Some(options[(selected + 1) % options.len()]);
             return Ok(Some(true));
         }
@@ -803,7 +804,10 @@ impl AudioList {
         #[cfg(target_env = "ohos")]
         item! {
             render_title(ui, tl!("item-audio-buffer-size"), None);
-            let buf_size = config.audio_buffer_size.unwrap_or(256);
+            let sample_rate = u64::from(config.preferred_sample_rate.unwrap_or(48000));
+            let options = [5, 10, 15, 20].map(|ms| (sample_rate * ms / 1000) as u32);
+            let current = config.audio_buffer_size.unwrap_or(options[0]);
+            let buf_size = options.into_iter().min_by_key(|&size| size.abs_diff(current)).unwrap();
             self.audio_buffer_size_btn.render_text(ui, rr, t, format!("{}", buf_size), 0.5, false);
         }
         (w, h)
