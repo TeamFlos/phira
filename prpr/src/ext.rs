@@ -427,7 +427,7 @@ pub fn create_audio_manger(config: &Config) -> Result<AudioManager> {
         use sasa::backend::ohos::*;
         AudioManager::new(OhosBackend::new(OhosSettings {
             sample_rate: config.preferred_sample_rate.into(),
-            buffer_size: config.audio_buffer_size.or(Some(256)),
+            buffer_size: config.audio_buffer_size,
             channels: 2,
         }))
     }

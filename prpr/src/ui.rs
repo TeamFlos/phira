@@ -1367,7 +1367,7 @@ fn build_audio() -> SafeAudio {
         {
             use sasa::backend::ohos::*;
             AudioManager::new(OhosBackend::new(OhosSettings {
-                buffer_size: Some(512),
+                buffer_size: Some(480),
                 sample_rate: Some(48000),
                 channels: 2,
             }))
