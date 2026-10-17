@@ -213,12 +213,19 @@ impl ReplayState {
         Rect::new((track.x - 0.28).max(-0.98), track.center().y - 0.059, 0.26, 0.05)
     }
 
-    fn replay_tag_y(pause_y: f32, advanced: bool) -> f32 {
-        pause_y - if advanced { 0.035 } else { 0. }
+    fn replay_tag_y(pause_y: f32, pause_h: f32, advanced: bool) -> f32 {
+        pause_y - if advanced { pause_h / 2. } else { 0. }
     }
 
     fn touch_count_y(tag_y: f32) -> f32 {
         tag_y + 0.024
+    }
+
+    fn pause_touch_hit(pos: Point, pause_center: Point, advanced_rect: Option<Rect>) -> bool {
+        if advanced_rect.is_some_and(|rect| rect.contains(Vec2::new(pos.x, pos.y))) {
+            return false;
+        }
+        (pause_center - pos).norm() < 0.05
     }
 }
 
@@ -580,10 +587,18 @@ impl GameScene {
         let pause_w = 0.015;
         let pause_h = pause_w * 3.2;
         let pause_center = Point::new(pause_w * 4.0 - 1., top + eps * 3.5 - (1. - p) * 0.4 + pause_h / 2.);
-        let replay_tag_y = ReplayState::replay_tag_y(pause_center.y, replay_advanced);
+        let replay_tag_y = ReplayState::replay_tag_y(pause_center.y, pause_h, replay_advanced);
+        let advanced_toggle = self
+            .replay
+            .as_ref()
+            .filter(|replay| replay.bar_anim > 0.5)
+            .map(|replay| ReplayState::advanced_toggle_rect(top, eps, replay.bar_anim));
         let pause_touch = Judge::get_touches()
             .into_iter()
-            .find(|touch| touch.phase == TouchPhase::Started && (pause_center - Point::new(touch.position.x, touch.position.y)).norm() < 0.05)
+            .find(|touch| {
+                touch.phase == TouchPhase::Started
+                    && ReplayState::pause_touch_hit(Point::new(touch.position.x, touch.position.y), pause_center, advanced_toggle)
+            })
             .map(|it| it.id);
         // A replay is paused by any tap on the screen, so its pause button
         // instead brings up the menu, paused or not.
@@ -769,6 +784,14 @@ impl GameScene {
         // The touch that closes a replay's pause menu must not reach the
         // replay's own controls too.
         let replay_menu = self.replay.as_ref().is_some_and(|it| it.menu);
+        if self.replay.as_ref().is_some_and(|replay| replay.advanced) {
+            self.draw_advanced_replay(ui, tm);
+        } else if let Some(replay) = &self.replay {
+            let ar = replay.player.env().aspect_ratio;
+            for (_, x, y) in self.judge.replay_touches_at(&replay.player, self.res.time) {
+                ui.fill_circle(x, y / ar, 0.04, Color { a: 0.4, ..RED });
+            }
+        }
         let c = semi_white(self.res.alpha);
         let res = &mut self.res;
         // A replay paused by a tap on the screen shows no menu, only the
@@ -1025,19 +1048,6 @@ impl GameScene {
         for pos in &self.touch_points {
             ui.fill_circle(pos.0, pos.1, 0.04, Color { a: 0.4, ..BLUE });
         }
-        if self.replay.as_ref().is_some_and(|replay| replay.advanced) {
-            self.draw_advanced_replay(ui, tm);
-        } else if let Some(replay) = &self.replay {
-            // The replayed run's fingers, where they were: stream y carries
-            // the aspect-ratio scaling and stream x is never flipped, so
-            // both come back through the recorded ratio. They are relative
-            // to the chart viewport, which is the space drawn in here. Drawn
-            // the way touch debugging draws live fingers.
-            let ar = replay.player.env().aspect_ratio;
-            for (_, x, y) in self.judge.replay_touches_at(&replay.player, self.res.time) {
-                ui.fill_circle(x, y / ar, 0.04, Color { a: 0.4, ..RED });
-            }
-        }
         if self.replay.is_some() {
             self.replay_ui(ui, tm, !replay_menu)?;
         }
@@ -1100,7 +1110,7 @@ impl GameScene {
         let pause_h = pause_w * 3.2;
         let pause_y = top + eps * 3.5 - (1. - p) * 0.4 + pause_h / 2.;
         let player_name_x = pause_w * 4.0 - 1. + pause_w * 3.5;
-        let player_name_y = ReplayState::replay_tag_y(pause_y, true);
+        let player_name_y = ReplayState::replay_tag_y(pause_y, pause_h, true);
         ui.text(format!("TOUCHES: {}", replay.overlay.active_count()))
             .pos(player_name_x, ReplayState::touch_count_y(player_name_y))
             .anchor(0., 0.)
