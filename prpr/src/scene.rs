@@ -15,6 +15,8 @@ pub use loading::{BasicPlayer, LoadingScene, SaveFn, UpdateFn, UploadFn, Uploade
 mod replay;
 pub use replay::{ReplayRequest, ReplaySaveFn, StartReplay};
 
+mod replay_overlay;
+
 use crate::{
     ext::{draw_image, screen_aspect, LocalTask, SafeTexture, ScaleType},
     judge::Judge,

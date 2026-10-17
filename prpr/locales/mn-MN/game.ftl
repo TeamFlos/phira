@@ -7,3 +7,4 @@ ex-time-out-of-range = Хугацаа хязгаараас хэтэрсэн ба
 ex-invalid-format = Буруу формат
 ex-time-set = Хугацаа өөрчлөгдсөн
 game-over = Тоглоом дуусав
+advanced-mode = Нарийвчилсан горим

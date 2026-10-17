@@ -8,3 +8,4 @@ ex-time-out-of-range = Невозможно установить такое вр
 ex-invalid-format = Неверный формат
 ex-time-set = Время изменено
 game-over = Игра окончена
+advanced-mode = Расширенный режим

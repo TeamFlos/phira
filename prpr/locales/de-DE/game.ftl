@@ -8,3 +8,4 @@ ex-time-out-of-range = Stelle sicher, dass die Zeit innerhalb der Grenzen liegt
 ex-invalid-format = Ungültiges Format.
 ex-time-set = Zeit geändert.
 game-over = Spiel vorbei
+advanced-mode = Erweiterter Modus
