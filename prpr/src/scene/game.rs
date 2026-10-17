@@ -7,6 +7,7 @@ use super::{
     ending::RecordUpdateState,
     loading::{BasicPlayer, SaveFn, UpdateFn, UploadFn, Uploader},
     replay::{ReplayRequest, ReplaySaveFn},
+    replay_overlay::ReplayOverlay,
     request_input, return_input, show_message, take_input, EndingScene, NextScene, Scene, StartReplay,
 };
 use crate::{
@@ -147,6 +148,9 @@ struct ReplayState {
     /// The touch the pause button took this frame, which must not also
     /// toggle playback.
     pause_touch: Option<u64>,
+    /// Adds per-touch colors, trails, and release fading to the replay view.
+    advanced: bool,
+    overlay: ReplayOverlay,
 }
 
 /// A touch on the replay's progress bar. The position it previews, in chart
@@ -180,6 +184,8 @@ impl ReplayState {
             bar_drag: None,
             last_touch: f32::NEG_INFINITY,
             pause_touch: None,
+            advanced: false,
+            overlay: ReplayOverlay::default(),
         }
     }
 
@@ -190,6 +196,7 @@ impl ReplayState {
         // The drag cannot survive a restart — the touch that owned it is
         // gone, and would read as a release.
         self.bar_drag = None;
+        self.overlay.reset();
     }
 
     /// The progress bar's track, `anim` of the way from the HUD's thin bar
@@ -199,6 +206,19 @@ impl ReplayState {
         let cy = top + (BAR_BAND.start + BAR_BAND.end) / 2.;
         let h = lerp(eps, 0.012);
         Rect::new(lerp(-1., -0.7), lerp(top, cy - h / 2.), lerp(2., 1.4), h)
+    }
+
+    fn advanced_toggle_rect(top: f32, eps: f32, anim: f32) -> Rect {
+        let track = Self::track(top, eps, anim);
+        Rect::new((track.x - 0.28).max(-0.98), track.center().y - 0.059, 0.26, 0.05)
+    }
+
+    fn replay_tag_y(pause_y: f32, advanced: bool) -> f32 {
+        pause_y - if advanced { 0.035 } else { 0. }
+    }
+
+    fn touch_count_y(tag_y: f32) -> f32 {
+        tag_y + 0.024
     }
 }
 
@@ -538,6 +558,7 @@ impl GameScene {
     fn ui(&mut self, ui: &mut Ui, tm: &mut TimeManager) -> Result<()> {
         let time = tm.now();
         let replay_tag = self.replay.as_ref().map(|it| format!("REPLAY · {}", it.player_name));
+        let replay_advanced = self.replay.as_ref().is_some_and(|it| it.advanced);
         let p = match self.state {
             State::Starting => {
                 if time <= Self::BEFORE_TIME {
@@ -559,6 +580,7 @@ impl GameScene {
         let pause_w = 0.015;
         let pause_h = pause_w * 3.2;
         let pause_center = Point::new(pause_w * 4.0 - 1., top + eps * 3.5 - (1. - p) * 0.4 + pause_h / 2.);
+        let replay_tag_y = ReplayState::replay_tag_y(pause_center.y, replay_advanced);
         let pause_touch = Judge::get_touches()
             .into_iter()
             .find(|touch| touch.phase == TouchPhase::Started && (pause_center - Point::new(touch.position.x, touch.position.y)).norm() < 0.05)
@@ -647,7 +669,7 @@ impl GameScene {
                 // Whose run is on screen — the one thing a replay must say
                 // about itself up front.
                 ui.text(tag)
-                    .pos(pause_center.x + pause_w * 3.5, pause_center.y)
+                    .pos(pause_center.x + pause_w * 3.5, replay_tag_y)
                     .anchor(0., 0.5)
                     .no_baseline()
                     .size(0.4)
@@ -788,10 +810,10 @@ impl GameScene {
                         continue;
                     }
                     let p = touch.position;
-                    let p = Point::new(p.x, p.y);
+                    let point = Point::new(p.x, p.y);
                     for i in -1..=1 {
                         let ct = Point::new((s * 2. + w) * i as f32, o);
-                        let d = p - ct;
+                        let d = point - ct;
                         if d.x.abs() <= s && d.y.abs() <= s {
                             clicked = Some(i);
                             break;
@@ -1003,7 +1025,9 @@ impl GameScene {
         for pos in &self.touch_points {
             ui.fill_circle(pos.0, pos.1, 0.04, Color { a: 0.4, ..BLUE });
         }
-        if let Some(replay) = &self.replay {
+        if self.replay.as_ref().is_some_and(|replay| replay.advanced) {
+            self.draw_advanced_replay(ui, tm);
+        } else if let Some(replay) = &self.replay {
             // The replayed run's fingers, where they were: stream y carries
             // the aspect-ratio scaling and stream x is never flipped, so
             // both come back through the recorded ratio. They are relative
@@ -1018,6 +1042,72 @@ impl GameScene {
             self.replay_ui(ui, tm, !replay_menu)?;
         }
         Ok(())
+    }
+
+    fn draw_advanced_replay(&mut self, ui: &mut Ui, tm: &TimeManager) {
+        let now = self.res.time;
+        let Some(replay) = self.replay.as_mut() else {
+            return;
+        };
+        let cursor = replay.player.cursor();
+        replay.overlay.update(&replay.player.record().inputs, cursor, now);
+        let ar = replay.player.env().aspect_ratio;
+        let current = self.judge.replay_touches_at(&replay.player, now);
+        replay.overlay.resample_active(&current, now);
+        let alpha = self.res.alpha;
+
+        for trace in replay.overlay.traces() {
+            let fade = ReplayOverlay::fade_alpha(trace, now);
+            let [r, g, b] = trace.color;
+            for pair in trace.samples.windows(2) {
+                let sample_alpha = ReplayOverlay::sample_alpha(pair[1], now);
+                if sample_alpha <= 0. {
+                    continue;
+                }
+                draw_line(pair[0].x, pair[0].y / ar, pair[1].x, pair[1].y / ar, 0.012, Color::new(r, g, b, 0.38 * sample_alpha * fade * alpha));
+            }
+
+            let (x, y) = if trace.active && !trace.last_was_swipe {
+                current
+                    .iter()
+                    .find(|(id, _, _)| *id == trace.id)
+                    .map(|(_, x, y)| (*x, *y))
+                    .unwrap_or(trace.current)
+            } else {
+                trace.current
+            };
+            ui.fill_circle(x, y / ar, 0.04, Color::new(r, g, b, 0.5 * fade * alpha));
+        }
+
+        let time = tm.now();
+        let p = match self.state {
+            State::Starting => {
+                if time <= Self::BEFORE_TIME {
+                    1. - (1. - time / Self::BEFORE_TIME).powi(3)
+                } else {
+                    1.
+                }
+            }
+            State::BeforeMusic | State::Playing => 1.,
+            State::Ending => {
+                let t = time - self.res.track_length - WAIT_TIME;
+                1. - (t / (AFTER_TIME + 0.3)).min(1.).powi(2)
+            }
+        } as f32;
+        let top = -1. / ar;
+        let eps = 2e-2 / self.res.aspect_ratio;
+        let pause_w = 0.015;
+        let pause_h = pause_w * 3.2;
+        let pause_y = top + eps * 3.5 - (1. - p) * 0.4 + pause_h / 2.;
+        let player_name_x = pause_w * 4.0 - 1. + pause_w * 3.5;
+        let player_name_y = ReplayState::replay_tag_y(pause_y, true);
+        ui.text(format!("TOUCHES: {}", replay.overlay.active_count()))
+            .pos(player_name_x, ReplayState::touch_count_y(player_name_y))
+            .anchor(0., 0.)
+            .no_baseline()
+            .size(0.3)
+            .color(semi_white(0.8 * alpha))
+            .draw();
     }
 
     /// The replay's controls. A tap on the screen pauses or resumes; the
@@ -1039,10 +1129,12 @@ impl GameScene {
         let replay = self.replay.as_mut().unwrap();
         let anim = replay.bar_anim;
         let track = ReplayState::track(top, eps, anim);
+        let advanced_rect = ReplayState::advanced_toggle_rect(top, eps, anim);
         // The bar runs in chart time, like the HUD's.
         let to_time = |x: f32| ((x - track.x) / track.w).clamp(0., 1.) * total;
 
         let mut toggle = false;
+        let mut advanced_clicked = false;
         let mut commit = None;
         if input && active && !replay.menu {
             let touches = Judge::get_touches();
@@ -1072,6 +1164,11 @@ impl GameScene {
                         continue;
                     }
                     let pos = touch.position;
+                    if anim > 0.5 && advanced_rect.contains(pos) {
+                        advanced_clicked = true;
+                        replay.last_touch = now;
+                        break;
+                    }
                     let on_bar = if anim > 0.5 {
                         // Down, the bar owns its band and everything above
                         // it, but only the track itself drags.
@@ -1148,6 +1245,35 @@ impl GameScene {
                 .size(0.35)
                 .color(c)
                 .draw();
+            if anim > 0.5 {
+                let enabled = replay.advanced;
+                let control_alpha = anim * alpha;
+                let check_size = 0.032;
+                let check = Rect::new(advanced_rect.x + 0.006, advanced_rect.center().y - check_size / 2., check_size, check_size);
+                ui.fill_path(
+                    &check.rounded(0.004),
+                    if enabled {
+                        Color::new(0.13, 0.59, 0.95, 0.7 * control_alpha)
+                    } else {
+                        Color::new(0., 0., 0., 0.28 * control_alpha)
+                    },
+                );
+                if enabled {
+                    draw_line(check.x + 0.007, check.center().y, check.x + 0.014, check.center().y + 0.007, 0.004, semi_white(control_alpha));
+                    draw_line(check.x + 0.014, check.center().y + 0.007, check.x + 0.027, check.center().y - 0.009, 0.004, semi_white(control_alpha));
+                } else {
+                    ui.stroke_path(&check.rounded(0.004), 0.003, semi_white(control_alpha * 0.85));
+                }
+                let label_x = check.right() + 0.012;
+                ui.text(tl!("advanced-mode"))
+                    .pos(label_x, advanced_rect.center().y)
+                    .anchor(0., 0.5)
+                    .no_baseline()
+                    .size(0.27)
+                    .max_width((advanced_rect.right() - label_x).max(0.01))
+                    .color(semi_white(control_alpha))
+                    .draw();
+            }
         }
         if paused_alone && active {
             let r = Rect::new(0., 0., 0., 0.).feather(0.07);
@@ -1156,6 +1282,13 @@ impl GameScene {
 
         if toggle {
             self.replay_set_paused(tm, !tm.paused())?;
+        }
+        if advanced_clicked {
+            let replay = self.replay.as_mut().unwrap();
+            replay.advanced = !replay.advanced;
+            if !replay.advanced {
+                replay.overlay.reset();
+            }
         }
         if let Some(pos) = commit {
             let p = (pos + self.offset()).min(total) as f64;
@@ -1291,6 +1424,7 @@ impl GameScene {
         self.bad_notes.clear();
         self.chart.reset();
         self.judge.replay_seek(&mut self.chart, &mut replay.player, (p - offset).max(0.));
+        replay.overlay.reset();
         self.res.judge_line_color = self.res.res_pack.info.color_perfect();
         if p < 0. {
             self.music.pause()?;

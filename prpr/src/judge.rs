@@ -1875,6 +1875,11 @@ impl ReplayPlayer {
     pub fn restart(&mut self) {
         self.cursor = 0;
     }
+
+    /// Number of recorded input events consumed by the incremental replay.
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
 }
 
 struct Handler {

@@ -17,3 +17,4 @@ ex-time-set = Time changed.
 replay-version-mismatch = This replay was recorded by another version and cannot be played.
 replay-judge-mismatch = This replay was judged under different rules and cannot be played.
 replay-chart-changed = The chart has changed since this replay was recorded.
+advanced-mode = Advanced mode

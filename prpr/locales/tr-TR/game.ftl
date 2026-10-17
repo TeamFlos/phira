@@ -8,3 +8,4 @@ ex-time-out-of-range = Süre aralık dışı
 ex-invalid-format = Geçersiz format
 ex-time-set = Süre değişti
 game-over = Oyun Bitti
+advanced-mode = Gelişmiş mod

@@ -11,3 +11,4 @@ game-over = Game Over
 ex-time-out-of-range = Waktu diluar cakupan.
 ex-invalid-format = Format salah
 ex-time-set = Pengaturan berhasil
+advanced-mode = Mode lanjutan
