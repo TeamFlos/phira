@@ -257,10 +257,12 @@ fn event_at<'a>(judge: &'a Judge, chart: &Chart, time: f64) -> &'a super::HitEve
 }
 
 fn events_of(judge: &Judge) -> String {
-    judge
-        .hit_events
-        .iter()
-        .map(|it| format!("{:?}/{:?}/{:?}/{:?}", it.line_id, it.note_id, it.judgement, it.diff))
+    hits_of(&judge.hit_events)
+}
+
+fn hits_of(hits: &[super::HitEvent]) -> String {
+    hits.iter()
+        .map(|it| format!("{:?}/{:?}/{:?}", it.line_id, it.note_id, it.judgement))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -403,6 +405,37 @@ fn a_resting_finger_judges_a_drag() {
     let event = event_at(&judge, &chart, 4.);
     assert_eq!(event.judgement, Judgement::Perfect);
     assert_eq!(event.diff, None, "a drag is judged by contact, not timing");
+}
+
+/// Sweeping a child line walks its ancestor chain by position in the chain,
+/// not by line id: a drag on line 0 under parent 3 under grandparent 2 used
+/// to index the two-to-three-entry chain with 3 and panic.
+#[test]
+fn a_drag_on_a_nested_child_line_is_swept() {
+    let mut chart = chart_of(vec![
+        line_json(vec![note(2, 4., 0., 0.)]),
+        line_json(vec![]),
+        line_json(vec![]),
+        line_json(vec![]),
+    ]);
+    chart.lines[0].parent = Some(3);
+    chart.lines[3].parent = Some(2);
+    let mut judge = Judge::new(&chart);
+    drive(
+        &mut judge,
+        &mut chart,
+        &env(),
+        &fps(320, 1. / 64.),
+        &[
+            Action::Down {
+                id: 1,
+                at: 3.875,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 4.125 },
+        ],
+    );
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Perfect);
 }
 
 #[test]
@@ -741,6 +774,7 @@ fn input_events_round_trip_through_serde() {
         },
         InputEvent::Swipe {
             id: 1,
+            from: 3.4833,
             time: 3.5,
             new: true,
             x0: -0.2,
@@ -1527,4 +1561,367 @@ fn replayed_fingers_slide_into_their_next_recorded_move() {
     // Past the last move nothing lies ahead to slide toward.
     close(at(&mut judge, 0.75), 0.6, 0.3);
     assert!(at(&mut judge, 0.85).is_empty());
+}
+
+/// A line spinning at `rev_per_s` from t = 0, drag-free, for chart building.
+fn spin_line(rev_per_s: f64, notes: Vec<serde_json::Value>) -> serde_json::Value {
+    let end = rev_per_s * 360. * 10.;
+    let mut line = line_json(notes);
+    line["judgeLineRotateEvents"] = serde_json::json!([
+        {"startTime": 0., "endTime": 10., "start": 0., "end": end},
+        {"startTime": 10., "endTime": 1000., "start": end, "end": end},
+    ]);
+    line
+}
+
+/// A finger position `r` out at `angle` degrees, in the record space.
+fn at_angle(r: f64, angle: f64) -> (f32, f32) {
+    let a = angle.to_radians();
+    ((r * a.cos()) as f32, (r * a.sin() * ASPECT as f64) as f32)
+}
+
+#[test]
+fn spinning_drags_judge_across_the_whole_screen() {
+    // full-screen drags: a drag on a fast line's centre must judge wherever
+    // the finger rests, however the spin aliases with the 30 Hz grid — 960
+    // rev/s turns exactly a whole number of half-turns per tick
+    let run = |rev_per_s: f64, r: f64, angle: f64| {
+        let chart = chart_of(vec![spin_line(rev_per_s, vec![note(2, 4., 0., 0.)])]);
+        let actions = [
+            Action::Down {
+                id: 1,
+                at: 3.5,
+                pos: at_angle(r, angle),
+            },
+            Action::Up { id: 1, at: 5.5 },
+        ];
+        let (chart, judge) = play_on(chart, &actions, &fps(400, 1. / 64.));
+        event_at(&judge, &chart, 4.).judgement
+    };
+    for rev in [15., 30., 90., 960.] {
+        for r in [0.3, 0.55] {
+            for a in 0..24 {
+                let angle = a as f64 * 15.;
+                assert_eq!(run(rev, r, angle), Judgement::Perfect, "{rev} rev/s, r={r}, {angle}°");
+            }
+        }
+    }
+}
+
+#[test]
+fn an_off_centre_spinning_drag_has_a_blind_spot() {
+    // the drag sits 0.3 out on a fast line: a finger near the rotation
+    // centre never comes within its band and must miss, one outside the
+    // note's orbit must hit — the arc test must not judge too wide either
+    let run = |r: f64| {
+        let chart = chart_of(vec![spin_line(120., vec![note(2, 4., 8. / 3., 0.)])]);
+        let actions = [
+            Action::Down {
+                id: 1,
+                at: 3.5,
+                pos: at_angle(r, 37.),
+            },
+            Action::Up { id: 1, at: 5.5 },
+        ];
+        let (chart, judge) = play_on(chart, &actions, &fps(400, 1. / 64.));
+        event_at(&judge, &chart, 4.).judgement
+    };
+    assert_eq!(run(0.03), Judgement::Miss, "inside the note's orbit");
+    assert_eq!(run(0.6), Judgement::Perfect, "outside the note's orbit");
+}
+
+#[test]
+fn drag_windows_clip_contact_to_their_bounds() {
+    // the finger sits in the band only before the window opens, leaving
+    // ahead of it: the piece ending at the window's scheduled start must
+    // not count — without the clip it would
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 3.85,
+                pos: (0., 0.),
+            },
+            Action::Move {
+                id: 1,
+                at: 3.88,
+                pos: (0.9, 0.),
+            },
+            Action::Up { id: 1, at: 4.125 },
+        ],
+        &fps(320, 1. / 64.),
+    );
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Miss, "{}", events_of(&judge));
+
+    // and only in the last 20 ms of the window: still a hit, the window's
+    // end being a scheduled point is what keeps that last piece whole
+    let (chart, judge) = play(
+        &[
+            Action::Down {
+                id: 1,
+                at: 4.085,
+                pos: (0., 0.),
+            },
+            Action::Up { id: 1, at: 4.1875 },
+        ],
+        &fps(320, 1. / 64.),
+    );
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+}
+
+#[test]
+fn a_child_line_orbiting_a_spinning_parent_carries_its_drags() {
+    // a drag on a child line's centre, the child orbiting a spinning
+    // parent: the finger on the orbit's circle must be reached, the sweep
+    // splitting the orbit into pieces short enough for the 100 Hz cap
+    let mut chart = chart_of(vec![spin_line(5., vec![]), {
+        let mut child = line_json(vec![note(2, 4., 0., 0.)]);
+        child["judgeLineMoveEvents"] = serde_json::json!([
+            {"startTime": 0., "endTime": 0., "start": 0.625, "end": 0.625, "start2": 0.5, "end2": 0.5},
+        ]);
+        child
+    }]);
+    chart.lines[1].parent = Some(0);
+    chart.lines[1].rot_with_parent = true;
+    // the child's origin at the drag's time, by the chart's own transforms
+    let tap = {
+        let tau = 4.;
+        for line in &mut chart.lines {
+            line.object.set_time(tau);
+        }
+        let tr = chart.lines[1].now_transform_with(ASPECT, &chart.lines);
+        let origin = tr.transform_point(&Point::new(0., 0.));
+        (origin.x, -origin.y * ASPECT)
+    };
+    let actions = [Action::Down { id: 1, at: 3.5, pos: tap }, Action::Up { id: 1, at: 5.5 }];
+    let (chart, judge) = play_on(chart, &actions, &fps(400, 1. / 64.));
+    assert_eq!(event_at(&judge, &chart, 4.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+}
+
+#[test]
+fn spinning_flicks_judge_across_the_screen() {
+    // a flick on a fast line's centre, swiped at from wherever: the swept
+    // segment-and-arc test sees it however the spin aliases
+    // a sustained swipe: every step of it claims a wedge of the line's
+    // rotation, and together they tile the whole circle however fast it
+    // spins — a single short step at 15 rev/s covers but 90° and legitimately
+    // misses when the line never points at the finger
+    let run = |rev_per_s: f64, r: f64, angle: f64| {
+        let chart = chart_of(vec![spin_line(rev_per_s, vec![note(4, 4., 0., 0.)])]);
+        let mut actions = vec![Action::Down {
+            id: 1,
+            at: 3.921875,
+            pos: at_angle(r, angle),
+        }];
+        for k in 1..=8 {
+            actions.push(Action::Move {
+                id: 1,
+                at: 3.921875 + k as f64 / 64.,
+                pos: at_angle(r + 0.12 * k as f64, angle),
+            });
+        }
+        actions.push(Action::Up { id: 1, at: 4.078125 });
+        let (chart, judge) = play_on(chart, &actions, &fps(400, 1. / 64.));
+        event_at(&judge, &chart, 4.).judgement
+    };
+    for rev in [15., 960.] {
+        for a in 0..12 {
+            let angle = a as f64 * 30.;
+            assert_eq!(run(rev, 0.4, angle), Judgement::Perfect, "{rev} rev/s, {angle}°");
+        }
+    }
+}
+
+#[test]
+fn a_hold_on_a_spinning_line_survives_at_any_line_angle() {
+    // the head is a click and must be pressed where the line points — that
+    // has always been so and is not what sweeping fixes — but once held,
+    // the mid-contact must survive the spin. At 2 rev/s the line points
+    // along +x exactly at 3.5, where the head sits
+    let chart = chart_of(vec![spin_line(2., vec![note(3, 3.5, 0., 1.)])]);
+    let actions = [
+        Action::Down {
+            id: 1,
+            at: 3.5,
+            pos: (0.1, 0.),
+        },
+        Action::Up { id: 1, at: 4.5625 },
+    ];
+    let (chart, judge) = play_on(chart, &actions, &fps(400, 1. / 64.));
+    let hold = event_at(&judge, &chart, 3.5);
+    assert_eq!(hold.judgement, Judgement::Perfect, "{}", events_of(&judge));
+    assert!(!hold.hold_broken);
+}
+
+/// The basic chart plus a spinning line with a full-screen drag at 2.5,
+/// for the invariance tests: sweeping must be as replayable, frame-rate
+/// independent and filter-independent as the rest.
+fn spinning_variant() -> Chart {
+    chart_of(vec![
+        line_json(vec![note(1, 1., 0., 0.), note(3, 2., 0., 1.), note(2, 4., 0., 0.), note(4, 5., 0., 0.)]),
+        spin_line(8., vec![note(2, 2.5, 0., 0.)]),
+    ])
+}
+
+fn spinning_actions() -> Vec<Action> {
+    let mut actions = full_actions();
+    actions.extend([
+        Action::Down {
+            id: 5,
+            at: 2.3,
+            pos: at_angle(0.45, 53.),
+        },
+        Action::Up { id: 5, at: 2.7 },
+    ]);
+    actions
+}
+
+#[test]
+fn a_replay_reproduces_a_spinning_run_note_for_note() {
+    let mut chart = spinning_variant();
+    let mut judge = Judge::new(&chart);
+    drive(&mut judge, &mut chart, &env(), &fps(400, 1. / 64.), &spinning_actions());
+    assert_eq!(event_at(&judge, &chart, 2.5).judgement, Judgement::Perfect, "{}", events_of(&judge));
+
+    let mut chart = spinning_variant();
+    let replayed = Judge::replay(&mut chart, &env(), &judge.inputs, 5.5);
+    assert_eq!(replayed.hit_events, judge.hit_events, "{}\nvs\n{}", events_of(&replayed), events_of(&judge));
+}
+
+#[test]
+fn spinning_results_do_not_depend_on_the_frame_rate() {
+    let actions = spinning_actions();
+    let run = |schedule: &[f64]| {
+        let mut chart = spinning_variant();
+        let mut judge = Judge::new(&chart);
+        drive(&mut judge, &mut chart, &env(), schedule, &actions);
+        (judge.inputs, judge.hit_events)
+    };
+    let (inputs64, hits64) = run(&fps(400, 1. / 64.));
+    let (inputs128, hits128) = run(&fps(800, 1. / 128.));
+    let (inputs_stall, hits_stall) = run(&stalled());
+    assert_eq!(inputs64, inputs128);
+    assert_eq!(hits64, hits128, "{}\nvs\n{}", hits_of(&hits64), hits_of(&hits128));
+    assert_eq!(inputs64, inputs_stall);
+    assert_eq!(hits64, hits_stall);
+}
+#[test]
+fn spinning_candidate_filtering_changes_nothing() {
+    let actions = spinning_actions();
+    let run = |filter: bool| {
+        let mut chart = spinning_variant();
+        let mut judge = Judge::new(&chart);
+        judge.set_candidate_filter(filter);
+        drive(&mut judge, &mut chart, &env(), &fps(400, 1. / 64.), &actions);
+        judge.hit_events
+    };
+    let filtered = run(true);
+    let plain = run(false);
+    assert_eq!(filtered, plain, "{}\nvs\n{}", hits_of(&filtered), hits_of(&plain));
+}
+
+/// The example chart — full-screen drags on lines spinning at 35.6 rev/s —
+/// against every finger position, head on. Set `PHIRA_SPIN_CHART` to the
+/// unpacked RPE directory to run; skipped otherwise, and the chart itself
+/// never enters the repository.
+#[test]
+#[ignore]
+fn the_example_spin_chart_judges_every_drag() {
+    let Ok(dir) = std::env::var("PHIRA_SPIN_CHART") else {
+        return;
+    };
+    use crate::{core::NoteKind, parse::parse_rpe};
+    let dir = std::path::Path::new(&dir);
+    let source = std::fs::read_to_string(dir.join("0362988124350467.json")).unwrap();
+    // the chart's own line textures need GL; plain ones judge identically
+    let mut json: serde_json::Value = serde_json::from_str(&source).unwrap();
+    for line in json["judgeLineList"].as_array_mut().unwrap() {
+        line["Texture"] = "line.png".into();
+        line["isGif"] = false.into();
+    }
+    let source = json.to_string();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut fs = crate::fs::fs_from_file(dir).unwrap();
+    let (mut total, mut hit) = (0, 0);
+    let mut section_cost = 0.;
+    for gx in -4..=4 {
+        for gy in -2..=2 {
+            let pos = (gx as f32 * 0.22, gy as f32 * 0.4);
+            let mut chart = rt.block_on(parse_rpe(&source, fs.as_mut(), ChartExtra::default(), false)).unwrap();
+            let mut judge = Judge::new(&chart);
+            let actions = [Action::Down { id: 1, at: 95.0, pos }, Action::Up { id: 1, at: 103.5 }];
+            let schedule: Vec<f64> = (0..).map(|it| 94.0 + it as f64 / 64.).take_while(|t| *t < 104.).collect();
+            judge.advance_to(&mut chart, 94.0);
+            let start = Instant::now();
+            drive(&mut judge, &mut chart, &env(), &schedule, &actions);
+            if gx == 4 && gy == 2 {
+                section_cost = start.elapsed().as_secs_f64() * 1e6 / schedule.len() as f64;
+            }
+            for it in &judge.hit_events {
+                if (it.line_id == 15 || it.line_id == 16)
+                    && matches!(chart.lines[it.line_id as usize].notes[it.note_id as usize].kind, NoteKind::Drag)
+                {
+                    total += 1;
+                    hit += (it.judgement == Judgement::Perfect) as u32;
+                }
+            }
+        }
+    }
+    eprintln!("spin chart: {section_cost:.1}µs per frame over the spinning section, {hit}/{total} drags");
+    assert_eq!(hit, total, "{}/{} drags judged", total - hit, total);
+}
+
+/// Contact over an interval counts only the fingers that were actually down
+/// during it: a finger lifted at an evaluation point was down over the
+/// interval before it, a finger pressed there was not. Checked against a
+/// brute-force sampling of the band on a spinning line.
+#[test]
+fn contact_is_judged_over_the_time_a_finger_was_actually_down() {
+    use crate::core::NoteKind;
+    let rev = 4.;
+    let spin_chart = || {
+        let end = rev * 360. * 10.;
+        let mut line = line_json(vec![note(2, 4., 0., 0.)]);
+        line["judgeLineRotateEvents"] = serde_json::json!([{"startTime": 0., "endTime": 10., "start": 0., "end": end}, {"startTime": 10., "endTime": 1000., "start": end, "end": end}]);
+        chart_of(vec![line])
+    };
+    // ground truth: was the finger inside the drag's band at any instant it
+    // was down and the window was open? sampled every 0.1 ms
+    let truth = |pos: (f32, f32), down: f64, up: f64| {
+        let mut chart = spin_chart();
+        let (lo, hi) = (down.max(3.9), up.min(4.1));
+        let mut t = lo;
+        while t <= hi {
+            let line = &mut chart.lines[0];
+            line.object.set_time(t);
+            let inv = line.now_transform_with(ASPECT, &[]).try_inverse().unwrap();
+            let p = inv.transform_point(&Point::new(pos.0, -(pos.1 / ASPECT)));
+            let note = &line.notes[0];
+            assert!(matches!(note.kind, NoteKind::Drag));
+            if (p.x - note.object.translation.0.now()).abs() as f64 <= super::CONTACT_WIDTH {
+                return true;
+            }
+            t += 0.0001;
+        }
+        false
+    };
+    for (label, down, up) in [("press in window", 3.915, 4.5), ("lift in window", 3.5, 4.03), ("both", 3.915, 4.03)] {
+        let (mut wrong_wide, mut wrong_narrow) = (0, 0);
+        for a in 0..120 {
+            let a = (a as f64 * 3.).to_radians();
+            let pos = ((0.9 * a.cos()) as f32, (0.9 * a.sin() * ASPECT as f64) as f32);
+            let mut chart = spin_chart();
+            let mut judge = Judge::new(&chart);
+            drive(&mut judge, &mut chart, &env(), &fps(400, 1. / 64.), &[Action::Down { id: 1, at: down, pos }, Action::Up { id: 1, at: up }]);
+            let got = judge.hit_events.first().is_some_and(|it| it.judgement == Judgement::Perfect);
+            let want = truth(pos, down, up);
+            if got && !want {
+                wrong_wide += 1;
+            }
+            if !got && want {
+                wrong_narrow += 1;
+            }
+        }
+        assert_eq!((wrong_wide, wrong_narrow), (0, 0), "{label}: judged without contact / missed with contact");
+    }
 }

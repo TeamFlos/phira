@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     cmp::Reverse,
-    collections::{BinaryHeap, HashSet},
+    collections::{BinaryHeap, HashMap, HashSet},
     mem,
     num::FpCategory,
     sync::Arc,
@@ -58,6 +58,13 @@ pub const UP_TOLERANCE: f64 = 0.05;
 /// Two candidates this close in time count as simultaneous for click
 /// matching, and are told apart by distance instead.
 const SAME_TIME: f64 = 0.01;
+/// Sweeping splits an interval into pieces at least this long, so
+/// translation and orbiting are sampled at most at 100 Hz. Rotation is
+/// handled exactly by the arc test however fast it is; translation or
+/// orbiting faster than this is not guaranteed to be seen.
+const SWEEP_HZ_CAP: f64 = 100.;
+/// The absolute cap on pieces per swept interval, as a safety net.
+const SWEEP_MAX: usize = 64;
 
 /// One world unit — a tenth of the screen height — in this codebase's
 /// line-local units (halves of the viewport width), at the reference 16:9
@@ -351,13 +358,23 @@ pub(crate) enum JudgeEffectKind {
 }
 
 /// A scheduled evaluation point: the exact time a pre-judged drag or flick
-/// commits, or a held hold ends. Keeps commits and sounds on time instead of
-/// waiting for the next tick.
+/// commits, a held hold ends, or a drag's contact window opens or closes —
+/// so that no swept interval ever straddles a window boundary and the sweep
+/// never has to clip itself in time.
 #[derive(Clone, Copy, PartialEq)]
 struct Sched {
     time: f64,
+    kind: SchedKind,
     line: u32,
     note: u32,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SchedKind {
+    /// A pre-judged note commits.
+    Commit,
+    /// A drag's contact window opens or closes.
+    DragWindow,
 }
 
 impl Eq for Sched {}
@@ -387,9 +404,11 @@ enum Cause {
     Swipe { step: SwipeStep, new: bool },
 }
 
-/// One swipe step due for judging, in the stream's coordinate space.
+/// One swipe step due for judging: the finger ran from `(x0, y0)` at `from`
+/// to `(x1, y1)` at `time`, in the stream's coordinate space.
 struct SwipeStep {
     id: u8,
+    from: f64,
     x0: f32,
     y0: f32,
     x1: f32,
@@ -403,6 +422,39 @@ struct LineView {
     line: u32,
     inv: Matrix,
     touches: Vec<Option<Point>>,
+    /// The interval since the previous evaluation point, in pieces, when the
+    /// line has contact judging due — empty otherwise, and `touched` is then
+    /// simply false.
+    arcs: Vec<Piece>,
+    /// The line holds a flick a swipe judged at this point might claim.
+    flick: bool,
+}
+
+/// One piece of a swept interval: how far the line turned over it, and each
+/// live touch's polar coordinates (distance from the origin, angle) in the
+/// line's frame at the piece's end. A touch's local x over the piece is
+/// `d cos φ` with φ sweeping `turn` radians — the continuous image of an
+/// arc, hence an interval, whose bounds are the arc's ends, or ±d where it
+/// passes 0 or π.
+struct Piece {
+    turn: f32,
+    /// The piece's end time.
+    t: f64,
+    /// The line's inverse transform at the piece's end.
+    inv: Matrix,
+    polars: Vec<Option<(f32, f32)>>,
+}
+
+/// A line's accumulated rotation and position as last computed at `time` —
+/// the previous evaluation point, usually, so that the next sweep over the
+/// interval starting there needs no seek of its own. Chart anims are pure
+/// functions of chart time, so an exact-time match stays valid even across
+/// a seek.
+#[derive(Clone)]
+struct LineCache {
+    time: f64,
+    rot: f32,
+    pos: Vector,
 }
 
 /// A note resolved at an evaluation point, waiting to be committed.
@@ -412,6 +464,19 @@ struct Resolved {
     judgement: Judgement,
     diff: Option<f64>,
     hold_broken: bool,
+}
+
+/// A note's x extent over `(from, tau]`: its animated x at both ends,
+/// ordered. A conservative extension — the whole interval is judged against
+/// one band covering where the note was at either end.
+fn note_x(note: &mut crate::core::Note, from: f64, tau: f64) -> (f32, f32) {
+    let x = &mut note.object.translation.0;
+    x.set_time(tau);
+    let x1 = x.now();
+    x.set_time(from);
+    let x0 = x.now();
+    x.set_time(tau);
+    (x0.min(x1), x0.max(x1))
 }
 
 /// The first tick strictly after `t`.
@@ -452,6 +517,12 @@ pub struct Judge {
     /// Live touches in the stream's coordinate space, in order of arrival:
     /// slot and the last position emitted into the stream.
     live: Vec<(u8, f32, f32)>,
+    /// The live touches as they stood over the interval leading up to the
+    /// current evaluation point, before its own event applied: a finger
+    /// pressed at the point was not down during the interval, a finger
+    /// lifted there was, and a move takes effect at the point. Sweeps judge
+    /// these; the point itself is judged against `live`.
+    held: Vec<(u8, f32, f32)>,
     /// Slots whose current swipe gesture has not judged a flick yet; a
     /// gesture arms on its first step and disarms on a match or an End.
     armed: HashSet<u8>,
@@ -459,6 +530,16 @@ pub struct Judge {
     /// protection. Only drags ever land here: a tap is spent by being
     /// judged, a flick is never spent.
     consumed: HashSet<(u32, u32)>,
+    /// Drags whose contact window has been registered as scheduled points.
+    drag_windows: HashSet<(u32, u32)>,
+    /// Per line, whether it holds any note contact judging could ever
+    /// concern — a hold, drag or flick. Lines without one skip the sweep
+    /// gating entirely.
+    has_contact: Vec<bool>,
+    /// Per line, its rotation and position as last computed at a known
+    /// chart time, for starting sweeps without a seek of the previous
+    /// evaluation point.
+    line_cache: Vec<Option<LineCache>>,
     sched: BinaryHeap<Reverse<Sched>>,
     /// Whether to skip lines whose next note is beyond the click search
     /// window — a pure optimization, off only in the equivalence test.
@@ -510,8 +591,16 @@ impl Judge {
             next_tick: 0,
             collector: InputCollector::default(),
             live: Vec::new(),
+            held: Vec::new(),
             armed: HashSet::new(),
             consumed: HashSet::new(),
+            drag_windows: HashSet::new(),
+            has_contact: chart
+                .lines
+                .iter()
+                .map(|line| line.notes.iter().any(|it| !matches!(it.kind, NoteKind::Click) && !it.fake))
+                .collect(),
+            line_cache: vec![None; chart.lines.len()],
             sched: BinaryHeap::new(),
             filter_candidates: true,
             replaying: false,
@@ -528,8 +617,11 @@ impl Judge {
         self.next_tick = 0;
         self.collector.reset();
         self.live.clear();
+        self.held.clear();
         self.armed.clear();
         self.consumed.clear();
+        self.drag_windows.clear();
+        self.line_cache.iter_mut().for_each(|it| *it = None);
         self.sched.clear();
     }
 
@@ -554,6 +646,8 @@ impl Judge {
         self.last_time = t;
         self.judged_until = t;
         self.next_tick = tick_after(t);
+        self.drag_windows.clear();
+        self.line_cache.iter_mut().for_each(|it| *it = None);
         self.sched.clear();
     }
 
@@ -743,9 +837,9 @@ impl Judge {
             for _ in 0..keys_down {
                 self.keyboard_hit(chart, env, t, effects);
             }
-            let views = self.line_views(chart, env, t);
+            let views = self.line_views(chart, env, t, t, false);
             self.pass_miss(chart, env, t, &views, effects);
-            self.pass_continuous(chart, env, t, &views, effects);
+            self.pass_continuous(chart, env, t, t, &views, effects);
             self.pass_pre_judged(chart, env, t, &views, effects);
             self.advance_st(chart);
         }
@@ -827,10 +921,19 @@ impl Judge {
                         self.log(event);
                         Cause::End { id }
                     }
-                    InputEvent::Swipe { id, new, x0, y0, x1, y1, .. } => {
+                    InputEvent::Swipe {
+                        id,
+                        from,
+                        time: _,
+                        new,
+                        x0,
+                        y0,
+                        x1,
+                        y1,
+                    } => {
                         self.log(event);
                         Cause::Swipe {
-                            step: SwipeStep { id, x0, y0, x1, y1 },
+                            step: SwipeStep { id, from, x0, y0, x1, y1 },
                             new,
                         }
                     }
@@ -848,6 +951,7 @@ impl Judge {
     /// as one at exactly `tau`), then the continuous checks, then the
     /// pre-judged commits.
     fn step(&mut self, chart: &mut Chart, env: &JudgeEnv, tau: f64, cause: Cause, effects: &mut Vec<JudgeEffect>) {
+        self.held.clone_from(&self.live);
         let (click, swipe) = match cause {
             Cause::Tick(points) => {
                 for point in points {
@@ -882,7 +986,9 @@ impl Judge {
             }
             Cause::Sched => (None, None),
         };
-        let views = self.line_views(chart, env, tau);
+        let from = self.judged_until;
+        let swiping = swipe.as_ref().is_some_and(|it| self.armed.contains(&it.id));
+        let views = self.line_views(chart, env, from, tau, swiping);
         self.pass_miss(chart, env, tau, &views, effects);
         if let Some(slot) = click {
             self.click(chart, env, tau, slot, &views, effects);
@@ -890,23 +996,99 @@ impl Judge {
         if let Some(step) = swipe {
             self.swipe(chart, env, tau, &step, &views, effects);
         }
-        self.pass_continuous(chart, env, tau, &views, effects);
+        self.pass_continuous(chart, env, from, tau, &views, effects);
         self.pass_pre_judged(chart, env, tau, &views, effects);
         self.advance_st(chart);
     }
 
     /// The candidate lines at `tau` — those with a note that could still
-    /// matter — with their whole ancestor chain seeked to `tau`, and the
-    /// live touches mapped into each line's local frame.
-    fn line_views(&self, chart: &mut Chart, env: &JudgeEnv, tau: f64) -> Vec<LineView> {
+    /// matter — with their whole ancestor chain seeked to `tau`, the live
+    /// touches mapped into each line's local frame, and, for the lines with
+    /// contact judging due over `(from, tau]`, that interval swept into
+    /// pieces. Sweeping is exact for rotation (an arc test) and only splits
+    /// for travel, so a fast-spinning line with a drag on its centre is
+    /// judged everywhere on screen however it aliases with the tick grid.
+    ///
+    /// This is also where each pending drag first gets its contact window's
+    /// two bounds registered as scheduled points — always before the window
+    /// opens, because a line becomes a candidate a good `LIMIT_BAD` before
+    /// that — and where the lines a swipe at this point might judge get
+    /// marked.
+    fn line_views(&mut self, chart: &mut Chart, env: &JudgeEnv, from: f64, tau: f64, swipe: bool) -> Vec<LineView> {
+        let spd = env.speed;
+        // contact judging only makes sense with a finger down, over a
+        // non-empty interval. A swipe's own interval starts at its event's
+        // `from`, which can precede `from` here — the same instant as a
+        // tick, say — so the scan below runs for swipes regardless.
+        let alive = !self.live.is_empty() || !self.held.is_empty();
+        let sweeping = !self.held.is_empty() && from < tau;
+        let swiping = sweeping || swipe;
         let mut candidates: Vec<u32> = Vec::new();
+        let mut swept: Vec<u32> = Vec::new();
+        let mut flicks: Vec<u32> = Vec::new();
+        let mut windows: Vec<(u32, u32, f64)> = Vec::new();
         for (id, (idx, st)) in self.notes.iter().enumerate() {
             let Some(&first) = idx.get(*st) else {
                 continue;
             };
-            if !self.filter_candidates || chart.lines[id].notes[first as usize].time <= tau + LIMIT_BAD * env.speed {
-                candidates.push(id as u32);
+            if self.filter_candidates && chart.lines[id].notes[first as usize].time > tau + LIMIT_BAD * spd {
+                continue;
             }
+            let id = id as u32;
+            candidates.push(id);
+            if !swiping || !alive || !self.has_contact[id as usize] {
+                continue;
+            }
+            // contact judging due: a hold being held or about to be
+            // clicked (the sweep runs before the click that starts it), a
+            // drag whose window the interval reaches into, or — when this
+            // point judges a swipe — a flick the gesture might claim
+            let line = &chart.lines[id as usize];
+            let mut due = false;
+            let mut flick = false;
+            for nid in &idx[*st..] {
+                let note = &line.notes[*nid as usize];
+                let dt = (tau - note.time) / spd;
+                if dt < -LIMIT_BAD {
+                    break;
+                }
+                match note.kind {
+                    NoteKind::Hold { .. } => {
+                        match &note.judge {
+                            JudgeStatus::Hold(.., pre_judge, _) => due |= !*pre_judge,
+                            // a head the press at this point might yet click
+                            JudgeStatus::NotJudged => due |= dt > -LIMIT_BAD && dt < LIMIT_GOOD,
+                            _ => {}
+                        }
+                    }
+                    NoteKind::Drag => {
+                        if !matches!(note.judge, JudgeStatus::NotJudged) {
+                            continue;
+                        }
+                        if self.drag_windows.insert((id, *nid)) {
+                            windows.push((id, *nid, note.time - LIMIT_DRAG * spd));
+                            windows.push((id, *nid, note.time + LIMIT_DRAG * spd));
+                        }
+                        due |= dt <= LIMIT_DRAG && note.time + LIMIT_DRAG * spd > from;
+                    }
+                    NoteKind::Flick => {
+                        flick |= swipe && matches!(note.judge, JudgeStatus::NotJudged) && dt < LIMIT_FLICK;
+                    }
+                    NoteKind::Click => {}
+                }
+                if due && flick {
+                    break;
+                }
+            }
+            if due && sweeping {
+                swept.push(id);
+            }
+            if flick {
+                flicks.push(id);
+            }
+        }
+        for (line, note, time) in windows {
+            self.push_sched(tau, line, note, time, SchedKind::DragWindow);
         }
         // Seek every candidate's whole ancestor chain: a parent left at an
         // older time would distort the child's transform.
@@ -921,9 +1103,13 @@ impl Judge {
                 cur = chart.lines[i].parent;
             }
         }
+        let mut arcs: HashMap<u32, Vec<Piece>> = HashMap::new();
+        for &id in &swept {
+            arcs.insert(id, self.sweep(chart, env, id as usize, from, tau, 0.));
+        }
         candidates
-            .iter()
-            .map(|&id| {
+            .into_iter()
+            .map(|id| {
                 let inv = chart.lines[id as usize]
                     .now_transform_with(env.aspect_ratio, &chart.lines)
                     .try_inverse()
@@ -931,7 +1117,7 @@ impl Judge {
                 fn ok(f: f32) -> bool {
                     matches!(f.classify(), FpCategory::Zero | FpCategory::Subnormal | FpCategory::Normal)
                 }
-                let touches = self
+                let touches: Vec<Option<Point>> = self
                     .live
                     .iter()
                     .map(|&(_, x, y)| {
@@ -939,9 +1125,158 @@ impl Judge {
                         (ok(p.x) && ok(p.y)).then_some(p)
                     })
                     .collect();
-                LineView { line: id, inv, touches }
+                let flick = flicks.contains(&id);
+                LineView {
+                    line: id,
+                    inv,
+                    touches,
+                    arcs: arcs.remove(&id).unwrap_or_default(),
+                    flick,
+                }
             })
             .collect()
+    }
+
+    /// Seeks a line's whole ancestor chain to `t` and caches each member's
+    /// accumulated rotation and position there.
+    fn seek_cache(&mut self, chart: &mut Chart, env: &JudgeEnv, id: usize, t: f64) {
+        let mut chain = Vec::new();
+        let mut cur = Some(id);
+        while let Some(i) = cur {
+            chain.push(i);
+            cur = chart.lines[i].parent;
+        }
+        for &i in &chain {
+            chart.lines[i].object.set_time(t);
+        }
+        for i in chain {
+            let (rot, pos) = (chart.lines[i].fetch_rot(&chart.lines), chart.lines[i].fetch_pos_with(env.aspect_ratio, &chart.lines));
+            self.line_cache[i] = Some(LineCache { time: t, rot, pos });
+        }
+    }
+
+    fn chain_at(&self, chart: &Chart, id: usize, t: f64) -> Option<Vec<LineCache>> {
+        let mut out = Vec::new();
+        let mut cur = Some(id);
+        while let Some(i) = cur {
+            let cache = self.line_cache[i].as_ref()?;
+            if cache.time != t {
+                return None;
+            }
+            out.push(LineCache {
+                time: t,
+                rot: cache.rot,
+                pos: cache.pos,
+            });
+            cur = chart.lines[i].parent;
+        }
+        Some(out)
+    }
+
+    /// Sweeps the interval `(from, tau]` for one line — the rotation exactly
+    /// (per-piece arc bounds), the travel in pieces of at most half a click
+    /// width, never shorter than `1 / SWEEP_HZ_CAP` seconds. `extra` adds to
+    /// the travel estimate, the finger's own segment for a swipe. Values at
+    /// `from` come from the line cache when it is current there, so the
+    /// previous evaluation point usually costs no extra seek.
+    fn sweep(&mut self, chart: &mut Chart, env: &JudgeEnv, id: usize, from: f64, tau: f64, extra: f64) -> Vec<Piece> {
+        let head = match self.chain_at(chart, id, from) {
+            Some(head) => head,
+            None => {
+                self.seek_cache(chart, env, id, from);
+                self.chain_at(chart, id, from).expect("just cached")
+            }
+        };
+        self.seek_cache(chart, env, id, tau);
+        let tail = self.chain_at(chart, id, tau).expect("just cached");
+        // travel: the endpoints' difference, plus the arcs the ancestors'
+        // rotation sweeps this line's offsets along — an endpoint difference
+        // alone underestimates a child orbiting a spinning parent
+        let mut path = (tail[0].pos - head[0].pos).norm() as f64 + extra;
+        // (`head` and `tail` hold the chain in order, the line itself first,
+        // so a member's parent sits right after it)
+        let mut child = id;
+        let mut depth = 0;
+        while let Some(parent) = chart.lines[child].parent {
+            depth += 1;
+            let turned = (tail[depth].rot - head[depth].rot).abs().to_radians() as f64;
+            path += turned * chart.lines[child].object.now_translation_with(env.aspect_ratio).norm() as f64;
+            child = parent;
+        }
+        let cap = (((tau - from) * SWEEP_HZ_CAP).ceil() as usize).clamp(1, SWEEP_MAX);
+        let n = ((path / (CLICK_WIDTH / 2.)).ceil() as usize).clamp(1, cap);
+        let mut pieces = Vec::with_capacity(n);
+        let mut rot = head[0].rot;
+        fn ok(f: f32) -> bool {
+            matches!(f.classify(), FpCategory::Zero | FpCategory::Subnormal | FpCategory::Normal)
+        }
+        for i in 1..=n {
+            let s = from + (tau - from) * i as f64 / n as f64;
+            let mut cur = Some(id);
+            while let Some(l) = cur {
+                chart.lines[l].object.set_time(s);
+                cur = chart.lines[l].parent;
+            }
+            let line = &chart.lines[id];
+            let r = line.fetch_rot(&chart.lines);
+            let inv = line.now_transform_with(env.aspect_ratio, &chart.lines).try_inverse().unwrap();
+            let polars = self
+                .held
+                .iter()
+                .map(|&(_, x, y)| {
+                    let p = inv.transform_point(&Point::new(if env.flip_x { -x } else { x }, -(y / env.aspect_ratio)));
+                    (ok(p.x) && ok(p.y)).then_some((p.coords.norm(), p.y.atan2(p.x)))
+                })
+                .collect();
+            pieces.push(Piece {
+                turn: r - rot,
+                t: s,
+                inv,
+                polars,
+            });
+            rot = r;
+        }
+        // the last piece ends at tau, leaving the chain where the passes
+        // expect it
+        let mut cur = Some(id);
+        while let Some(l) = cur {
+            chart.lines[l].object.set_time(tau);
+            cur = chart.lines[l].parent;
+        }
+        pieces
+    }
+
+    /// Whether a live touch was inside the note's band — `[lo - half, hi +
+    /// half]`, the note's x extent over the interval widened by its reach —
+    /// at any moment of the interval: within a piece the touch's local x is
+    /// `d cos φ` with φ sweeping an arc ending at its angle now.
+    fn touched(view: &LineView, lo: f32, hi: f32, half: f32) -> bool {
+        // the fingers down over the interval, swept; and the ones down at
+        // the point itself, a finger just pressed included
+        view.touches.iter().flatten().any(|p| p.x >= lo - half && p.x <= hi + half)
+            || view.arcs.iter().any(|piece| {
+                piece
+                    .polars
+                    .iter()
+                    .flatten()
+                    .any(|&(d, phi)| Self::arc_hit(d, phi, piece.turn, lo, hi, half))
+            })
+    }
+
+    /// Whether `d cos φ`, φ sweeping `turn` radians from `phi`, reaches the
+    /// band `[lo - half, hi + half]`. A continuous function maps an arc to
+    /// an interval; its bounds are the arc's ends, or ±d where the arc
+    /// passes 0 or π.
+    fn arc_hit(d: f32, phi: f32, turn: f32, lo: f32, hi: f32, half: f32) -> bool {
+        use std::f32::consts::{PI, TAU};
+        fn passes(a: f32, b: f32, c: f32) -> bool {
+            c + ((a - c) / TAU).ceil() * TAU <= b
+        }
+        let other = phi + turn.to_radians();
+        let (a, b) = if phi <= other { (phi, other) } else { (other, phi) };
+        let hit_hi = if passes(a, b, 0.) { d } else { (d * a.cos()).max(d * b.cos()) };
+        let hit_lo = if passes(a, b, PI) { -d } else { (d * a.cos()).min(d * b.cos()) };
+        hit_lo <= hi + half && hit_hi >= lo - half
     }
 
     /// Expired notes miss, and holds approach their end. Positions play no
@@ -995,10 +1330,13 @@ impl Judge {
         self.flush(chart, env, tau, resolved, effects);
     }
 
-    /// Continuous checks against the positions on the grid: holds whose
-    /// finger went away, and drags a held finger touches into place (flicks
-    /// only through the keyboard's stand-in for a finger).
-    fn pass_continuous(&mut self, chart: &mut Chart, env: &JudgeEnv, tau: f64, views: &[LineView], effects: &mut Vec<JudgeEffect>) {
+    /// Continuous checks against the swept interval: holds whose finger went
+    /// away, and drags a held finger touches into place (flicks only through
+    /// the keyboard's stand-in for a finger). The note's band spans its x
+    /// extent over the whole interval, a conservative extension; the drag
+    /// window itself is clipped by the scheduled points at its bounds, so
+    /// the interval never reaches outside it.
+    fn pass_continuous(&mut self, chart: &mut Chart, env: &JudgeEnv, from: f64, tau: f64, views: &[LineView], effects: &mut Vec<JudgeEffect>) {
         let spd = env.speed;
         let mut resolved = Vec::new();
         let mut scheduled = Vec::new();
@@ -1008,21 +1346,18 @@ impl Judge {
             for id in &idx[*st..] {
                 let note = &mut line.notes[*id as usize];
                 if let NoteKind::Hold { .. } = &note.kind {
-                    if let JudgeStatus::Hold(.., pre_judge, up_time) = &mut note.judge {
-                        if *pre_judge {
+                    if matches!(note.judge, JudgeStatus::Hold(..)) {
+                        if matches!(note.judge, JudgeStatus::Hold(.., true, _)) {
                             continue;
                         }
-                        let x = {
-                            note.object.translation.0.set_time(tau);
-                            note.object.translation.0.now()
+                        let up_time = match note.judge {
+                            JudgeStatus::Hold(.., up) => up,
+                            _ => unreachable!(),
                         };
-                        if self.key_down_count == 0
-                            && !view
-                                .touches
-                                .iter()
-                                .any(|it| it.is_some_and(|it| (it.x - x).abs() as f64 / note.judge_area as f64 <= CLICK_WIDTH))
-                        {
-                            if tau > *up_time + UP_TOLERANCE {
+                        let area = note.judge_area as f64;
+                        let (x0, x1) = note_x(note, from, tau);
+                        if self.key_down_count == 0 && !Self::touched(view, x0, x1, (CLICK_WIDTH * area) as f32) {
+                            if tau > up_time + UP_TOLERANCE {
                                 note.judge = JudgeStatus::Judged;
                                 // The head of this hold was hit; the player
                                 // let go too early. Flagged so it can be told
@@ -1035,10 +1370,12 @@ impl Judge {
                                     hold_broken: true,
                                 });
                             } else if up_time.is_infinite() {
-                                *up_time = tau;
+                                if let JudgeStatus::Hold(.., ref mut up) = note.judge {
+                                    *up = tau;
+                                }
                             }
-                        } else {
-                            *up_time = f64::INFINITY;
+                        } else if let JudgeStatus::Hold(.., ref mut up) = note.judge {
+                            *up = f64::INFINITY;
                         }
                         continue;
                     }
@@ -1057,26 +1394,20 @@ impl Judge {
                     NoteKind::Flick if self.key_down_count != 0 => LIMIT_FLICK,
                     _ => continue,
                 };
-                if dt.abs() > window {
+                // the window's bounds are scheduled points, so any interval
+                // reaching dt == -window lies entirely before it opens
+                if dt <= -window || dt > window {
                     continue;
                 }
-                let x = {
-                    note.object.translation.0.set_time(tau);
-                    note.object.translation.0.now()
-                };
-                if self.key_down_count != 0
-                    || view
-                        .touches
-                        .iter()
-                        .any(|it| it.is_some_and(|it| (it.x - x).abs() as f64 / note.judge_area as f64 <= CONTACT_WIDTH))
-                {
+                let (x0, x1) = note_x(note, from, tau);
+                if self.key_down_count != 0 || Self::touched(view, x0, x1, (CONTACT_WIDTH * note.judge_area as f64) as f32) {
                     note.judge = JudgeStatus::PreJudge;
                     scheduled.push((view.line, *id, note.time));
                 }
             }
         }
         for (line, note, time) in scheduled {
-            self.push_sched(tau, line, note, time);
+            self.push_sched(tau, line, note, time, SchedKind::Commit);
         }
         self.flush(chart, env, tau, resolved, effects);
     }
@@ -1284,7 +1615,7 @@ impl Judge {
             NoteKind::Hold { end_time, .. } => {
                 let perfect = best.dt.abs() < LIMIT_PERFECT;
                 self.judgements.borrow_mut().push((tau, best.line, best.note, Err(perfect)));
-                self.push_sched(tau, best.line, best.note, end_time);
+                self.push_sched(tau, best.line, best.note, end_time, SchedKind::Commit);
                 note.judge = JudgeStatus::Hold(perfect, tau, tau, false, f64::INFINITY);
                 effects.push(JudgeEffect {
                     time: tau,
@@ -1296,13 +1627,36 @@ impl Judge {
         }
     }
 
-    /// One swipe step judged at exactly `tau`: an
-    /// armed gesture claims the earliest unjudged flick within reach of the
-    /// step's segment — the segment test is what lets a very fast swipe be
-    /// seen even when it crosses the whole judgement band between two
-    /// samples (#863) — and one gesture judges at most one flick.
+    /// One swipe step judged at exactly `tau`: an armed gesture claims the
+    /// earliest unjudged flick its step reaches. The finger's segment is
+    /// swept like the line itself: the interval `[from, tau]` is split the
+    /// contact sweep's way (with the finger's own length in the path), and
+    /// over each piece contact is the segment meeting the band in the
+    /// piece-end frame, or either endpoint passing the arc test. The line
+    /// moving under a fast finger within a piece is approximated away —
+    /// rotation is still exact through the arcs. Scoring stays at `tau`:
+    /// `dx + |dy| / 2.2` from the whole segment in the tau-end frame, so a
+    /// very fast swipe is still seen even when it crosses the whole
+    /// judgement band between two samples (#863), and one gesture judges at
+    /// most one flick.
     fn swipe(&mut self, chart: &mut Chart, env: &JudgeEnv, tau: f64, step: &SwipeStep, views: &[LineView], effects: &mut Vec<JudgeEffect>) {
-        let SwipeStep { id: slot, x0, y0, x1, y1 } = *step;
+        #[derive(Clone, Copy)]
+        struct FlickTarget {
+            note: u32,
+            time: f64,
+            dt: f64,
+            lo: f32,
+            hi: f32,
+            area: f64,
+        }
+        let SwipeStep {
+            id: slot,
+            from,
+            x0,
+            y0,
+            x1,
+            y1,
+        } = *step;
         if !self.armed.contains(&slot) {
             return;
         }
@@ -1316,18 +1670,16 @@ impl Judge {
             dt: f64,
             weighted: f64,
         }
-        let mut cands: Vec<Cand> = Vec::new();
+        // the flicks this step could reach, per line, with their x extent
+        // over the step's interval
+        let mut targets: Vec<(u32, Vec<FlickTarget>)> = Vec::new();
         for view in views {
-            let p0 = to_local(&view.inv, x0, y0);
-            let p1 = to_local(&view.inv, x1, y1);
-            fn ok(f: f32) -> bool {
-                matches!(f.classify(), FpCategory::Zero | FpCategory::Subnormal | FpCategory::Normal)
-            }
-            if !ok(p0.x) || !ok(p0.y) || !ok(p1.x) || !ok(p1.y) {
+            if !view.flick {
                 continue;
             }
             let line = &mut chart.lines[view.line as usize];
             let (idx, st) = &self.notes[view.line as usize];
+            let mut notes: Vec<FlickTarget> = Vec::new();
             for id in &idx[*st..] {
                 let note = &mut line.notes[*id as usize];
                 if !matches!(note.kind, NoteKind::Flick) || !matches!(note.judge, JudgeStatus::NotJudged) {
@@ -1337,32 +1689,70 @@ impl Judge {
                 if dt.abs() >= LIMIT_FLICK {
                     continue;
                 }
-                let x = &mut note.object.translation.0;
-                x.set_time(tau);
-                let x = x.now();
-                // the segment's x extent against the note's vertical band:
-                // full contact if it spans the note, else the nearer end
-                let lo = p0.x.min(p1.x);
-                let hi = p0.x.max(p1.x);
-                let (dx, dy) = if x >= lo && x <= hi {
-                    // the point of the segment above the note
-                    let r = if p1.x == p0.x { 0.5 } else { ((x - p0.x) / (p1.x - p0.x)).clamp(0., 1.) };
-                    (0., (p0.y + (p1.y - p0.y) * r).abs() as f64)
-                } else {
-                    let nearer = if (x - p0.x).abs() < (x - p1.x).abs() { p0 } else { p1 };
-                    ((x - nearer.x).abs() as f64, nearer.y.abs() as f64)
-                };
-                let dx = dx / note.judge_area as f64;
-                if dx >= CONTACT_WIDTH {
-                    continue;
-                }
-                cands.push(Cand {
-                    time: note.time,
-                    line: view.line,
+                let (lo, hi) = note_x(note, from, tau);
+                notes.push(FlickTarget {
                     note: *id,
+                    time: note.time,
                     dt,
-                    weighted: dx + dy / 2.2,
+                    lo,
+                    hi,
+                    area: note.judge_area as f64,
                 });
+            }
+            if !notes.is_empty() {
+                targets.push((view.line, notes));
+            }
+        }
+        if targets.is_empty() {
+            return;
+        }
+        let fx = (x1 - x0) as f64;
+        let fy = ((y1 - y0) / env.aspect_ratio) as f64;
+        let finger = (fx * fx + fy * fy).sqrt();
+        let span = (tau - from).max(1e-9);
+        let mut cands: Vec<Cand> = Vec::new();
+        for (line, notes) in &targets {
+            let mut pieces = self.sweep(chart, env, *line as usize, from, tau, finger);
+            let mut prev = from;
+            'pieces: for piece in pieces.iter_mut() {
+                fn ok(f: f32) -> bool {
+                    matches!(f.classify(), FpCategory::Zero | FpCategory::Subnormal | FpCategory::Normal)
+                }
+                let f = |t: f64| ((t - from) / span) as f32;
+                let qa = to_local(&piece.inv, x0 + (x1 - x0) * f(prev), y0 + (y1 - y0) * f(prev));
+                let qb = to_local(&piece.inv, x0 + (x1 - x0) * f(piece.t), y0 + (y1 - y0) * f(piece.t));
+                if ok(qa.x) && ok(qa.y) && ok(qb.x) && ok(qb.y) {
+                    for target in notes {
+                        let FlickTarget { note, lo, hi, area, .. } = *target;
+                        let half = (CONTACT_WIDTH * area) as f32;
+                        let arc = |p: Point| Self::arc_hit(p.coords.norm(), p.y.atan2(p.x), piece.turn, lo, hi, half);
+                        if qa.x.max(qb.x) >= lo - half && qa.x.min(qb.x) <= hi + half || arc(qa) || arc(qb) {
+                            // scored in the tau-end frame, like before
+                            let view = views.iter().find(|it| it.line == *line).unwrap();
+                            let p0 = to_local(&view.inv, x0, y0);
+                            let p1 = to_local(&view.inv, x1, y1);
+                            let x = (lo + hi) / 2.;
+                            let seg_lo = p0.x.min(p1.x);
+                            let seg_hi = p0.x.max(p1.x);
+                            let (dx, dy) = if x >= seg_lo && x <= seg_hi {
+                                let r = if p1.x == p0.x { 0.5 } else { ((x - p0.x) / (p1.x - p0.x)).clamp(0., 1.) };
+                                (0., (p0.y + (p1.y - p0.y) * r).abs() as f64)
+                            } else {
+                                let nearer = if (x - p0.x).abs() < (x - p1.x).abs() { p0 } else { p1 };
+                                ((x - nearer.x).abs() as f64, nearer.y.abs() as f64)
+                            };
+                            cands.push(Cand {
+                                time: target.time,
+                                line: *line,
+                                note,
+                                dt: target.dt,
+                                weighted: dx / area + dy / 2.2,
+                            });
+                            continue 'pieces;
+                        }
+                    }
+                }
+                prev = piece.t;
             }
         }
         cands.sort_by(|a, b| a.time.total_cmp(&b.time).then(a.line.cmp(&b.line)).then(a.note.cmp(&b.note)));
@@ -1403,7 +1793,7 @@ impl Judge {
             );
         } else {
             note.judge = JudgeStatus::PreJudge;
-            self.push_sched(tau, best.line, best.note, best.time);
+            self.push_sched(tau, best.line, best.note, best.time, SchedKind::Commit);
         }
     }
 
@@ -1449,7 +1839,7 @@ impl Judge {
                 NoteKind::Hold { end_time, .. } => {
                     let perfect = dt < LIMIT_PERFECT;
                     self.judgements.borrow_mut().push((t, line_id, id, Err(perfect)));
-                    self.push_sched(t, line_id, id, end_time);
+                    self.push_sched(t, line_id, id, end_time, SchedKind::Commit);
                     note.judge = JudgeStatus::Hold(perfect, t, t, false, f64::INFINITY);
                     Pressed::HoldHead
                 }
@@ -1558,9 +1948,9 @@ impl Judge {
         }
     }
 
-    fn push_sched(&mut self, tau: f64, line: u32, note: u32, time: f64) {
+    fn push_sched(&mut self, tau: f64, line: u32, note: u32, time: f64, kind: SchedKind) {
         if time.is_finite() && time > tau {
-            self.sched.push(Reverse(Sched { time, line, note }));
+            self.sched.push(Reverse(Sched { time, kind, line, note }));
         }
     }
 
@@ -1568,14 +1958,18 @@ impl Judge {
     /// in the state that scheduled it, and its time not yet passed.
     fn peek_sched(&mut self, chart: &Chart) -> Option<Sched> {
         while let Some(&Reverse(s)) = self.sched.peek() {
-            let valid = s.time > self.judged_until && {
-                let note = &chart.lines[s.line as usize].notes[s.note as usize];
-                match &note.judge {
-                    JudgeStatus::PreJudge => !matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. }),
-                    JudgeStatus::Hold(..) => true,
-                    _ => false,
-                }
-            };
+            let note = &chart.lines[s.line as usize].notes[s.note as usize];
+            let valid = s.time > self.judged_until
+                && match s.kind {
+                    SchedKind::Commit => match &note.judge {
+                        JudgeStatus::PreJudge => !matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. }),
+                        JudgeStatus::Hold(..) => true,
+                        _ => false,
+                    },
+                    // a drag's window bounds matter until the drag leaves
+                    // the NotJudged state
+                    SchedKind::DragWindow => matches!(note.judge, JudgeStatus::NotJudged) && matches!(note.kind, NoteKind::Drag),
+                };
             if valid {
                 return Some(s);
             }

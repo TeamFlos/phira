@@ -54,13 +54,15 @@ pub enum InputEvent {
     /// `tick / JUDGE_TICK_HZ`). Omitted entirely when nothing moved beyond
     /// [`MOVE_DEADBAND`].
     Move { tick: u32, points: Vec<MovePoint> },
-    /// One step of a swipe gesture, from `(x0, y0)` to `(x1, y1)` in the
-    /// stream's space, sampled on the fixed 60 Hz grid (`time`). `new` marks
-    /// the first step of a gesture; the steps of one gesture judge at most
-    /// one flick. Detected live by the swipe trigger; a
-    /// replay trusts the recorded steps.
+    /// One step of a swipe gesture, from `(x0, y0)` at `from` to `(x1, y1)`
+    /// at `time`, both in the stream's space, sampled on the fixed 60 Hz
+    /// grid. The first step of a gesture starts at the press instead of a
+    /// grid point, so `from` is that moment. `new` marks the first step of a
+    /// gesture; the steps of one gesture judge at most one flick. Detected
+    /// live by the swipe trigger; a replay trusts the recorded steps.
     Swipe {
         id: u8,
+        from: f64,
         time: f64,
         new: bool,
         x0: f32,
@@ -536,6 +538,9 @@ impl InputCollector {
                 let d0_mag = (d0.0 * d0.0 + d0.1 * d0.1).sqrt();
                 let v_rel = if d0_mag > 0.1 { (d0.0 * d1.0 + d0.1 * d1.1) / d0_mag } else { 0. };
                 let speed = (d1.0 * d1.0 + d1.1 * d1.1).sqrt();
+                // the step spans [prev_t, g]: a grid step, or the press
+                // itself for the first one after it
+                let from = state.prev_t;
                 if v_rel < u || state.stopped {
                     if speed >= 5. * u {
                         state.stopped = false;
@@ -545,6 +550,7 @@ impl InputCollector {
                             usize::MAX - 1,
                             InputEvent::Swipe {
                                 id: slot,
+                                from,
                                 time: g,
                                 new: true,
                                 x0,
@@ -563,6 +569,7 @@ impl InputCollector {
                         usize::MAX - 1,
                         InputEvent::Swipe {
                             id: slot,
+                            from,
                             time: g,
                             new: false,
                             x0,
