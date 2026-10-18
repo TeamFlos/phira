@@ -798,6 +798,69 @@ fn an_early_tap_at_the_lateral_edge_is_not_matched() {
 }
 
 #[test]
+fn a_note_left_behind_does_not_drag_a_stream_into_goods() {
+    // five taps 125ms apart at one spot, the first never pressed: each press
+    // lands right on its own note, which is nearer than the one left behind
+    // (by then a Good away), so the stream stays Perfect and only the first
+    // note misses
+    let times = [1., 1.125, 1.25, 1.375, 1.5];
+    let chart = chart_of(vec![line_json(times.iter().map(|&t| note(1, t, 0., 0.)).collect())]);
+    let actions: Vec<Action> = times[1..]
+        .iter()
+        .enumerate()
+        .flat_map(|(i, &at)| {
+            let id = i as u64 + 1;
+            [Action::Down { id, at, pos: (0., 0.) }, Action::Up { id, at: at + 1. / 32. }]
+        })
+        .collect();
+    let (chart, judge) = play_on(chart, &actions, &fps(160, 1. / 64.));
+    assert_eq!(event_at(&judge, &chart, 1.).judgement, Judgement::Miss, "{}", events_of(&judge));
+    for &t in &times[1..] {
+        let hit = event_at(&judge, &chart, t);
+        assert_eq!(hit.judgement, Judgement::Perfect, "note at {t}: {}", events_of(&judge));
+        assert!(hit.diff.unwrap().abs() < 1e-9, "note at {t} hit off its own press: {:?}", hit.diff);
+    }
+}
+
+#[test]
+fn a_late_press_within_perfect_keeps_the_earlier_note() {
+    // two taps 62.5ms apart, both pressed 46.875ms late: the first press is
+    // nearer the second note, but the first is still a Perfect away and
+    // keeps its claim, so each note takes its own press
+    let late = 3. / 64.;
+    let chart = chart_of(vec![line_json(vec![note(1, 1., 0., 0.), note(1, 1.0625, 0., 0.)])]);
+    let (chart, judge) = play_on(
+        chart,
+        &[
+            Action::Down {
+                id: 1,
+                at: 1. + late,
+                pos: (0., 0.),
+            },
+            Action::Up {
+                id: 1,
+                at: 1. + late + 1. / 64.,
+            },
+            Action::Down {
+                id: 2,
+                at: 1.0625 + late,
+                pos: (0., 0.),
+            },
+            Action::Up {
+                id: 2,
+                at: 1.0625 + late + 1. / 64.,
+            },
+        ],
+        &fps(160, 1. / 64.),
+    );
+    for t in [1., 1.0625] {
+        let hit = event_at(&judge, &chart, t);
+        assert_eq!(hit.judgement, Judgement::Perfect, "note at {t}: {}", events_of(&judge));
+        assert!((hit.diff.unwrap() - late).abs() < 1e-9, "note at {t}: {:?}", hit.diff);
+    }
+}
+
+#[test]
 fn drag_protection_eats_one_press() {
     // a drag and a 50ms-later tap on one line: an early press at the tap's
     // position is eaten by the drag (which that same finger goes on to

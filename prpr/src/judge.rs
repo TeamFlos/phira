@@ -1141,7 +1141,8 @@ impl Judge {
     /// every note still click-matchable within
     /// the window and the lateral reach — are walked in global time order,
     /// so the earliest acceptable note wins unless a simultaneous one sits
-    /// closer (`dt >= best + 10ms` skips the rest). That ordering is what
+    /// closer (`dt >= best + 10ms` skips the rest), or it is already a Good
+    /// away and a later one is nearer in time. That ordering is what
     /// makes a drag eat an early press aimed at a later tap (once), and a
     /// click on a flick harmless.
     fn click(&mut self, chart: &mut Chart, env: &JudgeEnv, tau: f64, slot: u8, views: &[LineView], effects: &mut Vec<JudgeEffect>) {
@@ -1216,7 +1217,14 @@ impl Judge {
                 None => true,
                 // a tap or a hold is never displaced by a drag or a flick
                 Some(best) if !best.timed => true,
-                Some(best) => cand.timed && (best.time - cand.time).abs() / spd <= SAME_TIME && cand.weighted < best.weighted,
+                Some(_) if !cand.timed => false,
+                Some(best) if (best.time - cand.time).abs() / spd <= SAME_TIME => cand.weighted < best.weighted,
+                // the earlier note keeps its claim only while the press would
+                // still be a Perfect on it; past that, a note closer in time
+                // wins. Otherwise one note left behind in a stream takes the
+                // next press as a late Good, leaving its own note behind for
+                // the press after, and so on down the whole stream
+                Some(best) => best.dt.abs() >= LIMIT_PERFECT && cand.dt.abs() < best.dt.abs(),
             };
             if replace {
                 best_abs_dt = cand.dt.abs();
