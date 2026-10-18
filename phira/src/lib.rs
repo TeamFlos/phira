@@ -181,16 +181,12 @@ mod dir {
 #[cfg(target_env = "ohos")]
 fn query_screen_dpi() -> u32 {
     use ohos_display_binding::{default_display_density_x_dpi, default_display_density_y_dpi};
-
     let x_dpi = default_display_density_x_dpi();
     let y_dpi = default_display_density_y_dpi();
     if !x_dpi.is_finite() || !y_dpi.is_finite() || x_dpi <= 0. || y_dpi <= 0. {
-        tracing::warn!(x_dpi, y_dpi, "screen dpi unavailable");
+        tracing::warn!("screen dpi unavailable: {} {}", x_dpi, y_dpi);
         return 0;
     }
-
-    // The judge accepts one physical DPI value and applies its own bounds.
-    // Average in f64 so even an excessively large platform report cannot overflow.
     ((f64::from(x_dpi) + f64::from(y_dpi)) / 2.).round() as u32
 }
 
@@ -202,7 +198,7 @@ async fn the_main() -> Result<()> {
         *CACHE_DIR.lock().unwrap() = Some("/data/storage/el2/base/cache".to_owned());
         let dpi = query_screen_dpi();
         prpr::core::DPI_VALUE.store(dpi, std::sync::atomic::Ordering::SeqCst);
-        info!(dpi, "platform reported screen dpi");
+        info!("platform reported screen dpi {}", dpi);
     };
 
     init_assets();
@@ -411,7 +407,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(_env: EnvUnowned, _cla
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_setDpi(_env: EnvUnowned, _class: JClass, dpi: jint) {
-    info!(dpi, "platform reported screen dpi");
+    info!("platform reported screen dpi {}", dpi);
     prpr::core::DPI_VALUE.store(dpi as _, std::sync::atomic::Ordering::SeqCst);
 }
 
