@@ -7,8 +7,9 @@
 //! path (via [`ReplaySource`]) and reproduces the judgements note for note.
 //! Keyboard hits are the one exception — they never enter the stream. Flick
 //! *judgement* is reproducible through the recorded [`InputEvent::Swipe`]
-//! steps; how those steps were detected, however, is something only the
-//! client that produced them can vouch for.
+//! steps; how those steps were detected, however — including the screen dpi
+//! its threshold scaled with — is something only the client that produced
+//! them can vouch for.
 //!
 //! # Time base
 //!
@@ -194,6 +195,9 @@ pub(crate) struct RawFrame<'a> {
     /// The viewport's width over height, for converting swipe displacements
     /// into screen-height units.
     pub aspect: f32,
+    /// The screen dpi as the platform reported it (`Resource::dpi`): the
+    /// swipe trigger scales its threshold by it. 0 means "not reported".
+    pub dpi: u32,
     pub raw: &'a [RawTouch],
     /// The touches the OS reports as alive: id and position.
     pub live: &'a [(u64, f32, f32)],
@@ -225,16 +229,36 @@ pub struct InputCollector {
     /// Monotonic floor for event times: the maximum of `judged_until` and
     /// every time emitted into the queue so far.
     clock: f64,
+    /// The swipe trigger's stillness threshold, locked from the first frame
+    /// after a reset so that it cannot shift mid-play.
+    swipe_u: Option<f64>,
 }
 
 /// Rate of the fixed grid the swipe detector samples positions on.
 pub(crate) const SWIPE_HZ: f64 = 60.;
-// TODO: use the real screen dpi (res.dpi) once it is reliable across
-// platforms; record it in PlayMeta then.
-const SWIPE_DPI: f64 = 275.;
-/// The stillness threshold of the swipe trigger, in world units per
-/// 1/60 s step.
-const SWIPE_U: f64 = 0.06 / 380. * SWIPE_DPI;
+/// Dpi assumed when the platform reports none (iOS, desktops, keyboards):
+/// the value the trigger has always run with, keeping those platforms'
+/// behavior unchanged.
+const UNKNOWN_DPI: u32 = 275;
+/// A reported dpi is trusted only within this band. Real screens span about
+/// 120 (budget tablets) to 650 (flagship phones) physical dpi; a report
+/// outside it is a broken reading, clamped to the nearest bound rather than
+/// taken at face value — a far-too-low dpi would let touch-down jitter
+/// start a gesture, a far-too-high one would make swipes untriggerable.
+const MIN_DPI: u32 = 100;
+const MAX_DPI: u32 = 800;
+
+/// The dpi the swipe trigger scales its threshold by: the platform's
+/// report, with an unreported one (0) replaced by [`UNKNOWN_DPI`] and an
+/// out-of-band one clamped into `[MIN_DPI, MAX_DPI]`. This — the value
+/// detection actually ran with — is what a play should record.
+pub fn swipe_dpi(reported: u32) -> u32 {
+    if reported == 0 {
+        UNKNOWN_DPI
+    } else {
+        reported.clamp(MIN_DPI, MAX_DPI)
+    }
+}
 
 /// Where one slot's swipe gesture currently stands.
 struct SwipeState {
@@ -303,6 +327,7 @@ impl InputCollector {
         self.swipe_next.clear();
         self.queue.clear();
         self.clock = 0.;
+        self.swipe_u = None;
     }
 
     fn alloc_slot(&self) -> Option<u8> {
@@ -348,11 +373,19 @@ impl InputCollector {
             uptime,
             speed,
             aspect,
+            dpi,
             raw,
             live,
         } = frame;
         self.clock = self.clock.max(judged_until);
         let clock = self.clock;
+        // The threshold locks at the first frame: the report is expected to
+        // be constant over a play, and locking makes it so even if it is not.
+        let swipe_u = *self.swipe_u.get_or_insert_with(|| {
+            let used = swipe_dpi(dpi);
+            tracing::info!(reported = dpi, used, "swipe trigger locked its dpi");
+            0.06 / 380. * used as f64
+        });
         let mut frame: Vec<(f64, usize, InputEvent)> = Vec::new();
         let mut started: Vec<u64> = Vec::new();
         for (seq, touch) in raw.iter().enumerate() {
@@ -410,7 +443,7 @@ impl InputCollector {
                 }
             }
         }
-        self.run_swipe_grid(t, aspect, &mut frame);
+        self.run_swipe_grid(t, aspect, swipe_u, &mut frame);
         // Reconciliation: mapped touches the OS no longer reports have ended;
         // alive touches with no slot (they began while the judge wasn't
         // looking) appear. Ends first, so their slots can be reused.
@@ -470,8 +503,10 @@ impl InputCollector {
     /// the movement stays slow relative to the previous step (`v_rel < u`),
     /// or the finger had stopped, a step at least `5u` fast starts a new
     /// gesture; otherwise a running gesture simply continues. Each step
-    /// becomes a [`InputEvent::Swipe`] covering exactly that step.
-    fn run_swipe_grid(&mut self, t: f64, aspect: f32, out: &mut Vec<(f64, usize, InputEvent)>) {
+    /// becomes a [`InputEvent::Swipe`] covering exactly that step. `u`, the
+    /// stillness threshold in world units per 1/60 s, is Phigros'
+    /// `0.06 / 380 * dpi` scaled by the screen dpi ([`swipe_dpi`]).
+    fn run_swipe_grid(&mut self, t: f64, aspect: f32, u: f64, out: &mut Vec<(f64, usize, InputEvent)>) {
         let mut slots: Vec<u8> = self.swipes.keys().copied().collect();
         slots.sort_unstable();
         for slot in slots {
@@ -501,8 +536,8 @@ impl InputCollector {
                 let d0_mag = (d0.0 * d0.0 + d0.1 * d0.1).sqrt();
                 let v_rel = if d0_mag > 0.1 { (d0.0 * d1.0 + d0.1 * d1.1) / d0_mag } else { 0. };
                 let speed = (d1.0 * d1.0 + d1.1 * d1.1).sqrt();
-                if v_rel < SWIPE_U || state.stopped {
-                    if speed >= 5. * SWIPE_U {
+                if v_rel < u || state.stopped {
+                    if speed >= 5. * u {
                         state.stopped = false;
                         state.in_gesture = true;
                         out.push((

@@ -184,7 +184,6 @@ async fn the_main() -> Result<()> {
     {
         *DATA_PATH.lock().unwrap() = Some("/data/storage/el2/base".to_owned());
         *CACHE_DIR.lock().unwrap() = Some("/data/storage/el2/base/cache".to_owned());
-        prpr::core::DPI_VALUE.store(250, std::sync::atomic::Ordering::Relaxed);
     };
 
     init_assets();
@@ -393,6 +392,7 @@ pub extern "C" fn Java_quad_1native_QuadNative_setTempDir(_env: EnvUnowned, _cla
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn Java_quad_1native_QuadNative_setDpi(_env: EnvUnowned, _class: JClass, dpi: jint) {
+    info!(dpi, "platform reported screen dpi");
     prpr::core::DPI_VALUE.store(dpi as _, std::sync::atomic::Ordering::SeqCst);
 }
 

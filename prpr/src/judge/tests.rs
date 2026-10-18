@@ -9,7 +9,8 @@
 
 use super::{
     input::{InputEvent, RawFrame, RawTouch},
-    Judge, JudgeEnv, Judgement, MovePoint, ReplayPlayer, JUDGE_TICK_HZ, JUDGE_VERSION, LIMIT_BAD, LIMIT_GOOD, LIMIT_PERFECT, MOVE_DEADBAND,
+    swipe_dpi, Judge, JudgeEnv, Judgement, MovePoint, ReplayPlayer, JUDGE_TICK_HZ, JUDGE_VERSION, LIMIT_BAD, LIMIT_GOOD, LIMIT_PERFECT,
+    MOVE_DEADBAND,
 };
 use crate::{
     core::{Chart, ChartExtra, Point},
@@ -97,7 +98,15 @@ fn raw(id: u64, phase: TouchPhase, time: f64, (x, y): (f32, f32)) -> RawTouch {
 /// Delivers each action in the first frame whose time reaches it, with its
 /// OS timestamp set to its own time (the synthetic uptime runs from zero),
 /// and keeps the live set in sync — the way a well-behaved OS would.
+/// Reports no dpi (0), the case on every platform that does not tell us
+/// one: the swipe trigger falls back to its assumed 275, the value all
+/// pre-dpi tests were tuned against.
 fn drive(judge: &mut Judge, chart: &mut Chart, env: &JudgeEnv, schedule: &[f64], actions: &[Action]) {
+    drive_dpi(judge, chart, env, schedule, actions, 0)
+}
+
+/// [`drive`], reporting `dpi` to the collector every frame.
+fn drive_dpi(judge: &mut Judge, chart: &mut Chart, env: &JudgeEnv, schedule: &[f64], actions: &[Action], dpi: u32) {
     let mut prev = f64::NEG_INFINITY;
     let mut state: Vec<(u64, f32, f32)> = Vec::new();
     for &t in schedule {
@@ -131,6 +140,7 @@ fn drive(judge: &mut Judge, chart: &mut Chart, env: &JudgeEnv, schedule: &[f64],
                 uptime: t,
                 speed: 1.,
                 aspect: ASPECT,
+                dpi,
                 raw: &events,
                 live: &state,
             },
@@ -159,6 +169,14 @@ fn play(actions: &[Action], schedule: &[f64]) -> (Chart, Judge) {
     let mut chart = basic_chart();
     let mut judge = Judge::new(&chart);
     drive(&mut judge, &mut chart, &env(), schedule, actions);
+    (chart, judge)
+}
+
+/// [`play`], with the platform reporting `dpi` on every frame.
+fn play_dpi(actions: &[Action], schedule: &[f64], dpi: u32) -> (Chart, Judge) {
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    drive_dpi(&mut judge, &mut chart, &env(), schedule, actions, dpi);
     (chart, judge)
 }
 
@@ -206,6 +224,24 @@ fn full_actions() -> Vec<Action> {
         },
         Action::Up { id: 4, at: 5.046875 },
     ]
+}
+
+/// Presses at `at` on (`x0`, 0) and glides right at a constant `v` stream
+/// units per second until `until`, sampling the position every 1/64 s. On
+/// the swipe grid this covers `v / 60` units per step — `(v / 60) * 80 / 9`
+/// world units at the test aspect of 16:9.
+fn glide(id: u64, at: f64, x0: f32, v: f64, until: f64) -> Vec<Action> {
+    let mut actions = vec![Action::Down { id, at, pos: (x0, 0.) }];
+    for k in 1..=((until - at) * 64.).round() as i64 {
+        let t = at + k as f64 / 64.;
+        actions.push(Action::Move {
+            id,
+            at: t,
+            pos: ((x0 as f64 + v * (t - at)) as f32, 0.),
+        });
+    }
+    actions.push(Action::Up { id, at: until });
+    actions
 }
 
 /// The hit event of the note with the given head time. The chart reorders
@@ -443,6 +479,7 @@ fn reconciliation_ends_disappeared_touches_and_appears_unseen_ones() {
             uptime: 0.5,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[raw(7, TouchPhase::Started, 0.5, (0., 0.))],
             live: &[(7, 0., 0.)],
         },
@@ -457,6 +494,7 @@ fn reconciliation_ends_disappeared_touches_and_appears_unseen_ones() {
             uptime: 1.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[],
             live: &[],
         },
@@ -475,6 +513,7 @@ fn reconciliation_ends_disappeared_touches_and_appears_unseen_ones() {
             uptime: 2.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[],
             live: &[(9, 0., 0.)],
         },
@@ -494,6 +533,7 @@ fn reconciliation_ends_disappeared_touches_and_appears_unseen_ones() {
             uptime: 3.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[raw(9, TouchPhase::Started, 3., (0.5, 0.))],
             live: &[(9, 0.5, 0.)],
         },
@@ -519,6 +559,7 @@ fn moves_below_the_deadband_are_not_sampled() {
             uptime: 0.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[raw(1, TouchPhase::Started, 0., (0., 0.))],
             live: &[(1, 0., 0.)],
         },
@@ -539,6 +580,7 @@ fn moves_below_the_deadband_are_not_sampled() {
                 uptime: t,
                 speed: 1.,
                 aspect: ASPECT,
+                dpi: 0,
                 raw: &[raw(1, TouchPhase::Moved, t, pos)],
                 live: &[(1, pos.0, pos.1)],
             },
@@ -565,6 +607,7 @@ fn stale_event_times_are_clamped_to_the_stream_clock() {
             uptime: 1.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[],
             live: &[],
         },
@@ -579,6 +622,7 @@ fn stale_event_times_are_clamped_to_the_stream_clock() {
             uptime: 2.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[raw(1, TouchPhase::Started, 0.5, (0., 0.))],
             live: &[(1, 0., 0.)],
         },
@@ -603,6 +647,7 @@ fn a_backward_clock_produces_a_seek() {
             uptime: 0.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[raw(1, TouchPhase::Started, 0., (0., 0.))],
             live: &[(1, 0., 0.)],
         },
@@ -617,6 +662,7 @@ fn a_backward_clock_produces_a_seek() {
             uptime: 1.,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[],
             live: &[(1, 0., 0.)],
         },
@@ -631,6 +677,7 @@ fn a_backward_clock_produces_a_seek() {
             uptime: 0.5,
             speed: 1.,
             aspect: ASPECT,
+            dpi: 0,
             raw: &[],
             live: &[(1, 0., 0.)],
         },
@@ -652,6 +699,7 @@ fn a_backward_clock_produces_a_seek() {
                 uptime: t,
                 speed: 1.,
                 aspect: ASPECT,
+                dpi: 0,
                 raw: &[raw(1, TouchPhase::Moved, t, (x, 0.))],
                 live: &[(1, x, 0.)],
             },
@@ -1068,6 +1116,7 @@ fn advance_stays_fast_on_a_large_chart() {
                 uptime: t,
                 speed: 1.,
                 aspect: ASPECT,
+                dpi: 0,
                 raw: &events,
                 live: &state,
             },
@@ -1160,6 +1209,102 @@ fn touch_down_jitter_is_not_a_flick() {
     );
     assert!(!judge.inputs.iter().any(|it| matches!(it, InputEvent::Swipe { .. })), "{:?}", judge.inputs);
     assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Miss, "{}", events_of(&judge));
+}
+
+/// The glide these dpi tests use: pressed at 4.921875 on x = -0.1, moving
+/// right at 1.6 units/s, so it crosses the flick's x = 0 at 4.984375.
+/// Per 1/60 s step that is 0.0267 stream units, 0.237 world units — 9%
+/// above the 5u = 0.217 the assumed dpi of 275 demands, and well under the
+/// 0.434 of 550: the same gesture is a swipe on one screen and a mere
+/// drift on the other.
+fn borderline_glide() -> Vec<Action> {
+    glide(1, 4.921875, -0.1, 1.6, 5.0625)
+}
+
+#[test]
+fn a_swipe_slightly_above_the_assumed_dpis_threshold_judges_only_there() {
+    let actions = borderline_glide();
+    let schedule = fps(352, 1. / 64.);
+
+    let (chart, judge) = play_dpi(&actions, &schedule, 275);
+    assert!(
+        judge.inputs.iter().any(|it| matches!(it, InputEvent::Swipe { new: true, .. })),
+        "the gesture must start at the assumed dpi: {:?}",
+        judge.inputs
+    );
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Perfect, "{}", events_of(&judge));
+
+    let (chart, judge) = play_dpi(&actions, &schedule, 550);
+    assert!(!judge.inputs.iter().any(|it| matches!(it, InputEvent::Swipe { .. })), "the doubled threshold must swallow it: {:?}", judge.inputs);
+    assert_eq!(event_at(&judge, &chart, 5.).judgement, Judgement::Miss, "{}", events_of(&judge));
+}
+
+#[test]
+fn an_unreported_dpi_behaves_exactly_like_the_assumed_one() {
+    let actions = full_actions();
+    let schedule = fps(400, 1. / 64.);
+    let (_, unknown) = play(&actions, &schedule);
+    let (_, assumed) = play_dpi(&actions, &schedule, 275);
+    assert_eq!(unknown.inputs, assumed.inputs);
+    assert_eq!(unknown.hit_events, assumed.hit_events);
+}
+
+#[test]
+fn an_out_of_band_dpi_report_is_clamped() {
+    assert_eq!(swipe_dpi(0), 275);
+    assert_eq!(swipe_dpi(1), 100);
+    assert_eq!(swipe_dpi(99), 100);
+    assert_eq!(swipe_dpi(100), 100);
+    assert_eq!(swipe_dpi(275), 275);
+    assert_eq!(swipe_dpi(420), 420);
+    assert_eq!(swipe_dpi(800), 800);
+    assert_eq!(swipe_dpi(801), 800);
+    assert_eq!(swipe_dpi(u32::MAX), 800);
+
+    // and the collector runs with the clamped value, not the report
+    let actions = full_actions();
+    let schedule = fps(400, 1. / 64.);
+    let (_, low) = play_dpi(&actions, &schedule, 1);
+    let (_, bound) = play_dpi(&actions, &schedule, 100);
+    assert_eq!(low.inputs, bound.inputs);
+    let (_, high) = play_dpi(&actions, &schedule, u32::MAX);
+    let (_, bound) = play_dpi(&actions, &schedule, 800);
+    assert_eq!(high.inputs, bound.inputs);
+}
+
+#[test]
+fn the_swipe_threshold_locks_at_the_first_frame() {
+    // the first frame reports 275, every later one 550 — a mid-play report
+    // change must not lift the threshold the run started with. Without the
+    // lock the doubled threshold would swallow the glide's swipe steps.
+    let actions = borderline_glide();
+    let schedule = fps(352, 1. / 64.);
+    let mut chart = basic_chart();
+    let mut judge = Judge::new(&chart);
+    let mut effects = Vec::new();
+    judge.update_with(
+        &mut chart,
+        &env(),
+        RawFrame {
+            t: 0.,
+            uptime: 0.,
+            speed: 1.,
+            aspect: ASPECT,
+            dpi: 275,
+            raw: &[],
+            live: &[],
+        },
+        0,
+        &mut effects,
+    );
+    drive_dpi(&mut judge, &mut chart, &env(), &schedule, &actions, 550);
+    let (_, locked) = play_dpi(&actions, &schedule, 275);
+    assert!(
+        judge.inputs.iter().any(|it| matches!(it, InputEvent::Swipe { new: true, .. })),
+        "the 275 threshold must still be in force: {:?}",
+        judge.inputs
+    );
+    assert_eq!(judge.inputs, locked.inputs);
 }
 
 /// A recorded stream wrapped in a [`PlayRecord`] a [`ReplayPlayer`] can

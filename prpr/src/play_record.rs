@@ -147,6 +147,13 @@ pub struct PlayMeta {
     /// a hint at how trustworthy its timestamps are.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avg_fps: Option<f32>,
+    /// The screen dpi the swipe trigger scaled by, as it ran live — an
+    /// unreported one already replaced by the fallback, an out-of-band one
+    /// already clamped ([`swipe_dpi`](crate::judge::swipe_dpi)). Context
+    /// only: a replay consumes the recorded swipe steps without re-running
+    /// detection, so it does not depend on this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dpi: Option<u32>,
 }
 
 /// A single touch sample, in the space [`Judge::get_touches`] normalizes to,

@@ -16,7 +16,7 @@ use crate::{
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
-    judge::{Judge, ReplayPlayer, JUDGE_VERSION},
+    judge::{swipe_dpi, Judge, ReplayPlayer, JUDGE_VERSION},
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     play_record::{PlayMeta, PlayRecord, PLAY_RECORD_VERSION},
     task::Task,
@@ -1499,6 +1499,7 @@ impl Scene for GameScene {
                             aspect_ratio: self.res.aspect_ratio,
                             track_length: self.res.track_length as f32,
                             avg_fps: self.get_avg_fps(),
+                            dpi: Some(swipe_dpi(self.res.dpi)),
                         };
                         Arc::new(PlayRecord::finish(meta, &self.chart, &self.judge.hit_events, std::mem::take(&mut self.judge.inputs)))
                     });

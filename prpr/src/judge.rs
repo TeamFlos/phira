@@ -42,7 +42,7 @@ use std::{
 use tracing::debug;
 
 pub mod input;
-pub use input::{InputEvent, MovePoint};
+pub use input::{swipe_dpi, InputEvent, MovePoint};
 
 #[cfg(test)]
 mod tests;
@@ -694,6 +694,7 @@ impl Judge {
                 uptime,
                 speed: spd,
                 aspect,
+                dpi: res.dpi,
                 raw: &raw,
                 live: &live,
             },
