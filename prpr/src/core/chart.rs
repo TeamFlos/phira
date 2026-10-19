@@ -10,6 +10,8 @@ use std::{cell::RefCell, collections::HashMap};
 pub struct ChartExtra {
     pub effects: Vec<Effect>,
     pub global_effects: Vec<Effect>,
+    /// Phigros `blockAreaList` (噪域), stored in music time.
+    pub block_areas: Vec<crate::noise_area::BlockArea>,
     #[cfg(feature = "video")]
     pub videos: Vec<(super::Video, Option<super::VideoAttach>)>,
 }
