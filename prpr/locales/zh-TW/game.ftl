@@ -15,3 +15,4 @@ auto-offset-btn = 分析
 replay-version-mismatch = 此回放由其他版本錄製，無法播放
 replay-judge-mismatch = 此回放的判定規則版本不同，無法播放
 replay-chart-changed = 譜面已變更，無法播放此回放
+advanced-mode = 進階模式

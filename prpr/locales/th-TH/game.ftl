@@ -8,3 +8,4 @@ ex-invalid-format = format ไม่ถูกต้อง
 ex-time-set = เวลาถูกเปลี่ยน
 speed = ความเร็ว
 game-over = Game Over
+advanced-mode = โหมดขั้นสูง

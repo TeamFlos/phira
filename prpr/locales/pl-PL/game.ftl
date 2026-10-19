@@ -9,3 +9,4 @@ speed = Prędkość
 ex-time-out-of-range = Czas jest poza zakresem
 ex-invalid-format = Nieprawidłowy format
 ex-time-set = Zmieniono czas
+advanced-mode = Tryb zaawansowany

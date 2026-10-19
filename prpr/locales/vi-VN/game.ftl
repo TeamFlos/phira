@@ -11,3 +11,4 @@ analysis-prompt = Nhấn "Phân tích" để tự động phân tích
 analysis-computing = Đang tiến hành phân tích...
 auto-offset-btn = Phân tích
 game-over = Thất bại
+advanced-mode = Chế độ nâng cao

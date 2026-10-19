@@ -17,3 +17,4 @@ ex-time-set = 设置成功
 replay-version-mismatch = 此回放由其他版本录制，无法播放
 replay-judge-mismatch = 此回放的判定规则版本不同，无法播放
 replay-chart-changed = 谱面已变更，无法播放此回放
+advanced-mode = 高级模式
