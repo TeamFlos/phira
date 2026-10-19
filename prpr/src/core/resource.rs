@@ -24,9 +24,10 @@ use std::{
 
 pub const MAX_SIZE: usize = 64; // needs tweaking
 /// The screen dpi the platform reports, if it reports one at all (Android
-/// does, through JNI). 0 means "not reported" — iOS, desktops and keyboards
-/// never set it — and is not a usable value: consumers substitute their own
-/// assumption, e.g. the judge's [`swipe_dpi`](crate::judge::swipe_dpi).
+/// through JNI, HarmonyOS at startup). 0 means "not reported" — iOS,
+/// desktops and keyboards never set it — and is not a usable value:
+/// consumers substitute their own assumption, e.g. the judge's
+/// [`swipe_dpi`](crate::judge::swipe_dpi).
 pub static DPI_VALUE: AtomicU32 = AtomicU32::new(0);
 pub const BUFFER_SIZE: usize = 1024;
 
