@@ -13,12 +13,14 @@ action-success =
     { $action ->
         [login] ログインに成功しました
         [register] 登録に成功しました
+        [hykb-login] 好游快爆のログインに成功しました
        *[other] _
     }
 action-failed =
     { $action ->
         [login] ログインに失敗しました
         [register] 登録に失敗しました
+        [hykb-login] 好游快爆のログインに失敗しました
        *[other] _
     }
 email-sent = 確認メールを送信しました
