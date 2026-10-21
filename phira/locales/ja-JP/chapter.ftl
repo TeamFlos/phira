@@ -1,3 +1,3 @@
 diff-easy = EZ
 diff-hard = HD
-diff-extreme = 制限
+diff-extreme = EX
