@@ -3,6 +3,7 @@ multiplayer = Multiplayer
 
 connect = Hubungkan
 connect-must-login = Anda harus login untuk masuk ke mode multiplayer
+connect-no-server = Tambahkan dan pilih server multiplayer terlebih dahulu.
 connect-success = Berhasil terhubung
 connect-failed = Gagal terhubung
 connect-authenticate-failed = Otorisasi gagal

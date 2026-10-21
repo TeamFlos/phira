@@ -3,6 +3,7 @@ multiplayer = Nhiều người chơi
 
 connect = Kết nối
 connect-must-login = Bạn phải đăng nhập để sử dụng tính năng này
+connect-no-server = Hãy thêm và chọn máy chủ nhiều người chơi trước.
 connect-success = Đã kết nối
 connect-failed = Không thể kết nối
 connect-authenticate-failed = Uỷ quyền thất bại

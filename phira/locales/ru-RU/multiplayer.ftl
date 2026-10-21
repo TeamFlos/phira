@@ -1,6 +1,7 @@
 multiplayer = Мультиплеер
 connect = Подключиться
 connect-must-login = Войдите в аккаунт, чтобы использовать мультиплеер
+connect-no-server = Сначала добавьте и выберите сервер мультиплеера.
 connect-success = Подключение успешно
 connect-failed = Ошибка подключения
 connect-authenticate-failed = Ошибка авторизации

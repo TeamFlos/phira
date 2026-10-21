@@ -1,6 +1,7 @@
 multiplayer = Mehrspieler
 connect = Verbinden
 connect-must-login = Du musst eingeloggt sein, um den Mehrspieler-Modus zu nutzen
+connect-no-server = Füge zuerst einen Mehrspieler-Server hinzu und wähle ihn aus.
 connect-success = Verbindung erfolgreich.
 connect-failed = Verbindung fehlgeschlagen.
 connect-authenticate-failed = Autorisierung fehlgeschlagen.
