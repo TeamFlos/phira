@@ -1146,13 +1146,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let manager = Arc::new(prpr::log::LogManager::new(dir.path().join("logs")).unwrap());
         let today = chrono::Local::now().date_naive();
-        manager.append_line_at(today, "latest diagnostic message").unwrap();
-        manager
-            .append_line_at(today - chrono::Duration::days(6), "earlier diagnostic message")
-            .unwrap();
-        manager
-            .append_line_at(today - chrono::Duration::days(7), "expired diagnostic message")
-            .unwrap();
+        manager.append_line("latest diagnostic message").unwrap();
+        std::fs::write(manager.path_for_date(today - chrono::Duration::days(6)), "earlier diagnostic message\n").unwrap();
+        std::fs::write(manager.path_for_date(today - chrono::Duration::days(7)), "expired diagnostic message\n").unwrap();
         let output_path = dir.path().join("logs.zip");
         let config = super::ExportConfig {
             file: File::create(&output_path).unwrap(),
@@ -1162,15 +1158,17 @@ mod tests {
         super::export_logs(config, Some(manager)).unwrap();
 
         let mut archive = zip::ZipArchive::new(File::open(output_path).unwrap()).unwrap();
-        let mut latest = String::new();
-        archive.by_name(&format!("{today}.log")).unwrap().read_to_string(&mut latest).unwrap();
-        assert!(latest.contains("latest diagnostic message"));
-        assert!(archive.by_name(&format!("{}.log", today - chrono::Duration::days(6))).is_ok());
-        assert!(archive.by_name(&format!("{}.log", today - chrono::Duration::days(7))).is_err());
+        // The active file is named after the UTC date, so check the in-memory
+        // tail instead of guessing the file name.
+        let mut tail = String::new();
+        archive.by_name("log-tail.txt").unwrap().read_to_string(&mut tail).unwrap();
+        assert!(tail.contains("latest diagnostic message"));
+        assert!(archive.by_name(&format!("phira.{}.log", today - chrono::Duration::days(6))).is_ok());
+        assert!(archive.by_name(&format!("phira.{}.log", today - chrono::Duration::days(7))).is_err());
         let mut metadata = String::new();
         archive.by_name("crash.txt").unwrap().read_to_string(&mut metadata).unwrap();
         assert!(metadata.contains("export=manual"));
-        assert_eq!(archive.len(), 3);
+        assert_eq!(archive.len(), 4);
     }
 
     #[test]

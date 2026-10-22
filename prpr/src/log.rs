@@ -4,17 +4,23 @@ use chrono::{Duration, Local, NaiveDate};
 use colored::Colorize;
 use miniquad::{debug, error, info, trace, warn};
 use std::{
-    fs::{self, OpenOptions},
+    fs,
     io::{self, Seek, Write},
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{mpsc, Arc, Mutex, OnceLock},
+    thread,
 };
 use tracing::{field::Visit, Level, Subscriber};
+use tracing_appender::rolling::{Builder, Rotation};
 use tracing_subscriber::{prelude::*, EnvFilter, Layer};
 use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
-pub const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024;
-const LOG_FILE_FORMAT: &str = "%Y-%m-%d.log";
+const LOG_FILE_PREFIX: &str = "phira";
+const LOG_FILE_FORMAT: &str = "%Y-%m-%d";
+const LOG_KEEP_DAYS: usize = 7;
+/// Size of the in-memory tail kept for crash exports. It survives even when
+/// the writer thread cannot drain its channel (wedged disk, hard crash).
+const TAIL_BUFFER_SIZE: usize = 64 * 1024;
 
 #[derive(Clone, Debug)]
 pub struct CrashRecord {
@@ -22,72 +28,89 @@ pub struct CrashRecord {
     pub details: String,
 }
 
+enum WriterMessage {
+    Line(String),
+    /// Acknowledged by the writer thread once everything before it hit the OS.
+    Flush(mpsc::SyncSender<()>),
+}
+
 pub struct LogManager {
     dir: PathBuf,
-    write_lock: Mutex<()>,
+    tx: mpsc::Sender<WriterMessage>,
+    tail: Mutex<Vec<u8>>,
 }
 
 impl LogManager {
     pub fn new(dir: impl AsRef<Path>) -> io::Result<Self> {
         let dir = dir.as_ref().to_path_buf();
         fs::create_dir_all(&dir)?;
+        // Daily rotation and retention are delegated to tracing-appender; the
+        // file name carries the UTC date (rotation uses `now_utc`).
+        let appender = Builder::new()
+            .rotation(Rotation::DAILY)
+            .filename_prefix(LOG_FILE_PREFIX)
+            .filename_suffix("log")
+            .max_log_files(LOG_KEEP_DAYS)
+            .build(&dir)
+            .map_err(|it| io::Error::other(it.to_string()))?;
+        let (tx, rx) = mpsc::channel();
+        thread::Builder::new().name("log-writer".to_owned()).spawn(move || {
+            let mut appender = appender;
+            while let Ok(message) = rx.recv() {
+                match message {
+                    WriterMessage::Line(line) => {
+                        if let Err(error) = appender.write_all(line.as_bytes()) {
+                            eprintln!("failed to write log line: {error}");
+                        }
+                    }
+                    WriterMessage::Flush(ack) => {
+                        let _ = appender.flush();
+                        let _ = ack.send(());
+                    }
+                }
+            }
+        })?;
         Ok(Self {
             dir,
-            write_lock: Mutex::new(()),
+            tx,
+            tail: Mutex::new(Vec::new()),
         })
     }
 
     pub fn path_for_date(&self, date: NaiveDate) -> PathBuf {
-        self.dir.join(date.format(LOG_FILE_FORMAT).to_string())
+        self.dir.join(format!("{LOG_FILE_PREFIX}.{}.log", date.format(LOG_FILE_FORMAT)))
     }
 
     pub fn append_line(&self, line: &str) -> io::Result<()> {
-        self.append_line_at(Local::now().date_naive(), line)
-    }
-
-    pub fn append_line_at(&self, date: NaiveDate, line: &str) -> io::Result<()> {
-        let _guard = self.write_lock.lock().unwrap_or_else(|it| it.into_inner());
-        let path = self.path_for_date(date);
-        let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
-        file.write_all(line.as_bytes())?;
+        {
+            let mut tail = self.tail.lock().unwrap_or_else(|it| it.into_inner());
+            push_tail_line(&mut tail, line);
+        }
+        let mut line = line.to_owned();
         if !line.ends_with('\n') {
-            file.write_all(b"\n")?;
+            line.push('\n');
         }
-        file.flush()?;
-        drop(file);
-        trim_file(&path)
+        self.tx
+            .send(WriterMessage::Line(line))
+            .map_err(|_| io::Error::other("log writer thread has stopped"))
     }
 
-    pub fn cleanup(&self) -> io::Result<()> {
-        self.cleanup_before(Local::now().date_naive())
-    }
-
-    pub fn cleanup_before(&self, today: NaiveDate) -> io::Result<()> {
-        let _guard = self.write_lock.lock().unwrap_or_else(|it| it.into_inner());
-        let first_kept = today - Duration::days(6);
-        for entry in fs::read_dir(&self.dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|it| it.to_str()) else {
-                continue;
-            };
-            let Some(stem) = name.strip_suffix(".log") else {
-                continue;
-            };
-            let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d") else {
-                continue;
-            };
-            if date < first_kept {
-                fs::remove_file(path)?;
-            }
+    /// Blocks until every line appended so far has been handed to the OS.
+    /// Best-effort: if the writer thread is gone, returns immediately.
+    pub fn flush(&self) {
+        let (tx, rx) = mpsc::sync_channel(1);
+        if self.tx.send(WriterMessage::Flush(tx)).is_ok() {
+            let _ = rx.recv();
         }
-        Ok(())
     }
 
     pub fn write_zip<W: Write + Seek>(&self, output: W, crash_details: &str) -> io::Result<()> {
-        self.cleanup()?;
+        self.flush();
         let today = Local::now().date_naive();
-        let first_kept = today - Duration::days(6);
+        // Rotation runs on UTC, so accept one day of slack around the local
+        // date range. Retention (max_log_files) already bounds the file count.
+        let first_kept = today - Duration::days(LOG_KEEP_DAYS as i64 - 1);
+        let last_kept = today + Duration::days(1);
         let mut zip = ZipWriter::new(output);
         let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
         for entry in fs::read_dir(&self.dir)? {
@@ -96,22 +119,23 @@ impl LogManager {
             let Some(name) = path.file_name().and_then(|it| it.to_str()) else {
                 continue;
             };
-            let Some(stem) = name.strip_suffix(".log") else {
+            let Some(stem) = name.strip_prefix(&format!("{LOG_FILE_PREFIX}.")).and_then(|it| it.strip_suffix(".log")) else {
                 continue;
             };
-            let Ok(date) = NaiveDate::parse_from_str(stem, "%Y-%m-%d") else {
+            let Ok(date) = NaiveDate::parse_from_str(stem, LOG_FILE_FORMAT) else {
                 continue;
             };
-            if date >= first_kept && date <= today {
-                // Logging rewrites the daily file when trimming it. Snapshot it before compressing.
-                let bytes = {
-                    let _guard = self.write_lock.lock().unwrap_or_else(|it| it.into_inner());
-                    fs::read(&path)?
-                };
-                zip.start_file(name, options)?;
-                zip.write_all(&bytes)?;
+            if date < first_kept || date > last_kept {
+                continue;
             }
+            let bytes = fs::read(&path)?;
+            zip.start_file(name, options)?;
+            zip.write_all(&bytes)?;
         }
+        let tail = self.tail.lock().unwrap_or_else(|it| it.into_inner());
+        zip.start_file("log-tail.txt", options)?;
+        zip.write_all(&tail)?;
+        drop(tail);
         zip.start_file("crash.txt", options)?;
         zip.write_all(crash_details.as_bytes())?;
         zip.finish()?;
@@ -123,17 +147,21 @@ impl LogManager {
     }
 }
 
-fn trim_file(path: &Path) -> io::Result<()> {
-    let mut bytes = fs::read(path)?;
-    while bytes.len() as u64 >= MAX_LOG_SIZE {
-        let Some(end) = bytes.iter().rposition(|byte| *byte == b'\n') else {
-            bytes.clear();
-            break;
-        };
-        let start = bytes[..end].iter().rposition(|byte| *byte == b'\n').map_or(0, |pos| pos + 1);
-        bytes.truncate(start);
+fn push_tail_line(tail: &mut Vec<u8>, line: &str) {
+    tail.extend_from_slice(line.as_bytes());
+    if !line.ends_with('\n') {
+        tail.push(b'\n');
     }
-    fs::write(path, bytes)
+    if tail.len() > TAIL_BUFFER_SIZE {
+        // Drop whole lines from the front to get back under the cap, so the
+        // buffer always starts at a line boundary.
+        let excess = tail.len() - TAIL_BUFFER_SIZE;
+        let cut = tail[excess..]
+            .iter()
+            .position(|byte| *byte == b'\n')
+            .map_or(tail.len(), |pos| excess + pos + 1);
+        tail.drain(..cut);
+    }
 }
 
 static MANAGER: OnceLock<Arc<LogManager>> = OnceLock::new();
@@ -170,10 +198,13 @@ pub fn record_error(error: &anyhow::Error) -> CrashRecord {
     record
 }
 
-pub fn register_with_dir(dir: impl AsRef<Path>) -> io::Result<Arc<LogManager>> {
-    let manager = Arc::new(LogManager::new(dir)?);
-    manager.cleanup()?;
-    let _ = MANAGER.set(manager.clone());
+pub fn register_with_dir(dir: impl AsRef<Path>) {
+    // Failing to set up file logging must never keep the game from starting;
+    // console logging through CustomLayer still works without a manager.
+    let manager = LogManager::new(dir).ok().map(Arc::new);
+    if let Some(it) = &manager {
+        let _ = MANAGER.set(it.clone());
+    }
     install_panic_hook();
 
     let filter = if std::env::var("RUST_LOG").is_ok() {
@@ -181,16 +212,8 @@ pub fn register_with_dir(dir: impl AsRef<Path>) -> io::Result<Arc<LogManager>> {
     } else {
         EnvFilter::try_new("hyper=info,rustls=info,debug").unwrap()
     };
-    let subscriber = tracing_subscriber::registry()
-        .with(CustomLayer)
-        .with(FileLayer { manager: manager.clone() })
-        .with(filter);
+    let subscriber = tracing_subscriber::registry().with(CustomLayer).with(FileLayer { manager }).with(filter);
     let _ = subscriber.try_init();
-    Ok(manager)
-}
-
-pub fn register() {
-    let _ = register_with_dir(PathBuf::from("logs"));
 }
 
 pub fn install_panic_hook() {
@@ -220,6 +243,7 @@ pub fn install_panic_hook() {
             });
             if let Some(manager) = manager() {
                 let _ = manager.append_line(&format!("PANIC: {details}"));
+                manager.flush();
             }
         }));
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| previous(info)));
@@ -288,7 +312,7 @@ fn format_plain(event: &tracing::Event<'_>) -> Option<String> {
 }
 
 struct FileLayer {
-    manager: Arc<LogManager>,
+    manager: Option<Arc<LogManager>>,
 }
 
 impl<S> Layer<S> for FileLayer
@@ -296,8 +320,8 @@ where
     S: Subscriber,
 {
     fn on_event(&self, event: &tracing::Event<'_>, _ctx: tracing_subscriber::layer::Context<'_, S>) {
-        if let Some(message) = format_plain(event) {
-            let _ = self.manager.append_line(&message);
+        if let (Some(manager), Some(message)) = (&self.manager, format_plain(event)) {
+            let _ = manager.append_line(&message);
         }
     }
 }
@@ -352,120 +376,81 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{LogManager, MAX_LOG_SIZE};
-    use chrono::{Duration, Local, NaiveDate};
-    use std::io::Cursor;
+    use super::{push_tail_line, LogManager, TAIL_BUFFER_SIZE};
+    use chrono::{Duration, Local};
+    use std::io::{Cursor, Read};
     use tempfile::tempdir;
     use zip::ZipArchive;
 
     #[test]
-    fn trims_the_last_lines_until_the_daily_file_is_under_the_limit() {
+    fn appends_lines_to_the_daily_file() {
         let dir = tempdir().unwrap();
         let manager = LogManager::new(dir.path()).unwrap();
-        let date = Local::now().date_naive();
 
-        manager.append_line_at(date, &"a".repeat(MAX_LOG_SIZE as usize - 1024)).unwrap();
-        manager.append_line_at(date, &"b".repeat(2048)).unwrap();
+        manager.append_line("hello").unwrap();
+        manager.flush();
 
-        let bytes = std::fs::read(manager.path_for_date(date)).unwrap();
-        assert!(bytes.len() < MAX_LOG_SIZE as usize);
-        assert!(bytes.iter().all(|byte| *byte == b'a' || *byte == b'\n'));
-    }
-
-    #[test]
-    fn removes_only_date_named_logs_older_than_seven_days() {
-        let dir = tempdir().unwrap();
-        let manager = LogManager::new(dir.path()).unwrap();
-        let today = NaiveDate::from_ymd_opt(2026, 10, 15).unwrap();
-        let old = today - Duration::days(7);
-        let kept = today - Duration::days(6);
-        std::fs::write(manager.path_for_date(old), b"old").unwrap();
-        std::fs::write(manager.path_for_date(kept), b"kept").unwrap();
-        std::fs::write(dir.path().join("notes.log"), b"keep").unwrap();
-        std::fs::write(dir.path().join("2026-99-99.log"), b"keep").unwrap();
-
-        manager.cleanup_before(today).unwrap();
-
-        assert!(!manager.path_for_date(old).exists());
-        assert!(manager.path_for_date(kept).exists());
-        assert!(dir.path().join("notes.log").exists());
-        assert!(dir.path().join("2026-99-99.log").exists());
+        // The file is named after the UTC date, so find it instead of guessing.
+        let log_files: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|it| it == "log"))
+            .collect();
+        assert_eq!(log_files.len(), 1);
+        assert_eq!(std::fs::read(&log_files[0]).unwrap(), b"hello\n");
     }
 
     #[test]
     fn exports_recent_logs_and_crash_metadata_to_zip() {
         let dir = tempdir().unwrap();
         let manager = LogManager::new(dir.path()).unwrap();
-        let date = Local::now().date_naive();
-        manager.append_line_at(date, "hello").unwrap();
-        let mut output = Cursor::new(Vec::new());
+        let today = Local::now().date_naive();
+        std::fs::write(manager.path_for_date(today - Duration::days(6)), "earlier\n").unwrap();
+        std::fs::write(manager.path_for_date(today - Duration::days(7)), "expired\n").unwrap();
 
-        manager.write_zip(&mut output, "panic details").unwrap();
+        manager.append_line("latest").unwrap();
+        let mut cursor = Cursor::new(Vec::new());
+        manager.write_zip(&mut cursor, "crash details").unwrap();
 
-        let mut archive = ZipArchive::new(Cursor::new(output.into_inner())).unwrap();
-        let mut log = String::new();
-        std::io::Read::read_to_string(&mut archive.by_name(&format!("{date}.log")).unwrap(), &mut log).unwrap();
-        assert!(log.contains("hello"));
+        let mut archive = ZipArchive::new(cursor).unwrap();
+        assert!(archive
+            .by_name(&format!("{prefix}.{}.log", today - Duration::days(6), prefix = super::LOG_FILE_PREFIX))
+            .is_ok());
+        assert!(archive
+            .by_name(&format!("{prefix}.{}.log", today - Duration::days(7), prefix = super::LOG_FILE_PREFIX))
+            .is_err());
+        // The active file is named after the UTC date; it must contain the
+        // appended line and be the only remaining log entry.
+        let names: Vec<String> = archive.file_names().map(str::to_owned).collect();
+        let log_entries = names.iter().filter(|name| name.ends_with(".log")).count();
+        assert_eq!(log_entries, 2);
+        for name in &names {
+            if name.ends_with(".log") && !name.contains(&format!("{}", today - Duration::days(6))) {
+                let mut contents = String::new();
+                archive.by_name(name).unwrap().read_to_string(&mut contents).unwrap();
+                assert_eq!(contents, "latest\n");
+            }
+        }
+        let mut tail = String::new();
+        archive.by_name("log-tail.txt").unwrap().read_to_string(&mut tail).unwrap();
+        assert!(tail.contains("latest\n"));
         let mut crash = String::new();
-        std::io::Read::read_to_string(&mut archive.by_name("crash.txt").unwrap(), &mut crash).unwrap();
-        assert_eq!(crash, "panic details");
+        archive.by_name("crash.txt").unwrap().read_to_string(&mut crash).unwrap();
+        assert_eq!(crash, "crash details");
     }
 
     #[test]
-    fn exports_a_complete_snapshot_when_the_log_changes_during_compression() {
-        struct TruncateLogOnWrite {
-            output: Cursor<Vec<u8>>,
-            log_path: std::path::PathBuf,
-            truncated: bool,
+    fn tail_buffer_keeps_only_whole_recent_lines() {
+        let mut tail = Vec::new();
+        for index in 0..2000 {
+            push_tail_line(&mut tail, &format!("line-{index:04}: {}", "x".repeat(90)));
         }
 
-        impl std::io::Write for TruncateLogOnWrite {
-            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-                if !self.truncated && bytes.len() >= 1024 {
-                    std::fs::write(&self.log_path, [])?;
-                    self.truncated = true;
-                }
-                std::io::Write::write(&mut self.output, bytes)
-            }
-
-            fn flush(&mut self) -> std::io::Result<()> {
-                Ok(())
-            }
-        }
-
-        impl std::io::Seek for TruncateLogOnWrite {
-            fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
-                std::io::Seek::seek(&mut self.output, position)
-            }
-        }
-
-        let dir = tempdir().unwrap();
-        let manager = LogManager::new(dir.path()).unwrap();
-        let date = Local::now().date_naive();
-        let mut seed = 0x12345678_u32;
-        let mut expected: String = (0..256 * 1024)
-            .map(|_| {
-                seed ^= seed << 13;
-                seed ^= seed >> 17;
-                seed ^= seed << 5;
-                char::from(b' ' + (seed % 95) as u8)
-            })
-            .collect();
-        expected.push('\n');
-        manager.append_line_at(date, &expected).unwrap();
-        let mut output = TruncateLogOnWrite {
-            output: Cursor::new(Vec::new()),
-            log_path: manager.path_for_date(date),
-            truncated: false,
-        };
-
-        manager.write_zip(&mut output, "manual export").unwrap();
-
-        assert!(output.truncated);
-        let mut archive = ZipArchive::new(Cursor::new(output.output.into_inner())).unwrap();
-        let mut actual = String::new();
-        std::io::Read::read_to_string(&mut archive.by_name(&format!("{date}.log")).unwrap(), &mut actual).unwrap();
-        assert_eq!(actual.len(), expected.len());
-        assert_eq!(actual, expected);
+        assert!(tail.len() <= TAIL_BUFFER_SIZE);
+        assert!(tail.starts_with(b"line-"));
+        assert!(tail.ends_with(b"\n"));
+        let text = String::from_utf8(tail).unwrap();
+        assert!(!text.contains("line-0000:"));
+        assert!(text.contains("\nline-1999:"));
     }
 }

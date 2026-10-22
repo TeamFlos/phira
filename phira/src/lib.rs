@@ -200,7 +200,7 @@ async fn the_main() -> Result<()> {
     }
 
     let dir = dir::root()?;
-    log::register_with_dir(std::path::Path::new(&dir).join("logs"))?;
+    log::register_with_dir(std::path::Path::new(&dir).join("logs"));
     let mut data: Data = std::fs::read_to_string(format!("{dir}/data.json"))
         .map_err(anyhow::Error::new)
         .and_then(|s| Ok(serde_json::from_str(&s)?))
