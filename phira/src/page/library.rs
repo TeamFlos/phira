@@ -605,6 +605,10 @@ pub fn request_export(suggested_name: String) -> bool {
 pub fn take_export() -> Option<io::Result<ExportConfig>> {
     EXPORT_CONFIG.lock().unwrap().take()
 }
+/// Whether an export config is waiting in the slot, without claiming it.
+pub fn export_pending() -> bool {
+    EXPORT_CONFIG.lock().unwrap().is_some()
+}
 pub fn resolve_export() {
     #[cfg(target_os = "ios")]
     {
@@ -1278,7 +1282,11 @@ impl Page for LibraryPage {
                 }
             }
         }
-        if let Some(config) = take_export() {
+        // The export slot is shared by every export flow; only claim it with
+        // an export of our own pending, or we would silently close the fd of
+        // a config another page is still waiting for.
+        let export_config = if self.export_paths.is_some() { take_export() } else { None };
+        if let Some(config) = export_config {
             fn export_inner(paths: Vec<String>, output: File, progress: Arc<AtomicU32>) -> Result<()> {
                 let charts = dir::charts()?;
                 let mut zip = zip::ZipWriter::new(BufWriter::new(output));

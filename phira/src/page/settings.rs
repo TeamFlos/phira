@@ -1,6 +1,6 @@
 prpr_l10n::tl_file!("settings");
 
-use super::{request_export, resolve_export, take_export, ExportConfig, NextPage, OffsetPage, Page, SharedState};
+use super::{export_pending, request_export, resolve_export, take_export, ExportConfig, NextPage, OffsetPage, Page, SharedState};
 use crate::{
     dir, get_data, get_data_mut,
     popup::ChooseButton,
@@ -208,7 +208,7 @@ impl Page for SettingsPage {
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
-        if self.list_debug.export_task.is_some() {
+        if self.list_debug.export_busy() {
             return Ok(true);
         }
         let t = s.t;
@@ -246,7 +246,7 @@ impl Page for SettingsPage {
     }
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
-        self.list_debug.update_log_export();
+        self.list_debug.update_log_export(s.t);
         let t = s.t;
         let changed = match self.tabs.selected() {
             SettingListType::General => self.list_general.update(t)?,
@@ -291,14 +291,19 @@ impl Page for SettingsPage {
             })
         })?;
 
-        if self.list_debug.export_task.is_some() {
+        if self.list_debug.export_busy() {
             ui.full_loading(tl!("log-exporting"), t);
         }
         Ok(())
     }
 
     fn on_back_pressed(&mut self, _s: &mut SharedState) -> bool {
-        self.list_debug.export_task.is_some()
+        self.list_debug.export_busy()
+    }
+
+    fn resume(&mut self) -> Result<()> {
+        self.list_debug.on_page_resume();
+        Ok(())
     }
 
     fn next_page(&mut self) -> NextPage {
@@ -1001,8 +1006,17 @@ struct DebugList {
     export_logs_btn: DRectButton,
     crash_test_btn: DRectButton,
     export_requested: bool,
+    /// Give-up time (game time) for the async platform file picker.
+    export_deadline: f32,
+    /// Set on page resume while an export is pending; the pickers report no
+    /// cancellation, so an empty export slot at that point means cancelled.
+    picker_resumed: bool,
     export_task: Option<mpsc::Receiver<Result<()>>>,
 }
+
+/// Backstop for pickers that never pause the app (split screen): give the
+/// export lock up after a bounded wait.
+const EXPORT_PICKER_TIMEOUT: f32 = 300.;
 
 impl DebugList {
     pub fn new() -> Self {
@@ -1012,7 +1026,21 @@ impl DebugList {
             export_logs_btn: DRectButton::new(),
             crash_test_btn: DRectButton::new(),
             export_requested: false,
+            export_deadline: 0.,
+            picker_resumed: false,
             export_task: None,
+        }
+    }
+
+    /// True while a log export is waiting for the (async, platform) file
+    /// picker or compressing in the background thread.
+    pub fn export_busy(&self) -> bool {
+        self.export_requested || self.export_task.is_some()
+    }
+
+    pub fn on_page_resume(&mut self) {
+        if self.export_requested {
+            self.picker_resumed = true;
         }
     }
 
@@ -1024,6 +1052,7 @@ impl DebugList {
         if self.export_logs_btn.touch(touch, t) {
             let name = format!("phira-logs-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
             self.export_requested = request_export(name);
+            self.export_deadline = t + EXPORT_PICKER_TIMEOUT;
             return Ok(Some(false));
         }
         let data = get_data_mut();
@@ -1051,7 +1080,16 @@ impl DebugList {
         Ok(None)
     }
 
-    fn update_log_export(&mut self) {
+    fn update_log_export(&mut self, t: f32) {
+        if self.picker_resumed {
+            self.picker_resumed = false;
+            // The pickers report no cancellation. After resuming from the
+            // fullscreen picker, an empty slot means it was dismissed without
+            // a file (Android delivers the fd before onResume).
+            if self.export_requested && !export_pending() {
+                self.export_requested = false;
+            }
+        }
         if self.export_requested {
             if let Some(config) = take_export() {
                 self.export_requested = false;
@@ -1066,6 +1104,8 @@ impl DebugList {
                     }
                     Err(error) => show_error(anyhow::Error::new(error).context(tl!("log-export-failed"))),
                 }
+            } else if t > self.export_deadline {
+                self.export_requested = false;
             }
         }
         if let Some(task) = &self.export_task {
