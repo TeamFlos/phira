@@ -230,6 +230,7 @@ impl GameScene {
         }?;
         chart.load_textures(fs).await?;
         chart.settings.hold_partial_cover = info.hold_partial_cover;
+        chart.settings.negative_length_hold = info.negative_length_hold;
         Ok((chart, bytes, format))
     }
 

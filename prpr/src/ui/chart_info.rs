@@ -191,7 +191,13 @@ pub fn render_chart_info(ui: &mut Ui, edit: &mut ChartInfoEdit, width: f32) -> (
 
         ui.dx(0.01);
         let r = ui.checkbox(tl!("force-aspect-ratio"), &mut info.force_aspect_ratio);
-        dy!(r.h + s);
+        dy!(r.h);
+        let r = ui.checkbox(tl!("hold-partial-cover"), &mut info.hold_partial_cover);
+        dy!(r.h);
+        let r = ui.checkbox(tl!("negative-length-hold"), &mut info.negative_length_hold);
+        dy!(r.h);
+        let r = ui.checkbox(tl!("note-uniform-scale"), &mut info.note_uniform_scale);
+        dy!(r.h);
         ui.dx(-0.01);
 
         ui.dx(-rt);
