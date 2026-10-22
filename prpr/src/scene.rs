@@ -587,6 +587,10 @@ impl Main {
         self.touches = None;
         self.paused = false;
         self.should_exit = false;
+        // Any open dialog belongs to the destroyed scenes; its listener
+        // closures captured their state, so drop it instead of letting it
+        // overlay the crash scene and swallow its touches.
+        DIALOG.with(|it| *it.borrow_mut() = None);
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let _ = scene.enter(&mut self.tm, None);
         }));

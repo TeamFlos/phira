@@ -167,6 +167,9 @@ fn push_tail_line(tail: &mut Vec<u8>, line: &str) {
 static MANAGER: OnceLock<Arc<LogManager>> = OnceLock::new();
 static CRASH_RECORD: OnceLock<Mutex<Option<CrashRecord>>> = OnceLock::new();
 static PANIC_HOOK: OnceLock<()> = OnceLock::new();
+/// The thread that installed the panic hook, i.e. the frame-loop thread.
+/// Panics on other threads are logged but left to their local handlers.
+static MAIN_THREAD: OnceLock<thread::ThreadId> = OnceLock::new();
 
 fn crash_slot() -> &'static Mutex<Option<CrashRecord>> {
     CRASH_RECORD.get_or_init(|| Mutex::new(None))
@@ -185,17 +188,6 @@ pub fn set_crash_record(record: CrashRecord) {
     if slot.is_none() {
         *slot = Some(record);
     }
-}
-
-pub fn record_error(error: &anyhow::Error) -> CrashRecord {
-    let summary = format!("{error}");
-    let details = format!("{error:?}");
-    let record = CrashRecord { summary, details };
-    set_crash_record(record.clone());
-    if let Some(manager) = manager() {
-        let _ = manager.append_line(&format!("ERROR: {}", record.details));
-    }
-    record
 }
 
 pub fn register_with_dir(dir: impl AsRef<Path>) {
@@ -220,6 +212,7 @@ pub fn install_panic_hook() {
     if PANIC_HOOK.set(()).is_err() {
         return;
     }
+    let _ = MAIN_THREAD.set(thread::current().id());
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -237,10 +230,15 @@ pub fn install_panic_hook() {
             let thread_name = thread.name().unwrap_or("unnamed");
             let details =
                 format!("thread={thread_name}\nlocation={location}\npayload={payload}\nbacktrace:\n{}", std::backtrace::Backtrace::force_capture());
-            set_crash_record(CrashRecord {
-                summary: payload.to_owned(),
-                details: details.clone(),
-            });
+            // Only a panic on the frame-loop thread tears the game down into
+            // the crash scene; worker threads may have their own recovery
+            // paths (e.g. the library export thread's error dialog).
+            if MAIN_THREAD.get().is_some_and(|it| *it == thread.id()) {
+                set_crash_record(CrashRecord {
+                    summary: payload.to_owned(),
+                    details: details.clone(),
+                });
+            }
             if let Some(manager) = manager() {
                 let _ = manager.append_line(&format!("PANIC: {details}"));
                 manager.flush();

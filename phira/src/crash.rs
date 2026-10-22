@@ -8,13 +8,14 @@ use prpr::{
     time::TimeManager,
     ui::{DRectButton, Ui},
 };
-use std::{panic::AssertUnwindSafe, time::SystemTime};
+use std::{panic::AssertUnwindSafe, sync::mpsc, time::SystemTime};
 
 pub struct CrashScene {
     record: CrashRecord,
     export_button: DRectButton,
     exit_button: DRectButton,
     export_requested: bool,
+    export_task: Option<mpsc::Receiver<Result<()>>>,
     next_scene: NextScene,
     status: Option<String>,
 }
@@ -26,6 +27,7 @@ impl CrashScene {
             export_button: DRectButton::new().with_radius(0.012),
             exit_button: DRectButton::new().with_radius(0.012),
             export_requested: false,
+            export_task: None,
             next_scene: NextScene::None,
             status: None,
         }
@@ -62,20 +64,23 @@ impl CrashScene {
     }
 
     fn finish_export(&mut self, config: page::ExportConfig) {
-        let result = log::manager()
-            .ok_or_else(|| anyhow!("log manager is unavailable"))
-            .and_then(|manager| manager.write_zip(config.file, &self.crash_metadata()).map_err(Into::into));
-        match result {
-            Ok(()) => {
-                page::resolve_export();
-                self.status = Some(crate::ttl!("crash-exported").into_owned());
+        let manager = log::manager();
+        let details = self.crash_metadata();
+        let (tx, rx) = mpsc::sync_channel(1);
+        // Deflating a week of logs can take seconds; keep it off the frame
+        // thread to avoid an Android ANR on the crash screen itself.
+        std::thread::spawn(move || {
+            let result = manager
+                .ok_or_else(|| anyhow!("log manager is unavailable"))
+                .and_then(|manager| manager.write_zip(config.file, &details).map_err(Into::into));
+            if result.is_err() {
+                if let Err(error) = (config.deleter)() {
+                    tracing::warn!("failed to delete incomplete crash export: {error}");
+                }
             }
-            Err(error) => {
-                let _ = (config.deleter)();
-                self.status = Some(format!("{}: {error}", crate::ttl!("crash-export-failed")));
-            }
-        }
-        self.export_requested = false;
+            let _ = tx.send(result);
+        });
+        self.export_task = Some(rx);
     }
 }
 
@@ -101,6 +106,29 @@ impl Scene for CrashScene {
                         self.export_requested = false;
                         self.status = Some(format!("{}: {error}", crate::ttl!("crash-export-failed")));
                     }
+                }
+            }
+        }
+        if let Some(task) = &self.export_task {
+            match task.try_recv() {
+                Ok(result) => {
+                    self.export_task = None;
+                    self.export_requested = false;
+                    match result {
+                        Ok(()) => {
+                            page::resolve_export();
+                            self.status = Some(crate::ttl!("crash-exported").into_owned());
+                        }
+                        Err(error) => {
+                            self.status = Some(format!("{}: {error}", crate::ttl!("crash-export-failed")));
+                        }
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.export_task = None;
+                    self.export_requested = false;
+                    self.status = Some(crate::ttl!("crash-export-failed").into_owned());
                 }
             }
         }

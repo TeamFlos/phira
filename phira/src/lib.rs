@@ -33,6 +33,7 @@ use prpr::{
     core::{init_assets, PGR_FONT},
     ext::SafeTexture,
     log,
+    scene::show_error,
     time::TimeManager,
     ui::{cleanup_audio, FontArc, TextPainter},
     Main,
@@ -244,12 +245,6 @@ async fn the_main() -> Result<()> {
 
     let mut crash_scene = false;
     'app: loop {
-        if !crash_scene {
-            if let Some(record) = log::crash_record() {
-                main.replace_scene(Box::new(crash::CrashScene::new(record)));
-                crash_scene = true;
-            }
-        }
         if main.paused() {
             match rx.recv_timeout(std::time::Duration::from_millis(100)) {
                 Ok(false) => {
@@ -258,6 +253,15 @@ async fn the_main() -> Result<()> {
                 Ok(true) => {}
                 Err(mpsc::RecvTimeoutError::Timeout) => continue,
                 Err(mpsc::RecvTimeoutError::Disconnected) => break 'app,
+            }
+        }
+        // Poll for a crash record only once we are about to render: while
+        // paused the rendering surface may already be gone (Android), so the
+        // switch to the crash scene has to wait for the resume above.
+        if !crash_scene {
+            if let Some(record) = log::crash_record() {
+                main.replace_scene(Box::new(crash::CrashScene::new(record)));
+                crash_scene = true;
             }
         }
 
@@ -288,13 +292,9 @@ async fn the_main() -> Result<()> {
             Ok(Ok(())) => {}
             Ok(Err(err)) => {
                 error!("uncaught error: {err:?}");
-                if !crash_scene {
-                    let record = log::record_error(&err);
-                    main.replace_scene(Box::new(crash::CrashScene::new(record)));
-                    crash_scene = true;
-                } else {
-                    break 'app;
-                }
+                // Transient update/render failures stay dismissible dialogs;
+                // only panics escalate to the crash scene.
+                show_error(err);
             }
             Err(_) => {
                 let record = log::crash_record().unwrap_or_else(|| {
