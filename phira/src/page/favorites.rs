@@ -445,7 +445,7 @@ impl Page for FavoritesPage {
                     button_hit();
                     let col = get_data().collection_by_index(self.active_folder.unwrap());
                     self.sf
-                        .goto(t, ProfileScene::new(col.owner.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()));
+                        .goto(t, ProfileScene::new(col.owner.as_ref().unwrap().id, self.icons.clone(), self.rank_icons.clone()));
                     return Ok(true);
                 }
             }
