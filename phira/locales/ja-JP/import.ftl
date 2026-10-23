@@ -1,8 +1,27 @@
-
 info-fail = 譜面情報の読み込みに失敗しました
 invalid-chart = 無効な譜面です
-
 importing = インポート中
 import-success = インポートに成功しました
 import-failed = インポートに失敗しました
 import-respack-failed = リソースパックのインポートに失敗しました
+import-respack-success = リソースパッケージが正常にインポートされました
+batch-import = 複数インポート
+batch-importing = 複数インポート中 ({ $current }/{ $total })
+batch-import-confirm = 複数データインポートが検出されました。{ $count }個の譜面をすべてインポートしますか？
+batch-import-success = { $count }個の譜面が正常にインポートされました。
+batch-import-downloaded-skipped = ダウンロード済みでスキップされた譜面: { $charts }
+batch-import-failed = 複数インポートが失敗しました
+batch-import-failed-chart = 複数インポートに失敗しました: { $chart }
+warning = 警告
+warning-new-speed-event = この譜面は、RPE 1.7.0で導入された速度イベントイージングを使用しています。互換性の問題から、Phiraではデフォルトではこのイベントのサポートが有効になっていません。有効にする必要がある場合は、譜面情報にある「新しい速度イージング」にチェックを入れてください。
+warning-attach-ui = この譜面はUI連携を使用しています。Phiraの最新バージョンではUI連携に関する修正が導入されていますが、古い動作に依存する譜面では問題が発生する可能性があります。必要に応じて、譜面情報で「UI連携の修正(UI 绑定修复)」のチェックを外してください。
+deeplink-title = リンク経由で譜面をインポート
+deeplink-confirm = リンクから譜面をダウンロードして、お使いのデバイスにインポートしますか？
+deeplink-unofficial = 非公式ソース：このファイルは公式Phiraサーバー（{ $host }）から提供されたものではありません。ダウンロードする前にソースを確認してください
+deeplink-download = ダウンロード
+deeplink-bad-url = 譜面ファイルへのリンクが無効です
+deeplink-downloading = ダウンロード中…
+deeplink-dl-failed = ダウンロード失敗
+deeplink-too-large = ファイルサイズがリンクのインポート制限（100 MiB）を超えています
+deeplink-opening = 譜面を開く…
+deeplink-open-failed = 譜面を開くことができませんでした
