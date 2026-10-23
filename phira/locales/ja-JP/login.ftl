@@ -37,7 +37,7 @@ hykb-choice-sub =
     以前にプレイしたことがあり、既にPhiraアカウントをお持ちの場合は、「既存のPhiraアカウントを連携」を選択して連携してください。
 hykb-choice-register = 新規プレイヤーデータ作成
 hykb-choice-claim = 既存のPhiraアカウントを連携
-hykb-reg-name-prompt = ユーザー名を入力してください（{ $min }-{ $max }ビット）
+hykb-reg-name-prompt = ユーザー名を入力してください（{ $min }-{ $max }文字）
 hykb-reg-name-confirm = 確認
 hykb-other-login-notice = 好游快爆アカウントを連携済みのユーザーのみがゲームにログインできます。
 hykb-other-login-not-bound = このアカウントは好游快爆と連携していないため、ログインできません

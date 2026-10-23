@@ -8,4 +8,4 @@ info-content =
 cant-delete-builtin = 初めからあるリソースパックは削除できません
 deleted = 削除しました
 label = リソースパック
-export = デフォルト
+export = エクスポート

@@ -30,5 +30,5 @@ exported = エクスポート完了
 multi-added-to-fav = お気に入りに追加しました
 multi-removed-from-fav = お気に入りから削除されました
 multi-select-all = すべて選択
-multi-select-invert = 選択解除
+multi-select-invert = 選択を反転
 fav-created = お気に入りが作成されました
