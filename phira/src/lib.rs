@@ -281,7 +281,7 @@ async fn the_main() -> Result<()> {
             if let Ok(paused) = rx.try_recv() {
                 if paused {
                     main.pause()?;
-                } else {
+                } else if main.paused() {
                     main.resume()?;
                 }
             }
