@@ -30,3 +30,14 @@ favorites-online-only = 雲端收藏夾只能收藏線上譜面。本地譜面�
 contains-banned-words = 你的輸入包含違禁詞，請檢查後再提交
 hykb-not-bound-logout = 你的帳號未綁定好遊快爆，已退出登入
 hykb-login-cancelled = 已取消好遊快爆登入
+
+
+crash-title = Phira 意外停止
+crash-message = 遊戲遇到意外錯誤，無法安全繼續。你可以匯出近期日誌來協助定位問題。
+crash-summary = 錯誤：{ $error }
+crash-log-retention = 保留最近七天的日誌，不包含帳號憑據或快取資源。
+crash-export = 匯出日誌
+crash-exit = 安全退出
+crash-exporting = 正在準備日誌...
+crash-exported = 日誌已準備好，可以分享。
+crash-export-failed = 匯出日誌失敗

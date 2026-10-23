@@ -44,6 +44,11 @@ item-chart-debug = Modo de depuração de Beatmap
 item-chart-debug-sub = Exibir número de linha e orientação
 item-touch-debug = Mostrar toques na tela
 item-touch-debug-sub = Irá exibir toques na tela
+item-export-logs = Exportar logs
+item-export-logs-sub = Exporte os logs dos últimos sete dias como um arquivo ZIP para relatar problemas.
+item-export-logs-button = Exportar
+log-exporting = Exportando logs…
+log-export-failed = Falha ao exportar logs
 
 load-cali-failed = Falha ao carregar áudio
 

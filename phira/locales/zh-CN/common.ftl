@@ -42,3 +42,14 @@ contains-banned-words = 你的输入包含违禁词，请检查后再提交
 
 hykb-not-bound-logout = 你的账号未绑定好游快爆，已退出登录
 hykb-login-cancelled = 已取消好游快爆登录
+
+
+crash-title = Phira 意外停止
+crash-message = 游戏遇到意外错误，无法安全继续。你可以导出近期日志来帮助定位问题。
+crash-summary = 错误：{ $error }
+crash-log-retention = 保留最近七天的日志，不包含账号凭据或缓存资源。
+crash-export = 导出日志
+crash-exit = 安全退出
+crash-exporting = 正在准备日志...
+crash-exported = 日志已准备好，可以分享。
+crash-export-failed = 导出日志失败

@@ -35,6 +35,13 @@ item-chart-debug = ビートマップデバッグモード
 item-chart-debug-sub = ラインナンバーや回転値を表示します
 item-touch-debug = タッチデバッグモード
 item-touch-debug-sub = タップした点を表示します
+
+item-export-logs = ログをエクスポート
+item-export-logs-sub = 不具合の報告用に直近7日間のログをZIP形式でエクスポートします
+item-export-logs-button = エクスポート
+log-exporting = ログをエクスポート中…
+log-export-failed = ログのエクスポートに失敗しました
+
 load-cali-failed = オーディオの読み込みに失敗しました
 about-content =
     Phira v{ $version }

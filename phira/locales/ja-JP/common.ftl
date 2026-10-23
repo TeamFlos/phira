@@ -30,3 +30,13 @@ contains-banned-words = 入力内容に禁止語が含まれています。送�
 hykb-not-bound-logout = あなたのアカウントは好游快爆にリンクされていないため、ログアウトされました
 hykb-login-cancelled = 好游快爆へのログインはキャンセルされました
 main-character-name = 夕
+
+crash-title = Phira が予期せず停止しました
+crash-message = 予期しないエラーが発生したため、ゲームを安全に続行できません。原因の特定に役立てるため、最近のログをエクスポートできます。
+crash-summary = エラー：{ $error }
+crash-log-retention = 直近7日間のログを保持します。アカウントの認証情報やキャッシュされたリソースは含まれません。
+crash-export = ログをエクスポート
+crash-exit = 安全に終了
+crash-exporting = ログを準備中...
+crash-exported = ログを共有する準備ができました。
+crash-export-failed = ログのエクスポートに失敗しました

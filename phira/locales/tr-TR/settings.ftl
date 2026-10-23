@@ -44,6 +44,11 @@ item-chart-debug = Ritim haritası hata ayıklama modu
 item-chart-debug-sub = Çizgi numarasını ve oryantasyonunu göster
 item-touch-debug = Dokunma hata ayıklama modu
 item-touch-debug-sub = Dokunulan noktaları göster.
+item-export-logs = Günlükleri dışa aktar
+item-export-logs-sub = Sorun bildirmek için son yedi günün günlüklerini ZIP arşivi olarak dışa aktarın.
+item-export-logs-button = Dışa aktar
+log-exporting = Günlükler dışa aktarılıyor…
+log-export-failed = Günlükler dışa aktarılamadı
 
 load-cali-failed = Ses yüklenemedi
 
