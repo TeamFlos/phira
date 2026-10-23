@@ -51,6 +51,11 @@ item-chart-debug = Hiển thị line ID
 item-chart-debug-sub = Hiển thị ID và hướng của line
 item-touch-debug = Hiển thị điểm chạm
 item-touch-debug-sub = Hiển thị điểm chạm khi bạn chạm vào màn hình
+item-export-logs = Xuất nhật ký
+item-export-logs-sub = Xuất nhật ký của bảy ngày gần nhất thành tệp ZIP để báo cáo sự cố.
+item-export-logs-button = Xuất
+log-exporting = Đang xuất nhật ký…
+log-export-failed = Không thể xuất nhật ký
 load-cali-failed = Không thể tải âm thanh hiệu chỉnh
 about-content =
     Phira v{ $version }

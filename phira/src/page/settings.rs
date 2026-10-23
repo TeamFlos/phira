@@ -1,6 +1,6 @@
 prpr_l10n::tl_file!("settings");
 
-use super::{NextPage, OffsetPage, Page, SharedState};
+use super::{export_pending, request_export, resolve_export, take_export, ExportConfig, NextPage, OffsetPage, Page, SharedState};
 use crate::{
     dir, get_data, get_data_mut,
     popup::ChooseButton,
@@ -9,7 +9,7 @@ use crate::{
     sync_data,
     tabs::{Tabs, TitleFn},
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bytesize::ByteSize;
 use inputbox::InputBox;
 use macroquad::prelude::*;
@@ -17,6 +17,7 @@ use once_cell::sync::Lazy;
 use prpr::{
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
+    log::{self, LogManager},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
     ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
@@ -24,7 +25,12 @@ use prpr::{
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
 use serde::Deserialize;
-use std::{borrow::Cow, fs, io, path::PathBuf, sync::atomic::Ordering};
+use std::{
+    borrow::Cow,
+    fs, io,
+    path::PathBuf,
+    sync::{atomic::Ordering, mpsc, Arc},
+};
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
@@ -190,6 +196,9 @@ impl Page for SettingsPage {
     }
 
     fn touch(&mut self, touch: &Touch, s: &mut SharedState) -> Result<bool> {
+        if self.list_debug.export_busy() {
+            return Ok(true);
+        }
         let t = s.t;
         if match self.tabs.selected() {
             SettingListType::General => self.list_general.top_touch(touch, t),
@@ -225,12 +234,13 @@ impl Page for SettingsPage {
     }
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
+        self.list_debug.update_log_export(s.t);
         let t = s.t;
         let changed = match self.tabs.selected() {
             SettingListType::General => self.list_general.update(t)?,
             SettingListType::Audio => self.list_audio.update(t)?,
             SettingListType::Chart => self.list_chart.update(t)?,
-            SettingListType::Debug => self.list_debug.update(t)?,
+            SettingListType::Debug => false,
             SettingListType::About => false,
         };
         self.scroll.update(t);
@@ -269,6 +279,18 @@ impl Page for SettingsPage {
             })
         })?;
 
+        if self.list_debug.export_busy() {
+            ui.full_loading(tl!("log-exporting"), t);
+        }
+        Ok(())
+    }
+
+    fn on_back_pressed(&mut self, _s: &mut SharedState) -> bool {
+        self.list_debug.export_busy()
+    }
+
+    fn resume(&mut self) -> Result<()> {
+        self.list_debug.on_page_resume();
         Ok(())
     }
 
@@ -943,16 +965,68 @@ impl ChartList {
     }
 }
 
+fn export_metadata() -> String {
+    format!(
+        "Phira {}\nos={} arch={}\ntime={}\nexport=manual\n",
+        env!("VERSION_STRING"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        chrono::Local::now().to_rfc3339(),
+    )
+}
+
+fn export_logs(config: ExportConfig, manager: Option<Arc<LogManager>>) -> Result<()> {
+    let metadata = export_metadata();
+    let result = manager
+        .ok_or_else(|| anyhow!("log manager is unavailable"))
+        .and_then(|manager| manager.write_zip(config.file, &metadata).map_err(Into::into));
+    if result.is_err() {
+        if let Err(error) = (config.deleter)() {
+            tracing::warn!("failed to delete incomplete log export: {error}");
+        }
+    }
+    result
+}
+
 struct DebugList {
     chart_debug_btn: DRectButton,
     touch_debug_btn: DRectButton,
+    export_logs_btn: DRectButton,
+    export_requested: bool,
+    /// Give-up time (game time) for the async platform file picker.
+    export_deadline: f32,
+    /// Set on page resume while an export is pending; the pickers report no
+    /// cancellation, so an empty export slot at that point means cancelled.
+    picker_resumed: bool,
+    export_task: Option<mpsc::Receiver<Result<()>>>,
 }
+
+/// Backstop for pickers that never pause the app (split screen): give the
+/// export lock up after a bounded wait.
+const EXPORT_PICKER_TIMEOUT: f32 = 300.;
 
 impl DebugList {
     pub fn new() -> Self {
         Self {
             chart_debug_btn: DRectButton::new(),
             touch_debug_btn: DRectButton::new(),
+            export_logs_btn: DRectButton::new(),
+            export_requested: false,
+            export_deadline: 0.,
+            picker_resumed: false,
+            export_task: None,
+        }
+    }
+
+    /// True while a log export is waiting for the (async, platform) file
+    /// picker or compressing in the background thread.
+    pub fn export_busy(&self) -> bool {
+        self.export_requested || self.export_task.is_some()
+    }
+
+    pub fn on_page_resume(&mut self) {
+        if self.export_requested {
+            self.picker_resumed = true;
         }
     }
 
@@ -961,6 +1035,12 @@ impl DebugList {
     }
 
     pub fn touch(&mut self, touch: &Touch, t: f32) -> Result<Option<bool>> {
+        if self.export_logs_btn.touch(touch, t) {
+            let name = format!("phira-logs-{}.zip", chrono::Local::now().format("%Y%m%d-%H%M%S"));
+            self.export_requested = request_export(name);
+            self.export_deadline = t + EXPORT_PICKER_TIMEOUT;
+            return Ok(Some(false));
+        }
         let data = get_data_mut();
         let config = &mut data.config;
         if self.chart_debug_btn.touch(touch, t) {
@@ -974,8 +1054,50 @@ impl DebugList {
         Ok(None)
     }
 
-    pub fn update(&mut self, _t: f32) -> Result<bool> {
-        Ok(false)
+    fn update_log_export(&mut self, t: f32) {
+        if self.picker_resumed {
+            self.picker_resumed = false;
+            // The pickers report no cancellation. After resuming from the
+            // fullscreen picker, an empty slot means it was dismissed without
+            // a file (Android delivers the fd before onResume).
+            if self.export_requested && !export_pending() {
+                self.export_requested = false;
+            }
+        }
+        if self.export_requested {
+            if let Some(config) = take_export() {
+                self.export_requested = false;
+                match config {
+                    Ok(config) => {
+                        let manager = log::manager();
+                        let (tx, rx) = mpsc::sync_channel(1);
+                        std::thread::spawn(move || {
+                            let _ = tx.send(export_logs(config, manager));
+                        });
+                        self.export_task = Some(rx);
+                    }
+                    Err(error) => show_error(anyhow::Error::new(error).context(tl!("log-export-failed"))),
+                }
+            } else if t > self.export_deadline {
+                self.export_requested = false;
+            }
+        }
+        if let Some(task) = &self.export_task {
+            match task.try_recv() {
+                Ok(result) => {
+                    self.export_task = None;
+                    match result {
+                        Ok(()) => resolve_export(),
+                        Err(error) => show_error(error.context(tl!("log-export-failed"))),
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.export_task = None;
+                    show_error(anyhow!("log export thread disconnected").context(tl!("log-export-failed")));
+                }
+            }
+        }
     }
 
     pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) -> (f32, f32) {
@@ -1000,6 +1122,67 @@ impl DebugList {
             render_title(ui, tl!("item-touch-debug"), Some(tl!("item-touch-debug-sub")));
             render_switch(ui, rr, t, &mut self.touch_debug_btn, config.touch_debug);
         }
+        item! {
+            render_title(ui, tl!("item-export-logs"), Some(tl!("item-export-logs-sub")));
+            self.export_logs_btn.render_text(ui, rr, t, tl!("item-export-logs-button"), 0.5, true);
+        }
         (w, h)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn manual_log_export_includes_recent_logs_without_a_crash() {
+        use std::{fs::File, io::Read, sync::Arc};
+
+        let dir = tempfile::tempdir().unwrap();
+        let manager = Arc::new(prpr::log::LogManager::new(dir.path().join("logs")).unwrap());
+        let today = chrono::Local::now().date_naive();
+        manager.append_line("latest diagnostic message").unwrap();
+        std::fs::write(manager.path_for_date(today - chrono::Duration::days(6)), "earlier diagnostic message\n").unwrap();
+        std::fs::write(manager.path_for_date(today - chrono::Duration::days(7)), "expired diagnostic message\n").unwrap();
+        let output_path = dir.path().join("logs.zip");
+        let config = super::ExportConfig {
+            file: File::create(&output_path).unwrap(),
+            deleter: Box::new(|| panic!("a successful export must be kept")),
+        };
+
+        super::export_logs(config, Some(manager)).unwrap();
+
+        let mut archive = zip::ZipArchive::new(File::open(output_path).unwrap()).unwrap();
+        // The active file is named after the UTC date, so check the in-memory
+        // tail instead of guessing the file name.
+        let mut tail = String::new();
+        archive.by_name("log-tail.txt").unwrap().read_to_string(&mut tail).unwrap();
+        assert!(tail.contains("latest diagnostic message"));
+        assert!(archive.by_name(&format!("phira.{}.log", today - chrono::Duration::days(6))).is_ok());
+        assert!(archive.by_name(&format!("phira.{}.log", today - chrono::Duration::days(7))).is_err());
+        let mut metadata = String::new();
+        archive.by_name("crash.txt").unwrap().read_to_string(&mut metadata).unwrap();
+        assert!(metadata.contains("export=manual"));
+        assert_eq!(archive.len(), 4);
+    }
+
+    #[test]
+    fn failed_manual_log_export_removes_the_incomplete_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let output_path = dir.path().join("logs.zip");
+        let delete_path = output_path.clone();
+        let config = super::ExportConfig {
+            file: std::fs::File::create(&output_path).unwrap(),
+            deleter: Box::new(move || std::fs::remove_file(delete_path)),
+        };
+
+        assert!(super::export_logs(config, None).is_err());
+        assert!(!output_path.exists());
+    }
+
+    #[test]
+    fn manual_log_export_metadata_uses_the_injected_version_string() {
+        let metadata = super::export_metadata();
+
+        assert!(metadata.starts_with(&format!("Phira {}\n", env!("VERSION_STRING"))));
+        assert!(!metadata.contains("GIT_HASH"));
     }
 }

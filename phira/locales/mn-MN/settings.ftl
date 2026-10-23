@@ -37,6 +37,11 @@ item-chart-debug = Бийтмап дибаг горим
 item-chart-debug-sub = Зураасын номер болон чиглэлийг үзүүлнэ
 item-touch-debug = Хүрэхийн дибаг горим
 item-touch-debug-sub = Хүрэлцэх цэгүүдийг харуулна
+item-export-logs = Лог экспортлох
+item-export-logs-sub = Асуудлыг мэдээлэхийн тулд сүүлийн долоон өдрийн логийг ZIP архив болгон экспортлоно.
+item-export-logs-button = Экспортлох
+log-exporting = Логийг экспортлож байна…
+log-export-failed = Логийг экспортлож чадсангүй
 load-cali-failed = Дууг ачаалахад амжилтгүй боллоо
 about-content =
      Phira v{ $version }

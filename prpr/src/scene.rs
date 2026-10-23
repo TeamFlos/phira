@@ -575,6 +575,28 @@ impl Main {
     pub fn should_exit(&self) -> bool {
         self.should_exit
     }
+
+    /// Replace all active scenes after an unrecoverable failure.
+    ///
+    /// Scene destructors are isolated from the caller because a partially
+    /// failed scene may itself contain a value whose destructor panics.
+    pub fn replace_scene(&mut self, mut scene: Box<dyn Scene>) {
+        let old = std::mem::take(&mut self.scenes);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(old)));
+        self.times.clear();
+        self.touches = None;
+        self.paused = false;
+        self.should_exit = false;
+        // Any open dialog belongs to the destroyed scenes; its listener
+        // closures captured their state, so drop it instead of letting it
+        // overlay the crash scene and swallow its touches.
+        DIALOG.with(|it| *it.borrow_mut() = None);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = scene.enter(&mut self.tm, None);
+        }));
+        self.scenes.push(scene);
+        self.last_update_time = self.tm.now();
+    }
 }
 
 fn draw_background(tex: Texture2D) {
