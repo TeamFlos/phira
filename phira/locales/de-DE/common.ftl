@@ -30,3 +30,14 @@ favorites-online-only = Nur Online-Charts können in Online-Favoriten gespeicher
 contains-banned-words = Die Eingabe enthält unzulässige Wörter; bitte überprüfe dies nochmal und versuche es erneut
 hykb-not-bound-logout = Das Konto ist nicht mit einem 3839-Games-Konto verknüpft; Du wurdest abgemeldet
 hykb-login-cancelled = Anmeldung bei 3839 Games abgebrochen
+
+crash-title = Phira wurde unerwartet beendet
+crash-message = Im Spiel ist ein unerwarteter Fehler aufgetreten. Es kann nicht sicher fortgesetzt werden. Du kannst die letzten Protokolle exportieren, um bei der Fehlersuche zu helfen.
+crash-summary = Fehler: { $error }
+crash-log-retention = Protokolle der letzten sieben Tage werden aufbewahrt. Anmeldedaten und zwischengespeicherte Ressourcen sind nicht enthalten.
+crash-export = Protokolle exportieren
+crash-exit = Sicher beenden
+crash-exporting = Protokolle werden vorbereitet...
+crash-exported = Die Protokolle sind zum Teilen bereit.
+crash-export-failed = Protokolle konnten nicht exportiert werden
+

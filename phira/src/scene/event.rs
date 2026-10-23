@@ -150,7 +150,7 @@ impl EventScene {
 
     async fn join_task(id: i32) -> Result<Option<String>> {
         let request = Client::post(format!("/event/{id}/join"), &());
-        let response = request.send().await?;
+        let response = crate::client::send_raw(request).await?;
         let status = response.status();
         if !status.is_success() {
             let text = response.text().await.context("failed to receive text")?;

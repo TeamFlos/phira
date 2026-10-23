@@ -52,6 +52,11 @@ item-chart-debug = 비트맵 디버그 모드
 item-chart-debug-sub = 라인 번호 및 방향 표시
 item-touch-debug = 터치 디버그 모드
 item-touch-debug-sub = 터치 지점 표시
+item-export-logs = 로그 내보내기
+item-export-logs-sub = 문제를 제보할 수 있도록 최근 7일간의 로그를 ZIP 파일로 내보냅니다.
+item-export-logs-button = 내보내기
+log-exporting = 로그 내보내는 중…
+log-export-failed = 로그를 내보내지 못했습니다
 
 load-cali-failed = 오디오를 로드하는데 실패했습니다.
 

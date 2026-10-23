@@ -1,0 +1,13 @@
+to = to
+adjust-offset = オフセット調整
+offset-cancel = キャンセル
+offset-reset = リセット
+offset-save = 保存
+analysis-prompt = 自動的分析するには「分析」を押してください
+analysis-computing = 分析中…
+auto-offset-btn = 分析
+speed = 速度
+game-over = Game Over
+ex-time-out-of-range = 対象外の時間です
+ex-invalid-format = フォーマットが正しくありません
+ex-time-set = セットアップに成功しました

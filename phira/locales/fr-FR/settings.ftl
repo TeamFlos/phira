@@ -57,6 +57,11 @@ item-chart-debug = Mode de débogage des partitions
 item-chart-debug-sub = Afficher le numéro et l'orientation des lignes de jugement
 item-touch-debug = Mode de débogage tactile
 item-touch-debug-sub = Afficher les points de contact
+item-export-logs = Exporter les journaux
+item-export-logs-sub = Exporter les journaux des sept derniers jours dans une archive ZIP pour signaler un problème
+item-export-logs-button = Exporter
+log-exporting = Exportation des journaux…
+log-export-failed = Échec de l'exportation des journaux
 
 load-cali-failed = Échec du chargement de l'audio
 

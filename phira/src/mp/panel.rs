@@ -182,12 +182,13 @@ impl MPPanel {
     }
 
     fn connect(&mut self) {
-        let Some(token) = get_data().tokens.as_ref().map(|it| it.0.clone()) else {
+        if get_data().tokens.is_none() {
             show_message(mtl!("connect-must-login")).error();
             return;
-        };
+        }
         let addr = get_data().config.mp_address.clone();
         self.connect_task = Some(Task::new(async move {
+            let token = crate::client::Client::authenticated_token().await?;
             let client = Client::from_address(&addr).await?;
             client
                 .authenticate(token)

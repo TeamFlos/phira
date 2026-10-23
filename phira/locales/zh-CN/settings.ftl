@@ -65,6 +65,11 @@ item-chart-debug = 谱面调试
 item-chart-debug-sub = 显示判定线编号和朝向
 item-touch-debug = 触摸调试
 item-touch-debug-sub = 游玩过程中显示触摸点
+item-export-logs = 导出日志
+item-export-logs-sub = 将最近七天的日志导出为 ZIP 压缩包以便反馈问题
+item-export-logs-button = 导出
+log-exporting = 正在导出日志…
+log-export-failed = 导出日志失败
 
 load-cali-failed = 加载音频失败
 
