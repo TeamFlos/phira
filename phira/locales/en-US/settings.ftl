@@ -70,10 +70,6 @@ item-export-logs-sub = Export logs from the last seven days as a ZIP archive for
 item-export-logs-button = Export
 log-exporting = Exporting logs…
 log-export-failed = Failed to export logs
-item-crash-test = Crash Test
-item-crash-test-sub = Crash the game.
-item-crash-test-button = Detonate!
-crash-test-warning = Unless you know what you are doing, please do not click this button. Any consequences caused by this button will not be fixed.
 
 load-cali-failed = Failed to load calibration audio.
 

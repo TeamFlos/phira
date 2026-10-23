@@ -46,10 +46,6 @@ item-export-logs-sub = 不具合の報告用に直近7日間のログをZIP形�
 item-export-logs-button = エクスポート
 log-exporting = ログをエクスポート中…
 log-export-failed = ログのエクスポートに失敗しました
-item-crash-test = クラッシュテスト
-item-crash-test-sub = ゲームをクラッシュさせます
-item-crash-test-button = 起爆！
-crash-test-warning = 何をしているか理解している場合を除き、このボタンを押さないでください。このボタンによって生じた影響については修復しません。
 
 load-cali-failed = オーディオの読み込みに失敗しました
 

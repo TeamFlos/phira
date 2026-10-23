@@ -62,10 +62,6 @@ item-export-logs-sub = Exporter les journaux des sept derniers jours dans une ar
 item-export-logs-button = Exporter
 log-exporting = Exportation des journaux…
 log-export-failed = Échec de l'exportation des journaux
-item-crash-test = Test de plantage
-item-crash-test-sub = Faire planter le jeu
-item-crash-test-button = Boum !
-crash-test-warning = Ne cliquez sur ce bouton que si vous savez ce que vous faites. Les conséquences provoquées par ce bouton ne seront pas corrigées.
 
 load-cali-failed = Échec du chargement de l'audio
 

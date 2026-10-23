@@ -42,10 +42,6 @@ item-export-logs-sub = Асуудлыг мэдээлэхийн тулд сүүл
 item-export-logs-button = Экспортлох
 log-exporting = Логийг экспортлож байна…
 log-export-failed = Логийг экспортлож чадсангүй
-item-crash-test = Алдаагаар зогсоох туршилт
-item-crash-test-sub = Тоглоомыг алдаагаар зогсооно.
-item-crash-test-button = Дэлбэл!
-crash-test-warning = Юу хийж байгаагаа мэдэхгүй бол энэ товчийг бүү дарна уу. Энэ товчоос үүдсэн аливаа үр дагаврыг засахгүй.
 load-cali-failed = Дууг ачаалахад амжилтгүй боллоо
 about-content =
      Phira v{ $version }

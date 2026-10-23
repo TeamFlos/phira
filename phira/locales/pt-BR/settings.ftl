@@ -49,10 +49,6 @@ item-export-logs-sub = Exporte os logs dos últimos sete dias como um arquivo ZI
 item-export-logs-button = Exportar
 log-exporting = Exportando logs…
 log-export-failed = Falha ao exportar logs
-item-crash-test = Teste de falha
-item-crash-test-sub = Faça o jogo falhar.
-item-crash-test-button = Detonar!
-crash-test-warning = Não clique neste botão a menos que saiba o que está fazendo. Quaisquer consequências causadas por este botão não serão corrigidas.
 
 load-cali-failed = Falha ao carregar áudio
 

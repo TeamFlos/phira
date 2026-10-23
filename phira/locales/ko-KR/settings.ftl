@@ -57,10 +57,6 @@ item-export-logs-sub = 문제를 제보할 수 있도록 최근 7일간의 로�
 item-export-logs-button = 내보내기
 log-exporting = 로그 내보내는 중…
 log-export-failed = 로그를 내보내지 못했습니다
-item-crash-test = 크래시 테스트
-item-crash-test-sub = 게임을 크래시시킵니다.
-item-crash-test-button = 기폭!
-crash-test-warning = 무엇을 하는지 알고 있는 경우가 아니라면 이 버튼을 누르지 마세요. 이 버튼으로 인해 발생하는 어떠한 영향도 복구해 드리지 않습니다.
 
 load-cali-failed = 오디오를 로드하는데 실패했습니다.
 

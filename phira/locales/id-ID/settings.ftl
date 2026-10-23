@@ -45,10 +45,6 @@ item-export-logs-sub = Ekspor log tujuh hari terakhir sebagai arsip ZIP untuk me
 item-export-logs-button = Ekspor
 log-exporting = Mengekspor log…
 log-export-failed = Gagal mengekspor log
-item-crash-test = Uji Crash
-item-crash-test-sub = Buat game crash.
-item-crash-test-button = Ledakkan!
-crash-test-warning = Jangan klik tombol ini kecuali Anda tahu apa yang Anda lakukan. Segala dampak yang ditimbulkan oleh tombol ini tidak akan diperbaiki.
 
 load-cali-failed = Gagal memuat audio
 

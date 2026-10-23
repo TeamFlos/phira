@@ -70,10 +70,6 @@ item-export-logs-sub = 将最近七天的日志导出为 ZIP 压缩包以便反�
 item-export-logs-button = 导出
 log-exporting = 正在导出日志…
 log-export-failed = 导出日志失败
-item-crash-test = 崩溃测试
-item-crash-test-sub = 让游戏崩溃
-item-crash-test-button = 起爆！
-crash-test-warning = 除非你知道你在做什么，否则请不要点击此按钮，此按钮造成的任何影响不予修复
 
 load-cali-failed = 加载音频失败
 

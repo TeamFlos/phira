@@ -56,10 +56,6 @@ item-export-logs-sub = ส่งออกบันทึกจากเจ็ด
 item-export-logs-button = ส่งออก
 log-exporting = กำลังส่งออกบันทึก…
 log-export-failed = ส่งออกบันทึกไม่สำเร็จ
-item-crash-test = ทดสอบการแครช
-item-crash-test-sub = ทำให้เกมแครช
-item-crash-test-button = ระเบิดเลย!
-crash-test-warning = อย่ากดปุ่มนี้ เว้นแต่คุณจะรู้ว่ากำลังทำอะไรอยู่ ผลกระทบใด ๆ ที่เกิดจากปุ่มนี้จะไม่ได้รับการแก้ไข
 load-cali-failed = ไม่สามารถโหลดเสียงได้
 about-content =
     Phira v{ $version }

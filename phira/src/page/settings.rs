@@ -20,7 +20,7 @@ use prpr::{
     log::{self, LogManager},
     scene::{request_input, return_input, show_error, show_message, take_input},
     task::Task,
-    ui::{DRectButton, Dialog, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
+    ui::{DRectButton, Scroll, Slider, Ui, PREFER_REDUCED_MOTION, UI_SFX_VOLUME},
 };
 use prpr_l10n::{LanguageIdentifier, LANG_IDENTS, LANG_NAMES};
 use reqwest::Url;
@@ -29,24 +29,12 @@ use std::{
     borrow::Cow,
     fs, io,
     path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc, Arc,
-    },
+    sync::{atomic::Ordering, mpsc, Arc},
 };
 
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
 const STATUS_PAGE: &str = "https://status.phira.cn";
-static CRASH_TEST_PENDING: AtomicBool = AtomicBool::new(false);
-
-fn request_crash_test() {
-    CRASH_TEST_PENDING.store(true, Ordering::SeqCst);
-}
-
-fn take_crash_test() -> bool {
-    CRASH_TEST_PENDING.swap(false, Ordering::SeqCst)
-}
 
 struct NameList(String);
 impl<'de> Deserialize<'de> for NameList {
@@ -252,7 +240,7 @@ impl Page for SettingsPage {
             SettingListType::General => self.list_general.update(t)?,
             SettingListType::Audio => self.list_audio.update(t)?,
             SettingListType::Chart => self.list_chart.update(t)?,
-            SettingListType::Debug => self.list_debug.update(t)?,
+            SettingListType::Debug => false,
             SettingListType::About => false,
         };
         self.scroll.update(t);
@@ -1004,7 +992,6 @@ struct DebugList {
     chart_debug_btn: DRectButton,
     touch_debug_btn: DRectButton,
     export_logs_btn: DRectButton,
-    crash_test_btn: DRectButton,
     export_requested: bool,
     /// Give-up time (game time) for the async platform file picker.
     export_deadline: f32,
@@ -1024,7 +1011,6 @@ impl DebugList {
             chart_debug_btn: DRectButton::new(),
             touch_debug_btn: DRectButton::new(),
             export_logs_btn: DRectButton::new(),
-            crash_test_btn: DRectButton::new(),
             export_requested: false,
             export_deadline: 0.,
             picker_resumed: false,
@@ -1064,18 +1050,6 @@ impl DebugList {
         if self.touch_debug_btn.touch(touch, t) {
             config.touch_debug ^= true;
             return Ok(Some(true));
-        }
-        if self.crash_test_btn.touch(touch, t) {
-            Dialog::plain(tl!("item-crash-test"), tl!("crash-test-warning"))
-                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
-                .listener(|_dialog, id| {
-                    if id == 1 {
-                        request_crash_test();
-                    }
-                    false
-                })
-                .show();
-            return Ok(Some(false));
         }
         Ok(None)
     }
@@ -1126,13 +1100,6 @@ impl DebugList {
         }
     }
 
-    pub fn update(&mut self, _t: f32) -> Result<bool> {
-        if take_crash_test() {
-            panic!("crash test requested");
-        }
-        Ok(false)
-    }
-
     pub fn render(&mut self, ui: &mut Ui, r: Rect, t: f32) -> (f32, f32) {
         let w = r.w;
         let mut h = 0.;
@@ -1159,26 +1126,12 @@ impl DebugList {
             render_title(ui, tl!("item-export-logs"), Some(tl!("item-export-logs-sub")));
             self.export_logs_btn.render_text(ui, rr, t, tl!("item-export-logs-button"), 0.5, true);
         }
-        item! {
-            render_title(ui, tl!("item-crash-test"), Some(tl!("item-crash-test-sub")));
-            self.crash_test_btn.render_text_color(
-                ui,
-                rr,
-                t,
-                tl!("item-crash-test-button"),
-                0.5,
-                true,
-                Color::new(1., 0., 0., 1.),
-            );
-        }
         (w, h)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::Ordering;
-
     #[test]
     fn manual_log_export_includes_recent_logs_without_a_crash() {
         use std::{fs::File, io::Read, sync::Arc};
@@ -1231,20 +1184,5 @@ mod tests {
 
         assert!(metadata.starts_with(&format!("Phira {}\n", env!("VERSION_STRING"))));
         assert!(!metadata.contains("GIT_HASH"));
-    }
-
-    #[test]
-    fn crash_test_warning_matches_the_safety_notice() {
-        let settings = include_str!("../../locales/zh-CN/settings.ftl");
-        assert!(settings.contains("crash-test-warning ="));
-        assert!(settings.contains("除非你知道你在做什么，否则请不要点击此按钮，此按钮造成的任何影响不予修复"));
-    }
-    #[test]
-    fn crash_test_request_is_consumed_once_after_dialog_can_close() {
-        super::CRASH_TEST_PENDING.store(false, Ordering::SeqCst);
-        super::request_crash_test();
-
-        assert!(super::take_crash_test());
-        assert!(!super::take_crash_test());
     }
 }
