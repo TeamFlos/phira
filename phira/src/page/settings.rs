@@ -421,6 +421,7 @@ struct GeneralList {
     mp_addr_btn: DRectButton,
     #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
+    scale_slider: Slider,
     prefer_reduced_motion_btn: DRectButton,
     insecure_btn: DRectButton,
     enable_anys_btn: DRectButton,
@@ -457,6 +458,7 @@ impl GeneralList {
             mp_addr_btn: DRectButton::new(),
             #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
+            scale_slider: Slider::new(0.5..1.2, 0.05),
             prefer_reduced_motion_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
             enable_anys_btn: DRectButton::new(),
@@ -542,6 +544,9 @@ impl GeneralList {
         if self.lowq_btn.touch(touch, t) {
             config.sample_count = if config.sample_count == 1 { 2 } else { 1 };
             return Ok(Some(true));
+        }
+        if let wt @ Some(_) = self.scale_slider.touch(touch, t, &mut config.render_scale) {
+            return Ok(wt);
         }
         if self.prefer_reduced_motion_btn.touch(touch, t) {
             data.prefer_reduced_motion ^= true;
@@ -654,6 +659,10 @@ impl GeneralList {
         item! {
             render_title(ui, tl!("item-lowq"), Some(tl!("item-lowq-sub")));
             render_switch(ui, rr, t, &mut self.lowq_btn, config.sample_count == 1);
+        }
+        item! {
+            render_title(ui, tl!("item-render-scale"), Some(tl!("item-render-scale-sub")));
+            self.scale_slider.render(ui, rr, t, config.render_scale, format!("{:.2}x", config.render_scale));
         }
         item! {
             let cache_size = if let Some(size) = self.cache_size {

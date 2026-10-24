@@ -47,6 +47,9 @@ impl Mods {
     }
 }
 
+/// Allowed range for [`Config::render_scale`].
+pub const RENDER_SCALE_RANGE: std::ops::RangeInclusive<f32> = 0.5..=1.2;
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +77,13 @@ pub struct Config {
     pub player_name: String,
     pub player_rks: f32,
     pub preferred_sample_rate: Option<u32>,
+    /// Internal rendering resolution multiplier for the playing scene.
+    ///
+    /// `1.0` renders at the native framebuffer size; lower values render the
+    /// chart (and its shader effects) into a smaller render target that is
+    /// upscaled to the screen, which trades sharpness for frame rate. Values
+    /// above `1.0` supersample. Clamped to [`RENDER_SCALE_RANGE`].
+    pub render_scale: f32,
     pub res_pack_path: Option<String>,
     pub sample_count: u32,
     pub show_acc: bool,
@@ -114,6 +124,7 @@ impl Default for Config {
             player_name: "Mivik".to_string(),
             player_rks: 15.,
             preferred_sample_rate: None,
+            render_scale: 1.0,
             res_pack_path: None,
             sample_count: 1,
             show_acc: false,
@@ -135,6 +146,7 @@ impl Config {
         if let Some(flag) = self.autoplay {
             self.mods.set(Mods::AUTOPLAY, flag);
         }
+        self.render_scale = self.render_scale.clamp(*RENDER_SCALE_RANGE.start(), *RENDER_SCALE_RANGE.end());
         #[cfg(target_env = "ohos")]
         {
             // Due to the fucking poor performance of the Maloon GPU, the sample count must be set to 1.
