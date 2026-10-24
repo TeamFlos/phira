@@ -561,12 +561,23 @@ impl GeneralList {
             return Ok(wt);
         }
         if self.fps_limit_btn.touch(touch, t) {
+            // Cycle 60 -> 120 -> display refresh rate -> unlimited. The 120
+            // step is skipped when the panel cannot display it.
+            let refresh = crate::display::refresh_rate();
             config.frame_rate_limit = match config.frame_rate_limit {
-                FrameRateLimit::Vsync => FrameRateLimit::Fps60,
-                FrameRateLimit::Fps60 => FrameRateLimit::Fps120,
-                FrameRateLimit::Fps120 => FrameRateLimit::Unlimited,
-                FrameRateLimit::Unlimited => FrameRateLimit::Vsync,
+                FrameRateLimit::Fps60 => {
+                    if refresh >= 120 {
+                        FrameRateLimit::Fps120
+                    } else {
+                        FrameRateLimit::Vsync
+                    }
+                }
+                FrameRateLimit::Fps120 => FrameRateLimit::Vsync,
+                FrameRateLimit::Vsync => FrameRateLimit::Unlimited,
+                FrameRateLimit::Unlimited => FrameRateLimit::Fps60,
             };
+            // Applied immediately: toggles wglSwapIntervalEXT at runtime.
+            crate::display::set_vsync(config.frame_rate_limit.needs_vsync());
             return Ok(Some(true));
         }
         if self.prefer_reduced_motion_btn.touch(touch, t) {
@@ -686,7 +697,7 @@ impl GeneralList {
             self.scale_slider.render(ui, rr, t, config.render_scale, format!("{:.2}x", config.render_scale));
         }
         item! {
-            render_title(ui, tl!("item-frame-rate"), Some(tl!("item-frame-rate-sub")));
+            render_title(ui, tl!("item-frame-rate"), None);
             self.fps_limit_btn.render_text(ui, rr, t, frame_rate_label(config.frame_rate_limit), 0.5, true);
         }
         item! {

@@ -24,7 +24,6 @@ item-lowq-sub = 建议在画面卡顿时启用
 item-render-scale = 渲染倍率
 item-render-scale-sub = 游玩画面的内部渲染分辨率倍率
 item-frame-rate = 帧率
-item-frame-rate-sub = 在显示器刷新率与固定帧率之间切换需重启游戏
 frame-rate-vsync = 显示器刷新率
 frame-rate-60 = 60 FPS
 frame-rate-120 = 120 FPS

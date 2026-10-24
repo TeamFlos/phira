@@ -11,6 +11,7 @@ mod client;
 mod crash;
 mod data;
 pub mod deeplink;
+mod display;
 mod icons;
 mod images;
 mod login;
@@ -234,6 +235,10 @@ async fn the_main() -> Result<()> {
     let mut painter = TextPainter::new(font.clone(), None);
 
     let mut main = Main::new(Box::new(MainScene::new(font).await?), TimeManager::default(), None).await?;
+
+    // Apply the persisted presentation mode; runtime switching is handled by
+    // the settings page through `display::set_vsync`.
+    display::set_vsync(get_data().config.frame_rate_limit.needs_vsync());
 
     let tm = TimeManager::default();
     let mut fps_time = -1;

@@ -24,7 +24,6 @@ item-lowq-sub = Lower the quality of the UI, increasing peformance.
 item-render-scale = Render Scale
 item-render-scale-sub = Internal resolution multiplier for gameplay.
 item-frame-rate = Frame Rate
-item-frame-rate-sub = Switching between display refresh rate and fixed caps needs a restart.
 frame-rate-vsync = Display refresh rate
 frame-rate-60 = 60 FPS
 frame-rate-120 = 120 FPS
