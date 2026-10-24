@@ -15,6 +15,7 @@ use inputbox::InputBox;
 use macroquad::prelude::*;
 use once_cell::sync::Lazy;
 use prpr::{
+    config::FrameRateLimit,
     core::BOLD_FONT,
     ext::{open_url, poll_future, semi_white, LocalTask, RectExt, SafeTexture},
     log::{self, LogManager},
@@ -35,6 +36,15 @@ use std::{
 const ITEM_HEIGHT: f32 = 0.15;
 const INTERACT_WIDTH: f32 = 0.26;
 const STATUS_PAGE: &str = "https://status.phira.cn";
+
+fn frame_rate_label(limit: FrameRateLimit) -> Cow<'static, str> {
+    match limit {
+        FrameRateLimit::Vsync => tl!("frame-rate-vsync"),
+        FrameRateLimit::Fps60 => tl!("frame-rate-60"),
+        FrameRateLimit::Fps120 => tl!("frame-rate-120"),
+        FrameRateLimit::Unlimited => tl!("frame-rate-unlimited"),
+    }
+}
 
 struct NameList(String);
 impl<'de> Deserialize<'de> for NameList {
@@ -422,6 +432,7 @@ struct GeneralList {
     #[cfg(not(target_env = "ohos"))]
     lowq_btn: DRectButton,
     scale_slider: Slider,
+    fps_limit_btn: DRectButton,
     prefer_reduced_motion_btn: DRectButton,
     insecure_btn: DRectButton,
     enable_anys_btn: DRectButton,
@@ -459,6 +470,7 @@ impl GeneralList {
             #[cfg(not(target_env = "ohos"))]
             lowq_btn: DRectButton::new(),
             scale_slider: Slider::new(0.5..1.2, 0.05),
+            fps_limit_btn: DRectButton::new(),
             prefer_reduced_motion_btn: DRectButton::new(),
             insecure_btn: DRectButton::new(),
             enable_anys_btn: DRectButton::new(),
@@ -547,6 +559,15 @@ impl GeneralList {
         }
         if let wt @ Some(_) = self.scale_slider.touch(touch, t, &mut config.render_scale) {
             return Ok(wt);
+        }
+        if self.fps_limit_btn.touch(touch, t) {
+            config.frame_rate_limit = match config.frame_rate_limit {
+                FrameRateLimit::Vsync => FrameRateLimit::Fps60,
+                FrameRateLimit::Fps60 => FrameRateLimit::Fps120,
+                FrameRateLimit::Fps120 => FrameRateLimit::Unlimited,
+                FrameRateLimit::Unlimited => FrameRateLimit::Vsync,
+            };
+            return Ok(Some(true));
         }
         if self.prefer_reduced_motion_btn.touch(touch, t) {
             data.prefer_reduced_motion ^= true;
@@ -663,6 +684,10 @@ impl GeneralList {
         item! {
             render_title(ui, tl!("item-render-scale"), Some(tl!("item-render-scale-sub")));
             self.scale_slider.render(ui, rr, t, config.render_scale, format!("{:.2}x", config.render_scale));
+        }
+        item! {
+            render_title(ui, tl!("item-frame-rate"), Some(tl!("item-frame-rate-sub")));
+            self.fps_limit_btn.render_text(ui, rr, t, frame_rate_label(config.frame_rate_limit), 0.5, true);
         }
         item! {
             let cache_size = if let Some(size) = self.cache_size {

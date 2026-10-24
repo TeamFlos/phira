@@ -265,6 +265,7 @@ async fn the_main() -> Result<()> {
             }
         }
 
+        let frame_begin = std::time::Instant::now();
         let frame_start = tm.real_time();
         if !last_frame_start.is_nan() {
             if fps_times.len() == FPS_BUF_SIZE {
@@ -332,6 +333,25 @@ async fn the_main() -> Result<()> {
         // While backgrounded the scene is paused; the timed receive above
         // keeps this thread responsive to background-thread crash records.
         next_frame().await;
+
+        // Pace fixed frame rate caps *after* presenting the frame, so the
+        // buffer swap counts towards the target interval. Vertical sync and
+        // "unlimited" are left to the presentation backend.
+        if let Some(target) = get_data().config.frame_rate_limit.target_duration() {
+            let elapsed = frame_begin.elapsed();
+            if elapsed < target {
+                // `sleep` alone overshoots by ~1-2ms on Windows; sleep most of
+                // the way and busy-wait the rest for accurate pacing.
+                let remain = target - elapsed;
+                let spin = std::time::Duration::from_millis(2);
+                if remain > spin {
+                    std::thread::sleep(remain - spin);
+                }
+                while frame_begin.elapsed() < target {
+                    std::hint::spin_loop();
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -345,13 +365,24 @@ fn build_global_window_conf() -> Conf {
         big: *include_bytes!("../icon/big"),
     });
 
+    // Read the persisted config once: it decides the presentation mode and,
+    // on Windows, whether the window starts fullscreen.
+    let saved = dir::root()
+        .ok()
+        .and_then(|r| std::fs::read_to_string(std::path::Path::new(&r).join("data.json")).ok())
+        .and_then(|s| serde_json::from_str::<Data>(&s).ok());
+
     #[cfg(target_os = "windows")]
     {
-        conf.fullscreen = dir::root()
-            .ok()
-            .and_then(|r| std::fs::read_to_string(std::path::Path::new(&r).join("data.json")).ok())
-            .and_then(|s| serde_json::from_str::<Data>(&s).ok())
-            .is_some_and(|d| d.config.fullscreen_mode);
+        conf.fullscreen = saved.as_ref().is_some_and(|d| d.config.fullscreen_mode);
+    }
+
+    // Vertical sync can only be chosen when the GL context is created, so the
+    // frame rate limit is applied here; fixed caps are paced by the main loop.
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
+    {
+        let limit = saved.as_ref().map(|d| d.config.frame_rate_limit).unwrap_or_default();
+        conf.platform.swap_interval = Some(if limit.needs_vsync() { 1 } else { 0 });
     }
 
     conf
