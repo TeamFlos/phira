@@ -47,6 +47,43 @@ impl Mods {
     }
 }
 
+/// Allowed range for [`Config::render_scale`].
+pub const RENDER_SCALE_RANGE: std::ops::RangeInclusive<f32> = 0.5..=1.2;
+
+/// Presentation pacing: either follow the display refresh rate via vertical
+/// sync, or uncap and pace the main loop to a fixed rate.
+///
+/// The vertical sync choice is only applied when the window is created, so
+/// switching between [`FrameRateLimit::Vsync`] and the other variants requires
+/// a restart; switching between the fixed rates takes effect immediately.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum FrameRateLimit {
+    /// Follow the display refresh rate (vertical sync on).
+    #[default]
+    Vsync,
+    Fps60,
+    Fps120,
+    /// No cap and no vertical sync: render as fast as possible.
+    Unlimited,
+}
+
+impl FrameRateLimit {
+    /// Minimum frame time the main loop should pace to, if any.
+    pub fn target_duration(self) -> Option<std::time::Duration> {
+        match self {
+            Self::Fps60 => Some(std::time::Duration::from_secs_f64(1. / 60.)),
+            Self::Fps120 => Some(std::time::Duration::from_secs_f64(1. / 120.)),
+            Self::Vsync | Self::Unlimited => None,
+        }
+    }
+
+    /// Whether the window should be created with vertical sync enabled.
+    pub fn needs_vsync(self) -> bool {
+        matches!(self, Self::Vsync)
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +111,14 @@ pub struct Config {
     pub player_name: String,
     pub player_rks: f32,
     pub preferred_sample_rate: Option<u32>,
+    /// Presentation pacing: display refresh rate (vsync) or a fixed cap.
+    pub frame_rate_limit: FrameRateLimit,
+    /// Internal rendering resolution multiplier for the playing scene.
+    ///
+    /// `1.0` is native; lower values render the chart smaller and upscale it
+    /// to the screen (faster), higher values supersample (sharper).
+    /// Clamped to [`RENDER_SCALE_RANGE`].
+    pub render_scale: f32,
     pub res_pack_path: Option<String>,
     pub sample_count: u32,
     pub show_acc: bool,
@@ -114,6 +159,8 @@ impl Default for Config {
             player_name: "Mivik".to_string(),
             player_rks: 15.,
             preferred_sample_rate: None,
+            frame_rate_limit: FrameRateLimit::default(),
+            render_scale: 1.0,
             res_pack_path: None,
             sample_count: 1,
             show_acc: false,
@@ -135,6 +182,7 @@ impl Config {
         if let Some(flag) = self.autoplay {
             self.mods.set(Mods::AUTOPLAY, flag);
         }
+        self.render_scale = self.render_scale.clamp(*RENDER_SCALE_RANGE.start(), *RENDER_SCALE_RANGE.end());
         #[cfg(target_env = "ohos")]
         {
             // Due to the fucking poor performance of the Maloon GPU, the sample count must be set to 1.
