@@ -393,7 +393,7 @@ impl GameScene {
         if res.config.interactive
             && !tm.paused()
             && self.pause_rewind.is_none()
-            && Judge::get_touches().iter().any(|touch| {
+            && ui.ensure_touches().iter().any(|touch| {
                 touch.phase == TouchPhase::Started && {
                     let p = touch.position;
                     let p = Point::new(p.x, p.y);
@@ -586,7 +586,7 @@ impl GameScene {
             );
             if res.config.interactive {
                 let mut clicked = None;
-                for touch in Judge::get_touches() {
+                for touch in ui.ensure_touches().iter() {
                     if touch.phase != TouchPhase::Started {
                         continue;
                     }
@@ -1260,6 +1260,10 @@ impl Scene for GameScene {
                 pop_camera_state();
             }
         }
+        // Reset the GL target: the next frame maps mouse coordinates through
+        // get_viewport(), and a leftover offscreen viewport skews every touch.
+        self.gl.quad_gl.viewport(None);
+        self.gl.quad_gl.render_pass(None);
         Ok(())
     }
 

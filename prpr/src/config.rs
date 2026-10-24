@@ -79,10 +79,9 @@ pub struct Config {
     pub preferred_sample_rate: Option<u32>,
     /// Internal rendering resolution multiplier for the playing scene.
     ///
-    /// `1.0` renders at the native framebuffer size; lower values render the
-    /// chart (and its shader effects) into a smaller render target that is
-    /// upscaled to the screen, which trades sharpness for frame rate. Values
-    /// above `1.0` supersample. Clamped to [`RENDER_SCALE_RANGE`].
+    /// `1.0` is native; lower values render the chart smaller and upscale it
+    /// to the screen (faster), higher values supersample (sharper).
+    /// Clamped to [`RENDER_SCALE_RANGE`].
     pub render_scale: f32,
     pub res_pack_path: Option<String>,
     pub sample_count: u32,
