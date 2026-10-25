@@ -203,6 +203,7 @@ async fn the_main() -> Result<()> {
 
     let dir = dir::root()?;
     log::register_with_dir(std::path::Path::new(&dir).join("logs"));
+    info!("window {}x{}", screen_width() as u32, screen_height() as u32);
     let mut data: Data = std::fs::read_to_string(format!("{dir}/data.json"))
         .map_err(anyhow::Error::new)
         .and_then(|s| Ok(serde_json::from_str(&s)?))
@@ -380,6 +381,12 @@ fn build_global_window_conf() -> Conf {
     #[cfg(target_os = "windows")]
     {
         conf.fullscreen = saved.as_ref().is_some_and(|d| d.config.fullscreen_mode);
+        // The process is DPI aware now, so miniquad sizes windows in physical
+        // pixels; scale the default window size so windowed mode keeps the same
+        // apparent size as before.
+        let scale = display::dpi_scale();
+        conf.window_width = (conf.window_width as f32 * scale) as i32;
+        conf.window_height = (conf.window_height as f32 * scale) as i32;
     }
 
     // Vertical sync can only be chosen when the GL context is created, so the
@@ -395,6 +402,9 @@ fn build_global_window_conf() -> Conf {
 
 #[no_mangle]
 pub extern "C" fn quad_main() {
+    // Must run before the window is created so the framebuffer uses the real
+    // panel resolution instead of a DPI-virtualized logical size.
+    display::ensure_dpi_aware();
     macroquad::Window::from_config(build_global_window_conf(), async {
         if let Err(err) = the_main().await {
             error!(?err, "global error");
