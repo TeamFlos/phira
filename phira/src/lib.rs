@@ -204,6 +204,7 @@ async fn the_main() -> Result<()> {
     let dir = dir::root()?;
     log::register_with_dir(std::path::Path::new(&dir).join("logs"));
     info!("window {}x{}", screen_width() as u32, screen_height() as u32);
+    info!("display refresh rate: {:?} Hz", display::refresh_rate());
     let mut data: Data = std::fs::read_to_string(format!("{dir}/data.json"))
         .map_err(anyhow::Error::new)
         .and_then(|s| Ok(serde_json::from_str(&s)?))

@@ -4,9 +4,17 @@
 //! settings switch would otherwise need a restart. On Windows the WGL swap
 //! interval can be toggled at runtime; other platforms fall back to the value
 //! chosen at window creation.
+//!
+//! The refresh rate is queried through each platform's native API and returned
+//! as `Option<u32>`: `None` means it could not be determined, in which case
+//! callers should not hide high refresh rate options.
+
+// ---------------------------------------------------------------------------
+// Windows
+// ---------------------------------------------------------------------------
 
 #[cfg(target_os = "windows")]
-mod imp {
+mod windows_impl {
     use std::{ffi::c_void, sync::OnceLock};
 
     #[link(name = "opengl32")]
@@ -51,35 +59,127 @@ mod imp {
         }
     }
 
-    pub fn refresh_rate() -> u32 {
+    pub fn refresh_rate() -> Option<u32> {
         unsafe {
             let hdc = GetDC(std::ptr::null_mut());
             if hdc.is_null() {
-                return 60;
+                return None;
             }
             let rate = GetDeviceCaps(hdc, VREFRESH);
             ReleaseDC(std::ptr::null_mut(), hdc);
             if rate > 0 {
-                rate as u32
+                Some(rate as u32)
             } else {
-                60
+                None
             }
         }
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-mod imp {
-    pub fn set_vsync(_enabled: bool) -> bool {
-        false
-    }
+// ---------------------------------------------------------------------------
+// Android: WindowManager#getDefaultDisplay().getRefreshRate()
+// ---------------------------------------------------------------------------
 
-    pub fn refresh_rate() -> u32 {
-        60
+#[cfg(target_os = "android")]
+mod android_impl {
+    pub fn refresh_rate() -> Option<u32> {
+        unsafe {
+            let env = miniquad::native::attach_jni_env();
+            let ctx = ndk_context::android_context().context();
+            if env.is_null() || ctx.is_null() {
+                return None;
+            }
+            let activity = ctx as jni::sys::jobject;
+
+            let activity_class = ((**env).GetObjectClass.unwrap())(env, activity);
+            if activity_class.is_null() {
+                return None;
+            }
+            let get_wm =
+                ((**env).GetMethodID.unwrap())(env, activity_class, c"getWindowManager".as_ptr(), c"()Landroid/view/WindowManager;".as_ptr());
+            if get_wm.is_null() {
+                return None;
+            }
+            let wm = ((**env).CallObjectMethod.unwrap())(env, activity, get_wm);
+            if wm.is_null() {
+                return None;
+            }
+
+            let wm_class = ((**env).GetObjectClass.unwrap())(env, wm);
+            let get_display = ((**env).GetMethodID.unwrap())(env, wm_class, c"getDefaultDisplay".as_ptr(), c"()Landroid/view/Display;".as_ptr());
+            if get_display.is_null() {
+                return None;
+            }
+            let display = ((**env).CallObjectMethod.unwrap())(env, wm, get_display);
+            if display.is_null() {
+                return None;
+            }
+
+            let display_class = ((**env).GetObjectClass.unwrap())(env, display);
+            let get_rate = ((**env).GetMethodID.unwrap())(env, display_class, c"getRefreshRate".as_ptr(), c"()F".as_ptr());
+            if get_rate.is_null() {
+                return None;
+            }
+            let rate = ((**env).CallFloatMethod.unwrap())(env, display, get_rate);
+            if rate.is_finite() && rate > 0. {
+                Some(rate.round() as u32)
+            } else {
+                None
+            }
+        }
     }
 }
 
-pub use imp::{refresh_rate, set_vsync};
+// ---------------------------------------------------------------------------
+// iOS: UIScreen.maximumFramesPerSecond
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "ios")]
+mod ios_impl {
+    pub fn refresh_rate() -> Option<u32> {
+        use objc2::MainThreadMarker;
+        use objc2_ui_kit::UIScreen;
+
+        // `mainScreen` is main-thread only; callers run on the main thread.
+        let mtm = MainThreadMarker::new()?;
+        let screen = UIScreen::mainScreen(mtm);
+        let rate = screen.maximumFramesPerSecond();
+        if rate > 0 {
+            Some(rate as u32)
+        } else {
+            None
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Platform dispatch
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "windows")]
+pub use windows_impl::{refresh_rate, set_vsync};
+
+#[cfg(target_os = "android")]
+pub use android_impl::refresh_rate;
+
+#[cfg(target_os = "ios")]
+pub use ios_impl::refresh_rate;
+
+/// Fallback for platforms without a native query (e.g. OpenHarmony): report
+/// "unknown" so callers keep showing high refresh rate options.
+#[cfg(not(any(target_os = "windows", target_os = "android", target_os = "ios")))]
+pub fn refresh_rate() -> Option<u32> {
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn set_vsync(_enabled: bool) -> bool {
+    false
+}
+
+// ---------------------------------------------------------------------------
+// DPI awareness (Windows only)
+// ---------------------------------------------------------------------------
 
 /// Declare the process DPI aware before the window is created.
 ///
@@ -141,9 +241,9 @@ pub fn dpi_scale() -> f32 {
 }
 
 #[cfg(not(target_os = "windows"))]
+pub fn ensure_dpi_aware() {}
+
+#[cfg(not(target_os = "windows"))]
 pub fn dpi_scale() -> f32 {
     1.
 }
-
-#[cfg(not(target_os = "windows"))]
-pub fn ensure_dpi_aware() {}

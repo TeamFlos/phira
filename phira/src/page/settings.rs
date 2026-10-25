@@ -562,11 +562,12 @@ impl GeneralList {
         }
         if self.fps_limit_btn.touch(touch, t) {
             // Cycle 60 -> 120 -> display refresh rate -> unlimited. The 120
-            // step is skipped when the panel cannot display it.
+            // step is skipped when the panel cannot display it; an unknown
+            // refresh rate keeps the option available.
             let refresh = crate::display::refresh_rate();
             config.frame_rate_limit = match config.frame_rate_limit {
                 FrameRateLimit::Fps60 => {
-                    if refresh >= 120 {
+                    if refresh.is_none_or(|rate| rate >= 120) {
                         FrameRateLimit::Fps120
                     } else {
                         FrameRateLimit::Vsync
