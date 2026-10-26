@@ -1,9 +1,31 @@
-
 logout = ログアウト
 logged-out = ログアウトしました
-
 load-user-failed = ユーザー情報の取得に失敗しました
 edit-avatar-success = アバターを更新しました
 edit-avatar-failed = アバターが更新できませんでした
-
 uploading-avatar = アバターをアップロードしています
+hykb-login-cancelled = 好游快爆へのログインはキャンセルされました
+delete = アカウントを削除
+delete-confirm =
+    削除リクエストを送信すると、アカウントは削除保留期間に入ります。この期間が過ぎると、アカウントは完全に削除され、ログインや復元はできなくなります。削除保留期間中は、アカウントにログインすることで削除リクエストをキャンセルできます。
+    続行しますか？
+delete-failed = アカウント削除に失敗しました
+delete-req-sent = アカウント削除リクエストが送信されました
+load-record-failed = プレイ履歴の読み込みに失敗しました
+last-login = 最終ログイン日時: { $time }
+badge-admin = 管理者
+badge-sponsor = スポンサー
+name-copied = 名前がコピーされました
+hykb-bind = 好游快爆に連携
+hykb-unbind = 好游快爆の連携を解除
+hykb-unbind-confirm = 本当に好游快爆アカウントの連携を解除しますか？
+hykb-bind-success = 好游快爆アカウントを連携しました
+hykb-unbind-success = 好游快爆アカウントの連携を解除しました
+hykb-action-failed = 操作に失敗しました
+hykb-transfer = 古いアカウントを移行する
+transfer-prompt = 移行する旧アカウントのメールアドレス
+transfer-requesting = 移行を申請する
+transfer-email-sent = 確認メールが送信されました。メールをご確認いただき、リンクをクリックして移行を完了してください
+transfer-failed = 移行申請が失敗しました
+web-login = Webにログインしてください
+web-login-failed = Webにログインできません

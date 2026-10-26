@@ -8,8 +8,8 @@ use super::{
 use crate::{
     charts_view::NEED_UPDATE,
     client::{
-        basic_client_builder, recv_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, User,
-        UserManager, CLIENT_TOKEN,
+        basic_client_builder, recv_raw, send_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record,
+        User, UserManager, CLIENT_TOKEN,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -631,6 +631,7 @@ impl SongScene {
             atomicity: atomicity.clone(),
             task: Task::new({
                 let path = format!("{}/{}", dir::downloaded_charts()?, Uuid::new_v4());
+                let def_illu = BLACK_TEXTURE.clone();
                 async move {
                     let path = std::path::Path::new(&path);
                     tokio::fs::create_dir(path).await?;
@@ -646,7 +647,7 @@ impl SongScene {
                         } else {
                             req
                         };
-                        let res = req.send().await.with_context(|| tl!("request-failed"))?.error_for_status()?;
+                        let res = send_raw(req).await.with_context(|| tl!("request-failed"))?.error_for_status()?;
                         let size = res.content_length();
                         let mut stream = res.bytes_stream();
                         let mut count = 0;
@@ -705,7 +706,7 @@ impl SongScene {
                         std::fs::rename(path, to_path)?;
                     }
 
-                    let tuple = load_local_tuple(&local_path, BLACK_TEXTURE.clone(), info).await?;
+                    let tuple = load_local_tuple(&local_path, def_illu, info).await?;
 
                     Ok((
                         LocalChart {
@@ -870,7 +871,6 @@ impl SongScene {
         }
         let update_fn = client.and_then(|mut client| {
             let live = client.blocking_state().unwrap().live;
-            let token = get_data().tokens.as_ref().map(|it| it.0.clone()).unwrap();
             let addr = get_data().config.mp_address.clone();
             let mut reconnect_task: Option<Task<Result<phira_mp_client::Client>>> = None;
             let update_fn: Option<UpdateFn> = if live {
@@ -883,9 +883,9 @@ impl SongScene {
                     move |t, res, judge| {
                         if client.ping_fail_count() >= 1 && reconnect_task.is_none() {
                             warn!("lost connection, auto re-connect");
-                            let token = token.clone();
                             let addr = addr.clone();
                             reconnect_task = Some(Task::new(async move {
+                                let token = Client::authenticated_token().await?;
                                 let client = phira_mp_client::Client::from_address(&addr).await?;
                                 client.authenticate(token).await?;
                                 Ok(client)

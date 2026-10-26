@@ -7,10 +7,10 @@ use crate::{
     charts_view::NEED_UPDATE,
     client::{recv_raw, Client, Record, User, UserManager},
     deeplink::{start_chart_opening, DeepLinkChartOpening},
-    dir, get_data, get_data_mut, hykb_logout,
+    dir, get_data, get_data_mut,
     icons::Icons,
     page::{ChartItem, Fader, Illustration, SFader},
-    save_data, sync_data,
+    save_data,
 };
 use anyhow::Result;
 use chrono::Local;
@@ -99,6 +99,7 @@ impl ProfileScene {
     pub fn new(id: i32, icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Self {
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
+        once_cell::sync::Lazy::force(&BLACK_TEXTURE);
         Self {
             id,
             user: None,
@@ -378,7 +379,7 @@ impl Scene for ProfileScene {
 
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.delete_task = Some(Task::new(async move {
-                Client::post("/delete-account", &()).send().await?.error_for_status()?;
+                recv_raw(Client::post("/delete-account", &())).await?;
                 Ok(())
             }));
         }
@@ -441,12 +442,7 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         if self.btn_logout.touch(touch, t) {
-            hykb_logout();
-            crate::request_hykb_fcm_stop();
-            get_data_mut().me = None;
-            get_data_mut().tokens = None;
-            let _ = save_data();
-            sync_data();
+            crate::force_logout();
             show_message(tl!("logged-out")).ok();
             self.sf.next(t, NextScene::Pop);
             return Ok(true);

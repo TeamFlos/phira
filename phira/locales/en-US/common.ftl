@@ -39,3 +39,13 @@ contains-banned-words = Your input contains banned words. Please check and submi
 
 hykb-not-bound-logout = Your account is not bound to a 3839 Games account; you have been logged out.
 hykb-login-cancelled = 3839 Games login cancelled.
+
+crash-title = Phira stopped unexpectedly
+crash-message = The game encountered an unexpected error and can no longer continue safely. You can export recent logs to help diagnose the problem.
+crash-summary = Error: { $error }
+crash-log-retention = Logs from the last seven days are kept. Account credentials and cached resources are not included.
+crash-export = Export logs
+crash-exit = Exit safely
+crash-exporting = Preparing logs...
+crash-exported = Logs are ready to share.
+crash-export-failed = Failed to export logs

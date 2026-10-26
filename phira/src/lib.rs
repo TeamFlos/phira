@@ -8,6 +8,7 @@ mod anim;
 mod censor;
 mod charts_view;
 mod client;
+mod crash;
 mod data;
 pub mod deeplink;
 mod icons;
@@ -173,7 +174,6 @@ mod dir {
 }
 
 async fn the_main() -> Result<()> {
-    log::register();
     #[cfg(target_env = "ohos")]
     {
         *DATA_PATH.lock().unwrap() = Some("/data/storage/el2/base".to_owned());
@@ -201,6 +201,7 @@ async fn the_main() -> Result<()> {
     }
 
     let dir = dir::root()?;
+    log::register_with_dir(std::path::Path::new(&dir).join("logs"));
     let mut data: Data = std::fs::read_to_string(format!("{dir}/data.json"))
         .map_err(anyhow::Error::new)
         .and_then(|s| Ok(serde_json::from_str(&s)?))
@@ -224,6 +225,7 @@ async fn the_main() -> Result<()> {
         .quad_context
         .display_mut()
         .set_pause_resume_listener(on_pause_resume);
+    once_cell::sync::Lazy::force(&prpr::ext::BLACK_TEXTURE);
 
     let pgr_font = FontArc::try_from_vec(load_file("phigros.ttf").await?)?;
     PGR_FONT.with(move |it| *it.borrow_mut() = Some(TextPainter::new(pgr_font, None)));
@@ -241,14 +243,25 @@ async fn the_main() -> Result<()> {
     let mut last_frame_start = f32::NAN;
     let mut fps_time_sum = 0.;
 
+    let mut crash_scene = false;
     'app: loop {
         if main.paused() {
-            match rx.recv() {
+            match rx.recv_timeout(std::time::Duration::from_millis(100)) {
                 Ok(false) => {
                     main.resume()?;
                 }
                 Ok(true) => {}
-                Err(_) => break 'app,
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break 'app,
+            }
+        }
+        // Poll for a crash record only once we are about to render: while
+        // paused the rendering surface may already be gone (Android), so the
+        // switch to the crash scene has to wait for the resume above.
+        if !crash_scene {
+            if let Some(record) = log::crash_record() {
+                main.replace_scene(Box::new(crash::CrashScene::new(record)));
+                crash_scene = true;
             }
         }
 
@@ -262,22 +275,43 @@ async fn the_main() -> Result<()> {
             fps_time_sum += frame_time;
         }
         last_frame_start = frame_start as f32;
-        let res = || -> Result<()> {
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
             main.update()?;
             main.render(&mut painter)?;
             if let Ok(paused) = rx.try_recv() {
                 if paused {
                     main.pause()?;
-                } else {
+                } else if main.paused() {
                     main.resume()?;
                 }
             }
             prpr::ext::flush_pending_texture_deletions();
             Ok(())
-        }();
-        if let Err(err) = res {
-            error!("uncaught error: {err:?}");
-            show_error(err);
+        }));
+        match res {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => {
+                error!("uncaught error: {err:?}");
+                // Transient update/render failures stay dismissible dialogs;
+                // only panics escalate to the crash scene.
+                show_error(err);
+            }
+            Err(_) => {
+                let record = log::crash_record().unwrap_or_else(|| {
+                    let record = log::CrashRecord {
+                        summary: "unknown panic".to_owned(),
+                        details: "The main loop panicked without a panic record.".to_owned(),
+                    };
+                    log::set_crash_record(record.clone());
+                    record
+                });
+                if !crash_scene {
+                    main.replace_scene(Box::new(crash::CrashScene::new(record)));
+                    crash_scene = true;
+                } else {
+                    break 'app;
+                }
+            }
         }
         if main.should_exit() {
             break 'app;
@@ -295,8 +329,8 @@ async fn the_main() -> Result<()> {
             }
         }
 
-        // While backgrounded the scene is paused; the blocking `recv_timeout`
-        // above already parks this thread, so nothing extra is needed here.
+        // While backgrounded the scene is paused; the timed receive above
+        // keeps this thread responsive to background-thread crash records.
         next_frame().await;
     }
     Ok(())
@@ -548,9 +582,7 @@ pub fn hykb_logout() {}
 pub fn force_logout() {
     hykb_logout();
     request_hykb_fcm_stop();
-    get_data_mut().me = None;
-    get_data_mut().tokens = None;
-    let _ = save_data();
+    client::clear_session();
     sync_data();
 }
 

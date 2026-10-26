@@ -59,6 +59,11 @@ item-chart-debug = 譜面除錯
 item-chart-debug-sub = 顯示判定線編號和朝向
 item-touch-debug = 觸摸除錯
 item-touch-debug-sub = 遊玩過程中顯示觸摸點
+item-export-logs = 匯出日誌
+item-export-logs-sub = 將最近七天的日誌匯出為 ZIP 壓縮檔以便回報問題
+item-export-logs-button = 匯出
+log-exporting = 正在匯出日誌…
+log-export-failed = 匯出日誌失敗
 load-cali-failed = 載入音訊失敗
 about-content =
     Phira v{ $version }

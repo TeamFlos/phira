@@ -40,6 +40,12 @@ item-prefer-reduced-motion-sub = Kurangi animasi dan efek visual
 item-speed = Kecepatan
 item-note-size = Ukuran note
 
+item-export-logs = Ekspor Log
+item-export-logs-sub = Ekspor log tujuh hari terakhir sebagai arsip ZIP untuk melaporkan masalah.
+item-export-logs-button = Ekspor
+log-exporting = Mengekspor log…
+log-export-failed = Gagal mengekspor log
+
 load-cali-failed = Gagal memuat audio
 
 about-content =
