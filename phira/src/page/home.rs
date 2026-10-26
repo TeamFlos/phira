@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     anim::Anim,
-    client::{recv_raw, send_raw, Character, Client, ErrorCode, SessionExpired, User, UserManager},
+    client::{client_flavor, recv_raw, send_raw, Character, Client, ErrorCode, SessionExpired, User, UserManager},
     dir, get_data, get_data_mut,
     icons::Icons,
     login::Login,
@@ -140,10 +140,7 @@ impl HomePage {
             None
         };
 
-        let flavor = match load_file("flavor").await.map(String::from_utf8) {
-            Ok(Ok(flavor)) => flavor.trim().to_owned(),
-            _ => "none".to_owned(),
-        };
+        let flavor = client_flavor().await;
 
         let mut res = Self {
             icons: Arc::clone(&icons),

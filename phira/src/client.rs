@@ -48,6 +48,17 @@ fn client_locale() -> String {
     get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string())
 }
 
+/// Distribution flavor of this build, read from the optional `flavor` asset.
+///
+/// Store-specific builds ship this file; open builds don't, so they report
+/// `"none"` — the same convention used by the update check.
+pub async fn client_flavor() -> String {
+    match macroquad::prelude::load_file("flavor").await.map(String::from_utf8) {
+        Ok(Ok(flavor)) => flavor.trim().to_owned(),
+        _ => "none".to_owned(),
+    }
+}
+
 fn build_client() -> Result<Arc<reqwest::Client>> {
     let mut headers = header::HeaderMap::new();
     headers.append(header::ACCEPT_LANGUAGE, header::HeaderValue::from_str(&client_locale())?);
@@ -417,6 +428,8 @@ impl Client {
             inner: LoginParams<'a>,
             #[serde(rename = "clientVersion")]
             client_version: &'static str,
+            #[serde(rename = "clientFlavor")]
+            client_flavor: String,
         }
 
         // Login itself must bypass automatic refresh to avoid recursion.
@@ -426,6 +439,7 @@ impl Client {
                 &FullLoginParams {
                     inner: params,
                     client_version: env!("CARGO_PKG_VERSION"),
+                    client_flavor: client_flavor().await,
                 },
             )
             .send()
@@ -467,6 +481,8 @@ impl Client {
             &json!({
                 "hykbUid": uid,
                 "accessToken": access_token,
+                "clientVersion": env!("CARGO_PKG_VERSION"),
+                "clientFlavor": client_flavor().await,
             }),
         ))
         .await?
@@ -490,6 +506,8 @@ impl Client {
             &json!({
                 "hykbToken": hykb_token,
                 "nick": username,
+                "clientVersion": env!("CARGO_PKG_VERSION"),
+                "clientFlavor": client_flavor().await,
             }),
         ))
         .await?
@@ -509,6 +527,8 @@ impl Client {
                 "hykbToken": hykb_token,
                 "email": email,
                 "password": password,
+                "clientVersion": env!("CARGO_PKG_VERSION"),
+                "clientFlavor": client_flavor().await,
             }),
         ))
         .await?
