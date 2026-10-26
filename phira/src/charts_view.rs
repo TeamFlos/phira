@@ -29,6 +29,27 @@ use std::{
 
 pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 
+/// Deletes a local chart from disk and from `Data::charts`, then marks the chart
+/// list for refresh.
+///
+/// Idempotent: a chart that has already been removed (or was never on disk) is
+/// simply skipped.
+pub fn delete_local_chart(path: &str) -> Result<()> {
+    let chart_dir = format!("{}/{}", dir::charts()?, path);
+    if Path::new(&chart_dir).exists() {
+        std::fs::remove_dir_all(chart_dir)?;
+    }
+    {
+        let data = get_data_mut();
+        if let Some(index) = data.find_chart_by_path(path) {
+            data.charts.remove(index);
+        }
+    }
+    save_data()?;
+    NEED_UPDATE.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
 const CHART_PADDING: f32 = 0.013;
 const BACK_FADE_IN_TIME: f32 = 0.2;
 
@@ -414,23 +435,10 @@ impl ChartsView {
             transit.chart.illu.settle(t);
             if t > transit.start_time + transit_time().unwrap_or_default() {
                 if transit.back {
-                    if transit.delete {
-                        let data = get_data_mut();
-                        let item = &self.charts.as_ref().unwrap()[transit.id as usize];
-                        let path = if let Some(path) = &item.chart.as_ref().unwrap().local_path {
-                            path.clone()
-                        } else {
-                            format!("download/{}", item.chart.as_ref().unwrap().info.id.unwrap())
-                        };
-                        std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
-
-                        if let Some(chart) = data.find_chart_by_path(path.as_str()) {
-                            data.charts.remove(chart);
-                        }
-
-                        save_data()?;
-                        NEED_UPDATE.store(true, Ordering::SeqCst);
-                    } else {
+                    // On delete, SongScene has already removed the chart and
+                    // the list may have been reloaded since, so `transit.id`
+                    // no longer reliably points at the deleted item.
+                    if !transit.delete {
                         self.back_fade_in = Some((transit.id, t));
                     }
                     self.transit = None;

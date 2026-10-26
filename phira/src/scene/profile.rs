@@ -4,14 +4,14 @@ prpr_l10n::tl_file!("profile");
 use super::confirm_dialog;
 use super::{SongScene, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
-    charts_view::NEED_UPDATE,
     client::{recv_raw, Client, Record, User, UserManager},
     deeplink::{start_chart_opening, DeepLinkChartOpening},
-    dir, get_data, get_data_mut,
+    get_data,
     icons::Icons,
     page::{ChartItem, Fader, Illustration, SFader},
-    save_data,
 };
+#[cfg(feature = "hykb")]
+use crate::{get_data_mut, save_data};
 use anyhow::Result;
 use chrono::Local;
 #[cfg(feature = "hykb")]
@@ -28,13 +28,9 @@ use prpr::{
     ui::{button_hit, rounded_rect_shadow, DRectButton, Dialog, RectButton, Scroll, ShadowConfig, Ui},
 };
 use serde_json::json;
-use std::{
-    any::Any,
-    path::Path,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 use tokio::sync::Notify;
 
@@ -87,7 +83,6 @@ pub struct ProfileScene {
     record_task: Option<Task<Result<Vec<RecordItem>>>>,
     record_items: Option<Vec<RecordItem>>,
     chart_opening: Option<DeepLinkChartOpening>,
-    opened_chart_path: Option<String>,
 
     sf: SFader,
     fader: Fader,
@@ -173,7 +168,6 @@ impl ProfileScene {
             })),
             record_items: None,
             chart_opening: None,
-            opened_chart_path: None,
 
             sf: SFader::new(),
             fader: Fader::new().with_distance(0.12),
@@ -184,27 +178,8 @@ impl ProfileScene {
 }
 
 impl Scene for ProfileScene {
-    fn on_result(&mut self, _tm: &mut TimeManager, result: Box<dyn Any>) -> Result<()> {
-        if result.downcast::<bool>().is_ok_and(|delete| *delete) {
-            if let Some(path) = self.opened_chart_path.take() {
-                let chart_dir = format!("{}/{path}", dir::charts()?);
-                if Path::new(&chart_dir).exists() {
-                    std::fs::remove_dir_all(chart_dir)?;
-                }
-                let data = get_data_mut();
-                if let Some(index) = data.find_chart_by_path(&path) {
-                    data.charts.remove(index);
-                }
-                save_data()?;
-                NEED_UPDATE.store(true, Ordering::SeqCst);
-            }
-        }
-        Ok(())
-    }
-
     fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
         self.chart_opening = None;
-        self.opened_chart_path = None;
         self.sf.enter(tm.now() as _);
         Ok(())
     }
@@ -368,7 +343,6 @@ impl Scene for ProfileScene {
                         Default::default()
                     };
                     let local_path = item.local_path.clone();
-                    self.opened_chart_path = Some(local_path.clone().unwrap_or_else(|| format!("download/{}", chart.id)));
                     // Keep the loading overlay until the scene transition finishes,
                     // so the profile does not flash through between the two.
                     self.sf

@@ -6,7 +6,7 @@ use super::{
     confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, ASSET_CHART_INFO,
 };
 use crate::{
-    charts_view::NEED_UPDATE,
+    charts_view::{delete_local_chart, NEED_UPDATE},
     client::{
         basic_client_builder, recv_raw, send_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record,
         User, UserManager, CLIENT_TOKEN,
@@ -1699,6 +1699,12 @@ impl Scene for SongScene {
             self.should_update.store(false, Ordering::Relaxed);
             if let Some(entity) = &self.entity {
                 self.info = entity.to_info();
+            } else if self.load_task.is_none() && !get_data().config.offline_mode {
+                // The entity was never loaded (the first fetch failed, or the
+                // scene was opened in offline mode). Fetch it again so the
+                // chart can be re-downloaded instead of leaving the play
+                // button stuck on "still-loading" forever.
+                self.load_task = self.info.id.map(|id| Task::new(async move { Ptr::new(id).fetch_opt().await }));
             }
         }
         if let Some(music) = &mut self.preview {
@@ -2192,6 +2198,13 @@ impl Scene for SongScene {
             }
         }
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
+            // SongScene owns `local_path`, so it deletes the chart itself:
+            // every entry point that can pop this scene (library, profile
+            // history, messages, deeplinks) then gets a real deletion instead
+            // of silently dropping the `true` result.
+            if let Some(path) = &self.local_path {
+                delete_local_chart(path)?;
+            }
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
         }
         if self.fav_menu.changed() {
