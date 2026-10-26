@@ -11,6 +11,7 @@ mod client;
 mod crash;
 mod data;
 pub mod deeplink;
+mod display;
 mod icons;
 mod images;
 mod login;
@@ -202,6 +203,8 @@ async fn the_main() -> Result<()> {
 
     let dir = dir::root()?;
     log::register_with_dir(std::path::Path::new(&dir).join("logs"));
+    info!("window {}x{}", screen_width() as u32, screen_height() as u32);
+    info!("display refresh rate: {:?} Hz", display::refresh_rate());
     let mut data: Data = std::fs::read_to_string(format!("{dir}/data.json"))
         .map_err(anyhow::Error::new)
         .and_then(|s| Ok(serde_json::from_str(&s)?))
@@ -235,6 +238,10 @@ async fn the_main() -> Result<()> {
 
     let mut main = Main::new(Box::new(MainScene::new(font).await?), TimeManager::default(), None).await?;
 
+    // Apply the persisted presentation mode; runtime switching is handled by
+    // the settings page through `display::set_vsync`.
+    display::set_vsync(get_data().config.frame_rate_limit.needs_vsync());
+
     let tm = TimeManager::default();
     let mut fps_time = -1;
 
@@ -265,6 +272,7 @@ async fn the_main() -> Result<()> {
             }
         }
 
+        let frame_begin = std::time::Instant::now();
         let frame_start = tm.real_time();
         if !last_frame_start.is_nan() {
             if fps_times.len() == FPS_BUF_SIZE {
@@ -332,6 +340,25 @@ async fn the_main() -> Result<()> {
         // While backgrounded the scene is paused; the timed receive above
         // keeps this thread responsive to background-thread crash records.
         next_frame().await;
+
+        // Pace fixed frame rate caps *after* presenting the frame, so the
+        // buffer swap counts towards the target interval. Vertical sync and
+        // "unlimited" are left to the presentation backend.
+        if let Some(target) = get_data().config.frame_rate_limit.target_duration() {
+            let elapsed = frame_begin.elapsed();
+            if elapsed < target {
+                // `sleep` alone overshoots by ~1-2ms on Windows; sleep most of
+                // the way and busy-wait the rest for accurate pacing.
+                let remain = target - elapsed;
+                let spin = std::time::Duration::from_millis(2);
+                if remain > spin {
+                    std::thread::sleep(remain - spin);
+                }
+                while frame_begin.elapsed() < target {
+                    std::hint::spin_loop();
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -345,13 +372,30 @@ fn build_global_window_conf() -> Conf {
         big: *include_bytes!("../icon/big"),
     });
 
+    // Read the persisted config once: it decides the presentation mode and,
+    // on Windows, whether the window starts fullscreen.
+    let saved = dir::root()
+        .ok()
+        .and_then(|r| std::fs::read_to_string(std::path::Path::new(&r).join("data.json")).ok())
+        .and_then(|s| serde_json::from_str::<Data>(&s).ok());
+
     #[cfg(target_os = "windows")]
     {
-        conf.fullscreen = dir::root()
-            .ok()
-            .and_then(|r| std::fs::read_to_string(std::path::Path::new(&r).join("data.json")).ok())
-            .and_then(|s| serde_json::from_str::<Data>(&s).ok())
-            .is_some_and(|d| d.config.fullscreen_mode);
+        conf.fullscreen = saved.as_ref().is_some_and(|d| d.config.fullscreen_mode);
+        // The process is DPI aware now, so miniquad sizes windows in physical
+        // pixels; scale the default window size so windowed mode keeps the same
+        // apparent size as before.
+        let scale = display::dpi_scale();
+        conf.window_width = (conf.window_width as f32 * scale) as i32;
+        conf.window_height = (conf.window_height as f32 * scale) as i32;
+    }
+
+    // Vertical sync can only be chosen when the GL context is created, so the
+    // frame rate limit is applied here; fixed caps are paced by the main loop.
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
+    {
+        let limit = saved.as_ref().map(|d| d.config.frame_rate_limit).unwrap_or_default();
+        conf.platform.swap_interval = Some(if limit.needs_vsync() { 1 } else { 0 });
     }
 
     conf
@@ -359,6 +403,9 @@ fn build_global_window_conf() -> Conf {
 
 #[no_mangle]
 pub extern "C" fn quad_main() {
+    // Must run before the window is created so the framebuffer uses the real
+    // panel resolution instead of a DPI-virtualized logical size.
+    display::ensure_dpi_aware();
     macroquad::Window::from_config(build_global_window_conf(), async {
         if let Err(err) = the_main().await {
             error!(?err, "global error");

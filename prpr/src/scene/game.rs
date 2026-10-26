@@ -393,7 +393,7 @@ impl GameScene {
         if res.config.interactive
             && !tm.paused()
             && self.pause_rewind.is_none()
-            && Judge::get_touches().iter().any(|touch| {
+            && ui.ensure_touches().iter().any(|touch| {
                 touch.phase == TouchPhase::Started && {
                     let p = touch.position;
                     let p = Point::new(p.x, p.y);
@@ -586,7 +586,7 @@ impl GameScene {
             );
             if res.config.interactive {
                 let mut clicked = None;
-                for touch in Judge::get_touches() {
+                for touch in ui.ensure_touches().iter() {
                     if touch.phase != TouchPhase::Started {
                         continue;
                     }
@@ -1176,7 +1176,15 @@ impl Scene for GameScene {
 
         let chart_target_vp = if res.chart_target.is_some() {
             let vp = res.camera.viewport.unwrap();
-            Some((vp.0 - ui.viewport.0, vp.1 - ui.viewport.1, vp.2, vp.3))
+            // The offscreen target may be smaller than the screen (render
+            // scale), so its viewport has to be scaled as well.
+            let scale = res.last_scale.max(f32::EPSILON);
+            Some((
+                ((vp.0 - ui.viewport.0) as f32 * scale).round() as i32,
+                ((vp.1 - ui.viewport.1) as f32 * scale).round() as i32,
+                (vp.2 as f32 * scale).round() as i32,
+                (vp.3 as f32 * scale).round() as i32,
+            ))
         } else {
             res.camera.viewport
         };
@@ -1227,8 +1235,8 @@ impl Scene for GameScene {
             }
             pop_camera_state();
         }
-        if msaa || !self.res.no_effect {
-            // render the texture onto screen
+        if msaa || !self.res.no_effect || self.res.chart_target.is_some() {
+            // render the texture onto screen (also upscales when render_scale < 1)
             if let Some(target) = &self.res.chart_target {
                 self.gl.flush();
                 push_camera_state();
@@ -1252,6 +1260,10 @@ impl Scene for GameScene {
                 pop_camera_state();
             }
         }
+        // Reset the GL target: the next frame maps mouse coordinates through
+        // get_viewport(), and a leftover offscreen viewport skews every touch.
+        self.gl.quad_gl.viewport(None);
+        self.gl.quad_gl.render_pass(None);
         Ok(())
     }
 
