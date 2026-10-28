@@ -96,6 +96,77 @@ extern "C" {
     fn on_game_start();
 }
 
+#[cfg(target_os = "android")]
+fn set_rotation_locked(locked: bool) {
+    // android.content.pm.ActivityInfo
+    const SCREEN_ORIENTATION_LOCKED: jni::sys::jint = 14;
+
+    // Last state handed to the platform: 0 = never applied, 1 = free, 2 = locked.
+    static APPLIED: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+    // The orientation the host shell itself requested (its manifest value), captured before the
+    // first lock. Releasing the lock has to restore exactly that: `SCREEN_ORIENTATION_UNSPECIFIED`
+    // would hand the decision back to the system and let the game rotate into portrait while paused.
+    static SHELL_ORIENTATION: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(i32::MIN);
+
+    let state = if locked { 2 } else { 1 };
+    if APPLIED.swap(state, std::sync::atomic::Ordering::Relaxed) == state {
+        return;
+    }
+
+    unsafe {
+        let env = miniquad::native::attach_jni_env();
+        let ctx = ndk_context::android_context().context();
+        let class = (**env).GetObjectClass.unwrap()(env, ctx as _);
+        let set_method = (**env).GetMethodID.unwrap()(env, class, c"setRequestedOrientation".as_ptr() as _, c"(I)V".as_ptr() as _);
+        if set_method.is_null() {
+            warn!("cannot lock the rotation: Activity.setRequestedOrientation not found");
+        } else {
+            let mut orientation = SCREEN_ORIENTATION_LOCKED;
+            let mut apply = true;
+            if locked {
+                let get_method = (**env).GetMethodID.unwrap()(env, class, c"getRequestedOrientation".as_ptr() as _, c"()I".as_ptr() as _);
+                if !get_method.is_null() {
+                    let current = (**env).CallIntMethod.unwrap()(env, ctx as _, get_method);
+                    let _ = SHELL_ORIENTATION.compare_exchange(
+                        i32::MIN,
+                        current,
+                        std::sync::atomic::Ordering::Relaxed,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                }
+            } else {
+                let shell = SHELL_ORIENTATION.load(std::sync::atomic::Ordering::Relaxed);
+                if shell == i32::MIN {
+                    // Never locked anything in this session, so there is nothing to restore.
+                    apply = false;
+                } else {
+                    orientation = shell;
+                }
+            }
+            if apply {
+                (**env).CallVoidMethod.unwrap()(env, ctx as _, set_method, orientation);
+            }
+        }
+        (**env).DeleteLocalRef.unwrap()(env, class as _);
+    }
+}
+
+// TODO: Impelement on iOS
+#[cfg(not(target_os = "android"))]
+fn set_rotation_locked(_locked: bool) {}
+
+/// Entering, leaving and pausing the actual play.
+///
+/// The chart being on screen has two platform-level consequences that must switch together:
+/// the device rotation is pinned so a stray rotation cannot resize the surface mid-chart, and
+/// OHOS swallows the system gestures so the player cannot swipe out of a chart by accident.
+/// Everything that starts or stops play calls this, so the two can never drift apart.
+fn set_chart_running(running: bool) {
+    set_rotation_locked(running);
+    #[cfg(target_env = "ohos")]
+    miniquad::native::set_interceptor_state(running);
+}
+
 #[derive(PartialEq, Eq)]
 pub enum GameMode {
     Normal,
@@ -410,8 +481,7 @@ impl GameScene {
                     self.music.pause()?;
                 }
                 tm.pause();
-                #[cfg(target_env = "ohos")]
-                miniquad::native::set_interceptor_state(false);
+                set_chart_running(false);
             }
         }
         ui.alpha(res.alpha, |ui| {
@@ -622,16 +692,14 @@ impl GameScene {
                 match clicked {
                     Some(-1) => {
                         self.should_exit = true;
-                        #[cfg(target_env = "ohos")]
-                        miniquad::native::set_interceptor_state(false);
+                        set_chart_running(false);
                     }
                     Some(0) => {
                         reset!(self, res, tm);
                         if self.mode == GameMode::Exercise {
                             self.judge.advance_to(&mut self.chart, self.exercise_range.start);
                         }
-                        #[cfg(target_env = "ohos")]
-                        miniquad::native::set_interceptor_state(true);
+                        set_chart_running(true);
                     }
                     Some(1) => {
                         if self.mode == GameMode::Exercise && (tm.now() > self.exercise_range.end || tm.now() < self.exercise_range.start) {
@@ -653,8 +721,7 @@ impl GameScene {
                         tm.resume();
                         tm.seek_to(now - 3.);
                         self.pause_rewind = Some(tm.now() - 0.2);
-                        #[cfg(target_env = "ohos")]
-                        miniquad::native::set_interceptor_state(true);
+                        set_chart_running(true);
                     }
                     _ => {}
                 }
@@ -834,8 +901,7 @@ impl Scene for GameScene {
     fn enter(&mut self, tm: &mut TimeManager, target: Option<RenderTarget>) -> Result<()> {
         #[cfg(target_arch = "wasm32")]
         on_game_start();
-        #[cfg(target_env = "ohos")]
-        miniquad::native::set_interceptor_state(true);
+        set_chart_running(true);
         self.music = Self::new_music(&mut self.res)?;
         self.res.camera.render_target = target;
         tm.speed = self.res.config.speed as _;
@@ -852,8 +918,9 @@ impl Scene for GameScene {
             self.music.pause()?;
             tm.pause();
         }
-        #[cfg(target_env = "ohos")]
-        miniquad::native::set_interceptor_state(false);
+        // `update` is not called while the app itself is paused, so release the lock here
+        // instead of waiting for the next frame.
+        set_chart_running(false);
         Ok(())
     }
 
@@ -861,6 +928,10 @@ impl Scene for GameScene {
         if !matches!(self.state, State::Playing) {
             tm.resume();
         }
+        // Coming back from the background: a mid-play game stays paused on purpose (the pause
+        // menu is the anti-cheat), so the lock has to follow the state we return in rather than
+        // the fact that we were resumed.
+        set_chart_running(!tm.paused() && !matches!(self.state, State::Ending));
         Ok(())
     }
 
@@ -879,8 +950,7 @@ impl Scene for GameScene {
             tm.seek_to(self.exercise_range.start);
             tm.pause();
             self.music.pause()?;
-            #[cfg(target_env = "ohos")]
-            miniquad::native::set_interceptor_state(false);
+            set_chart_running(false);
         }
         let offset = self.offset();
         let time = tm.now();
@@ -898,6 +968,7 @@ impl Scene for GameScene {
                     self.last_update_time = tm.real_time();
                     if self.first_in && self.mode == GameMode::Exercise {
                         tm.pause();
+                        set_chart_running(false);
                         self.first_in = false;
                     }
                     tm.now()
@@ -935,8 +1006,7 @@ impl Scene for GameScene {
             State::Playing => {
                 if time > self.res.track_length + WAIT_TIME {
                     self.state = State::Ending;
-                    #[cfg(target_env = "ohos")]
-                    miniquad::native::set_interceptor_state(false);
+                    set_chart_running(false);
                 }
                 time
             }
@@ -1045,8 +1115,7 @@ impl Scene for GameScene {
             }
             tm.pause();
             self.dead = true;
-            #[cfg(target_env = "ohos")]
-            miniquad::native::set_interceptor_state(false);
+            set_chart_running(false);
             show_message(tl!("game-over")).error();
         }
         self.res.judge_line_color.a *= self.res.alpha;
@@ -1057,12 +1126,14 @@ impl Scene for GameScene {
                 if matches!(self.state, State::Playing) {
                     self.music.play()?;
                     tm.resume();
+                    set_chart_running(true);
                 }
             } else if matches!(self.state, State::Playing | State::BeforeMusic) {
                 if !self.music.paused() {
                     self.music.pause()?;
                 }
                 tm.pause();
+                set_chart_running(false);
             }
         }
         if Self::interactive(res, &self.state) {
@@ -1285,5 +1356,12 @@ impl Scene for GameScene {
         } else {
             NextScene::None
         }
+    }
+}
+
+impl Drop for GameScene {
+    fn drop(&mut self) {
+        // Leaving the scene mid-play must not leave the device rotation locked.
+        set_chart_running(false);
     }
 }
