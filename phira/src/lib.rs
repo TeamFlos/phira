@@ -54,8 +54,8 @@ use tracing::warn;
 
 #[cfg(target_os = "android")]
 use jni::{
-    objects::{JClass, JString},
-    sys::jint,
+    objects::{JClass, JObject, JString},
+    sys::{jboolean, jfloat, jint},
     EnvUnowned,
 };
 
@@ -457,6 +457,26 @@ pub extern "C" fn Java_quad_1native_QuadNative_markImportRespack(_env: EnvUnowne
 pub extern "C" fn Java_quad_1native_QuadNative_setInputText(_env: EnvUnowned, _class: JClass, text: JString) {
     use prpr::scene::INPUT_TEXT;
     INPUT_TEXT.lock().unwrap().1 = Some(text.to_string());
+}
+
+/// Input pre-processing hook called by the Android host shell's surface for every
+/// touch event, before the event reaches the renderer.
+///
+/// The real implementation lives in the closed-source module. A self-built
+/// `libphira.so` still has to export the symbol, because the released APK's dex
+/// declares it `native` and the first touch would otherwise abort with
+/// `UnsatisfiedLinkError`; this no-op stand-in keeps raw touch input working.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "C" fn Java_quad_1native_QuadNative_preprocessInput(
+    _env: EnvUnowned,
+    _class: JClass,
+    _event: JObject,
+    _x: jfloat,
+    _y: jfloat,
+    _pressed: jboolean,
+    _flag: jboolean,
+) {
 }
 
 /// Credentials obtained from the native HYKB (好游快爆) login SDK.
