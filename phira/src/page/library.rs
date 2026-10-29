@@ -320,6 +320,7 @@ impl LibraryPage {
             None
         };
         let show_unreviewed = self.tags.show_unreviewed;
+        let show_reviewed = self.tags.show_reviewed;
         let show_stabilize = self.tags.show_stabilize;
         self.online_task = Some(Task::new(async move {
             let mut q = Client::query::<Chart>();
@@ -335,6 +336,8 @@ impl LibraryPage {
                 q = q.query("stableRequest", "true");
             } else if show_unreviewed {
                 q = q.query("reviewed", "false").query("stableRequest", "false");
+            } else if show_reviewed {
+                q = q.query("reviewed", "true");
             }
             let (remote_charts, count) = q
                 .query("type", typ.to_string())
