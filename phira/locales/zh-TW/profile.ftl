@@ -2,8 +2,8 @@ logout = 登出
 logged-out = 您已登出
 delete = 刪除帳號
 delete-confirm =
-  提交刪除請求後，你的帳號將進入一段時間的待刪除期。待刪除期結束後，你的帳號將被徹底刪除，屆時你將無法再登入或找回帳號。在待刪除期內，你可以透過登入帳號來取消刪除請求。
-  請確認是否繼續？
+    提交刪除請求後，你的帳號將進入一段時間的待刪除期。待刪除期結束後，你的帳號將被徹底刪除，屆時你將無法再登入或找回帳號。在待刪除期內，你可以透過登入帳號來取消刪除請求。
+    請確認是否繼續？
 delete-failed = 刪除帳號失敗
 delete-req-sent = 帳號刪除請求已提交
 load-user-failed = 載入使用者資訊失敗
@@ -27,6 +27,5 @@ transfer-prompt = 要遷移的舊帳號郵箱
 transfer-requesting = 正在申請遷移
 transfer-email-sent = 確認郵件已發送，請前往郵箱點擊連結完成遷移
 transfer-failed = 申請遷移失敗
-
-web-login = 在網頁端登入
-web-login-failed = 開啟網頁登入失敗
+web-login = 登入 Phira 官網
+web-login-failed = 請求登入官網失敗
