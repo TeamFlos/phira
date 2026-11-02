@@ -107,6 +107,10 @@ pub struct HomePage {
 
     #[cfg(feature = "hykb")]
     beian_btn: RectButton,
+    /// Anti-addiction check started for a restored session whose refresh
+    /// failed (see the `update_task` error branch).
+    #[cfg(feature = "hykb")]
+    anti_addiction_task: Option<Task<Result<()>>>,
 }
 
 impl HomePage {
@@ -127,13 +131,10 @@ impl HomePage {
                 Client::refresh_tokens(false).await?;
                 let me = Client::get_me().await?;
                 // On HYKB builds a restored session still requires anti-addiction
-                // coverage. Email-sourced sessions get it from the GTS SDK under
-                // the game's own user id — no HYKB account involved. Failures
-                // arrive asynchronously via `hykbFcmCallback` and tear the
-                // session down; a HYKB-sourced session is instead covered by the
-                // signed-in native HYKB account's own enforcement.
+                // coverage, from the check matching how it was signed in: the
+                // HYKB SDK for HYKB logins, GTS for email logins.
                 #[cfg(feature = "hykb")]
-                crate::request_hykb_fcm(&me.id.to_string());
+                crate::ensure_anti_addiction(&me).await?;
                 Ok(me)
             }))
         } else {
@@ -225,6 +226,8 @@ impl HomePage {
 
             #[cfg(feature = "hykb")]
             beian_btn: RectButton::new(),
+            #[cfg(feature = "hykb")]
+            anti_addiction_task: None,
         };
         res.load_char_illu();
 
@@ -513,14 +516,14 @@ impl Page for HomePage {
                             // requests it after get_me, but a weak network can
                             // fail before that point, which used to leave the
                             // restored session playing with no coverage at all.
-                            // Start the GTS check under the persisted user id —
-                            // it fails closed (an init failure tears the session
+                            // Start the matching check under the persisted user:
+                            // GTS fails closed (an init failure tears the session
                             // back down via -3, a failed check shows the SDK's
-                            // exit-only dialog) and runs normally once the
-                            // network recovers.
+                            // exit-only dialog), and the HYKB sign-in logs out
+                            // on any failure or account mismatch.
                             #[cfg(feature = "hykb")]
-                            if let Some(me) = &get_data().me {
-                                crate::request_hykb_fcm(&me.id.to_string());
+                            if let Some(me) = get_data().me.clone() {
+                                self.anti_addiction_task = Some(Task::new(async move { crate::ensure_anti_addiction(&me).await }));
                             }
                         }
                         if err.downcast_ref::<ErrorCode>() == Some(&ErrorCode::PENDING_DELETE_REQUEST) {
@@ -554,6 +557,15 @@ impl Page for HomePage {
                 self.update_task = None;
             }
         }
+        #[cfg(feature = "hykb")]
+        if let Some(task) = &mut self.anti_addiction_task {
+            if let Some(res) = task.take() {
+                if let Err(err) = res {
+                    show_error(err);
+                }
+                self.anti_addiction_task = None;
+            }
+        }
         match self.pending_delete_choice.swap(0, Ordering::Relaxed) {
             1 => {
                 let tokens = get_data().tokens.clone();
@@ -561,10 +573,9 @@ impl Page for HomePage {
                     Task::new(async move {
                         Client::refresh_tokens(true).await?;
                         let me = Client::get_me().await?;
-                        // Same coverage rule as the startup restore above: the
-                        // GTS SDK backs email sessions, async teardown on failure.
+                        // Same coverage rule as the startup restore above.
                         #[cfg(feature = "hykb")]
-                        crate::request_hykb_fcm(&me.id.to_string());
+                        crate::ensure_anti_addiction(&me).await?;
                         Ok(me)
                     })
                 });

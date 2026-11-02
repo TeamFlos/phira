@@ -39,6 +39,7 @@ contains-banned-words = Your input contains banned words. Please check and submi
 
 hykb-not-bound-logout = Your account is not bound to a 3839 Games account; you have been logged out.
 hykb-login-cancelled = 3839 Games login cancelled.
+hykb-account-mismatch = The signed-in 3839 Games account does not match this account. You have been logged out.
 
 crash-title = Phira stopped unexpectedly
 crash-message = The game encountered an unexpected error and can no longer continue safely. You can export recent logs to help diagnose the problem.
