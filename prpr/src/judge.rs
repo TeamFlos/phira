@@ -20,6 +20,7 @@ pub const FLICK_SPEED_THRESHOLD: f32 = 0.8;
 pub const LIMIT_PERFECT: f64 = 0.08;
 pub const LIMIT_GOOD: f64 = 0.16;
 pub const LIMIT_BAD: f64 = 0.22;
+pub const PROTECTION_THRESHOLD: f64 = 0.01;
 pub const UP_TOLERANCE: f64 = 0.05;
 pub const DIST_FACTOR: f64 = 0.2;
 
@@ -560,6 +561,15 @@ impl Judge {
                 continue;
             }
             let t = time_of(touch);
+            let mut max_protection_time: Option<f64> = None;
+            for (line, (idx, st)) in chart.lines.iter().zip(self.notes.iter()) {
+                for &note_idx in &idx[*st..] {
+                    let note = &line.notes[note_idx as usize];
+                    if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) && note.time < t && matches!(note.judge, JudgeStatus::NotJudged) {
+                        max_protection_time = Some(max_protection_time.map_or(note.time, |m| m.max(note.time)));
+                    }
+                }
+            }
             let mut closest = (None, X_DIFF_MAX, LIMIT_BAD, LIMIT_BAD + (X_DIFF_MAX / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR);
             for (line_id, ((line, pos), (idx, st))) in chart.lines.iter_mut().zip(pos.iter()).zip(self.notes.iter_mut()).enumerate() {
                 let Some(pos) = pos[id] else {
@@ -599,6 +609,14 @@ impl Judge {
                         dt
                     };
                     let key = dt + (dist / NOTE_WIDTH_RATIO_BASE - 1.).max(0.) * DIST_FACTOR;
+                    let key = if matches!(note.kind, NoteKind::Click | NoteKind::Hold { .. })
+                        && note.time > t
+                        && max_protection_time.is_some_and(|prot_time| (t - prot_time) / spd < (note.time - t) / spd - PROTECTION_THRESHOLD)
+                    {
+                        f64::INFINITY
+                    } else {
+                        key
+                    };
                     if key < closest.3 {
                         closest = (Some((line_id, *id)), dist, dt, key);
                     }
@@ -612,10 +630,10 @@ impl Judge {
                 }
                 if click {
                     // click & hold
-                    let note = &mut line.notes[id as usize];
-                    if matches!(note.kind, NoteKind::Flick) {
+                    if matches!(line.notes[id as usize].kind, NoteKind::Flick) {
                         continue; // to next loop
                     }
+                    let note = &mut line.notes[id as usize];
                     if dt <= LIMIT_GOOD || matches!(note.kind, NoteKind::Hold { .. }) {
                         match note.kind {
                             NoteKind::Click => {
