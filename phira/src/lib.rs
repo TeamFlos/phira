@@ -38,9 +38,9 @@ use prpr::{
     ui::{cleanup_audio, FontArc, TextPainter},
     Main,
 };
-use prpr_l10n::set_prefered_locale;
 #[cfg(not(feature = "hykb"))]
-use prpr_l10n::{GLOBAL, LANGS};
+use prpr_l10n::GLOBAL;
+use prpr_l10n::{set_prefered_locale, LANGS};
 use scene::MainScene;
 use std::{
     collections::VecDeque,
@@ -85,7 +85,27 @@ pub async fn load_res_tex(name: &str) -> SafeTexture {
     prpr::ext::BLACK_TEXTURE.clone()
 }
 
+/// Languages offered in the settings language picker, as indices into
+/// `LANGS`. The HYKB channel only allows English and Simplified Chinese.
+pub fn selectable_langs() -> impl Iterator<Item = usize> {
+    #[cfg(feature = "hykb")]
+    const ALLOWED: Option<&[&str]> = Some(&["en-US", "zh-CN"]);
+    #[cfg(not(feature = "hykb"))]
+    const ALLOWED: Option<&[&str]> = None;
+    (0..LANGS.len()).filter(|&id| ALLOWED.is_none_or(|allowed| allowed.contains(&LANGS[id])))
+}
+
 pub fn sync_data() {
+    // A language chosen before the HYKB channel restricted the picker (or
+    // carried over from another build) falls back to the channel default.
+    #[cfg(feature = "hykb")]
+    if get_data()
+        .language
+        .as_ref()
+        .is_some_and(|lang| !selectable_langs().any(|id| LANGS[id] == lang))
+    {
+        get_data_mut().language = None;
+    }
     if get_data().language.is_none() {
         #[cfg(feature = "hykb")]
         let default_lang = "zh-CN".to_owned();
