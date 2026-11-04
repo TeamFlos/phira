@@ -410,6 +410,7 @@ pub struct Resource {
     pub aspect_ratio: f32,
     pub dpi: u32,
     pub last_vp: (i32, i32, i32, i32),
+    pub last_scale: f32,
     pub note_width: f32,
 
     pub time: f64,
@@ -531,6 +532,7 @@ impl Resource {
             aspect_ratio,
             dpi: DPI_VALUE.load(std::sync::atomic::Ordering::SeqCst),
             last_vp: (0, 0, 0, 0),
+            last_scale: 0.,
             note_width,
 
             time: 0.,
@@ -587,12 +589,22 @@ impl Resource {
     }
 
     pub fn update_size(&mut self, vp: (i32, i32, i32, i32)) -> bool {
-        if self.last_vp == vp {
+        let scale = self
+            .config
+            .render_scale
+            .clamp(*crate::config::RENDER_SCALE_RANGE.start(), *crate::config::RENDER_SCALE_RANGE.end());
+        if self.last_vp == vp && (self.last_scale - scale).abs() < 1e-4 {
             return false;
         }
         self.last_vp = vp;
-        if !self.no_effect || self.config.sample_count != 1 {
-            self.chart_target = Some(MSRenderTarget::new((vp.2 as u32, vp.3 as u32), self.config.sample_count));
+        self.last_scale = scale;
+        // The chart is rendered into an offscreen target when effects/MSAA are
+        // on, and also whenever the player asked for a non-native render
+        // scale (then the target is upscaled to the screen at the end).
+        if !self.no_effect || self.config.sample_count != 1 || scale < 0.999 {
+            let w = ((vp.2 as f32 * scale).round() as u32).max(1);
+            let h = ((vp.3 as f32 * scale).round() as u32).max(1);
+            self.chart_target = Some(MSRenderTarget::new((w, h), self.config.sample_count));
         }
         fn viewport(aspect_ratio: f32, (x, y, w, h): (i32, i32, i32, i32)) -> (i32, i32, i32, i32) {
             let w = w as f32;
