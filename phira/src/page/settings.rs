@@ -436,13 +436,13 @@ impl GeneralList {
             icon_lang,
 
             lang_btn: ChooseButton::new()
-                .with_options(LANG_NAMES.iter().map(|s| s.to_string()).collect())
+                .with_options(crate::selectable_langs().map(|id| LANG_NAMES[id].to_string()).collect())
                 .with_selected(
                     get_data()
                         .language
                         .as_ref()
                         .and_then(|it| it.parse::<LanguageIdentifier>().ok())
-                        .and_then(|ident| LANG_IDENTS.iter().position(|it| *it == ident))
+                        .and_then(|ident| crate::selectable_langs().position(|id| LANG_IDENTS[id] == ident))
                         .unwrap_or_default(),
                 ),
 
@@ -567,7 +567,9 @@ impl GeneralList {
         self.lang_btn.update(t);
         let data = get_data_mut();
         if self.lang_btn.changed() {
-            data.language = Some(LANG_IDENTS[self.lang_btn.selected()].to_string());
+            if let Some(id) = crate::selectable_langs().nth(self.lang_btn.selected()) {
+                data.language = Some(LANG_IDENTS[id].to_string());
+            }
             sync_data();
             return Ok(true);
         }
