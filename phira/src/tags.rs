@@ -128,6 +128,7 @@ pub struct TagsDialog {
     pub show_me: bool,
     pub btn_unreviewed: DRectButton,
     pub show_unreviewed: bool,
+    pub show_reviewed: bool,
     pub btn_stabilize: DRectButton,
     pub show_stabilize: bool,
     pub perms: Permissions,
@@ -156,6 +157,7 @@ impl TagsDialog {
             show_me: false,
             btn_unreviewed: DRectButton::new(),
             show_unreviewed: false,
+            show_reviewed: false,
             btn_stabilize: DRectButton::new(),
             show_stabilize: false,
             perms: Permissions::empty(),
@@ -226,7 +228,14 @@ impl TagsDialog {
                 return true;
             }
             if self.btn_unreviewed.touch(touch, t) {
-                self.show_unreviewed ^= true;
+                if self.show_unreviewed {
+                    self.show_unreviewed = false;
+                    self.show_reviewed = true;
+                } else if self.show_reviewed {
+                    self.show_reviewed = false;
+                } else {
+                    self.show_unreviewed = true;
+                }
                 return true;
             }
             if self.btn_stabilize.touch(touch, t) {
@@ -304,17 +313,26 @@ impl TagsDialog {
                             let mut h = bh + 0.01;
                             ui.dy(h);
                             if self.unwanted.is_some() {
-                                let mut row: SmallVec<[_; 3]> = smallvec![(&mut self.btn_me, "filter-me", self.show_me)];
+                                let mut row: SmallVec<[_; 3]> = smallvec![(&mut self.btn_me, "filter-me", self.show_me, false,)];
                                 if self.perms.contains(Permissions::SEE_UNREVIEWED) {
-                                    row.push((&mut self.btn_unreviewed, "filter-unreviewed", self.show_unreviewed));
+                                    row.push((
+                                        &mut self.btn_unreviewed,
+                                        "filter-unreviewed",
+                                        self.show_unreviewed || self.show_reviewed,
+                                        self.show_reviewed,
+                                    ));
                                 }
                                 if self.perms.contains(Permissions::SEE_STABLE_REQ) {
-                                    row.push((&mut self.btn_stabilize, "filter-stabilize", self.show_stabilize));
+                                    row.push((&mut self.btn_stabilize, "filter-stabilize", self.show_stabilize, false));
                                 }
                                 let bw = mw / row.len() as f32;
                                 let mut r = Rect::new(pad / 2., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
-                                for (btn, text, on) in row.into_iter() {
-                                    btn.render_text(ui, r, t, tl!(text), 0.5, on);
+                                for (btn, text, on, inverted) in row.into_iter() {
+                                    if inverted {
+                                        btn.render_text_color(ui, r, t, tl!(text), 0.5, on, RED);
+                                    } else {
+                                        btn.render_text(ui, r, t, tl!(text), 0.5, on);
+                                    }
                                     r.x += bw;
                                 }
                                 let dh = bh + 0.01;
