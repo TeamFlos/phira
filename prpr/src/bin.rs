@@ -320,12 +320,18 @@ impl BinaryData for CtrlObject {
 impl BinaryData for Note {
     fn read_binary<R: Read>(r: &mut BinaryReader<R>) -> Result<Self> {
         let object = r.read()?;
-        let kind = match r.read::<u8>()? {
+        let tag = r.read::<u8>()?;
+        let mut hold_body_speed = None;
+        let kind = match tag {
             0 => NoteKind::Click,
-            1 => NoteKind::Hold {
-                end_time: r.read::<f32>()? as f64,
-                end_height: r.read::<f32>()? as f64,
-            },
+            1 | 4 => {
+                let end_time = r.read::<f32>()? as f64;
+                let end_height = r.read::<f32>()? as f64;
+                if tag == 4 {
+                    hold_body_speed = Some(r.read::<f32>()? as f64);
+                }
+                NoteKind::Hold { end_time, end_height }
+            }
             2 => NoteKind::Flick,
             3 => NoteKind::Drag,
             _ => bail!("invalid note kind"),
@@ -345,6 +351,7 @@ impl BinaryData for Note {
             color: WHITE,
             fx_color: None,
             judge_area: 1.,
+            hold_body_speed,
         })
     }
 
@@ -355,9 +362,14 @@ impl BinaryData for Note {
                 w.write_val(0_u8)?;
             }
             NoteKind::Hold { end_time, end_height } => {
-                w.write_val(1_u8)?;
+                // Tag 1 remains the legacy integral hold; tag 4 also carries
+                // the independent body speed for lossless PGR round trips.
+                w.write_val(if self.hold_body_speed.is_some() { 4_u8 } else { 1_u8 })?;
                 w.write_val(end_time as f32)?;
                 w.write_val(end_height as f32)?;
+                if let Some(speed) = self.hold_body_speed {
+                    w.write_val(speed as f32)?;
+                }
             }
             NoteKind::Flick => w.write_val(2_u8)?,
             NoteKind::Drag => w.write_val(3_u8)?,
@@ -487,5 +499,46 @@ impl BinaryData for Chart {
         w.array(&self.lines)?;
         w.write(&self.settings)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod hold_body_binary_tests {
+    use super::*;
+    #[test]
+    fn independent_and_legacy_holds_round_trip() {
+        for body_speed in [None, Some(5.)] {
+            let note = Note {
+                object: Object::default(),
+                kind: NoteKind::Hold {
+                    end_time: 4.,
+                    end_height: 100.,
+                },
+                hitsound: HitSound::Click,
+                time: 2.,
+                height: 10.,
+                speed: 1.,
+                color: WHITE,
+                fx_color: None,
+                judge_area: 1.,
+                hold_body_speed: body_speed,
+                above: true,
+                multiple_hint: false,
+                fake: false,
+                judge: JudgeStatus::NotJudged,
+            };
+            let mut data = Vec::new();
+            note.write_binary(&mut BinaryWriter::new(&mut data)).unwrap();
+            let restored = Note::read_binary(&mut BinaryReader::new(data.as_slice())).unwrap();
+            assert_eq!(restored.hold_body_speed, body_speed);
+            assert_eq!(restored.speed, 1.);
+            assert!(matches!(
+                restored.kind,
+                NoteKind::Hold {
+                    end_time: 4.,
+                    end_height: 100.
+                }
+            ));
+        }
     }
 }
