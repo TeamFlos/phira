@@ -411,10 +411,10 @@ struct GeneralList {
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
-    // Offline mode skips the online session restore entirely; the HYKB channel
-    // requires the online anti-addiction check for every restored session, so
-    // the switch does not exist there.
-    #[cfg(not(feature = "hykb"))]
+    // On regular builds offline mode also skips the online session restore.
+    // HYKB builds always restore (the channel requires the online
+    // anti-addiction check), so offline mode there only disables the
+    // non-essential requests.
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
@@ -450,7 +450,6 @@ impl GeneralList {
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
-            #[cfg(not(feature = "hykb"))]
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
@@ -521,7 +520,6 @@ impl GeneralList {
             show_message(tl!("item-cache-cleared")).ok();
             return Ok(Some(false));
         }
-        #[cfg(not(feature = "hykb"))]
         if self.offline_btn.touch(touch, t) {
             config.offline_mode ^= true;
             return Ok(Some(true));
@@ -631,9 +629,15 @@ impl GeneralList {
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
         }
 
+        // HYKB builds still restore the session and run the anti-addiction
+        // check while offline, so their subtitle must not claim that all
+        // online functionality is disabled.
+        #[cfg(feature = "hykb")]
+        let offline_sub = tl!("item-offline-sub-hykb");
         #[cfg(not(feature = "hykb"))]
+        let offline_sub = tl!("item-offline-sub");
         item! {
-            render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
+            render_title(ui, tl!("item-offline"), Some(offline_sub));
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
         }
         item! {

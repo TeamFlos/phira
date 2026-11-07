@@ -115,18 +115,21 @@ pub struct HomePage {
 
 impl HomePage {
     pub async fn new(icons: Arc<Icons>) -> Result<Self> {
-        // HYKB builds must keep every restored session covered by the online
-        // anti-addiction check: offline mode (whose switch does not exist
-        // there) never skips the restore, so even a migrated config cannot
-        // bypass coverage.
-        #[cfg(feature = "hykb")]
-        let offline = false;
-        #[cfg(not(feature = "hykb"))]
         let offline = get_data().config.offline_mode;
-        let update_task = if offline {
-            None
-        } else if let Some(u) = &get_data().me {
-            UserManager::request(u.id);
+        // On regular builds offline mode skips the online session restore
+        // entirely. HYKB builds must keep every restored session covered by the
+        // online anti-addiction check, so they always restore (even from a
+        // migrated config); offline mode there only skips the non-essential
+        // requests.
+        #[cfg(feature = "hykb")]
+        let restore = get_data().me.is_some();
+        #[cfg(not(feature = "hykb"))]
+        let restore = get_data().me.is_some() && !offline;
+        let update_task = if restore {
+            let user_id = get_data().me.as_ref().unwrap().id;
+            if !offline {
+                UserManager::request(user_id);
+            }
             Some(Task::new(async {
                 Client::refresh_tokens(false).await?;
                 let me = Client::get_me().await?;
