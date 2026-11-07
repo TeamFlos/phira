@@ -223,6 +223,7 @@ fn parse_notes(r: f64, mut pgr: Vec<PgrNote>, _speed: &mut AnimFloat, height: &m
                 color: WHITE,
                 fx_color: None,
                 judge_area: 1.,
+                hold_body_speed: (pgr.kind == 3).then_some(pgr.speed as f64 / HEIGHT_RATIO),
             })
         })
         .collect()
@@ -294,4 +295,38 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
 
     process_lines(&mut lines);
     Ok(Chart::new(pgr.offset, lines, BpmList::default(), ChartSettings::default(), extra, HashMap::new()))
+}
+
+#[cfg(test)]
+mod official_hold_body_tests {
+    use super::*;
+    #[test]
+    fn own_body_speed_is_preserved_without_changing_head_scrolling() {
+        for above in [true, false] {
+            let pgr = vec![PgrNote {
+                kind: 3,
+                time: 2.,
+                position_x: 0.,
+                hold_time: 4.,
+                speed: 5.,
+                floor_position: 0.,
+            }];
+            let notes = parse_notes(0.25, pgr, &mut AnimFloat::fixed(0.), &mut AnimFloat::fixed(10.), above).unwrap();
+            assert_eq!(notes[0].speed, 1.);
+            assert_eq!(notes[0].hold_body_speed, Some(5. / HEIGHT_RATIO));
+            assert_eq!(notes[0].height, 10.);
+            assert_eq!(notes[0].above, above);
+        }
+        let pgr = vec![PgrNote {
+            kind: 1,
+            time: 2.,
+            position_x: 0.,
+            hold_time: 0.,
+            speed: 2.5,
+            floor_position: 0.,
+        }];
+        let notes = parse_notes(0.25, pgr, &mut AnimFloat::fixed(0.), &mut AnimFloat::fixed(10.), true).unwrap();
+        assert_eq!(notes[0].speed, 2.5);
+        assert_eq!(notes[0].hold_body_speed, None);
+    }
 }
