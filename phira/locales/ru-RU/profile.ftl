@@ -12,3 +12,4 @@ last-login = Был(а) в сети { $time }
 badge-admin = Администратор
 badge-sponsor = Спонсор
 name-copied = Название скопировано
+hykb-login-cancelled = Вход через 3839 Games отменен
