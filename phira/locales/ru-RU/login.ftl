@@ -23,3 +23,9 @@ action-failed =
     }
 email-sent = На вашу почту пришло верификационное письмо. Подтвердите свою почту, после чего войдите в аккаунт.
 forget-password = Забыли пароль?
+hykb-login-cancelled = Вход через 3839 Games отменен
+login-method-title = Выберите метод входа
+login-method-email = Вход через эл.почту
+login-method-hykb = Вход через 3839 Games
+login-method-recommended = Рекомендовано
+hykb-choice-title = Добро пожаловать в Phira
