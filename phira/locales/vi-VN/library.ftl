@@ -1,18 +1,34 @@
-
 label = THƯ VIỆN
-
 local = Đã tải
 popular = Thịnh hành
-
 page = Trang { $current } / { $total }
 prev-page = Trang trước
 next-page = Trang sau
-
 not-opened = Chưa có sẵn
 failed-to-load-online = Không thể tải thư viện
-
 import = Nhập
-
 offline-mode = Bạn đang bật chế độ Offline
-
 must-login = Bạn phải đăng nhập để xem thư viện
+order-by = Sắp xếp theo: { $order }
+order-asc = Tăng dần
+order-desc = Giảm dần
+order-updated = Đã cập nhật thứ tự
+order-update-failed-sort = Chỉ có thể thay đổi thứ tự ở chế độ sắp xếp mặc định
+fav-synced = Đã đồng bộ mục yêu thích
+fav-sync-failed = Đồng bộ mục yêu thích thất bại
+multi-select-status = { $count } đã chọn
+multi-export = Xuất
+multi-create-fav = Tạo mục yêu thích
+multi-manage-fav = Quản lý mục yêu thích
+multi-delete = Xoá
+multi-delete-confirm = Bạn có chắc chắn muốn xoá { $count } chart không? Hành động này không thể hoàn tác.
+multi-deleted = Đã xoá
+multi-export-title = Chọn vị trí xuất
+multi-export-no-file = Hãy tải xuống tất cả chart trước khi xuất. Thiếu: { $charts }
+multi-exporting = Đang xuất ({ $current } / { $total })
+exported = Đã xuất
+multi-added-to-fav = Đã thêm vào mục yêu thích
+multi-removed-from-fav = Đã xóa khỏi mục yêu thích
+multi-select-all = Chọn tất cả
+multi-select-invert = Đảo ngược lựa chọn
+fav-created = Đã tạo mục yêu thích
