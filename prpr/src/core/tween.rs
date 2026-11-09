@@ -330,6 +330,16 @@ thread_local! {
 pub trait TweenFunction {
     fn y(&self, x: f32) -> f32;
     fn as_any(&self) -> &dyn Any;
+
+    fn derivative(&self, x: f32) -> f32 {
+        let eps = 1e-6;
+        let l = (x - eps).max(1e-7);
+        let r = (x + eps).min(1. - 1e-7);
+        if r <= l {
+            return 0.;
+        }
+        (self.y(r) - self.y(l)) / (r - l)
+    }
 }
 
 pub struct StaticTween(pub TweenId);

@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use image::{codecs::gif, AnimationDecoder, DynamicImage, ImageError};
 use macroquad::prelude::{Color, WHITE};
 use sasa::AudioClip;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::{any::Any, cell::RefCell, collections::HashMap, future::IntoFuture, io::Cursor, rc::Rc, str::FromStr, time::Duration};
 use tracing::debug;
 
@@ -41,6 +41,23 @@ fn f32_one() -> f32 {
 
 fn i32_one() -> i32 {
     1
+}
+
+fn rpe_version_default() -> i32 {
+    160
+}
+
+fn deserialize_rpe_version<'de, D>(deserializer: D) -> std::result::Result<i32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: Option<serde_json::Value> = Option::deserialize(deserializer)?;
+    let parsed = match value {
+        Some(serde_json::Value::Number(v)) => v.as_i64().map(|it| it as i32),
+        Some(serde_json::Value::String(s)) => s.parse::<i32>().ok(),
+        _ => None,
+    };
+    Ok(parsed.unwrap_or(rpe_version_default()))
 }
 
 #[derive(Deserialize)]
@@ -178,6 +195,14 @@ struct RPEJudgeLine {
 #[serde(rename_all = "camelCase")]
 struct RPEMetadata {
     offset: i32,
+    #[serde(rename = "RPEVersion", default = "rpe_version_default", deserialize_with = "deserialize_rpe_version")]
+    rpe_version: i32,
+}
+
+#[derive(Copy, Clone)]
+enum SpeedEasingMode {
+    Legacy,
+    Modern,
 }
 
 /// Distance covered by the eased speed `b + k * f(u)` over progress `u`, where `f` is the easing curve.
@@ -259,8 +284,45 @@ struct SpeedSegment {
     factor: f32,
 }
 
+fn speed_linear_segment(start_speed: f32, end_speed: f32) -> SpeedSegment {
+    SpeedSegment {
+        from: 0.,
+        to: 1.,
+        tween: speed_linear_tween(start_speed, end_speed),
+        factor: (start_speed + end_speed) / 2.,
+    }
+}
+
+fn speed_segments(mode: SpeedEasingMode, start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> Vec<SpeedSegment> {
+    match mode {
+        SpeedEasingMode::Legacy => legacy_speed_segments(start_speed, end_speed, tween),
+        SpeedEasingMode::Modern => modern_speed_segments(start_speed, end_speed, tween),
+    }
+}
+
+fn legacy_speed_segments(start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> Vec<SpeedSegment> {
+    let df0 = tween.derivative(0.);
+    let df1 = tween.derivative(1.);
+    let denom = df1 - df0;
+    if !denom.is_finite() || denom.abs() < 1e-8 {
+        return vec![speed_linear_segment(start_speed, end_speed)];
+    }
+    let k = (end_speed - start_speed) / denom;
+    let b = start_speed - k * df0;
+    // Legacy applies the easing curve itself to the distance, so it takes the place of the integral here.
+    match SpeedIntegralTween::create(&tween, k, b, 0., 1.) {
+        Some((tween, factor)) => vec![SpeedSegment {
+            from: 0.,
+            to: 1.,
+            tween,
+            factor,
+        }],
+        None => vec![speed_linear_segment(start_speed, end_speed)],
+    }
+}
+
 /// Speed of an event goes from `start_speed` to `end_speed` as `start + (end - start) * tween(progress)`.
-fn speed_segments(start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> Vec<SpeedSegment> {
+fn modern_speed_segments(start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> Vec<SpeedSegment> {
     // Distances are normalized by the net distance, which degenerates when the speed cancels itself out
     // (e.g. from 5 to -5); such events are split so that every part has a usable net distance.
     const MIN_RELATIVE_SPEED: f32 = 1e-2;
@@ -334,7 +396,7 @@ fn parse_events<T: Tweenable, V: Clone + Into<T>>(
     Ok(Anim::new(kfs))
 }
 
-fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &BezierMap, max_time: f64) -> Result<AnimFloat> {
+fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &BezierMap, max_time: f64, mode: SpeedEasingMode) -> Result<AnimFloat> {
     let layers: Vec<_> = rpe.iter().filter_map(|it| it.speed_events.as_ref()).collect();
     if layers.is_empty() {
         return Ok(AnimFloat::default());
@@ -401,7 +463,7 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
                         p if p >= 1. => end_time,
                         p => f64::tween(&start_time, &end_time, p),
                     };
-                    for segment in speed_segments(start_speed, end_speed, event.tween(bezier_map)) {
+                    for segment in speed_segments(mode, start_speed, end_speed, event.tween(bezier_map)) {
                         push_kf(time_at(segment.from), time_at(segment.to), segment.tween, segment.factor);
                     }
                 }
@@ -652,6 +714,7 @@ async fn parse_judge_line(
     r: &mut BpmList,
     rpe: RPEJudgeLine,
     max_time: f64,
+    speed_mode: SpeedEasingMode,
     fs: &mut dyn FileSystem,
     use_rpe_170_speed: bool,
     bezier_map: &BezierMap,
@@ -680,7 +743,7 @@ async fn parse_judge_line(
         Ok(res)
     }
     let mut height = if use_rpe_170_speed {
-        parse_speed_events(r, &event_layers, bezier_map, max_time)?
+        parse_speed_events(r, &event_layers, bezier_map, max_time, speed_mode)?
     } else {
         parse_speed_events_legacy(r, &event_layers, max_time)?
     };
@@ -869,6 +932,11 @@ fn get_bezier_map(rpe: &RPEChart) -> BezierMap {
 
 pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra, use_rpe_170_speed: bool) -> Result<Chart> {
     let rpe: RPEChart = serde_json::from_str(source).with_context(|| ptl!("json-parse-failed"))?;
+    let speed_mode = if rpe.meta.rpe_version >= 170 {
+        SpeedEasingMode::Modern
+    } else {
+        SpeedEasingMode::Legacy
+    };
     let bezier_map = get_bezier_map(&rpe);
     let mut r = BpmList::new(rpe.bpm_list.into_iter().map(|it| (it.start_time.beats(), it.bpm)).collect());
     fn vec<T>(v: &Option<Vec<T>>) -> impl Iterator<Item = &T> {
@@ -912,7 +980,7 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra,
     for (id, rpe) in rpe.judge_line_list.into_iter().enumerate() {
         let name = rpe.name.clone();
         lines.push(
-            parse_judge_line(&mut r, rpe, max_time, fs, use_rpe_170_speed, &bezier_map, &mut hitsounds, &mut line_texture_map)
+            parse_judge_line(&mut r, rpe, max_time, speed_mode, fs, use_rpe_170_speed, &bezier_map, &mut hitsounds, &mut line_texture_map)
                 .await
                 .with_context(move || ptl!("judge-line-location-name", "jlid" => id, "name" => name))?,
         );
