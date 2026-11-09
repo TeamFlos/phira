@@ -104,3 +104,4 @@ about-content =
     { $localization }
 
     以及許多志願譜面審核員！完整列表參見 https://phira.moe/staff
+item-offline-sub-hykb = 不載入線上譜面與排行榜，亦不上傳成績
