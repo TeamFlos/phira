@@ -51,8 +51,8 @@ pub use smooth::Smooth;
 
 mod tween;
 pub use tween::{
-    easing_from, BezierTween, ClampedTween, GeneralIntTween, IntClampedTween, IntStaticTween, StaticTween, TweenFunction, TweenId, TweenMajor,
-    TweenMinor, Tweenable, TWEEN_FUNCTIONS,
+    easing_from, sliced_tween, BezierTween, ClampedTween, GeneralIntTween, IntClampedTween, IntStaticTween, StaticTween, TweenFunction, TweenId,
+    TweenMajor, TweenMinor, Tweenable, TWEEN_FUNCTIONS,
 };
 
 #[cfg(feature = "video")]
