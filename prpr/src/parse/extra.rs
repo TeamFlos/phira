@@ -2,13 +2,13 @@ use super::RPE_TWEEN_MAP;
 use anyhow::{Context, Result};
 use macroquad::prelude::{Color, Vec2};
 use serde::Deserialize;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use super::L10N_LOCAL;
 #[cfg(feature = "video")]
 use crate::core::Video;
 use crate::{
-    core::{Anim, BpmList, ChartExtra, ClampedTween, Effect, Keyframe, StaticTween, Triple, Tweenable, Uniform, EPS},
+    core::{sliced_tween, Anim, BpmList, ChartExtra, Effect, Keyframe, Triple, Tweenable, Uniform},
     ext::ScaleType,
     fs::FileSystem,
 };
@@ -64,14 +64,11 @@ impl<V> ExtAnim<V> {
                     kfs.push(Keyframe {
                         time: r.time(&e.start_time),
                         value: e.start.into(),
-                        tween: {
-                            let tween = RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
-                            if e.easing_left.abs() < EPS as f32 && (e.easing_right - 1.0).abs() < EPS as f32 {
-                                StaticTween::get_rc(tween)
-                            } else {
-                                Rc::new(ClampedTween::new(tween, e.easing_left..e.easing_right))
-                            }
-                        },
+                        tween: sliced_tween(
+                            RPE_TWEEN_MAP.get(e.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]),
+                            e.easing_left,
+                            e.easing_right,
+                        ),
                     });
                     kfs.push(Keyframe::new(r.time(&e.end_time), e.end.into(), 0));
                 }
