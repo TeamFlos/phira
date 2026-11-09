@@ -61,6 +61,7 @@ pub struct Config {
     pub disable_effect: bool,
     pub double_click_to_pause: bool,
     pub double_hint: bool,
+    pub early_late_hint: bool,
     pub fullscreen_mode: bool,
     pub fxaa: bool,
     pub interactive: bool,
@@ -101,6 +102,7 @@ impl Default for Config {
             disable_effect: false,
             double_click_to_pause: true,
             double_hint: true,
+            early_late_hint: false,
             fxaa: false,
             interactive: true,
             mods: Mods::default(),
@@ -155,5 +157,26 @@ impl Config {
     #[inline]
     pub fn flip_x(&self) -> bool {
         self.has_mod(Mods::FLIP_X)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn early_late_hint_is_opt_in_and_survives_config_roundtrip() {
+        let mut config: Config = serde_json::from_str(r#"{"doubleHint":false,"speed":1.5}"#).unwrap();
+        assert!(!config.early_late_hint);
+        assert!(!config.double_hint);
+        assert_eq!(config.speed, 1.5);
+
+        config.early_late_hint = true;
+        let saved = serde_json::to_value(&config).unwrap();
+        assert_eq!(saved["earlyLateHint"], true);
+        let restored: Config = serde_json::from_value(saved).unwrap();
+        assert!(restored.early_late_hint);
+        assert!(!restored.double_hint);
+        assert_eq!(restored.speed, 1.5);
     }
 }
