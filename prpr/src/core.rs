@@ -33,6 +33,7 @@ pub use effect::{Effect, Uniform};
 mod line;
 pub use line::{GifFrames, JudgeLine, JudgeLineCache, JudgeLineKind, UIElement};
 
+mod hold_body;
 mod note;
 use macroquad::prelude::set_pc_assets_folder;
 pub use note::{BadNote, HitSound, Note, NoteKind, RenderConfig};
