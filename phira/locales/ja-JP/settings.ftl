@@ -104,3 +104,4 @@ item-show-avg-fps = 平均フレームレートの表示
 item-show-avg-fps-sub = リザルト画面に平均フレームレートを表示
 item-ap-fc-indicator = AP/FC表示
 item-ap-fc-indicator-sub = 判定線の色を使用して、AP/FCを表示します
+item-offline-sub-hykb = オンラインの譜面やリーダーボードは表示されず、スコアもアップロードされません
