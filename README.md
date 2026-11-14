@@ -27,4 +27,10 @@ See our [Weblate](https://hosted.weblate.org/engage/phira/) page for the latest 
 
 ## Star History
 
-[![Stargazers over time](https://starchart.cc/TeamFlos/phira.svg?variant=adaptive)](https://starchart.cc/TeamFlos/phira)
+<a href="https://www.star-history.com/?repos=teamflos%2Fphira&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=teamflos/phira&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=teamflos/phira&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=teamflos/phira&type=date&legend=top-left" />
+ </picture>
+</a>
