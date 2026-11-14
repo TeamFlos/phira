@@ -11,6 +11,7 @@ item-lang = Language
 item-fullscreen = Fullscreen Mode
 item-offline = Offline Mode
 item-offline-sub = Disable all online functionality.
+item-offline-sub-hykb = Skip online charts and leaderboards; scores are not uploaded.
 item-server-status = Server Status
 item-server-status-sub = Open the server status page in your browser.
 check-status = Open

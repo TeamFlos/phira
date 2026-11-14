@@ -11,6 +11,7 @@ item-lang = 语言
 item-fullscreen = 全屏模式
 item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
+item-offline-sub-hykb = 不加载在线谱面与排行榜，也不上传成绩
 item-server-status = 服务器状态
 item-server-status-sub = 转到网页查看服务器状态
 check-status = 查看

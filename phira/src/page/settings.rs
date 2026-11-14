@@ -411,10 +411,10 @@ struct GeneralList {
     fullscreen_btn: DRectButton,
 
     cache_btn: DRectButton,
-    // Offline mode skips the online session restore entirely; the HYKB channel
-    // requires the online anti-addiction check for every restored session, so
-    // the switch does not exist there.
-    #[cfg(not(feature = "hykb"))]
+    // On regular builds offline mode also skips the online session restore.
+    // HYKB builds always restore (the channel requires the online
+    // anti-addiction check), so offline mode there only disables the
+    // non-essential requests.
     offline_btn: DRectButton,
     server_status_btn: DRectButton,
     mp_btn: DRectButton,
@@ -436,13 +436,13 @@ impl GeneralList {
             icon_lang,
 
             lang_btn: ChooseButton::new()
-                .with_options(LANG_NAMES.iter().map(|s| s.to_string()).collect())
+                .with_options(crate::selectable_langs().map(|id| LANG_NAMES[id].to_string()).collect())
                 .with_selected(
                     get_data()
                         .language
                         .as_ref()
                         .and_then(|it| it.parse::<LanguageIdentifier>().ok())
-                        .and_then(|ident| LANG_IDENTS.iter().position(|it| *it == ident))
+                        .and_then(|ident| crate::selectable_langs().position(|id| LANG_IDENTS[id] == ident))
                         .unwrap_or_default(),
                 ),
 
@@ -450,7 +450,6 @@ impl GeneralList {
             fullscreen_btn: DRectButton::new(),
 
             cache_btn: DRectButton::new(),
-            #[cfg(not(feature = "hykb"))]
             offline_btn: DRectButton::new(),
             server_status_btn: DRectButton::new(),
             mp_btn: DRectButton::new(),
@@ -521,7 +520,6 @@ impl GeneralList {
             show_message(tl!("item-cache-cleared")).ok();
             return Ok(Some(false));
         }
-        #[cfg(not(feature = "hykb"))]
         if self.offline_btn.touch(touch, t) {
             config.offline_mode ^= true;
             return Ok(Some(true));
@@ -567,7 +565,9 @@ impl GeneralList {
         self.lang_btn.update(t);
         let data = get_data_mut();
         if self.lang_btn.changed() {
-            data.language = Some(LANG_IDENTS[self.lang_btn.selected()].to_string());
+            if let Some(id) = crate::selectable_langs().nth(self.lang_btn.selected()) {
+                data.language = Some(LANG_IDENTS[id].to_string());
+            }
             sync_data();
             return Ok(true);
         }
@@ -629,9 +629,15 @@ impl GeneralList {
             render_switch(ui, rr, t, &mut self.fullscreen_btn, config.fullscreen_mode);
         }
 
+        // HYKB builds still restore the session and run the anti-addiction
+        // check while offline, so their subtitle must not claim that all
+        // online functionality is disabled.
+        #[cfg(feature = "hykb")]
+        let offline_sub = tl!("item-offline-sub-hykb");
         #[cfg(not(feature = "hykb"))]
+        let offline_sub = tl!("item-offline-sub");
         item! {
-            render_title(ui, tl!("item-offline"), Some(tl!("item-offline-sub")));
+            render_title(ui, tl!("item-offline"), Some(offline_sub));
             render_switch(ui, rr, t, &mut self.offline_btn, config.offline_mode);
         }
         item! {

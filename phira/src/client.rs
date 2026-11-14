@@ -86,6 +86,7 @@ pub fn clear_session() {
     SESSION.store(None);
     CLIENT_TOKEN.store(None.into());
     get_data_mut().me = None;
+    get_data_mut().login_source = None;
     get_data_mut().tokens = None;
     if let Err(err) = save_data() {
         warn!(?err, "failed to persist logout");

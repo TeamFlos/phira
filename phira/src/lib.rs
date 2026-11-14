@@ -38,9 +38,9 @@ use prpr::{
     ui::{cleanup_audio, FontArc, TextPainter},
     Main,
 };
-use prpr_l10n::set_prefered_locale;
 #[cfg(not(feature = "hykb"))]
-use prpr_l10n::{GLOBAL, LANGS};
+use prpr_l10n::GLOBAL;
+use prpr_l10n::{set_prefered_locale, LANGS};
 use scene::MainScene;
 use std::{
     collections::VecDeque,
@@ -85,7 +85,27 @@ pub async fn load_res_tex(name: &str) -> SafeTexture {
     prpr::ext::BLACK_TEXTURE.clone()
 }
 
+/// Languages offered in the settings language picker, as indices into
+/// `LANGS`. The HYKB channel only allows English and Simplified Chinese.
+pub fn selectable_langs() -> impl Iterator<Item = usize> {
+    #[cfg(feature = "hykb")]
+    const ALLOWED: Option<&[&str]> = Some(&["en-US", "zh-CN"]);
+    #[cfg(not(feature = "hykb"))]
+    const ALLOWED: Option<&[&str]> = None;
+    (0..LANGS.len()).filter(|&id| ALLOWED.is_none_or(|allowed| allowed.contains(&LANGS[id])))
+}
+
 pub fn sync_data() {
+    // A language chosen before the HYKB channel restricted the picker (or
+    // carried over from another build) falls back to the channel default.
+    #[cfg(feature = "hykb")]
+    if get_data()
+        .language
+        .as_ref()
+        .is_some_and(|lang| !selectable_langs().any(|id| LANGS[id] == lang))
+    {
+        get_data_mut().language = None;
+    }
     if get_data().language.is_none() {
         #[cfg(feature = "hykb")]
         let default_lang = "zh-CN".to_owned();
@@ -611,9 +631,65 @@ pub async fn obtain_hykb_credential() -> Result<HykbCredential> {
     Ok(cred)
 }
 
+/// Start the anti-addiction check that matches how the session `me` was signed
+/// in. Called whenever a stored session is restored or re-verified:
+///
+/// - Sessions recorded as HYKB logins are covered by the HYKB login SDK only:
+///   silently sign the cached HYKB account back in and require it to be the
+///   account bound to `me`. A failed / cancelled sign-in (`ok_or_err`) or a
+///   different account tears the session down; the GTS check is not started, so
+///   the player is not asked to verify their real name a second time.
+/// - Sessions recorded as email logins use the GTS check under the server user
+///   id, which fails closed asynchronously via `hykbFcmCallback`.
+/// - Data written before the source was recorded (any version before v0.8.3)
+///   still has a native HYKB account behind it: older builds kept that SDK
+///   signed in for every restored session (v0.8.2 did so regardless of the
+///   login method), and the player may already have completed real-name
+///   verification there. Try the silent HYKB sign-in first so those upgraded
+///   players keep their coverage; only when the SDK cannot sign in, or signs
+///   into a different account than the one bound, fall back to GTS.
+///
+/// No branch leaves a session without coverage, so tampering with the stored
+/// source can at most swap which check applies.
+#[cfg(feature = "hykb")]
+pub async fn ensure_anti_addiction(me: &client::User) -> Result<()> {
+    match get_data().login_source {
+        // Recorded HYKB session: strict re-verification of the bound account.
+        Some(data::LoginSource::Hykb) => {
+            if let Some(bound) = me.hykb_uid {
+                let cred = obtain_hykb_credential_silent().await?.ok_or_err()?;
+                if cred.uid != bound {
+                    tracing::warn!("HYKB account {} does not match the bound account {bound}, logging out", cred.uid);
+                    force_logout();
+                    anyhow::bail!("{}", ttl!("hykb-account-mismatch"));
+                }
+                request_hykb_fcm_stop();
+                return Ok(());
+            }
+        }
+        // Recorded email session: GTS below.
+        Some(data::LoginSource::Email) => {}
+        // Legacy data: keep the HYKB coverage the previous version provided.
+        // A bound account still has to match, so a mismatched device account
+        // cannot lend its (possibly adult) HYKB anti-addiction to another
+        // account; an unbound legacy account has no identity to compare with
+        // and the HYKB account is what covered it before the update.
+        None => {
+            if let Ok(cred) = obtain_hykb_credential_silent().await {
+                if cred.code == 0 && me.hykb_uid.is_none_or(|bound| cred.uid == bound) {
+                    request_hykb_fcm_stop();
+                    return Ok(());
+                }
+            }
+        }
+    }
+    request_hykb_fcm(&me.id.to_string());
+    Ok(())
+}
+
 /// Silently restore the HYKB session from the cached account and await its
 /// credentials. Unlike [`obtain_hykb_credential`], this does not pop the account
-/// picker; used by the blocking startup check to verify the restored session.
+/// picker; used by [`ensure_anti_addiction`] to verify a restored HYKB session.
 #[allow(unused)]
 pub async fn obtain_hykb_credential_silent() -> Result<HykbCredential> {
     let (tx, rx) = tokio::sync::oneshot::channel();
