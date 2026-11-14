@@ -16,7 +16,7 @@ pub use record::*;
 mod user;
 pub use user::*;
 
-use super::{basic_client_builder, Client, API_URL, CLIENT_TOKEN};
+use super::{basic_client_builder, send_raw, Client, API_URL, CLIENT_TOKEN};
 use crate::{
     dir, get_data,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
@@ -201,7 +201,7 @@ impl File {
 
     pub async fn fetch(&self) -> Result<Bytes> {
         async fn fetch_raw(f: &File) -> Result<Response> {
-            Ok(f.request().send().await?)
+            send_raw(f.request()).await
         }
         match cacache::read(&*CACHE_DIR, &self.url).await {
             Ok(data) => Ok(data.into()),

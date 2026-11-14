@@ -30,3 +30,14 @@ hykb-not-bound-logout = Tài khoản của bạn chưa liên kết với hykb, �
 hykb-login-cancelled = Đã hủy đăng nhập hykb
 favorites-online-only = Bộ sưu tập online chỉ lưu được chart online. Chart cục bộ: { $charts }
 default-fav-folder = Bộ sưu tập mặc định
+
+crash-title = Phira đã dừng đột ngột
+crash-message = Trò chơi gặp lỗi không mong muốn và không thể tiếp tục hoạt động an toàn. Bạn có thể xuất nhật ký gần đây để giúp tìm nguyên nhân sự cố.
+crash-summary = Lỗi: { $error }
+crash-log-retention = Lưu nhật ký của bảy ngày gần nhất, không bao gồm thông tin xác thực tài khoản hoặc tài nguyên được lưu trong bộ nhớ đệm.
+crash-export = Xuất nhật ký
+crash-exit = Thoát an toàn
+crash-exporting = Đang chuẩn bị nhật ký...
+crash-exported = Nhật ký đã sẵn sàng để chia sẻ.
+crash-export-failed = Không thể xuất nhật ký
+

@@ -1,0 +1,12 @@
+label = イベント
+load-list-failed = イベントリストの読み込みに失敗しました
+load-failed = イベントの読み込みに失敗しました
+load-status-failed = イベントステータスの読み込みに失敗しました
+load-ldb-failed = リーダーボードの読み込みに失敗しました
+join-failed = イベントに参加できませんでした
+scroll-down-for-more = 下にスクロールして詳細を見る
+btn-join = 参加
+btn-not-started = 開始前です
+btn-ongoing = 開催中
+btn-ended = 終了しました
+ldb = リーダーボード

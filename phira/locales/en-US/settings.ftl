@@ -11,6 +11,7 @@ item-lang = Language
 item-fullscreen = Fullscreen Mode
 item-offline = Offline Mode
 item-offline-sub = Disable all online functionality.
+item-offline-sub-hykb = Skip online charts and leaderboards; scores are not uploaded.
 item-server-status = Server Status
 item-server-status-sub = Open the server status page in your browser.
 check-status = Open
@@ -87,6 +88,11 @@ item-chart-debug = Show Line ID
 item-chart-debug-sub = Display the IDs and orientation of lines.
 item-touch-debug = Show Touch Points
 item-touch-debug-sub = Display user touch points.
+item-export-logs = Export Logs
+item-export-logs-sub = Export logs from the last seven days as a ZIP archive for feedback.
+item-export-logs-button = Export
+log-exporting = Exporting logs…
+log-export-failed = Failed to export logs
 
 load-cali-failed = Failed to load calibration audio.
 

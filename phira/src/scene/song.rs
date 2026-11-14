@@ -6,10 +6,10 @@ use super::{
     confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, ASSET_CHART_INFO,
 };
 use crate::{
-    charts_view::NEED_UPDATE,
+    charts_view::{delete_local_chart, NEED_UPDATE},
     client::{
-        basic_client_builder, recv_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, User,
-        UserManager, CLIENT_TOKEN,
+        basic_client_builder, recv_raw, send_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record,
+        User, UserManager, CLIENT_TOKEN,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -647,7 +647,7 @@ impl SongScene {
                         } else {
                             req
                         };
-                        let res = req.send().await.with_context(|| tl!("request-failed"))?.error_for_status()?;
+                        let res = send_raw(req).await.with_context(|| tl!("request-failed"))?.error_for_status()?;
                         let size = res.content_length();
                         let mut stream = res.bytes_stream();
                         let mut count = 0;
@@ -871,7 +871,6 @@ impl SongScene {
         }
         let update_fn = client.and_then(|mut client| {
             let live = client.blocking_state().unwrap().live;
-            let token = get_data().tokens.as_ref().map(|it| it.0.clone()).unwrap();
             let addr = get_data().config.mp_address.clone();
             let mut reconnect_task: Option<Task<Result<phira_mp_client::Client>>> = None;
             let update_fn: Option<UpdateFn> = if live {
@@ -884,9 +883,9 @@ impl SongScene {
                     move |t, res, judge| {
                         if client.ping_fail_count() >= 1 && reconnect_task.is_none() {
                             warn!("lost connection, auto re-connect");
-                            let token = token.clone();
                             let addr = addr.clone();
                             reconnect_task = Some(Task::new(async move {
+                                let token = Client::authenticated_token().await?;
                                 let client = phira_mp_client::Client::from_address(&addr).await?;
                                 client.authenticate(token).await?;
                                 Ok(client)
@@ -1667,6 +1666,46 @@ impl Scene for SongScene {
             self.first_in = false;
             tm.seek_to(-fade_in_time().unwrap_or_default() as _);
             self.load_ldb();
+        } else if self
+            .local_path
+            .as_ref()
+            .is_some_and(|path| !path.starts_with(':') && get_data().find_chart_by_path(path).is_none())
+        {
+            // A nested song scene may have deleted this chart while we were covered.
+            self.local_path = None;
+            if let Some(preview) = &mut self.preview {
+                preview.pause()?;
+            }
+            self.preview = None;
+            self.illu.task = None;
+            self.preview_task = self.info.id.map(|id| {
+                Task::new(async move {
+                    let chart = Ptr::<Chart>::new(id).fetch().await?;
+                    with_effects(AudioClip::decode(chart.preview.fetch().await?.to_vec())?, None)
+                })
+            });
+            self.record = None;
+            self.fetch_best_task = if get_data().me.is_some() {
+                self.info.id.map(|id| Task::new(Client::best_record(id)))
+            } else {
+                None
+            };
+            self.mods = Mods::default();
+            self.mod_btns.clear();
+            self.info_edit = None;
+            if matches!(self.side_content, SideContent::Edit | SideContent::Mods) {
+                self.side_enter_time = f32::INFINITY;
+            }
+            self.should_update.store(false, Ordering::Relaxed);
+            if let Some(entity) = &self.entity {
+                self.info = entity.to_info();
+            } else if self.load_task.is_none() && !get_data().config.offline_mode {
+                // The entity was never loaded (the first fetch failed, or the
+                // scene was opened in offline mode). Fetch it again so the
+                // chart can be re-downloaded instead of leaving the play
+                // button stuck on "still-loading" forever.
+                self.load_task = self.info.id.map(|id| Task::new(async move { Ptr::new(id).fetch_opt().await }));
+            }
         }
         if let Some(music) = &mut self.preview {
             music.seek_to(0.)?;
@@ -1756,7 +1795,7 @@ impl Scene for SongScene {
                                 if item.btn.touch(touch) {
                                     button_hit();
                                     self.sf
-                                        .goto(t, ProfileScene::new(item.inner.player.id, self.icons.user.clone(), self.rank_icons.clone()));
+                                        .goto(t, ProfileScene::new(item.inner.player.id, self.icons.clone(), self.rank_icons.clone()));
                                     return Ok(true);
                                 }
                             }
@@ -1768,16 +1807,14 @@ impl Scene for SongScene {
                         }
                         if self.uploader_btn.touch(touch) {
                             button_hit();
-                            self.sf.goto(
-                                t,
-                                ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
-                            );
+                            self.sf
+                                .goto(t, ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.clone(), self.rank_icons.clone()));
                             return Ok(true);
                         }
                         for (id, (_, btn)) in &mut self.collaborators {
                             if btn.touch(touch) {
                                 button_hit();
-                                self.sf.goto(t, ProfileScene::new(*id, self.icons.user.clone(), self.rank_icons.clone()));
+                                self.sf.goto(t, ProfileScene::new(*id, self.icons.clone(), self.rank_icons.clone()));
                                 return Ok(true);
                             }
                         }
@@ -2161,6 +2198,13 @@ impl Scene for SongScene {
             }
         }
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
+            // SongScene owns `local_path`, so it deletes the chart itself:
+            // every entry point that can pop this scene (library, profile
+            // history, messages, deeplinks) then gets a real deletion instead
+            // of silently dropping the `true` result.
+            if let Some(path) = &self.local_path {
+                delete_local_chart(path)?;
+            }
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
         }
         if self.fav_menu.changed() {

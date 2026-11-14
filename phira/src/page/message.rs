@@ -102,7 +102,7 @@ impl MessagePage {
                         return Ok(());
                     }
                 };
-                self.sf.goto(t, ProfileScene::new(id, self.icons.user.clone(), self.rank_icons.clone()));
+                self.sf.goto(t, ProfileScene::new(id, self.icons.clone(), self.rank_icons.clone()));
             }
             _ => {
                 warn!("unknown action type: {ty}");

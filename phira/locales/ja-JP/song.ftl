@@ -1,32 +1,25 @@
-
-load-preview-failed = 曲のプレビューの読み込みに失敗しました。
-load-charts-failed = ビートマップの読み込みに失敗しました。
-
-load-chart-failed = ビートマップの読み込みに失敗しました。
-
+load-preview-failed = 曲のプレビューの読み込みに失敗しました
+load-charts-failed = ビートマップの読み込みに失敗しました
+load-chart-failed = ビートマップの読み込みに失敗しました
 dl-cancel = キャンセル
 dl-status-fetch = 情報を取得する
 dl-status-song = 楽曲をダウンロード中
-dl-status-chart = ダウンロード中のチャート
+dl-status-chart = ダウンロード中の譜面
 dl-status-extract = 抽出中
 dl-status-illustration = イラストをダウンロード中
 dl-status-assets = アセットをダウンロード中
 dl-status-saving = 保存中
 dl-failed = ダウンロードに失敗しました
 dl-success = ダウンロード成功
-
 guest = ゲスト
-
 warn-unrated = この譜面は評価されていません
 failed-to-play = オンラインモードとしてプレイするのに失敗しました
 play-cancel = キャンセル
 play-switch-to-offline = オフラインモードに切り替えます
 switched-to-offline = オフラインモードに切り替えました
-
 delete = 削除
 exercise = 練習
 offset = 補正
-
 edit-cancel = キャンセル
 edit-save = 保存
 edit-saving = 保存しています
@@ -34,26 +27,24 @@ edit-load-file-failed = 外部ファイルの読み込みに失敗しました
 edit-save-failed = 保存に失敗
 edit-saved = 保存しました
 edit-preview-invalid = プレビュー時間が長すぎます
-
 edit-upload = アップロード
 upload-login-first = ログインしてください
 upload-builtin = 元からあるビートマップはアップロードできません
 upload-rules = アップロード規定
 upload-rules-content =
-  譜面をアップロードする前に、以下のことをご確認ください:
-  1. 譜面の制作者はあなた自身である、もしくは制作者より許可を得ていること。制作者の代わりに譜面をアップロードする際は、説明等に制作者についてを記す必要があります。
-  2. あなた自身が譜面制作者なのであれば、識別が容易いアバターやIDにすることをおすすめします。あなたのアバターやIDが、自分の譜面紹介動画プラットフォーム(主にBiliBiliなど)のアバターやIDが全く異なる場合は、追加で注釈する必要があります。説明については、自分が使っている言語でお願いします。
-  3. ! 本ルールを守らないことや、譜面制作者の許可なく譜面をアップロードすることは厳しく禁じます。もし守らなかった場合、アップロードの永久バンにつながる可能性があります。;
-  4. 譜面のコンテンツ(楽曲、イラスト、文字等を含む)については中華人民共和国やその他の法律に従わなければなりません。
-uploading = アップロード中
+    譜面をアップロードする前に、以下のことをご確認ください:
+    1. 譜面の制作者はあなた自身である、もしくは制作者より許可を得ていること。制作者の代わりに譜面をアップロードする際は、説明等に制作者についてを記す必要があります。
+    2. あなた自身が譜面制作者なのであれば、識別が容易いアバターやIDにすることをおすすめします。あなたのアバターやIDが、自分の譜面紹介動画プラットフォーム(主にBiliBiliなど)のアバターやIDが全く異なる場合は、追加で注釈する必要があります。説明については、自分が使っている言語でお願いします。
+    3. ! 本ルールを守らないことや、譜面制作者の許可なく譜面をアップロードすることは厳しく禁じます。もし守らなかった場合、アップロードの永久バンにつながる可能性があります。;
+    4. 譜面のコンテンツ(楽曲、イラスト、文字等を含む)については中華人民共和国やその他の法律に従わなければなりません。
+    5. 本事項の最終的な解釈権はTeamFlosに帰属します。
+uploading = アップロード中…
 upload-chart-failed = 譜面のアップロードに失敗しました
 upload-success = アップロードに成功しました！ レビューをお待ちください。
 upload-failed = アップロード失敗
-
 ldb = リーダーボード
 ldb-load-failed = リーダーボードの読み込みに失敗
 ldb-no-rank = なし
-
 mods = Mods
 mods-autoplay = オートプレイ
 mods-autoplay-sub = これを有効にすると、リザルトの記録が無効になります
@@ -67,3 +58,77 @@ mods-nightcore = ナイトコア
 mods-nightcore-sub = より高速で譜面をプレイします
 mods-rainbow = レインボー
 mods-rainbow-sub = ゲームを *少しだけ* カラフルにします
+rate = 評価
+export = エクスポート
+unlock = 解放動画を再生
+edit-tags = タグを編集
+edit-downloaded = ダウンロードした譜面は編集できません
+edit-overwrite = 上書き
+edit-overwrite-confirm = 外部スコアを使用して現在のスコアを上書きしてもよろしいですか？（「更新」をクリックした後でなければ、オンラインプラットフォームに同期されません）
+edit-overwrite-success = 上書きしました
+edit-overwrite-failed = 上書きが失敗しました
+edit-update = 更新
+warn = 警告
+cancel-not-saved = まだ情報を保存していません。本当に終了しますか？
+upload-not-saved = まだスコアを保存していません。アップロードを続行しますか？
+upload-confirm-clear-ldb = 現在の譜面ファイルとリモート譜面ファイルが異なるため、譜面のアップロード後にこの譜面のリーダーボードはリセットされます。続行してもよろしいですか？
+ldb-score = スコア
+ldb-std = 精度
+info-name = 名前
+info-composer = 作曲者
+info-charter = 譜面制作者
+info-difficulty = 難易度
+info-desc = 詳細情報
+info-collaborators = 合作者
+info-rating = 評価スコア
+info-type = タイプ
+info-tags = タグ
+collab-autocomplete-content = ユーザーIDが欠落している合作者（{ $mentions }）について、自動補完を行いますか？
+collab-autocomplete-title = 合作者補完
+collab-autocomplete-failed = 「@{ $name }」を解析できません: ユーザーが存在しないか、一致するものが複数あります。
+collab-autocomplete-done = 合作者を補完しました
+reviewed = レビュー済み
+unreviewed = 未レビュー
+review-approve = 審査
+review-approve-confirm = この譜面を審査に出しますか？この操作は取り消せません。
+review-deny = 拒否
+review-del = オンラインで削除
+review-approved = 承認されました
+review-passed = 承認されました。譜面は審査済みです
+review-denied = 拒否されました
+review-deleted = 削除しました
+review-action-failed = 監査操作が失敗しました
+review-doing = 操作を実行中
+review-not-loaded = 情報の読み込みが完了していません。しばらくお待ちください
+review-edit-tags = タグを編集
+review-edit-tags-failed = タグの編集に失敗しました
+review-edit-tags-done = タグが更新されました
+mods-instant-death-ap = AP縛り
+mods-instant-death-ap-sub = Perfect判定以外を取った時点で即失敗します
+mods-instant-death-fc = FC縛り
+mods-instant-death-fc-sub = コンボが途切れた時点で即失敗します
+mods-no-shader = シェーダーなし
+mods-no-shader-sub = シェーダー効果を無効にします。※このModを有効にするとスコアをアップロードできなくなります
+rate-failed = 評価スコア失敗
+rate-done = 評価スコア成功
+need-update = 譜面更新
+need-update-info-only-content = 譜面情報が更新されました。今すぐ同期しますか？
+need-update-content = 譜面が更新されました。お使いの端末が最新の状態でない場合、譜面をアップロードできません。今すぐ更新しますか？
+request-failed = リクエストが失敗しました
+stabilize-warn = 定期利用者は3日に1回、stable申請をリクエストできます。stable譜面を1つ以上所有している利用者は、1日に1回リクエストできます。
+stabilize = stable申請
+stabilize-requested = stable申請成功
+stabilize-failed = stable申請失敗
+stabilize-approve = specialに承認
+stabilize-approve-ranked = stableに承認
+stabilize-approve-confirm = この譜面評価の承認を確定しますか？この決定は取り消すことができません。
+stabilize-comment = Stable メッセージ
+stabilize-commented = メッセージは正常に送信されました
+stabilize-deny = stableを拒否
+stabilize-approved = 承認されました
+stabilize-approved-passed = 承認され、譜面はstableになりました
+stabilize-denied = 拒否されました
+stabilize-denied-passed = リクエストは却下され、譜面が返却されました
+fav-added = 保存済み（長押しで他のお気に入りを選択）
+still-loading = 読み込み中…
+exporting = エクスポート中…

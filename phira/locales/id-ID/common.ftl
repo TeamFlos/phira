@@ -30,3 +30,14 @@ favorites-online-only = Hanya chart online yang dapat ditambahkan ke favorit onl
 contains-banned-words = Input Anda mengandung kata-kata terlarang. Mohon periksa dan kirim ulang.
 hykb-not-bound-logout = Akun Anda tidak terhubung ke akun HYKB; Anda telah keluar.
 hykb-login-cancelled = Login hykb dibatalkan
+
+crash-title = Phira berhenti secara tak terduga
+crash-message = Game mengalami kesalahan tak terduga dan tidak dapat dilanjutkan dengan aman. Anda dapat mengekspor log terbaru untuk membantu menemukan penyebab masalah.
+crash-summary = Kesalahan: { $error }
+crash-log-retention = Log tujuh hari terakhir disimpan. Kredensial akun dan sumber daya dalam cache tidak disertakan.
+crash-export = Ekspor log
+crash-exit = Keluar dengan aman
+crash-exporting = Menyiapkan log...
+crash-exported = Log siap dibagikan.
+crash-export-failed = Gagal mengekspor log
+

@@ -94,12 +94,8 @@ async fn probe_once(addresses: &[SocketAddr]) -> PingState {
     {
         Ok(Ok(delay)) => PingState::Ready(delay),
         Ok(Err(err)) if err.is::<tokio::time::error::Elapsed>() => PingState::TimedOut,
-        Ok(Err(_err)) => {
-            PingState::Unreachable
-        }
-        Err(_) => {
-            PingState::TimedOut
-        }
+        Ok(Err(_err)) => PingState::Unreachable,
+        Err(_) => PingState::TimedOut,
     }
 }
 
@@ -304,7 +300,10 @@ mod tests {
                     pings.update(&[]);
                 }
                 let mut pending_bytes = Vec::new();
-                timeout(Duration::from_secs(1), stream.read_to_end(&mut pending_bytes)).await.unwrap().unwrap();
+                timeout(Duration::from_secs(1), stream.read_to_end(&mut pending_bytes))
+                    .await
+                    .unwrap()
+                    .unwrap();
             }
         });
     }

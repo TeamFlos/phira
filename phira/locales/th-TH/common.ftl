@@ -27,3 +27,14 @@ main-character-intro =
 favorites = Favorites
 default-fav-folder = Favorites
 favorites-online-only = มีแค่ Chart online เท่านั้นที่จะเพิ่มไปยัง Online favorites เท่านั้น. Local charts：{ $charts }
+
+crash-title = Phira หยุดทำงานโดยไม่คาดคิด
+crash-message = เกมพบข้อผิดพลาดที่ไม่คาดคิดและไม่สามารถทำงานต่อได้อย่างปลอดภัย คุณสามารถส่งออกบันทึกล่าสุดเพื่อช่วยหาสาเหตุของปัญหา
+crash-summary = ข้อผิดพลาด: { $error }
+crash-log-retention = เก็บบันทึกจากเจ็ดวันที่ผ่านมา โดยไม่รวมข้อมูลรับรองบัญชีหรือทรัพยากรที่แคชไว้
+crash-export = ส่งออกบันทึก
+crash-exit = ออกอย่างปลอดภัย
+crash-exporting = กำลังเตรียมบันทึก...
+crash-exported = บันทึกพร้อมแชร์แล้ว
+crash-export-failed = ส่งออกบันทึกไม่สำเร็จ
+

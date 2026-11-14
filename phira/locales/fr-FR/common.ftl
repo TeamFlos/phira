@@ -30,3 +30,14 @@ open-in-web = Ouvrir dans la page Web
 
 main-character-name = Shee
 main-character-intro = À ajouter
+
+crash-title = Phira s'est arrêté de manière inattendue
+crash-message = Le jeu a rencontré une erreur inattendue et ne peut plus continuer en toute sécurité. Vous pouvez exporter les journaux récents pour aider à identifier le problème.
+crash-summary = Erreur : { $error }
+crash-log-retention = Les journaux des sept derniers jours sont conservés. Les identifiants de compte et les ressources en cache ne sont pas inclus.
+crash-export = Exporter les journaux
+crash-exit = Quitter en toute sécurité
+crash-exporting = Préparation des journaux...
+crash-exported = Les journaux sont prêts à être partagés.
+crash-export-failed = Échec de l'exportation des journaux
+

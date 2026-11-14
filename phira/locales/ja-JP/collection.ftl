@@ -1,0 +1,3 @@
+label = 譜面パック集
+wait-for-more = 乞うご期待…
+name-c1 = 未来の遺跡

@@ -2,6 +2,7 @@ prpr_l10n::tl_file!("login");
 
 use crate::{
     client::{Client, ErrorCode, LoginParams, User, UserManager, API_URL},
+    data::LoginSource,
     get_data_mut,
     icons::Icons,
     page::Fader,
@@ -700,6 +701,13 @@ impl Login {
                         if let Some(user) = user {
                             UserManager::request(user.id);
                             get_data_mut().me = Some(user);
+                            // Remembered so a restored session runs the
+                            // anti-addiction check of the path it signed in with.
+                            get_data_mut().login_source = Some(if *action == "hykb-login" {
+                                LoginSource::Hykb
+                            } else {
+                                LoginSource::Email
+                            });
                             save_data()?;
                         }
                         self.t_pwd.clear();
@@ -745,6 +753,7 @@ impl Login {
                     Ok(HykbStep::LoggedIn(user)) => {
                         UserManager::request(user.id);
                         get_data_mut().me = Some(*user);
+                        get_data_mut().login_source = Some(LoginSource::Hykb);
                         save_data()?;
                         // A HYKB session takes over: its own online
                         // anti-addiction applies, stop the GTS one.

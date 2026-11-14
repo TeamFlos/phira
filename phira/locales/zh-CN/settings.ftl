@@ -11,6 +11,7 @@ item-lang = 语言
 item-fullscreen = 全屏模式
 item-offline = 离线模式
 item-offline-sub = 在离线模式下将不能上传成绩
+item-offline-sub-hykb = 不加载在线谱面与排行榜，也不上传成绩
 item-server-status = 服务器状态
 item-server-status-sub = 转到网页查看服务器状态
 check-status = 查看
@@ -87,6 +88,11 @@ item-chart-debug = 谱面调试
 item-chart-debug-sub = 显示判定线编号和朝向
 item-touch-debug = 触摸调试
 item-touch-debug-sub = 游玩过程中显示触摸点
+item-export-logs = 导出日志
+item-export-logs-sub = 将最近七天的日志导出为 ZIP 压缩包以便反馈问题
+item-export-logs-button = 导出
+log-exporting = 正在导出日志…
+log-export-failed = 导出日志失败
 
 load-cali-failed = 加载音频失败
 

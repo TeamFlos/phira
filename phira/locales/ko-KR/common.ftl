@@ -31,3 +31,14 @@ open-in-web = 웹에서 열기
 main-character-name = Shee
 main-character-intro = TODO
 
+crash-title = Phira가 예기치 않게 중지되었습니다
+crash-message = 게임에 예기치 않은 오류가 발생하여 안전하게 계속할 수 없습니다. 최근 로그를 내보내 문제의 원인을 파악하는 데 도움을 줄 수 있습니다.
+crash-summary = 오류: { $error }
+crash-log-retention = 최근 7일간의 로그를 보관합니다. 계정 인증 정보와 캐시된 리소스는 포함되지 않습니다.
+crash-export = 로그 내보내기
+crash-exit = 안전하게 종료
+crash-exporting = 로그 준비 중...
+crash-exported = 로그를 공유할 준비가 되었습니다.
+crash-export-failed = 로그를 내보내지 못했습니다
+
+
