@@ -1,0 +1,55 @@
+name: Build Phira for iOS
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/ios-build.yml']
+permissions:
+  contents: read
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Rust
+        run: rustup target add aarch64-apple-ios
+      - name: Compile device executable
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target/xcode
+          IPHONEOS_DEPLOYMENT_TARGET: '13.0'
+        run: |
+          cargo build --locked --release --bin phira-main --target aarch64-apple-ios
+          mkdir -p build
+          cp "$CARGO_TARGET_DIR/aarch64-apple-ios/release/phira-main" build/phira-main
+      - name: Restore required release assets
+        run: |
+          template="$RUNNER_TEMP/assets-template.zip"
+          curl -fL --retry 3 https://github.com/TeamFlos/phira/releases/download/v0.8.2/Phira-windows-x86_64-v0.8.2.zip -o "$template"
+          echo "7a881fd48cd156201d0b1cb700e003fb58cc01ebcfadad1e9c865d0f3282bc41  $template" | shasum -a 256 -c -
+          unzip -nq "$template" 'assets/*'
+      - name: Build and package device app
+        run: |
+          xcodebuild -project phira.xcodeproj -scheme phira -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/Derived" \
+            CODE_SIGNING_ALLOWED=NO INFOPLIST_FILE= GENERATE_INFOPLIST_FILE=YES \
+            EXECUTABLE_NAME=phira-main CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            INFOPLIST_KEY_UIRequiresFullScreen=YES INFOPLIST_KEY_UILaunchStoryboardName=LaunchScreen \
+            'INFOPLIST_KEY_UISupportedInterfaceOrientations=UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight' build
+          mkdir -p Payload
+          cp -R "$RUNNER_TEMP/Derived/Build/Products/Release-iphoneos/Phira.app" Payload/
+          app=Payload/Phira.app
+          exe=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
+          test -x "$app/$exe"
+          xcrun lipo "$app/$exe" -verify_arch arm64
+          for asset in font.ttf phigros.ttf bold.ttf background.jpg res/bgm; do
+            test -s "$app/assets/$asset"
+          done
+          diff -qr assets "$app/assets"
+          ditto -c -k --keepParent Payload Phira-iOS-unsigned.ipa
+          unzip -tq Phira-iOS-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Phira-iOS-unsigned
+          path: Phira-iOS-unsigned.ipa
+          if-no-files-found: error

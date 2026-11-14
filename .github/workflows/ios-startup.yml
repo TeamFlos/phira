@@ -1,0 +1,48 @@
+name: iOS startup smoke test
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/ios-startup.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  launch:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Boot iPhone simulator
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import sys,json; print(next(d["udid"] for k,ds in sorted(json.load(sys.stdin)["devices"].items(),reverse=True) if ".iOS-" in k for d in ds if d["name"].startswith("iPhone")))')
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+      - name: Prepare game and resources
+        run: |
+          rustup target add aarch64-apple-ios-sim
+          curl -fsSL --retry 3 https://github.com/TeamFlos/phira/releases/download/v0.8.2/Phira-windows-x86_64-v0.8.2.zip -o "$RUNNER_TEMP/template.zip"
+          echo "7a881fd48cd156201d0b1cb700e003fb58cc01ebcfadad1e9c865d0f3282bc41  $RUNNER_TEMP/template.zip" | shasum -a 256 -c -
+          unzip -nq "$RUNNER_TEMP/template.zip" 'assets/*'
+          export CARGO_TARGET_DIR="$PWD/target/xcode"
+          cargo build --locked --release --bin phira-main --target aarch64-apple-ios-sim
+          mkdir -p build
+          cp "$CARGO_TARGET_DIR/aarch64-apple-ios-sim/release/phira-main" build/
+      - name: Launch and capture first screen
+        run: |
+          xcodebuild -project phira.xcodeproj -scheme phira -configuration Release -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$RUNNER_TEMP/Derived" \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO INFOPLIST_FILE= GENERATE_INFOPLIST_FILE=YES \
+            EXECUTABLE_NAME=phira-main CURRENT_PROJECT_VERSION=1 INFOPLIST_KEY_UIRequiresFullScreen=YES \
+            INFOPLIST_KEY_UILaunchStoryboardName=LaunchScreen \
+            'INFOPLIST_KEY_UISupportedInterfaceOrientations=UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight' build
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$RUNNER_TEMP/Derived/Build/Products/Release-iphonesimulator/Phira.app"
+          xcrun simctl launch "$UDID" org.flos.phira
+          sleep 25
+          xcrun simctl io "$UDID" screenshot startup.png
+          logs="$(xcrun simctl get_app_container "$UDID" org.flos.phira data)/Library/data/logs"
+          if [ -d "$logs" ]; then ls -l "$logs"; find "$logs" -type f -exec tail -c 4000 {} \;; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iPhone-simulator-startup
+          path: startup.png
