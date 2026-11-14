@@ -3,6 +3,7 @@ multiplayer = Multiplayer
 
 connect = Connect
 connect-must-login = You must login to access multiplayer functionality.
+connect-no-server = Add and select a multiplayer server first.
 connect-success = Connected successfully.
 connect-failed = Failed to connect.
 connect-authenticate-failed = Authorization failed.

@@ -18,6 +18,9 @@ pub use library::{
 mod message;
 pub use message::MessagePage;
 
+mod mp_servers;
+pub use mp_servers::MpServerPage;
+
 mod offset;
 pub use offset::OffsetPage;
 
