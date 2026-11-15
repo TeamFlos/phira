@@ -131,7 +131,23 @@ impl TimeManager {
     }
 
     pub fn resume(&mut self) {
-        self.start_time += self.real_time() - self.pause_time.take().unwrap();
+        /* `pause_time.take().unwrap()` panics when resume() is called without
+         * a preceding pause(). That is not a bug in the caller — it is a
+         * legitimate state:
+         *
+         *   · cold start on iOS
+         *   · returning from background
+         *
+         * In both cases the platform jumps straight into the resume path.
+         * The panic poisons the main future, after which every frame fails
+         * with "async fn resumed after panicking" — the screen flickers and
+         * shows black blocks, and it looks like a GPU problem.
+         *
+         * When there is no pause_time, the time base was never shifted, so
+         * there is nothing to restore. Just keep it. */
+        if let Some(pause_time) = self.pause_time.take() {
+            self.start_time += self.real_time() - pause_time;
+        }
         self.wait();
     }
 
