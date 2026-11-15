@@ -2688,6 +2688,8 @@ impl Scene for SongScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
         let t = tm.now() as f32;
+        // Clear stale UI from the pixels behind transparent illustrations.
+        clear_background(BLACK);
         ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
 
