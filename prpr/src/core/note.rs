@@ -39,6 +39,9 @@ pub struct Note {
     pub color: Color,
     pub fx_color: Option<Color>,
     pub judge_area: f32,
+    /// Optional body speed, independent of head scrolling (official PGR holds).
+    /// None retains the native RPE integrated-tail behavior.
+    pub hold_body_speed: Option<f64>,
 
     /// From the other side of the line
     pub above: bool,
@@ -129,6 +132,13 @@ fn draw_center(res: &Resource, tex: Texture2D, order: i8, scale: f32, color: Col
 }
 
 impl Note {
+    fn hold_tail_height(&self, now: f64, aspect: f32, visual_speed: f64, head: f64, integrated_tail: f64) -> f64 {
+        let end = match self.kind {
+            NoteKind::Hold { end_time, .. } => end_time,
+            _ => self.time,
+        };
+        super::hold_body::tail_height(head, self.time, end, now, self.hold_body_speed.map(|v| v / aspect as f64 * visual_speed), integrated_tail)
+    }
     pub fn rotation(&self, line: &JudgeLine) -> f32 {
         line.object.rotation.now() + if self.above { 0. } else { 180. }
     }
@@ -227,7 +237,8 @@ impl Note {
             match self.kind {
                 NoteKind::Hold { end_time: _, end_height } => {
                     let end_height = end_height / res.aspect_ratio as f64 * spd;
-                    end_height - line_height
+                    let head = if res.time >= self.time { 0. } else { height - line_height };
+                    self.hold_tail_height(res.time, res.aspect_ratio, spd, head, end_height - line_height)
                 }
                 _ => height - line_height,
             }
@@ -286,7 +297,7 @@ impl Note {
 
                     let h = if self.time <= res.time { line_height } else { height };
                     let bottom = (h - line_height) as f32;
-                    let top = (end_height - line_height) as f32;
+                    let top = self.hold_tail_height(res.time, res.aspect_ratio, spd, bottom as f64, end_height - line_height) as f32;
                     let tex = &style.hold;
                     let ratio = style.hold_ratio();
                     // body

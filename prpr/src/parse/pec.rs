@@ -277,6 +277,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
                         color: WHITE,
                         fx_color: None,
                         judge_area: 1.,
+                        hold_body_speed: None,
                     });
                     if it.next() == Some("#") {
                         last_note!().speed = it.take_f32()? as f64;
