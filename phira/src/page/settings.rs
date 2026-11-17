@@ -847,6 +847,7 @@ struct ChartList {
     ap_fc_indicator_btn: DRectButton,
     show_avg_fps_btn: DRectButton,
     dc_pause_btn: DRectButton,
+    early_late_hint_btn: DRectButton,
     dhint_btn: DRectButton,
     opt_btn: DRectButton,
     use_keyboard_btn: DRectButton,
@@ -861,6 +862,7 @@ impl ChartList {
             ap_fc_indicator_btn: DRectButton::new(),
             show_avg_fps_btn: DRectButton::new(),
             dc_pause_btn: DRectButton::new(),
+            early_late_hint_btn: DRectButton::new(),
             dhint_btn: DRectButton::new(),
             opt_btn: DRectButton::new(),
             use_keyboard_btn: DRectButton::new(),
@@ -890,6 +892,10 @@ impl ChartList {
         }
         if self.dc_pause_btn.touch(touch, t) {
             config.double_click_to_pause ^= true;
+            return Ok(Some(true));
+        }
+        if self.early_late_hint_btn.touch(touch, t) {
+            config.early_late_hint ^= true;
             return Ok(Some(true));
         }
         if self.dhint_btn.touch(touch, t) {
@@ -946,6 +952,10 @@ impl ChartList {
         item! {
             render_title(ui, tl!("item-dc-pause"), None);
             render_switch(ui, rr, t, &mut self.dc_pause_btn, config.double_click_to_pause);
+        }
+        item! {
+            render_title(ui, tl!("item-early-late-hint"), Some(tl!("item-early-late-hint-sub")));
+            render_switch(ui, rr, t, &mut self.early_late_hint_btn, config.early_late_hint);
         }
         item! {
             render_title(ui, tl!("item-dhint"), Some(tl!("item-dhint-sub")));

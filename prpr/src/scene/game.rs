@@ -15,7 +15,7 @@ use crate::{
     ext::{parse_time, screen_aspect, semi_white, RectExt, SafeTexture, ScaleType},
     fs::FileSystem,
     info::{ChartFormat, ChartInfo},
-    judge::Judge,
+    judge::{Judge, TimingDirection},
     parse::{parse_extra, parse_pec, parse_phigros, parse_rpe},
     task::Task,
     time::TimeManager,
@@ -42,6 +42,28 @@ use std::{
 use tracing::{debug, warn};
 
 const PAUSE_CLICK_INTERVAL: f32 = 0.7;
+
+#[derive(Clone, Copy)]
+struct TimingHint {
+    direction: TimingDirection,
+    shown_at: f64,
+}
+
+impl TimingHint {
+    fn alpha(self, now: f64) -> f32 {
+        // Real time, independent of chart speed; fade over the last 0.12 s.
+        ((0.5 - (now - self.shown_at).max(0.)) / 0.12).clamp(0., 1.) as f32
+    }
+
+    fn draw(self, ui: &mut Ui, y: f32, now: f64, attached_alpha: f32) {
+        let (text, mut color) = match self.direction {
+            TimingDirection::Early => ("EARLY", Color::from_hex_rgb(0x81d4fa)),
+            TimingDirection::Late => ("LATE", Color::from_hex_rgb(0xffab91)),
+        };
+        color.a *= self.alpha(now) * attached_alpha;
+        ui.text(text).pos(0., y).anchor(0.5, 0.).size(0.5).color(color).draw_using(&PGR_FONT);
+    }
+}
 
 #[rustfmt::skip]
 #[cfg(closed)]
@@ -128,6 +150,7 @@ pub struct GameScene {
     info_offset: f32,
     effects: Vec<Effect>,
     offset_analysis: OffsetAnalysisPanel,
+    timing_hint: Option<TimingHint>,
 
     first_in: bool,
     exercise_range: Range<f64>,
@@ -161,6 +184,7 @@ macro_rules! reset {
     ($self:ident, $res:expr, $tm:ident) => {{
         $self.bad_notes.clear();
         $self.judge.reset();
+        $self.timing_hint = None;
         $self.chart.reset();
         $res.judge_line_color = $res.res_pack.info.color_perfect();
         $self.music.pause()?;
@@ -321,6 +345,7 @@ impl GameScene {
             info_offset,
 
             offset_analysis: OffsetAnalysisPanel::new(),
+            timing_hint: None,
 
             first_in: false,
             exercise_range,
@@ -414,6 +439,12 @@ impl GameScene {
                 miniquad::native::set_interceptor_state(false);
             }
         }
+        if tm.paused() || !res.config.early_late_hint || res.config.autoplay() {
+            self.timing_hint = None;
+            self.judge.timing_hint = None;
+        }
+        let hint_time = tm.real_time();
+        let timing_hint = self.timing_hint.filter(|hint| hint.alpha(hint_time) > 0.);
         ui.alpha(res.alpha, |ui| {
             ui.text("MAGIC BUGFIX TEXT").color(Color::new(0., 0., 0., 0.)).draw();
             if tm.now() as f32 - self.pause_first_time <= PAUSE_CLICK_INTERVAL {
@@ -465,51 +496,69 @@ impl GameScene {
                     ui.fill_rect(r, c);
                 },
             );
-            if self.judge.combo() >= 3 {
+            let show_combo = self.judge.combo() >= 3;
+            if show_combo || timing_hint.is_some() {
                 if legacy_aui {
                     let combo_top = top + eps * 2. - (1. - p) * 0.4;
                     let btm = self
                         .chart
                         .with_element(ui, res, UIElement::ComboNumber, None, (0., combo_top + unit_h / 2.), |ui, c| {
-                            ui.text(self.judge.combo().to_string())
-                                .pos(0., combo_top)
-                                .anchor(0.5, 0.)
-                                .color(c)
-                                .draw_using(&PGR_FONT)
-                                .bottom()
+                            let mut text = ui.text(self.judge.combo().to_string()).pos(0., combo_top).anchor(0.5, 0.).color(c);
+                            if show_combo {
+                                text.draw_using(&PGR_FONT)
+                            } else {
+                                text.measure_using(&PGR_FONT)
+                            }
+                            .bottom()
                         });
                     let combo_top = btm + 0.01;
                     self.chart
                         .with_element(ui, res, UIElement::Combo, None, (0., combo_top + unit_h * 0.2), |ui, c| {
-                            ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                            let mut text = ui
+                                .text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
                                 .pos(0., combo_top)
                                 .anchor(0.5, 0.)
                                 .size(0.4)
-                                .color(c)
-                                .draw_using(&PGR_FONT);
+                                .color(c);
+                            let label = if show_combo {
+                                text.draw_using(&PGR_FONT)
+                            } else {
+                                text.measure_using(&PGR_FONT)
+                            };
+                            if let Some(hint) = timing_hint {
+                                hint.draw(ui, label.bottom() + 0.01, hint_time, c.a);
+                            }
                         });
                 } else {
                     let combo = self.judge.combo().to_string();
                     let ct = ui.text(&combo).size(1.0).measure().center();
                     let combo_y = top + eps * 2. - (1. - p) * 0.4 + ct.y;
                     let btm = self.chart.with_element(ui, res, UIElement::ComboNumber, None, (0., combo_y), |ui, c| {
-                        ui.text(&combo)
-                            .pos(0., combo_y)
-                            .anchor(0.5, 0.5)
-                            .size(1.0)
-                            .color(c)
-                            .draw_using(&PGR_FONT)
-                            .bottom()
+                        let mut text = ui.text(&combo).pos(0., combo_y).anchor(0.5, 0.5).size(1.0).color(c);
+                        if show_combo {
+                            text.draw_using(&PGR_FONT)
+                        } else {
+                            text.measure_using(&PGR_FONT)
+                        }
+                        .bottom()
                     });
                     let ct = ui.text("COMBO").size(0.4).measure().center();
                     let combo_top = btm + 0.01 + ct.y;
                     self.chart.with_element(ui, res, UIElement::Combo, None, (0., combo_top), |ui, c| {
-                        ui.text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
+                        let mut text = ui
+                            .text(if res.config.autoplay() { "AUTOPLAY" } else { "COMBO" })
                             .pos(0., combo_top)
                             .anchor(0.5, 0.5)
                             .size(0.4)
-                            .color(c)
-                            .draw_using(&PGR_FONT);
+                            .color(c);
+                        let label = if show_combo {
+                            text.draw_using(&PGR_FONT)
+                        } else {
+                            text.measure_using(&PGR_FONT)
+                        };
+                        if let Some(hint) = timing_hint {
+                            hint.draw(ui, label.bottom() + 0.01, hint_time, c.a);
+                        }
                     });
                 }
             }
@@ -730,6 +779,7 @@ impl GameScene {
                             self.music.seek_to(p)?;
                             self.bad_notes.clear();
                             self.judge.reset();
+                            self.timing_hint = None;
                             self.chart.reset();
                             self.res.judge_line_color = self.res.res_pack.info.color_perfect();
                         } else {
@@ -847,6 +897,8 @@ impl Scene for GameScene {
     }
 
     fn pause(&mut self, tm: &mut TimeManager) -> Result<()> {
+        self.timing_hint = None;
+        self.judge.timing_hint = None;
         if !tm.paused() {
             self.pause_rewind = None;
             self.music.pause()?;
@@ -1025,6 +1077,14 @@ impl Scene for GameScene {
         if let Some(update) = &mut self.update_fn {
             update(self.res.time, &mut self.res, &mut self.judge);
         }
+        if let Some(direction) = self.judge.timing_hint.take() {
+            if self.res.config.early_late_hint && !tm.paused() && self.pause_rewind.is_none() && !self.res.config.autoplay() {
+                self.timing_hint = Some(TimingHint {
+                    direction,
+                    shown_at: tm.real_time(),
+                });
+            }
+        }
         let counts = self.judge.counts();
         self.res.judge_line_color = if counts[2] + counts[3] == 0 && self.res.config.ap_fc_indicator {
             if counts[1] == 0 {
@@ -1067,12 +1127,16 @@ impl Scene for GameScene {
         }
         if Self::interactive(res, &self.state) {
             if is_key_pressed(KeyCode::Left) && res.config.use_keyboard {
+                self.timing_hint = None;
+                self.judge.timing_hint = None;
                 res.time -= 1.;
                 let dst = (self.music.position() - 1.).max(0.);
                 self.music.seek_to(dst)?;
                 tm.seek_to(dst);
             }
             if is_key_pressed(KeyCode::Right) && res.config.use_keyboard {
+                self.timing_hint = None;
+                self.judge.timing_hint = None;
                 res.time += 5.;
                 let dst = (self.music.position() + 5.).min(res.track_length);
                 self.music.seek_to(dst)?;
@@ -1284,6 +1348,42 @@ impl Scene for GameScene {
             next_scene
         } else {
             NextScene::None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TimingDirection, TimingHint};
+    use crate::time::TimeManager;
+    use std::{cell::Cell, rc::Rc};
+
+    #[test]
+    fn timing_hint_fades_in_real_time_at_every_chart_speed() {
+        for speed in [0.5, 1., 2.] {
+            let clock = Rc::new(Cell::new(10.));
+            let source = Rc::clone(&clock);
+            let mut tm = TimeManager::manual(Box::new(move || source.get()));
+            tm.speed = speed;
+            let hint = TimingHint {
+                direction: TimingDirection::Early,
+                shown_at: tm.real_time(),
+            };
+
+            clock.set(10.3);
+            assert_eq!(hint.alpha(tm.real_time()), 1.);
+            clock.set(10.44);
+            assert!((hint.alpha(tm.real_time()) - 0.5).abs() < 1e-5);
+            clock.set(10.5);
+            assert_eq!(hint.alpha(tm.real_time()), 0.);
+
+            let next = TimingHint {
+                direction: TimingDirection::Late,
+                shown_at: tm.real_time(),
+            };
+            assert_eq!(next.alpha(tm.real_time()), 1.);
+            clock.set(11.);
+            assert_eq!(next.alpha(tm.real_time()), 0.);
         }
     }
 }
