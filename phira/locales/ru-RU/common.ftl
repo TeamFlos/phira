@@ -38,3 +38,5 @@ crash-exporting = Подготовка журналов...
 crash-exported = Журналы готовы к отправке.
 crash-export-failed = Не удалось экспортировать журналы
 hykb-login-cancelled = Вход через 3839 Games отменен
+hykb-not-bound-logout = Ваш игровой аккаунт не связан с аккаунтом в 3839 Games. Вы вышли из системы.
+hykb-account-mismatch = Данный аккаунт 3839 Games не совпадает с этим аккаунтом. Вы вышли из системы.
