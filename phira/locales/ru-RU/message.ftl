@@ -1,6 +1,4 @@
-
 label = СООБЩЕНИЯ
-
 load-msg-fail = Ошибка загрузки сообщений
-no-msg = Пусто
-subtitle =от { $author } , Дата : { $time }
+no-msg = Сообщении нет.
+subtitle = от { $author } , Дата : { $time }
