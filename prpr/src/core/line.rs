@@ -248,8 +248,8 @@ impl JudgeLine {
                     JudgeLineKind::Normal => {
                         let mut color = color.unwrap_or(res.judge_line_color);
                         color.a *= alpha.max(0.0);
-                        let len = res.info.line_length;
-                        draw_line(-len, 0., len, 0., if line_scaled { 0.0076 } else { 0.01 }, color);
+                        let len = res.info.line_length / res.aspect_ratio;
+                        draw_line(-len, 0., len, 0., if line_scaled { 0.0114 } else { 0.0150 } / res.aspect_ratio, color);
                     }
                     JudgeLineKind::Texture(texture, _) => {
                         let mut color = color.unwrap_or(WHITE);
