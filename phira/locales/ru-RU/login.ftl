@@ -40,7 +40,5 @@ hykb-choice-claim = Привязать существующий аккаунт P
 hykb-reg-name-prompt = Введите псевдоним ({ $min }-{ $max } символов)
 hykb-reg-name-confirm = Подтвердить
 hykb-other-login-not-bound = Данный аккаунт не привязан к аккаунту 3839 Games, вход невозможен.
-hykb-bind-required-title = Требуется привязка к аккаунту 3839 Games
-hykb-bind-required-confirm = Привязать
 pending-delete-title = Ожидающий запрос на удаление
 pending-delete-message = Ваш аккаунт имеет ожидающий запрос на удаление. Хотите продолжить вход для отмены?
