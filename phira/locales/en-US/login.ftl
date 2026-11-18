@@ -45,9 +45,6 @@ hykb-reg-name-prompt = Enter your username ({ $min }-{ $max } characters).
 hykb-reg-name-confirm = Confirm
 hykb-other-login-notice = Only an account bound to a 3839 Games account can be used to log in.
 hykb-other-login-not-bound = This account is not bound to a 3839 Games account and cannot log in.
-hykb-bind-required-title = 3839 Games binding required
-hykb-bind-required = This account is not bound to a 3839 Games account yet. Bind one to log in.
-hykb-bind-required-confirm = Bind 3839 Games
 
 pending-delete-title = Pending deletion request
 pending-delete-message = Your account has a pending deletion request. Continue logging in to cancel it?

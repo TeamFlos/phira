@@ -41,6 +41,3 @@ hykb-reg-name-prompt = Bitte gib dein Benutzernamen ein ({ $min }–{ $max } Zei
 hykb-reg-name-confirm = Bestätigen
 hykb-other-login-notice = Du kannst dich nur im Spiel anmelden, wenn du ein 3839-Games-Konto verknüpft hast.
 hykb-other-login-not-bound = Dieses Konto ist nicht mit einem 3839-Games-Konto verknüpft; eine Anmeldung ist daher nicht möglich
-hykb-bind-required-title = Du musst dein Konto mit einem 3839-Games-Konto verknüpfen
-hykb-bind-required = Dieses Konto ist noch nicht mit 3839 Games verknüpft; du musst es verknüpfen, bevor du dich im Spiel anmelden kannst.
-hykb-bind-required-confirm = Link zu 3839 Games
