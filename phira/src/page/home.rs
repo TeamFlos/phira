@@ -493,20 +493,10 @@ impl Page for HomePage {
             self.login.force(t);
         }
         self.login.update(t)?;
-        let current_user = Some(get_data().me.as_ref().map_or(-1, |it| it.id));
         self.char_scroll.update(t);
-        if self.char_last_user_id != current_user {
-            let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
-            self.char_last_user_id = current_user;
-            if get_data().config.offline_mode || get_data().me.is_none() || get_data().tokens.is_none() {
-                self.char_fetch_task = None;
-            } else {
-                self.char_fetch_task =
-                    Some(Task::new(async move { Ok(recv_raw(Client::get("/me/char").query(&[("locale", locale)])).await?.json().await?) }));
-            }
-        }
         if let Some(task) = &mut self.update_task {
             if let Some(res) = task.take() {
+                self.update_task = None;
                 match res {
                     Err(err) => {
                         let expired = err.downcast_ref::<SessionExpired>().is_some_and(SessionExpired::is_current);
@@ -557,7 +547,6 @@ impl Page for HomePage {
                         save_data()?;
                     }
                 }
-                self.update_task = None;
             }
         }
         #[cfg(feature = "hykb")]
@@ -587,6 +576,20 @@ impl Page for HomePage {
                 crate::force_logout();
             }
             _ => {}
+        }
+        let data = get_data();
+        let current_user = if self.update_task.is_none() && !data.config.offline_mode && data.tokens.is_some() {
+            data.me.as_ref().map(|user| user.id)
+        } else {
+            None
+        };
+        if self.char_last_user_id != current_user {
+            self.char_last_user_id = current_user;
+            self.char_fetch_task = current_user.map(|_| {
+                let locale = get_data().language.clone().unwrap_or(LANG_IDENTS[0].to_string());
+                let request = Client::get("/me/char").query(&[("locale", locale)]);
+                Task::new(async move { Ok(recv_raw(request).await?.json().await?) })
+            });
         }
         if self.board_task.is_none() && t - self.board_last_time > BOARD_SWITCH_TIME {
             let charts = &get_data().charts;

@@ -114,7 +114,7 @@ pub fn sync_data() {
         get_data_mut().language = Some(default_lang);
     }
     set_prefered_locale(get_data().language.as_ref().and_then(|it| it.parse().ok()));
-    let _ = client::set_access_token_sync(get_data().tokens.as_ref().map(|it| &*it.0));
+    let _ = client::sync_client();
 }
 
 pub fn set_data(data: Data) {

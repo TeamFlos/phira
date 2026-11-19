@@ -16,7 +16,7 @@ pub use record::*;
 mod user;
 pub use user::*;
 
-use super::{basic_client_builder, send_raw, Client, API_URL, CLIENT_TOKEN};
+use super::{send_raw, Client, API_URL};
 use crate::{
     dir, get_data,
     images::{THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH},
@@ -26,7 +26,7 @@ use bytes::Bytes;
 use image::DynamicImage;
 use lru::LruCache;
 use once_cell::sync::Lazy;
-use reqwest::Response;
+use reqwest::{Method, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::{
     any::Any,
@@ -182,21 +182,12 @@ pub struct File {
 }
 impl File {
     fn request(&self) -> reqwest::RequestBuilder {
-        let mut req = basic_client_builder().build().unwrap().get(&self.url);
-        // TODO: thread safety?
         if get_data().enable_anys {
-            if let Some(path) = self.url.strip_prefix(API_URL) {
-                if let Some(rest_path) = path.strip_prefix("/files/") {
-                    let url = format!("{API_URL}/anys/{rest_path}");
-                    req = basic_client_builder().build().unwrap().get(url);
-                }
+            if let Some(path) = self.url.strip_prefix(API_URL).and_then(|path| path.strip_prefix("/files/")) {
+                return Client::request_url(Method::GET, &format!("{API_URL}/anys/{path}"));
             }
         }
-        if let Some(token) = CLIENT_TOKEN.load().as_ref() {
-            req.header("Authorization", format!("Bearer {token}"))
-        } else {
-            req
-        }
+        Client::request_url(Method::GET, &self.url)
     }
 
     pub async fn fetch(&self) -> Result<Bytes> {
