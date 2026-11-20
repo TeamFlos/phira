@@ -47,6 +47,12 @@ impl Mods {
     }
 }
 
+#[derive(Clone, Deserialize, Serialize, PartialEq, Eq, Debug)]
+pub struct MpServer {
+    pub name: String,
+    pub address: String,
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
@@ -66,6 +72,8 @@ pub struct Config {
     pub interactive: bool,
     pub mods: Mods,
     pub mp_address: String,
+    #[serde(default)]
+    pub mp_servers: Vec<MpServer>,
     pub mp_enabled: bool,
     pub note_scale: f32,
     pub offline_mode: bool,
@@ -105,6 +113,10 @@ impl Default for Config {
             interactive: true,
             mods: Mods::default(),
             mp_address: "mp2.phira.cn:12345".to_owned(),
+            mp_servers: vec![MpServer {
+                name: "mp2.phira.cn:12345".to_owned(),
+                address: "mp2.phira.cn:12345".to_owned(),
+            }],
             mp_enabled: false,
             note_scale: 1.0,
             offline_mode: false,
@@ -135,6 +147,14 @@ impl Config {
         if let Some(flag) = self.autoplay {
             self.mods.set(Mods::AUTOPLAY, flag);
         }
+        if self.mp_servers.is_empty() && !self.mp_address.is_empty() {
+            self.mp_servers.push(MpServer {
+                name: self.mp_address.clone(),
+                address: self.mp_address.clone(),
+            });
+        } else if !self.mp_address.is_empty() && !self.mp_servers.iter().any(|server| server.address == self.mp_address) {
+            self.mp_address.clone_from(&self.mp_servers[0].address);
+        }
         #[cfg(target_env = "ohos")]
         {
             // Due to the fucking poor performance of the Maloon GPU, the sample count must be set to 1.
@@ -155,5 +175,46 @@ impl Config {
     #[inline]
     pub fn flip_x(&self) -> bool {
         self.has_mod(Mods::FLIP_X)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn default_config_stores_its_multiplayer_server() {
+        let config = Config::default();
+
+        assert_eq!(config.mp_servers.len(), 1);
+        assert_eq!(config.mp_servers[0].name, config.mp_address);
+        assert_eq!(config.mp_servers[0].address, config.mp_address);
+    }
+
+    #[test]
+    fn migrates_legacy_multiplayer_address() {
+        let mut config: Config = serde_json::from_str(r#"{"mpAddress":"example.com:12345"}"#).unwrap();
+
+        config.init();
+
+        assert_eq!(config.mp_servers.len(), 1);
+        assert_eq!(config.mp_servers[0].name, "example.com:12345");
+        assert_eq!(config.mp_servers[0].address, "example.com:12345");
+    }
+
+    #[test]
+    fn preserves_an_intentionally_empty_multiplayer_server_list() {
+        let mut config: Config = serde_json::from_str(r#"{"mpAddress":"","mpServers":[]}"#).unwrap();
+
+        config.init();
+
+        assert!(config.mp_servers.is_empty());
+        assert!(config.mp_address.is_empty());
+
+        let serialized = serde_json::to_string(&config).unwrap();
+        let mut restored: Config = serde_json::from_str(&serialized).unwrap();
+        restored.init();
+        assert!(restored.mp_servers.is_empty());
+        assert!(restored.mp_address.is_empty());
     }
 }

@@ -1,6 +1,7 @@
 multiplayer = Multiplayer
 connect = Холбогдох
 connect-must-login = Олон тоглогчийн горимд орохын тулд та нэвтэрсэн байх ёстой
+connect-no-server = Эхлээд олон тоглогчийн сервер нэмээд сонгоно уу.
 connect-success = Амжилттай холбогдсон
 connect-failed = Холбогдоход амжилтгүй боллоо
 connect-authenticate-failed = Зөвшөөрөл олгогдоход амжилтгүй боллоо
