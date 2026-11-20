@@ -8,8 +8,7 @@ use super::{
 use crate::{
     charts_view::{delete_local_chart, NEED_UPDATE},
     client::{
-        basic_client_builder, recv_raw, send_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record,
-        User, UserManager, CLIENT_TOKEN,
+        recv_raw, send_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, User, UserManager,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -641,12 +640,7 @@ impl SongScene {
                     async fn download(mut file: impl Write, url: &str, prog_wk: &Weak<Mutex<Option<f32>>>) -> Result<()> {
                         let Some(prog) = prog_wk.upgrade() else { return Ok(()) };
                         *prog.lock().unwrap() = None;
-                        let req = basic_client_builder().build().unwrap().get(url);
-                        let req = if let Some(token) = CLIENT_TOKEN.load().as_ref() {
-                            req.header("Authorization", format!("Bearer {token}"))
-                        } else {
-                            req
-                        };
+                        let req = Client::request_url(Method::GET, url);
                         let res = send_raw(req).await.with_context(|| tl!("request-failed"))?.error_for_status()?;
                         let size = res.content_length();
                         let mut stream = res.bytes_stream();
