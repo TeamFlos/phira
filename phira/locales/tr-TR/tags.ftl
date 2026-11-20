@@ -19,4 +19,5 @@ visual = Görsel
 
 filter-me = Benim tarafından yüklenenler
 filter-unreviewed = Teftiş edilmemişler
+filter-reviewed = Sadece teftiş edilenler
 filter-stabilize = Dengeleme isteği

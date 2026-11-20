@@ -19,4 +19,5 @@ visual = Visual
 
 filter-me = Enviado por mim
 filter-unreviewed = Não revisado
+filter-reviewed = Apenas revisados
 filter-stabilize = Estabilizar solicitação

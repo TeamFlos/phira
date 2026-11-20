@@ -19,4 +19,5 @@ visual = Visuell
 
 filter-me = Von mir hochgeladen
 filter-unreviewed = unbewertet
+filter-reviewed = nur bewertete
 filter-stabilize = Stabilisierungsanfrage

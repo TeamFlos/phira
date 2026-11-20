@@ -113,6 +113,35 @@ impl Tags {
     }
 }
 
+#[derive(Default, Clone, Copy)]
+pub enum ReviewFilter {
+    #[default]
+    All,
+    UnreviewedOnly,
+    ReviewedOnly,
+}
+
+impl ReviewFilter {
+    pub fn next(self) -> Self {
+        match self {
+            Self::All => Self::UnreviewedOnly,
+            Self::UnreviewedOnly => Self::ReviewedOnly,
+            Self::ReviewedOnly => Self::All,
+        }
+    }
+
+    pub fn locale_id(&self) -> &'static str {
+        match self {
+            Self::All | Self::UnreviewedOnly => "filter-unreviewed",
+            Self::ReviewedOnly => "filter-reviewed",
+        }
+    }
+
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::All)
+    }
+}
+
 pub struct TagsDialog {
     fader: Fader,
     show: bool,
@@ -126,9 +155,8 @@ pub struct TagsDialog {
 
     pub btn_me: DRectButton,
     pub show_me: bool,
-    pub btn_unreviewed: DRectButton,
-    pub show_unreviewed: bool,
-    pub show_reviewed: bool,
+    pub review_filter: ReviewFilter,
+    pub btn_review_filter: DRectButton,
     pub btn_stabilize: DRectButton,
     pub show_stabilize: bool,
     pub perms: Permissions,
@@ -155,9 +183,8 @@ impl TagsDialog {
 
             btn_me: DRectButton::new(),
             show_me: false,
-            btn_unreviewed: DRectButton::new(),
-            show_unreviewed: false,
-            show_reviewed: false,
+            review_filter: ReviewFilter::All,
+            btn_review_filter: DRectButton::new(),
             btn_stabilize: DRectButton::new(),
             show_stabilize: false,
             perms: Permissions::empty(),
@@ -227,15 +254,8 @@ impl TagsDialog {
                 self.show_me ^= true;
                 return true;
             }
-            if self.btn_unreviewed.touch(touch, t) {
-                if self.show_unreviewed {
-                    self.show_unreviewed = false;
-                    self.show_reviewed = true;
-                } else if self.show_reviewed {
-                    self.show_reviewed = false;
-                } else {
-                    self.show_unreviewed = true;
-                }
+            if self.btn_review_filter.touch(touch, t) {
+                self.review_filter = self.review_filter.next();
                 return true;
             }
             if self.btn_stabilize.touch(touch, t) {
@@ -313,26 +333,17 @@ impl TagsDialog {
                             let mut h = bh + 0.01;
                             ui.dy(h);
                             if self.unwanted.is_some() {
-                                let mut row: SmallVec<[_; 3]> = smallvec![(&mut self.btn_me, "filter-me", self.show_me, false,)];
+                                let mut row: SmallVec<[_; 3]> = smallvec![(&mut self.btn_me, "filter-me", self.show_me,)];
                                 if self.perms.contains(Permissions::SEE_UNREVIEWED) {
-                                    row.push((
-                                        &mut self.btn_unreviewed,
-                                        "filter-unreviewed",
-                                        self.show_unreviewed || self.show_reviewed,
-                                        self.show_reviewed,
-                                    ));
+                                    row.push((&mut self.btn_review_filter, self.review_filter.locale_id(), !self.review_filter.is_default()));
                                 }
                                 if self.perms.contains(Permissions::SEE_STABLE_REQ) {
-                                    row.push((&mut self.btn_stabilize, "filter-stabilize", self.show_stabilize, false));
+                                    row.push((&mut self.btn_stabilize, "filter-stabilize", self.show_stabilize));
                                 }
                                 let bw = mw / row.len() as f32;
                                 let mut r = Rect::new(pad / 2., 0., bw, bh).nonuniform_feather(-0.01, -0.004);
-                                for (btn, text, on, inverted) in row.into_iter() {
-                                    if inverted {
-                                        btn.render_text_color(ui, r, t, tl!(text), 0.5, on, RED);
-                                    } else {
-                                        btn.render_text(ui, r, t, tl!(text), 0.5, on);
-                                    }
+                                for (btn, text, on) in row.into_iter() {
+                                    btn.render_text(ui, r, t, tl!(text), 0.5, on);
                                     r.x += bw;
                                 }
                                 let dh = bh + 0.01;
