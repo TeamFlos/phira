@@ -19,4 +19,5 @@ visual = Visual
 
 filter-me = Uploaded by Self
 filter-unreviewed = Unreviewed
+filter-reviewed = Only Reviewed
 filter-stabilize = Stabilization Request

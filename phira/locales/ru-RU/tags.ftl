@@ -18,4 +18,5 @@ visual = Визуальный
 
 filter-me = Выложенные Вами
 filter-unreviewed = Не подтверждëнные
+filter-reviewed = Только подтверждённые
 filter-stabilize = С запросом на подтверждение

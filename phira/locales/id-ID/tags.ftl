@@ -19,4 +19,5 @@ visual = Visual
 
 filter-me = Diupload oleh saya
 filter-unreviewed = Unreviewed
+filter-reviewed = Hanya yang sudah direview
 filter-stabilize = Stabilize request

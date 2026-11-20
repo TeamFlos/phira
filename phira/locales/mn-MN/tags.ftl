@@ -19,4 +19,5 @@ visual = Дүрслэл
 
 filter-me = Миний байршуулсан
 filter-unreviewed = Хянагдаагүй
+filter-reviewed = Зөвхөн хянагдсан
 filter-stabilize = Хүсэлтийг тогтворжуулах

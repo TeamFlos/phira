@@ -19,4 +19,5 @@ visual = Visual
 
 filter-me = อัพโหลดโดยฉัน
 filter-unreviewed = ยังไม่ได้ Review
+filter-reviewed = Review แล้วเท่านั้น
 filter-stabilize = ที่ส่งคำขอ Stabilize
