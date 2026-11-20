@@ -12,15 +12,21 @@ fn git_stdout(args: &[&str]) -> Option<String> {
 }
 
 fn version_string(v: &str, g: &str) -> String {
-    if let Some(b) = option_env!("BUILD_ID") {
-        format!("{} ({}, {})", v, g, b)
-    } else {
+    let build_id = std::env::var("BUILD_ID").unwrap_or_default();
+    let build_id = build_id.trim();
+    if build_id.is_empty() {
         format!("{} ({})", v, g)
+    } else {
+        format!("{} ({}, {})", v, g, build_id)
     }
 }
 
 fn main() {
     dotenv_build::output(dotenv_build::Config::default()).unwrap();
+
+    // Read at build-script runtime, so restored target caches still pick up the
+    // current value instead of whatever was set when the script itself was built.
+    println!("cargo:rerun-if-env-changed=BUILD_ID");
 
     let git_dir = git_stdout(&["rev-parse", "--git-dir"]).unwrap_or_else(|| ".git".to_string());
     println!("cargo:rerun-if-changed={}/HEAD", git_dir);
