@@ -35,13 +35,11 @@ item-chart-debug = ビートマップデバッグモード
 item-chart-debug-sub = ラインナンバーや回転値を表示します
 item-touch-debug = タッチデバッグモード
 item-touch-debug-sub = タップした点を表示します
-
 item-export-logs = ログをエクスポート
 item-export-logs-sub = 不具合の報告用に直近7日間のログをZIP形式でエクスポートします
 item-export-logs-button = エクスポート
 log-exporting = ログをエクスポート中…
 log-export-failed = ログのエクスポートに失敗しました
-
 load-cali-failed = オーディオの読み込みに失敗しました
 about-content =
     Phira v{ $version }
@@ -83,7 +81,7 @@ about-content =
 
     その他多くのボランティア譜面レビュアーの皆様に感謝します。完全なリストは https://phira.moe/staff をご覧ください。
 debug = デバッグ
-about = について
+about = 概要
 item-fullscreen = フルスクリーンモード
 item-server-status = サーバーの状態
 item-server-status-sub = ウェブページにアクセスしてサーバーの状態を確認してください
@@ -106,3 +104,4 @@ item-show-avg-fps = 平均フレームレートの表示
 item-show-avg-fps-sub = リザルト画面に平均フレームレートを表示
 item-ap-fc-indicator = AP/FC表示
 item-ap-fc-indicator-sub = 判定線の色を使用して、AP/FCを表示します
+item-offline-sub-hykb = オンラインの譜面やリーダーボードは表示されず、スコアもアップロードされません
