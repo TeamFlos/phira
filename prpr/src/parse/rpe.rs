@@ -9,9 +9,9 @@ use tracing::debug;
 use super::{process_lines, L10N_LOCAL, RPE_TWEEN_MAP};
 use crate::{
     core::{
-        Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GeneralIntTween, GifFrames,
-        HitSoundMap, IntClampedTween, IntStaticTween, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object, StaticTween,
-        Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
+        sliced_tween, Anim, AnimFloat, AnimVector, BezierTween, BpmList, Chart, ChartExtra, ChartSettings, ClampedTween, CtrlObject, GeneralIntTween,
+        GifFrames, HitSoundMap, IntClampedTween, IntStaticTween, JudgeLine, JudgeLineCache, JudgeLineKind, Keyframe, Note, NoteKind, Object,
+        StaticTween, Triple, TweenFunction, Tweenable, UIElement, EPS, HEIGHT_RATIO,
     },
     ext::{NotNanExt, SafeTexture},
     fs::FileSystem,
@@ -80,23 +80,19 @@ struct RPEEvent<T = f32> {
 }
 
 impl<T> RPEEvent<T> {
-    fn bezier_key(&self) -> (u16, i16, i16) {
-        let p = &self.bezier_points;
-        let int = |p: f32| (p * 100.).round() as i16;
-        ((int(p[0]) * 100 + int(p[1])) as u16, int(p[2]), int(p[3]))
+    fn bezier_key(&self) -> [u32; 4] {
+        self.bezier_points.map(f32::to_bits)
     }
 
     pub fn tween(&self, bezier_map: &BezierMap) -> Rc<dyn TweenFunction> {
-        let tween = RPE_TWEEN_MAP.get(self.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
-        let left = self.easing_left.clamp(0., 1.);
-        let right = self.easing_right.clamp(0., 1.);
         if self.bezier != 0 {
-            Rc::clone(&bezier_map[&self.bezier_key()])
-        } else if tween <= 2 || (left.abs() < EPS as f32 && (right - 1.0).abs() < EPS as f32) || left >= right {
-            StaticTween::get_rc(tween)
-        } else {
-            Rc::new(ClampedTween::new(tween, left..right))
+            return bezier_map.get(&self.bezier_key()).cloned().unwrap_or_else(|| {
+                let p = &self.bezier_points;
+                Rc::new(BezierTween::new((p[0], p[1]), (p[2], p[3])))
+            });
         }
+        let tween = RPE_TWEEN_MAP.get(self.easing_type.max(1) as usize).copied().unwrap_or(RPE_TWEEN_MAP[0]);
+        sliced_tween(tween, self.easing_left, self.easing_right)
     }
 }
 
@@ -209,26 +205,42 @@ enum SpeedEasingMode {
     Modern,
 }
 
+/// Distance covered by the eased speed `b + k * f(u)` over progress `u`, where `f` is the easing curve.
+///
+/// With `F` the integral of `f`, the distance is `P(u) = b * u + k * F(u)`. As a keyframe tween it maps the
+/// progress `x` of the sub-range `[from, to]` to `(P(from + (to - from) * x) - P(from)) / (P(to) - P(from))`.
 struct SpeedIntegralTween {
-    tween: Rc<dyn TweenFunction>,
+    integral: Rc<dyn TweenFunction>,
     k: f32,
     b: f32,
+    from: f32,
+    to: f32,
+    base: f32,
     total: f32,
 }
 
 impl SpeedIntegralTween {
-    fn try_create(tween: Rc<dyn TweenFunction>, k: f32, b: f32) -> Option<(Rc<dyn TweenFunction>, f32)> {
-        let mut result = Self { tween, k, b, total: 0. };
-        let total = result.partial(1.);
+    fn distance(integral: &dyn TweenFunction, k: f32, b: f32, u: f32) -> f32 {
+        integral.y(u) * k + b * u
+    }
+
+    /// Returns the tween and the average speed of the sub-range.
+    fn create(integral: &Rc<dyn TweenFunction>, k: f32, b: f32, from: f32, to: f32) -> Option<(Rc<dyn TweenFunction>, f32)> {
+        let base = Self::distance(integral.as_ref(), k, b, from);
+        let total = Self::distance(integral.as_ref(), k, b, to) - base;
         if !total.is_finite() || total.abs() < EPS as f32 {
             return None;
         }
-        result.total = total;
-        Some((Rc::new(result), total))
-    }
-
-    fn partial(&self, x: f32) -> f32 {
-        self.tween.y(x) * self.k + self.b * x
+        let result = Self {
+            integral: Rc::clone(integral),
+            k,
+            b,
+            from,
+            to,
+            base,
+            total,
+        };
+        Some((Rc::new(result), total / (to - from)))
     }
 }
 
@@ -240,7 +252,8 @@ impl TweenFunction for SpeedIntegralTween {
         if x >= 1. {
             return 1.;
         }
-        let y = self.partial(x) / self.total;
+        let u = self.from + (self.to - self.from) * x;
+        let y = (Self::distance(self.integral.as_ref(), self.k, self.b, u) - self.base) / self.total;
         if y.is_finite() {
             y
         } else {
@@ -263,32 +276,86 @@ fn speed_linear_tween(start_speed: f32, end_speed: f32) -> Rc<dyn TweenFunction>
     }
 }
 
-fn speed_segment_tween(mode: SpeedEasingMode, start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> (Rc<dyn TweenFunction>, f32) {
-    let (tween, total) = match mode {
-        SpeedEasingMode::Legacy => {
-            let df0 = tween.derivative(0.);
-            let df1 = tween.derivative(1.);
-            let denom = df1 - df0;
-            if !denom.is_finite() || denom.abs() < 1e-8 {
-                return (speed_linear_tween(start_speed, end_speed), (start_speed + end_speed) / 2.);
-            }
-            let k = (end_speed - start_speed) / denom;
-            let b = start_speed - k * df0;
-            SpeedIntegralTween::try_create(tween, k, b)
-        }
-        SpeedEasingMode::Modern => {
-            let int_tween: Rc<dyn TweenFunction> = if let Some(s) = tween.as_any().downcast_ref::<StaticTween>() {
-                IntStaticTween::get_rc(s.0)
-            } else if let Some(s) = tween.as_any().downcast_ref::<ClampedTween>() {
-                Rc::new(IntClampedTween::new(s.0, s.1.clone()))
-            } else {
-                Rc::new(GeneralIntTween::new(tween))
-            };
-            SpeedIntegralTween::try_create(int_tween, end_speed - start_speed, start_speed)
-        }
+/// A part of an eased speed event: the progress range `[from, to]`, its distance tween and average speed.
+struct SpeedSegment {
+    from: f32,
+    to: f32,
+    tween: Rc<dyn TweenFunction>,
+    factor: f32,
+}
+
+fn speed_linear_segment(start_speed: f32, end_speed: f32) -> SpeedSegment {
+    SpeedSegment {
+        from: 0.,
+        to: 1.,
+        tween: speed_linear_tween(start_speed, end_speed),
+        factor: (start_speed + end_speed) / 2.,
     }
-    .unwrap_or_else(|| (speed_linear_tween(start_speed, end_speed), (start_speed + end_speed) / 2.));
-    (tween, total)
+}
+
+fn speed_segments(mode: SpeedEasingMode, start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> Vec<SpeedSegment> {
+    match mode {
+        SpeedEasingMode::Legacy => legacy_speed_segments(start_speed, end_speed, tween),
+        SpeedEasingMode::Modern => modern_speed_segments(start_speed, end_speed, tween),
+    }
+}
+
+fn legacy_speed_segments(start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> Vec<SpeedSegment> {
+    let df0 = tween.derivative(0.);
+    let df1 = tween.derivative(1.);
+    let denom = df1 - df0;
+    if !denom.is_finite() || denom.abs() < 1e-8 {
+        return vec![speed_linear_segment(start_speed, end_speed)];
+    }
+    let k = (end_speed - start_speed) / denom;
+    let b = start_speed - k * df0;
+    // Legacy applies the easing curve itself to the distance, so it takes the place of the integral here.
+    match SpeedIntegralTween::create(&tween, k, b, 0., 1.) {
+        Some((tween, factor)) => vec![SpeedSegment {
+            from: 0.,
+            to: 1.,
+            tween,
+            factor,
+        }],
+        None => vec![speed_linear_segment(start_speed, end_speed)],
+    }
+}
+
+/// Speed of an event goes from `start_speed` to `end_speed` as `start + (end - start) * tween(progress)`.
+fn modern_speed_segments(start_speed: f32, end_speed: f32, tween: Rc<dyn TweenFunction>) -> Vec<SpeedSegment> {
+    // Distances are normalized by the net distance, which degenerates when the speed cancels itself out
+    // (e.g. from 5 to -5); such events are split so that every part has a usable net distance.
+    const MIN_RELATIVE_SPEED: f32 = 1e-2;
+
+    let integral: Rc<dyn TweenFunction> = if let Some(s) = tween.as_any().downcast_ref::<StaticTween>() {
+        IntStaticTween::get_rc(s.0)
+    } else if let Some(s) = tween.as_any().downcast_ref::<ClampedTween>() {
+        Rc::new(IntClampedTween::new(s.0, s.1.clone()))
+    } else {
+        Rc::new(GeneralIntTween::new(tween))
+    };
+    let (k, b) = (end_speed - start_speed, start_speed);
+    let min_speed = MIN_RELATIVE_SPEED * start_speed.abs().max(end_speed.abs());
+    let segment =
+        |from: f32, to: f32| SpeedIntegralTween::create(&integral, k, b, from, to).map(|(tween, factor)| SpeedSegment { from, to, tween, factor });
+
+    if let Some(whole) = segment(0., 1.).filter(|it| it.factor.abs() >= min_speed) {
+        return vec![whole];
+    }
+    let best_split = [0.5, 0.25, 0.75]
+        .into_iter()
+        .filter_map(|mid| Some((segment(0., mid)?, segment(mid, 1.)?)))
+        .filter(|(first, second)| first.factor.abs() >= min_speed && second.factor.abs() >= min_speed)
+        .max_by(|(a1, a2), (b1, b2)| a1.factor.abs().min(a2.factor.abs()).total_cmp(&b1.factor.abs().min(b2.factor.abs())));
+    match best_split {
+        Some((first, second)) => vec![first, second],
+        None => vec![SpeedSegment {
+            from: 0.,
+            to: 1.,
+            tween: speed_linear_tween(start_speed, end_speed),
+            factor: (start_speed + end_speed) / 2.,
+        }],
+    }
 }
 
 #[derive(Deserialize)]
@@ -301,7 +368,7 @@ struct RPEChart {
     judge_line_list: Vec<RPEJudgeLine>,
 }
 
-type BezierMap = HashMap<(u16, i16, i16), Rc<dyn TweenFunction>>;
+type BezierMap = HashMap<[u32; 4], Rc<dyn TweenFunction>>;
 
 fn parse_events<T: Tweenable, V: Clone + Into<T>>(
     r: &mut BpmList,
@@ -373,9 +440,10 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
 
             push_kf(cursor, start_time, StaticTween::get_rc(2), last_speed);
             if end_time > start_time + EPS {
-                if event.easing_type == 0 {
+                let eased = event.bezier != 0 || event.easing_type > 1;
+                if !eased && event.easing_type == 0 {
                     push_kf(start_time, end_time, StaticTween::get_rc(2), start_speed);
-                } else if event.easing_type <= 1 {
+                } else if !eased {
                     if start_speed * end_speed < 0. {
                         let x = start_speed / (start_speed - end_speed);
                         let mid = f64::tween(&start_time, &end_time, x);
@@ -390,8 +458,14 @@ fn parse_speed_events(r: &mut BpmList, rpe: &[RPEEventLayer], bezier_map: &Bezie
                         push_kf(start_time, end_time, tween, factor);
                     }
                 } else {
-                    let (tween, factor) = speed_segment_tween(mode, start_speed, end_speed, event.tween(bezier_map));
-                    push_kf(start_time, end_time, tween, factor);
+                    let time_at = |progress: f32| match progress {
+                        p if p <= 0. => start_time,
+                        p if p >= 1. => end_time,
+                        p => f64::tween(&start_time, &end_time, p),
+                    };
+                    for segment in speed_segments(mode, start_speed, end_speed, event.tween(bezier_map)) {
+                        push_kf(time_at(segment.from), time_at(segment.to), segment.tween, segment.factor);
+                    }
                 }
             }
             cursor = end_time;
@@ -828,8 +902,7 @@ async fn parse_judge_line(
 fn add_bezier<T>(map: &mut BezierMap, event: &RPEEvent<T>) {
     if event.bezier != 0 {
         let p = &event.bezier_points;
-        let int = |p: f32| (p * 100.).round() as i16;
-        map.entry(((int(p[0]) * 100 + int(p[1])) as u16, int(p[2]), int(p[3])))
+        map.entry(event.bezier_key())
             .or_insert_with(|| Rc::new(BezierTween::new((p[0], p[1]), (p[2], p[3]))));
     }
 }
@@ -848,7 +921,7 @@ fn get_bezier_map(rpe: &RPEChart) -> BezierMap {
     let mut map = HashMap::new();
     for line in &rpe.judge_line_list {
         for event_layer in line.event_layers.iter().flatten() {
-            process_bezier!(event_layer, &mut map, alpha_events, move_x_events, move_y_events, rotate_events);
+            process_bezier!(event_layer, &mut map, alpha_events, move_x_events, move_y_events, rotate_events, speed_events);
         }
         if let Some(ext_layer) = &line.extended {
             process_bezier!(ext_layer, &mut map, paint_events, scale_x_events, scale_y_events, gif_events, incline_events, text_events, color_events);
