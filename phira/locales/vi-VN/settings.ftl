@@ -104,3 +104,4 @@ item-ap-fc-indicator-sub = Dùng màu đường phán đoán để hiển thị 
 item-preferred-sample-rate = Sample rate ưu tiên
 preferred-sample-rate-default = Mặc định hệ thống
 item-audio-buffer-size = Kích thước bộ đệm audio
+item-offline-sub-hykb = Các bảng xếp hạng và bảng điểm trực tuyến không được tải lên, và điểm số cũng không được cập nhật.
