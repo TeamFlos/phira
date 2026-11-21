@@ -1,0 +1,120 @@
+name: PR Build
+
+# Builds one runnable binary per PR so reviewers can test without a local toolchain.
+# Binary-only artifacts: reviewers reuse their existing assets/ and data/ directory.
+# Artifacts expire after 7 days and are never published as releases.
+#
+# Main is built too, only to seed the release-profile cache so PR builds stay warm.
+# PR runs can restore caches from the base branch, but never from other PRs.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'phira/locales/**'
+      - '**/*.md'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - 'phira/locales/**'
+      - '**/*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+  PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04 keeps the glibc floor at 2.35; ubuntu-latest raises it.
+          - platform: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bin: phira-main
+          - platform: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: phira-main.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config libasound2-dev libwayland-dev
+
+      - name: Toolchain
+        run: |
+          rustup toolchain install
+          rustup target add ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: pr-build-${{ matrix.target }}
+          # Only main writes caches. PR caches are scoped to refs/pull/N/merge and
+          # never shared, so letting every PR save would just churn the 10 GB pool.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: "true"
+
+      - name: Build
+        env:
+          # Empty on push, so main builds keep a clean version string.
+          BUILD_ID: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || '' }}
+        run: cargo build --release --locked -p phira-main --target ${{ matrix.target }}
+
+      - name: Checksum
+        id: meta
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          echo "sha7=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$bin" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "expires=$(date -u -d '+7 days' +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "## PR build for test"
+            echo
+            echo "- PR: #${PR_NUMBER} by @${PR_AUTHOR}"
+            echo "- Source: refs/pull/${PR_NUMBER}/merge @ ${GITHUB_SHA::7} (base ${BASE_SHA::7})"
+            echo "- Target: ${{ matrix.platform }}"
+            echo "- SHA256: ${{ steps.meta.outputs.sha256 }}"
+            echo "- Expires: ${{ steps.meta.outputs.expires }} (7 days)"
+            echo
+            echo "Built from the PR merge ref. Review the diff before running it."
+            echo
+            echo "To run: check out the PR branch, copy the binary to the repo root (next to \`assets/\`) and start it."
+            echo "Existing \`assets/\` (including the ignored font/resource files) and \`data/\` (login, charts, respacks) are reused."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: phira-pr${{ github.event.pull_request.number }}-${{ steps.meta.outputs.sha7 }}-${{ matrix.platform }}
+          path: target/${{ matrix.target }}/release/${{ matrix.bin }}
+          retention-days: 7
+          if-no-files-found: error

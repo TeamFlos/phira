@@ -12,4 +12,5 @@ plain = 単純配置
 visual = 鑑賞
 filter-me = アップロードした譜面
 filter-unreviewed = 審査待ち
+filter-reviewed = 審査済みのみ
 filter-stabilize = stable審査待ち

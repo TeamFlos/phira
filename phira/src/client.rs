@@ -540,27 +540,6 @@ impl Client {
     }
 
     #[cfg(feature = "hykb")]
-    /// Bind a HYKB account to the currently logged-in account.
-    pub async fn bind_hykb(uid: i64, access_token: &str) -> Result<()> {
-        recv_raw(Self::post(
-            "/me/bind-hykb",
-            &json!({
-                "hykbUid": uid,
-                "accessToken": access_token,
-            }),
-        ))
-        .await?;
-        Ok(())
-    }
-
-    #[cfg(feature = "hykb")]
-    /// Unbind the HYKB account from the current account.
-    pub async fn unbind_hykb() -> Result<()> {
-        recv_raw(Self::post("/me/unbind-hykb", &())).await?;
-        Ok(())
-    }
-
-    #[cfg(feature = "hykb")]
     /// Request transferring the current HYKB-only account onto an existing email
     /// account. Sends a confirmation email to `email`; the move happens only once
     /// the user clicks the link. Returns Ok even when the email is unregistered

@@ -12,4 +12,5 @@ plain = 純配置
 visual = 觀賞譜
 filter-me = 由我上傳的
 filter-unreviewed = 待審核
+filter-reviewed = 只看已審核
 filter-stabilize = 待 stable 審核

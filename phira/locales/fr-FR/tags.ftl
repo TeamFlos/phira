@@ -19,4 +19,5 @@ visual = Visuel
 
 filter-me = Publiée(s) par moi
 filter-unreviewed = Non vérifiée(s)
+filter-reviewed = Vérifiée(s) uniquement
 filter-stabilize = En demande de stabilisation

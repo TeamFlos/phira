@@ -104,3 +104,4 @@ item-show-avg-fps = Показать сред.частоту FPS
 item-ap-fc-indicator = Индикатор AP/FC
 item-ap-fc-indicator-sub = Использовать цвет линии для показа статуса AP/FC.
 item-show-avg-fps-sub = Показать среднее значение FPS в экране результатов
+item-offline-sub-hykb = Онлайн-чарты и таблицы лидеров не загружаются, а результаты не выкладываются.

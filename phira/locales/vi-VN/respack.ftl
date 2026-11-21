@@ -8,3 +8,4 @@ info-content =
     Mô tả: { $desc }
 cant-delete-builtin = Không thể xoá Respack mặc định
 deleted = Đã xoá Respack
+export = Xuất

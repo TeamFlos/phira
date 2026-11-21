@@ -12,7 +12,7 @@ use crate::{
     save_data,
     scene::{check_read_tos_and_policy, compress_folder, confirm_dialog, ChartOrder, JUST_LOADED_TOS},
     tabs::{Tabs, TitleFn},
-    tags::TagsDialog,
+    tags::{ReviewFilter, TagsDialog},
 };
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
@@ -319,7 +319,7 @@ impl LibraryPage {
         } else {
             None
         };
-        let show_unreviewed = self.tags.show_unreviewed;
+        let review_filter = self.tags.review_filter;
         let show_stabilize = self.tags.show_stabilize;
         self.online_task = Some(Task::new(async move {
             let mut q = Client::query::<Chart>();
@@ -333,8 +333,12 @@ impl LibraryPage {
             }
             if show_stabilize {
                 q = q.query("stableRequest", "true");
-            } else if show_unreviewed {
-                q = q.query("reviewed", "false").query("stableRequest", "false");
+            } else {
+                q = match review_filter {
+                    ReviewFilter::All => q,
+                    ReviewFilter::ReviewedOnly => q.query("reviewed", "true"),
+                    ReviewFilter::UnreviewedOnly => q.query("reviewed", "false").query("stableRequest", "false"),
+                }
             }
             let (remote_charts, count) = q
                 .query("type", typ.to_string())

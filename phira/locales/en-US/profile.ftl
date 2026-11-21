@@ -23,12 +23,6 @@ badge-sponsor = Sponsor
 
 name-copied = Name copied.
 
-hykb-bind = Bind 3839 Games
-hykb-unbind = Unbind 3839 Games
-hykb-unbind-confirm = Are you sure you want to unbind your 3839 Games account?
-hykb-bind-success = 3839 Games account bound.
-hykb-unbind-success = 3839 Games account unbound.
-hykb-action-failed = Operation failed.
 hykb-login-cancelled = 3839 Games login cancelled.
 
 hykb-transfer = Migrate old account

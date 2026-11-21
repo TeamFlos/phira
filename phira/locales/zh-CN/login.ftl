@@ -45,9 +45,6 @@ hykb-reg-name-prompt = 请输入你的用户名（{ $min }-{ $max } 位）
 hykb-reg-name-confirm = 确认
 hykb-other-login-notice = 只有绑定了好游快爆的账号才可以登录游戏。
 hykb-other-login-not-bound = 该账号未绑定好游快爆，无法登录
-hykb-bind-required-title = 需要绑定好游快爆
-hykb-bind-required = 该账号尚未绑定好游快爆，需要绑定后才能登录游戏。
-hykb-bind-required-confirm = 绑定好游快爆
 
 pending-delete-title = 待处理的删除请求
 pending-delete-message = 你的账号有一个待处理的删除请求。是否撤销删除并继续登录？

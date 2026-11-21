@@ -12,6 +12,8 @@ confirm = Potwierdź
 
 filter-by-rating = Filtruj przez ocenę
 
+filter-reviewed = Tylko sprawdzone
+
 regular = Regularne
 troll = Troll
 plain = Proste

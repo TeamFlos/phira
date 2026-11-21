@@ -17,14 +17,10 @@ delete-confirm =
 
     Vui lòng xác nhận xem bạn có muốn tiếp tục không?
 name-copied = Tên đã được sao chép
-hykb-bind = Liên kết với hykb
-hykb-unbind = Hủy liên kết hykb
-hykb-unbind-confirm = Bạn có chắc chắn muốn hủy liên kết tài khoản hykb của mình không?
-hykb-bind-success = Đã liên kết tài khoản hykb
-hykb-unbind-success = Đã hủy liên kết tài khoản hykb
-hykb-action-failed = Thao tác thất bại
 hykb-transfer = Chuyển đổi tài khoản cũ
 transfer-prompt = Địa chỉ email của tài khoản cũ cần được chuyển đổi
 transfer-requesting = Nộp đơn xin chuyển đổi
 transfer-email-sent = Một email xác nhận đã được gửi, Vui lòng kiểm tra email của bạn và nhấp vào liên kết để hoàn tất quá trình chuyển đổi
 transfer-failed = Yêu cầu chuyển đổi thất bại
+web-login = Đăng nhập trên Web
+web-login-failed = Mở web đăng nhập thất bại

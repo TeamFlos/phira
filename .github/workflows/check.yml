@@ -18,10 +18,10 @@ jobs:
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
           - name: macOS
-            os: macos-14
+            os: macos-15
             target: aarch64-apple-darwin
           - name: iOS
-            os: macos-14
+            os: macos-15
             target: aarch64-apple-ios
 
     steps:

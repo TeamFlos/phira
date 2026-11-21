@@ -113,8 +113,9 @@ pub enum LoginSource {
 #[serde(default)]
 pub struct Data {
     pub me: Option<User>,
-    /// Source of the current session; `None` (logged out, or data written by
-    /// an older version) is treated as an email session — the stricter GTS path.
+    /// Source of the current session. `None` means logged out, or data written
+    /// by an older version: the anti-addiction check then tries to restore the
+    /// HYKB session first and falls back to GTS.
     pub login_source: Option<LoginSource>,
     pub charts: Vec<LocalChart>,
     pub local_records: HashMap<String, Option<SimpleRecord>>,

@@ -19,4 +19,5 @@ visual = 비쥬얼
 
 filter-me = 내 업로드
 filter-unreviewed = 미검토
+filter-reviewed = 검토된 것만
 filter-stabilize = 안정화 요청
