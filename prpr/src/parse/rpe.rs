@@ -693,7 +693,7 @@ async fn parse_judge_line(
                     Ok(res)
                 }
                 let factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
-                let default = if rpe.texture == "line.png" { 1. } else { factor };
+                let default = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
                 rpe.extended
                     .as_ref()
                     .map(|e| -> Result<_> {
@@ -701,20 +701,8 @@ async fn parse_judge_line(
                             parse(
                                 r,
                                 &e.scale_x_events,
-                                factor
-                                    * if rpe.texture == "line.png"
-                                        && rpe
-                                            .extended
-                                            .as_ref()
-                                            .and_then(|it| it.text_events.as_ref())
-                                            .is_none_or(|it| it.is_empty())
-                                        && rpe.attach_ui.is_none()
-                                    {
-                                        0.5
-                                    } else {
-                                        1.
-                                    },
-                                default,
+                                factor,
+                                default, 
                                 bezier_map,
                             )?,
                             parse(r, &e.scale_y_events, factor, default, bezier_map)?,
