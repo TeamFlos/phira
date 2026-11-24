@@ -20,8 +20,8 @@ tos-and-policy = 《服务条款》和《隐私政策》
 tos-and-policy-desc = 在使用由 TeamFlos 提供的 Phira 线上服务部分之前，你必须阅读并同意我们的《服务条款》和《隐私政策》。
 tos-deny = 拒绝
 tos-accept = 同意
-tos-prev-page = 上一页
-tos-next-page = 下一页
+tos-link-terms = 服务条款
+tos-link-privacy = 隐私政策
 loading_tos_policy = 正在获取服务条款和隐私政策内容
 fetch-tos-policy-failed = 获取服务条款和隐私政策内容失败
 warn-deny-tos-policy = 需接受条款才可使用线上服务
@@ -37,3 +37,20 @@ main-character-intro =
 favorites = 收藏夹
 default-fav-folder = 默认收藏夹
 favorites-online-only = 在线收藏夹仅能收藏在线谱面。本地谱面：{ $charts }
+
+contains-banned-words = 你的输入包含违禁词，请检查后再提交
+
+hykb-not-bound-logout = 你的账号未绑定好游快爆，已退出登录
+hykb-login-cancelled = 已取消好游快爆登录
+hykb-account-mismatch = 当前好游快爆账号与登录的账号不一致，已退出登录
+
+
+crash-title = Phira 意外停止
+crash-message = 游戏遇到意外错误，无法安全继续。你可以导出近期日志来帮助定位问题。
+crash-summary = 错误：{ $error }
+crash-log-retention = 保留最近七天的日志，不包含账号凭据或缓存资源。
+crash-export = 导出日志
+crash-exit = 安全退出
+crash-exporting = 正在准备日志...
+crash-exported = 日志已准备好，可以分享。
+crash-export-failed = 导出日志失败

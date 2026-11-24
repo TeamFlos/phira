@@ -1,2 +1,3 @@
 wait-for-more = ยังมีสิ่งที่น่าติดตามอีก…
 name-c1 = วัตถุแห่งอนาคต
+label = COLLECTIONS

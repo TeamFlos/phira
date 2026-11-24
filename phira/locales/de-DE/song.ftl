@@ -1,9 +1,6 @@
-
 load-preview-failed = Fehler beim Laden der Songvorschau
 load-charts-failed = Fehler beim Laden der Level
-
 load-chart-failed = Fehler beim Laden des Level
-
 dl-cancel = Abbrechen
 dl-status-fetch = Informationen abrufen...
 dl-status-song = Song wird heruntergeladen...
@@ -14,63 +11,53 @@ dl-status-assets = Assets werden heruntergeladen...
 dl-status-saving = Speichern...
 dl-failed = Download fehlgeschlagen...
 dl-success = Erfolgreich heruntergeladen.
-
 guest = Gast
-
-warn-unrated = Der Abschluss wurde nicht aufgezeichnet/gespeichert.
-failed-to-play = Start fehlgeschlagen.
+warn-unrated = Der Abschluss wurde nicht aufgezeichnet/gespeichert
+failed-to-play = Starten fehlgeschlagen
 play-cancel = Abbrechen
-play-switch-to-offline = In den Offline-Modus wechseln?
-switched-to-offline = In den Offline-Modus gewechselt.
-
+play-switch-to-offline = In den Offline-Modus wechseln
+switched-to-offline = In den Offline-Modus gewechselt
 delete = Löschen
 rate = Bewerten
 exercise = Üben
 offset = Offset anpassen
 unlock = Video zum Entsperren ansehen
-
 edit-cancel = Abbrechen
 edit-save = Speichern
 edit-saving = Speichern...
-edit-load-file-failed = Fehler beim Importieren der externen Datei.
-edit-save-failed = Speichern fehlgeschlagen.
-edit-saved = Gespeichert.
-edit-preview-invalid = Vorschau nicht verfügbar.
+edit-load-file-failed = Fehler beim Importieren der externen Datei
+edit-save-failed = Speichern fehlgeschlagen
+edit-saved = Gespeichert
+edit-preview-invalid = Vorschau nicht verfügbar
 edit-tags = Tags bearbeiten
-edit-downloaded = Online-Level können nicht bearbeitet werden.
+edit-downloaded = Online-Level können nicht bearbeitet werden
 edit-overwrite = Überschreiben
-edit-overwrite-confirm = Willst du das aktuelle Level wirklich mit dem neuen überschreiben? Drücke „Aktualisieren“, um die Änderungen zu veröffentlichen.
+edit-overwrite-confirm = Bist du dir sicher, dass du das aktuelle Level mit dem externen überschreiben möchtest? (Die Synchronisierung mit der Online-Plattform erfolgt erst nach dem Klicken auf „Aktualisieren“.)
 edit-overwrite-success = Überschrieben.
 edit-overwrite-failed = Überschreiben fehlgeschlagen.
-
 edit-upload = Hochladen
 edit-update = Aktualisieren
-
 upload-not-saved = Das Level wurde noch nicht gespeichert. Möchtest du es jetzt speichern?
 upload-login-first = Bitte melde dich zuerst an.
-upload-builtin = Eingebaute Level können nicht hochgeladen werden.
+upload-builtin = Eingebaute Level können nicht hochgeladen werden
 upload-rules = Regeln für den Upload der Level
 upload-rules-content =
-  Vor dem Hochladen musst du bestätigen, dass:
-  1. Du die Level erstellt hast oder die Erlaubnis aller Mitwirkenden hast. Verstöße führen zu einem Verbot zum Hochladen.
-  2. Wenn Name und Avatar deines Phira-Kontos nicht mit deinen anderen sozialen Medien übereinstimmen, gib dies in der Chartbeschreibung an.
-  3. Die Level (inkl. Illustration, Audio und Storyboarding-Assets) den Phira-Nutzungsbedingungen, den Vorschriften der VR China entspricht und keine rechtswidrigen Inhalte enthält.
-  4. Phira darf deine Level zu Werbezwecken verwenden. Wir kontaktieren dich, wenn sie anderweitig genutzt werden sollen.
-  5. Phira behält sich das Recht vor, deine Level nach der Freigabe zu entfernen (z. B. bei Änderungen der ToS oder Urheberrechten).
-  6. Die endgültige Auslegung dieser Regeln liegt bei Teamflos, Phira und den Reviewern/Moderatoren.
-
-uploading = Am hochladen...
-upload-chart-failed = Hochladen des Levels fehlgeschlagen..
-upload-success = Erfolgreich hochgeladen. Bitte warte auf die Prüfung.
+    Bitte bestätigen Sie vor dem Hochladen Folgendes:
+    1. ! Das Level muss dein eigenes Originalwerk sein. Bei Gemeinschaftsprojekten musst du über die Upload-Berechtigung aller beteiligten Ersteller verfügen; die Nichteinhaltung kann zu einer dauerhaften Upload-Sperre führen
+    2. Es wird empfohlen, einen unverwechselbaren Avatar und eine eindeutige ID zu verwenden. Sollten sich der auf Phira verwendete Avatar und die ID erheblich von denen unterscheiden, die auf der Plattform genutzt wurden, auf der das Vorschauvideo des Levels veröffentlicht wurde (insbesondere Bilibili), gebe dies bitte an. Bitte nenne zudem deine bevorzugte Kommunikationssprache (sofern diese nicht Chinesisch ist)
+    3. Die Inhalte des Charts (einschließlich Musik, Illustrationen, Texte usw.) müssen den Gesetzen und Vorschriften der Volksrepublik China entsprechen; sie dürfen weder rechtswidrig sein noch unangemessene Inhalte enthalten
+    4. Mit dem Hochladen erklärt sich der Ersteller damit einverstanden, dass das Level für öffentliche Werbezwecke von Phira verwendet werden darf; für jede anderweitige Nutzung des Charts ist weiterhin die Zustimmung des Erstellers erforderlich
+    5. TeamFlos behält sich das Recht der endgültigen Auslegung dieser Richtlinien vor
+uploading = Am hochladen…
+upload-chart-failed = Hochladen des Levels fehlgeschlagen
+upload-success = Erfolgreich hochgeladen. Bitte warte auf die Prüfung!
 upload-failed = Hochladen fehlgeschlagen.
 upload-confirm-clear-ldb = Da sich das Level unterscheidet, wird die Bewertung zurückgesetzt. Fortfahren?
-
 ldb = Bestenliste
-ldb-load-failed = Laden der Bestenliste fehlgeschlagen.
+ldb-load-failed = Laden der Bestenliste fehlgeschlagen
 ldb-no-rank = Keine
 ldb-score = Punkte
 ldb-std = Genauigkeit
-
 info-name = Name
 info-composer = Komponist
 info-charter = Level-Designer
@@ -79,10 +66,8 @@ info-desc = Beschreibung
 info-rating = Bewertung
 info-type = Typ
 info-tags = Tags
-
 reviewed = Überprüft
 unreviewed = Ungeprüft
-
 review-approve = Freigeben
 review-deny = Ablehnen
 review-del = Online löschen
@@ -90,40 +75,60 @@ review-approved = Freigegeben
 review-passed = Bestanden
 review-denied = Abgelehnt
 review-deleted = Gelöscht
-review-action-failed = Aktion konnte nicht ausgeführt werden.
-review-doing = Aktion wird ausgeführt...
-review-not-loaded = Informationen werden noch geladen, bitte warten...
+review-action-failed = Aktion konnte nicht ausgeführt werden
+review-doing = Aktion wird ausgeführt
+review-not-loaded = Informationen werden noch geladen, bitte warten
 review-edit-tags = Tags bearbeiten
-review-edit-tags-failed = Tags konnten nicht bearbeitet werden.
-review-edit-tags-done = Tags aktualisiert.
-
-mods = Mods
+review-edit-tags-failed = Tags konnten nicht bearbeitet werden
+review-edit-tags-done = Tags aktualisiert
+mods = Modifikatoren
 mods-autoplay = Auto
-mods-autoplay-sub = Spielt automatisch das Level.
+mods-autoplay-sub = Spielt automatisch das Level ab
 mods-flip-x = Spiegeln
-mods-flip-x-sub = Spiegelt die Level an der X-Achse.
+mods-flip-x-sub = Spiegelt das Level an der X-Achse
 mods-fade-out = Ausblenden
-mods-fade-out-sub = Noten verblassen beim Erreichen der Bewertungsleiste.
-
+mods-fade-out-sub = Lässt Noten verblassen wenn sie sich der Bewertungslinie nähern
 rate-failed = Bewertung fehlgeschlagen.
 rate-done = Bewertung erfolgreich.
-
 need-update = Update erforderlich
 need-update-info-only-content = Die Level-Infos wurden aktualisiert. Möchtest du die Änderungen synchronisieren?
-need-update-content = Das Level wurde aktualisiert und das Ranking zurückgesetzt. Bitte aktualisiere das Level, um Punkte hochzuladen.
-
+need-update-content = Die Rangliste wurde aktualisiert. Wenn die lokale Version nicht auf dem neuesten Stand ist, kannst du die Punktzahl nicht hochladen. Möchtest du jetzt aktualisieren?
 request-failed = Anfrage fehlgeschlagen.
-
 stabilize = Stabilisieren
-stabilize-warn = Normale Nutzer können nur alle 3 Tage eine Stabilisierung anfordern. Nutzer mit stabilisierten Charts können täglich anfragen. Fortfahren?
-stabilize-requested = Stabilisierungsanfrage gesendet.
-stabilize-failed = Stabilisierung fehlgeschlagen.
+stabilize-warn = Standardnutzer können alle drei Tage eine „Stabiles“-Level anfordern. Nutzer, die mindestens eine „Stabile“-Level besitzen, können einmal täglich eine Anfrage stellen.
+stabilize-requested = Stabilisierungsanfrage gesendet
+stabilize-failed = Stabilisierung fehlgeschlagen
 stabilize-approve = Spezial freigeben
 stabilize-approve-ranked = Stabil freigeben
 stabilize-comment = Kommentar
 stabilize-commented = Kommentiert
 stabilize-deny = Stabilisierung ablehnen
 stabilize-approved = Genehmigt
-stabilize-approved-passed = Das Level wurde stabilisiert.
+stabilize-approved-passed = Das Level wurde stabilisiert
 stabilize-denied = Abgelehnt
-stabilize-denied-passed = Abgelehnt, das Level wurde zurückgewiesen.
+stabilize-denied-passed = Abgelehnt, das Level wurde zurückgewiesen
+review-approve-confirm = Freigabe bestätigen? Dieser Vorgang kann nicht rückgängig gemacht werden.
+info-collaborators = Mitwirkende
+mods-fade-in = Fade-In
+mods-fade-in-sub = Lässt Noten einblenden wenn sie sich der Bewertungslinie nähern
+mods-nightcore = Nightcore
+mods-nightcore-sub = Spielt das Level mit höherer Geschwindigkeit ab
+mods-rainbow = Regenbogen
+mods-rainbow-sub = Macht dein Spiel ein *bisschen* bunter
+mods-instant-death-ap = Sofortiger Tod (AP)
+mods-instant-death-fc = Sofortiger Tod (FC)
+mods-instant-death-ap-sub = Sofortiges Fehlschlagen bei einer ungenauen Bewertung
+mods-instant-death-fc-sub = Sofortiger Fehlschlagen nachdem die Kombo gebrochen ist
+mods-no-shader = Kein Shader
+mods-no-shader-sub = Deaktiviert Shader-Effekte. *Mit diesem Modifikator können keine Punktzahlen hochgeladen werden.*
+stabilize-approve-confirm = Die Genehmigung dieses Level bestätigen? Dieser Vorgang kann nicht rückgängig gemacht werden.
+fav-added = Hinzugefügt (lange drücken, um einen anderen Ordner auszuwählen)
+still-loading = Wird noch geladen…
+export = Export
+exporting = Exportieren…
+warn = Achtung
+cancel-not-saved = Du hast die Informationen noch nicht gespeichert. Bist du dir sicher, dass du es beenden möchtest?
+collab-autocomplete-title = Abschluss durch Mitwirkende
+collab-autocomplete-content = Mitwirkende ohne Benutzer-ID erkannt: { $mentions }. Automatisch vervollständigen?
+collab-autocomplete-failed = „@{ $name }“ konnte nicht aufgelöst werden: Der Benutzer existiert nicht oder es gibt mehrere Treffer.
+collab-autocomplete-done = Mitwirkende wurden hinzugefügt

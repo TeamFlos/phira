@@ -1,18 +1,34 @@
-
 label = SAMMLUNG
-
 local = Lokal
 popular = Beliebt
-
 page = Seite: { $current } / { $total }
 prev-page = Zurück
 next-page = Weiter
-
-not-opened = Noch nicht verfügbar.
-failed-to-load-online = Fehler beim Laden der Online-Level.
-
+not-opened = Noch nicht verfügbar
+failed-to-load-online = Fehler beim Laden der Online-Level
 import = Importieren
-
 offline-mode = Sämtliche Online-Funktionen sind aufgrund des Offline-Modus deaktiviert. (Einstellungen)
-
-must-login = Bitte melde dich an, um die Online-Level ansehen zu können.
+must-login = Bitte melde dich an, um die Online-Level ansehen zu können
+multi-delete = Stapel löschen
+order-by = Sortierreihenfolge: { $order }
+order-asc = Aufsteigend
+order-desc = Absteigend
+order-updated = Sortierung aktualisiert
+order-update-failed-sort = Die Sortierung kann nur unter der Standardsortierreihenfolge aktualisiert werden
+fav-synced = Favoriten wurden synchronisiert
+fav-sync-failed = Die Synchronisierung der Favoriten ist fehlgeschlagen
+multi-select-status = { $count } Elemente ausgewählt
+multi-export = Stapelexport
+multi-create-fav = Einen Favoritenordner erstellen
+multi-manage-fav = Favoriten verwalten
+multi-delete-confirm = Bist du dir sicher, dass du { $count } Level löschen möchtest? Dieser Vorgang kann nicht rückgängig gemacht werden.
+multi-deleted = Stapel gelöscht
+multi-export-title = Exportziel auswählen
+multi-export-no-file = Bitte lade alle Level herunter, bevor du den Export durchführst. Nicht heruntergeladen: { $charts }
+multi-exporting = Exportieren ({ $current } / { $total })
+exported = Exportiert
+multi-added-to-fav = Zu den Favoriten hinzugefügt
+multi-removed-from-fav = Aus den Favoriten entfernt
+multi-select-all = Alle auswählen
+multi-select-invert = Auswahl umkehren
+fav-created = Favoriten Ordner erstellt

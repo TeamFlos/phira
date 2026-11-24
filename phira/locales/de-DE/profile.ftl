@@ -1,19 +1,20 @@
-
 logout = Abmelden
-logged-out = Abgemeldet.
-
-delete = Account löschen
-delete-failed = Fehler beim löschen des Accounts.
-delete-req-sent = Der Antrag auf Kontolöschung wurde eingereicht.
-
-load-user-failed = Fehler beim Abrufen der Nutzerdaten.
-edit-avatar-success = Profilbild aktualisiert.
-edit-avatar-failed = Fehler beim Aktualisieren des Profilbilds.
-
-uploading-avatar = Profilbild wird hochgeladen...
-
-load-record-failed = Fehler beim Laden der Ergebnise.
-
+logged-out = Abgemeldet
+delete = Löschen
+delete-failed = Fehler beim löschen des Accounts
+delete-req-sent = Der Antrag auf Kontolöschung wurde eingereicht
+load-user-failed = Fehler beim Abrufen der Nutzerdaten
+edit-avatar-success = Profilbild aktualisiert
+edit-avatar-failed = Fehler beim Aktualisieren des Profilbilds
+uploading-avatar = Profilbild wird hochgeladen
+load-record-failed = Fehler beim Laden der Ergebnise
 last-login = Zuletzt angemeldet: { $time }
 badge-admin = Admin
 badge-sponsor = Sponsor
+hykb-login-cancelled = Anmeldung bei 3839 Games abgebrochen
+name-copied = Name kopiert
+hykb-transfer = Altes Konto migrieren
+transfer-prompt = E-Mail-Adresse des alten Kontos, das migriert werden soll
+transfer-requesting = Migration läuft
+transfer-email-sent = Eine Bestätigungs-E-Mail wurde versendet; bitte überprüfe deinen Posteingang und klicke auf den Link, um die Migration abzuschließen
+transfer-failed = Migrationsanfrage fehlgeschlagen

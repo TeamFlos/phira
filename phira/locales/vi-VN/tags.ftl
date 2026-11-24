@@ -19,4 +19,5 @@ visual = Visual
 
 filter-me = Tải lên bởi tôi
 filter-unreviewed = Chưa duyệt
+filter-reviewed = Chỉ đã duyệt
 filter-stabilize = Yêu cầu ổn định

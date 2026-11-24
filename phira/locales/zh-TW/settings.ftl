@@ -59,11 +59,18 @@ item-chart-debug = 譜面除錯
 item-chart-debug-sub = 顯示判定線編號和朝向
 item-touch-debug = 觸摸除錯
 item-touch-debug-sub = 遊玩過程中顯示觸摸點
+item-export-logs = 匯出日誌
+item-export-logs-sub = 將最近七天的日誌匯出為 ZIP 壓縮檔以便回報問題
+item-export-logs-button = 匯出
+log-exporting = 正在匯出日誌…
+log-export-failed = 匯出日誌失敗
 load-cali-failed = 載入音訊失敗
 about-content =
     Phira v{ $version }
 
     Phira 是一款玩法基於 Phigros 的非商業社區音樂遊戲，使用 Rust 開發。
+
+    本專案為非官方玩家專案，與南京鴿遊網路有限公司及《Phigros》官方不存在授權、合作或營運關係。
 
     BiliBili 帳號：@Phira官方
     QQ 頻道：r48eajexth
@@ -97,3 +104,4 @@ about-content =
     { $localization }
 
     以及許多志願譜面審核員！完整列表參見 https://phira.moe/staff
+item-offline-sub-hykb = 不載入線上譜面與排行榜，亦不上傳成績

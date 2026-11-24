@@ -150,7 +150,7 @@ impl EventScene {
 
     async fn join_task(id: i32) -> Result<Option<String>> {
         let request = Client::post(format!("/event/{id}/join"), &());
-        let response = request.send().await?;
+        let response = crate::client::send_raw(request).await?;
         let status = response.status();
         if !status.is_success() {
             let text = response.text().await.context("failed to receive text")?;
@@ -275,7 +275,7 @@ impl Scene for EventScene {
                 if item.btn.touch(touch) {
                     button_hit();
                     self.sf
-                        .goto(t, ProfileScene::new(item.player, self.icons.user.clone(), self.rank_icons.clone()));
+                        .goto(t, ProfileScene::new(item.player, self.icons.clone(), self.rank_icons.clone()));
                     return Ok(true);
                 }
             }

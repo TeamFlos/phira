@@ -33,11 +33,18 @@ load-cali-failed = Nie załadowano plików audio
 item-chart-debug = Tryb debug
 item-chart-debug-sub = Pokazuje liczbe linii i orientację
 item-touch-debug-sub = Pokazuje dotknięcia
+item-export-logs = Eksportuj logi
+item-export-logs-sub = Eksportuj logi z ostatnich siedmiu dni do archiwum ZIP, aby zgłosić problem.
+item-export-logs-button = Eksportuj
+log-exporting = Eksportowanie logów…
+log-export-failed = Nie udało się wyeksportować logów
 
 about-content =
   Phira v{ $version }
 
   Phira to niekomercyjna, oparta na społeczności gra rytmiczna, inspirowana grą Phigros.
+
+  Jest to nieoficjalny projekt tworzony przez graczy; nie łączy go z firmą Pigeon Games Co., Ltd. ani z oficjalnym zespołem Phigros żadna relacja w zakresie autoryzacji, współpracy czy operowania.
 
   Konto BiliBili: @Phira官方
   Grupa QQ: r48eajexth

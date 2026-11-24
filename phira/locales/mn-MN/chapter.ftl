@@ -1,4 +1,3 @@
-
-diff-easy = АМАРХАН
-diff-hard = ХЭЦҮҮ
-diff-extreme = МАШ ХЭЦҮҮ
+diff-easy = ХЯЛБАР
+diff-hard = ХҮНД
+diff-extreme = ХЯЗГААРГҮЙ

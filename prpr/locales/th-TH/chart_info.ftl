@@ -1,4 +1,3 @@
-
 edit-chart = แก้ไข Chart
 level-displayed = Level
 chart-name = ชื่อ
@@ -24,5 +23,9 @@ tip = Tip
 intro = Intro
 tags = Tags
 tag-exists = Tag นี้มีอยู่แล้ว
-
 illegal-input = Illegal input
+attach-ui-fix = Attach UI Fix
+unlock-file = ไฟล์ Unlock Video
+how-to-add-collaborator = วิธีเพิ่มผู้มีส่วนร่วม
+rpe-170-speed = New Speed Tween
+enable-unlock = Unlock Video

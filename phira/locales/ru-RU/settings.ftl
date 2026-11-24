@@ -52,11 +52,18 @@ item-chart-debug = Отладка чарта
 item-chart-debug-sub = Отображаются номера и направление линий
 item-touch-debug = Отладка касаний
 item-touch-debug-sub = Точки нажатия отображаются
+item-export-logs = Экспорт журналов
+item-export-logs-sub = Экспортировать журналы за последние семь дней в ZIP-архив для сообщения о проблеме.
+item-export-logs-button = Экспорт
+log-exporting = Экспорт журналов…
+log-export-failed = Не удалось экспортировать журналы
 load-cali-failed = Ошибка загрузки аудио
 about-content =
     Phira v{ $version }
 
     Phira является некоммерческой игрой на базе сообщества, вдохновлённой Phigros.
+
+    Данный проект является неофициальным проектом игроков и не имеет никаких отношений авторизации, партнёрства или операционной деятельности ни с компанией Pigeon Games Co., Ltd., ни с официальной командой Phigros.
 
     Аккаунт BiliBili: @Phira官方
     Чат QQ: r48eajexth
@@ -97,3 +104,4 @@ item-show-avg-fps = Показать сред.частоту FPS
 item-ap-fc-indicator = Индикатор AP/FC
 item-ap-fc-indicator-sub = Использовать цвет линии для показа статуса AP/FC.
 item-show-avg-fps-sub = Показать среднее значение FPS в экране результатов
+item-offline-sub-hykb = Онлайн-чарты и таблицы лидеров не загружаются, а результаты не выкладываются.

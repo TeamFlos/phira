@@ -12,7 +12,7 @@ use crate::{
     save_data,
     scene::{check_read_tos_and_policy, compress_folder, confirm_dialog, ChartOrder, JUST_LOADED_TOS},
     tabs::{Tabs, TitleFn},
-    tags::TagsDialog,
+    tags::{ReviewFilter, TagsDialog},
 };
 use anyhow::{anyhow, Error, Result};
 use chrono::{DateTime, Utc};
@@ -98,6 +98,10 @@ pub struct LibraryPage {
     next_page_btn: DRectButton,
 
     online_task: Option<OnlineTask>,
+    /// Set when `load_online` was blocked by the TOS gate, so the online list
+    /// is retried automatically once the player accepts the terms — otherwise
+    /// it stays on the loading spinner forever.
+    online_pending_tos: bool,
 
     icons: Arc<Icons>,
     rank_icons: [SafeTexture; 8],
@@ -182,6 +186,7 @@ impl LibraryPage {
             next_page_btn: DRectButton::new(),
 
             online_task: None,
+            online_pending_tos: false,
 
             icons,
             rank_icons,
@@ -269,8 +274,11 @@ impl LibraryPage {
             return;
         }
         if !check_read_tos_and_policy(false, false) {
+            // Blocked on the TOS gate; retry automatically once accepted.
+            self.online_pending_tos = true;
             return;
         }
+        self.online_pending_tos = false;
         self.tabs.selected_mut().view.reset_scroll();
         self.tabs.selected_mut().view.clear();
         let page = self.current_page;
@@ -311,7 +319,7 @@ impl LibraryPage {
         } else {
             None
         };
-        let show_unreviewed = self.tags.show_unreviewed;
+        let review_filter = self.tags.review_filter;
         let show_stabilize = self.tags.show_stabilize;
         self.online_task = Some(Task::new(async move {
             let mut q = Client::query::<Chart>();
@@ -325,8 +333,12 @@ impl LibraryPage {
             }
             if show_stabilize {
                 q = q.query("stableRequest", "true");
-            } else if show_unreviewed {
-                q = q.query("reviewed", "false").query("stableRequest", "false");
+            } else {
+                q = match review_filter {
+                    ReviewFilter::All => q,
+                    ReviewFilter::ReviewedOnly => q.query("reviewed", "true"),
+                    ReviewFilter::UnreviewedOnly => q.query("reviewed", "false").query("stableRequest", "false"),
+                }
             }
             let (remote_charts, count) = q
                 .query("type", typ.to_string())
@@ -393,9 +405,15 @@ impl LibraryPage {
                         warn!("No info found for chart ref {it:?}");
                         None
                     }
-                }))
+                }));
+                self.current_order.apply(&mut charts, |it| it.chart.as_ref().unwrap());
+                if self.order_rev {
+                    charts.reverse();
+                }
             } else {
-                charts.push(ChartDisplayItem::new(None, None));
+                if cfg!(closed) {
+                    charts.push(ChartDisplayItem::new(None, None));
+                }
                 charts.extend(
                     charts_local
                         .iter()
@@ -494,7 +512,7 @@ fn present_export_picker(path: String) {
             // SAFETY: The signature is correct.
             #[unsafe(method(documentPicker:didPickDocumentsAtURLs:))]
             fn did_pick_documents_at_urls(&self, _controller: &UIDocumentPickerViewController, _urls: &NSArray<NSURL>) {
-                show_message(tl!("multi-exported")).ok();
+                show_message(tl!("exported")).ok();
             }
         }
     }
@@ -531,7 +549,7 @@ fn present_export_picker(path: String) {
     }
 }
 
-pub fn request_export(suggested_name: String) {
+pub fn request_export(suggested_name: String) -> bool {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "android")] {
             unsafe {
@@ -548,6 +566,7 @@ pub fn request_export(suggested_name: String) {
                     (**env).NewStringUTF.unwrap()(env, url.as_ptr()),
                 );
             }
+            true
         } else if #[cfg(target_os = "ios")] {
             use objc2_foundation::NSTemporaryDirectory;
 
@@ -568,8 +587,10 @@ pub fn request_export(suggested_name: String) {
                 EXPORT_PICKER_PATH.lock().unwrap().replace(output_path_str);
             }
             EXPORT_CONFIG.lock().unwrap().replace(config);
+            true
         } else if #[cfg(target_env = "ohos")] {
             miniquad::native::call_request_callback(format!("{{\"action\":\"request_export\",\"filename\":\"{}\"}}", suggested_name));
+            true
         } else {
             if let Some(output_path) = rfd::FileDialog::new().set_title(tl!("multi-export-title")).set_file_name(&suggested_name).save_file() {
                 let config = File::create(&output_path).map(|file| ExportConfig {
@@ -577,6 +598,9 @@ pub fn request_export(suggested_name: String) {
                     deleter: Box::new(move || std::fs::remove_file(output_path)),
                 });
                 EXPORT_CONFIG.lock().unwrap().replace(config);
+                true
+            } else {
+                false
             }
         }
     }
@@ -584,6 +608,10 @@ pub fn request_export(suggested_name: String) {
 
 pub fn take_export() -> Option<io::Result<ExportConfig>> {
     EXPORT_CONFIG.lock().unwrap().take()
+}
+/// Whether an export config is waiting in the slot, without claiming it.
+pub fn export_pending() -> bool {
+    EXPORT_CONFIG.lock().unwrap().is_some()
 }
 pub fn resolve_export() {
     #[cfg(target_os = "ios")]
@@ -853,7 +881,7 @@ impl Page for LibraryPage {
                 self.load_online();
             }
         }
-        if self.tabs.selected_mut().view.clicked_special {
+        if cfg!(closed) && self.tabs.selected_mut().view.clicked_special {
             let icons = Arc::clone(&self.icons);
             self.next_page_task = Some(Box::pin(async move { Ok(NextPage::Overlay(Box::new(CollectionPage::new(icons).await?))) }));
             self.tabs.selected_mut().view.clicked_special = false;
@@ -967,6 +995,8 @@ impl Page for LibraryPage {
                 if text.is_empty() {
                     use crate::page::favorites::{tl as ftl, L10N_LOCAL};
                     show_message(ftl!("name-empty")).error();
+                } else if let Err(err) = crate::censor::check_text(&text) {
+                    show_message(err.to_string()).error();
                 } else {
                     let charts_view = &mut self.tabs.selected_mut().view;
                     if let Some(mut selected) = charts_view.multi_select.clone() {
@@ -1166,6 +1196,11 @@ impl Page for LibraryPage {
         if JUST_LOADED_TOS.fetch_and(false, Ordering::Relaxed) {
             check_read_tos_and_policy(false, false);
         }
+        // If loading was blocked on the TOS gate, retry as soon as the player
+        // has accepted (terms_modified transitions from None to Some).
+        if self.online_pending_tos && get_data().terms_modified.is_some() {
+            self.load_online();
+        }
         let list = self.tabs.selected_mut();
         let view = &mut list.view;
         if let Some((from, to)) = view.take_movement() {
@@ -1251,13 +1286,18 @@ impl Page for LibraryPage {
                 }
             }
         }
-        if let Some(config) = take_export() {
+        // The export slot is shared by every export flow; only claim it with
+        // an export of our own pending, or we would silently close the fd of
+        // a config another page is still waiting for.
+        let export_config = if self.export_paths.is_some() { take_export() } else { None };
+        if let Some(config) = export_config {
             fn export_inner(paths: Vec<String>, output: File, progress: Arc<AtomicU32>) -> Result<()> {
                 let charts = dir::charts()?;
                 let mut zip = zip::ZipWriter::new(BufWriter::new(output));
                 let options = zip::write::SimpleFileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored)
-                    .unix_permissions(0o755);
+                    .unix_permissions(0o755)
+                    .last_modified_time(chrono::Utc::now().naive_utc().try_into().unwrap_or_default());
                 for (i, name) in paths.iter().enumerate() {
                     zip.start_file(format!("{name}.zip"), options)?;
                     let mut chart_bytes = Vec::new();

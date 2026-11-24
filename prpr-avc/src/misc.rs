@@ -34,14 +34,14 @@ impl Display for AVRational {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AVPixelFormat(pub ffi::AVPixelFormat);
 impl AVPixelFormat {
     pub const YUV420P: AVPixelFormat = AVPixelFormat(0);
     pub const RGB24: AVPixelFormat = AVPixelFormat(2);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VideoStreamFormat {
     pub width: i32,
     pub height: i32,
@@ -50,8 +50,7 @@ pub struct VideoStreamFormat {
 
 #[derive(Debug, Clone)]
 pub struct AudioStreamFormat {
-    pub channel_layout: u64,
-    pub channels: i32,
+    pub channel_layout: ffi::AVChannelLayout,
     pub sample_fmt: ffi::AVSampleFormat,
     pub sample_rate: i32,
 }

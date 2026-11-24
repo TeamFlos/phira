@@ -1,0 +1,6 @@
+select = Select
+move-to-first = Pindah ke Awal
+move-to-last = Pindah ke Akhir
+move-before = Pindah sebelum…
+move-after = Pindah sesudah…
+choose-target = Silakan pilih target

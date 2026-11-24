@@ -41,7 +41,7 @@ impl Video {
         out_frame.get_buffer()?;
 
         let mut buf_frame = AVFrame::new()?;
-        buf_frame.set_video_format(&stream_format);
+        buf_frame.set_video_format(&out_format);
         buf_frame.get_buffer()?;
 
         let position = Arc::new((Mutex::new(0), Condvar::new()));
@@ -92,7 +92,6 @@ impl Video {
                         }
 
                         if !format_ctx.read_frame(&mut packet)? {
-                            frame.lock().unwrap().1 = -1;
                             continue;
                         }
 

@@ -297,6 +297,15 @@ fn info_from_csv(text: &str) -> Result<ChartInfo> {
 }
 
 pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<()> {
+    fix_info_with(fs, info, false).await
+}
+
+/// `infer_meta`: whether RPE `META` metadata may overwrite the fields of
+/// `info`. `info.yml` is the authoritative manifest and must not be clobbered
+/// by META values, which chart editors frequently leave stale (e.g.
+/// `level: "0"`); the legacy `info.txt` / `info.csv` formats — and charts with
+/// no info file at all — still get their metadata inferred from META.
+pub async fn fix_info_with(fs: &mut dyn FileSystem, info: &mut ChartInfo, infer_meta: bool) -> Result<()> {
     async fn get(fs: &mut dyn FileSystem, path: &mut String) -> Result<Option<String>> {
         Ok(if fs.exists(path).await? { Some(std::mem::take(path)) } else { None })
     }
@@ -338,15 +347,17 @@ pub async fn fix_info(fs: &mut dyn FileSystem, info: &mut ChartInfo) -> Result<(
                     song: String,
                 }
                 if let Ok(mut meta) = serde_json::from_value::<RPEMeta>(value["META"].take()) {
-                    info.name = meta.name;
-                    infer_diff(info, &meta.level);
-                    info.level = meta.level;
-                    info.charter = meta.charter;
-                    if let Some(val) = meta.composer {
-                        info.composer = val;
-                    }
-                    if let Some(val) = meta.illustration {
-                        info.illustrator = val;
+                    if infer_meta {
+                        info.name = meta.name;
+                        infer_diff(info, &meta.level);
+                        info.level = meta.level;
+                        info.charter = meta.charter;
+                        if let Some(val) = meta.composer {
+                            info.composer = val;
+                        }
+                        if let Some(val) = meta.illustration {
+                            info.illustrator = val;
+                        }
                     }
                     if illustration.is_none() {
                         illustration = get(fs, &mut meta.background).await?;
@@ -402,7 +413,7 @@ pub async fn load_info(fs: &mut dyn FileSystem) -> Result<ChartInfo> {
     } else {
         warn!("none of info.yml, info.txt and info.csv is found, inferring");
         let mut info = ChartInfo::default();
-        fix_info(fs, &mut info).await?;
+        fix_info_with(fs, &mut info, true).await?;
         info
     };
     Ok(info)

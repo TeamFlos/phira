@@ -6,10 +6,10 @@ use super::{
     confirm_delete, confirm_dialog, fs_from_path, gen_custom_dir, import_chart_to, render_ldb, LdbDisplayItem, ProfileScene, ASSET_CHART_INFO,
 };
 use crate::{
-    charts_view::NEED_UPDATE,
+    charts_view::{delete_local_chart, NEED_UPDATE},
     client::{
-        basic_client_builder, recv_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record, User,
-        UserManager, CLIENT_TOKEN,
+        basic_client_builder, recv_raw, send_raw, Chart, ChartRef, ChartRefChartInfo, Client, Collection, CollectionUpdate, Permissions, Ptr, Record,
+        User, UserManager, CLIENT_TOKEN,
     },
     data::{BriefChartInfo, LocalChart},
     dir, get_data, get_data_mut,
@@ -72,7 +72,6 @@ use std::{
     thread_local,
 };
 use tap::Tap;
-use tokio::net::TcpStream;
 use tracing::{error, warn};
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -95,7 +94,7 @@ pub static RECORD_ID: AtomicI32 = AtomicI32::new(-1);
 static MENTION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s#@(（]+)(?:#(\d+))?(?:\s*[（(]([^)）]+)[)）])?").unwrap());
 
 /// Parse all `@name#id` resolved collaborator mentions and return `(id, role)` pairs.
-fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
+fn parse_collaborators(intro: &str) -> BTreeMap<i32, (Option<String>, RectButton)> {
     use std::collections::btree_map::Entry;
 
     let mut result = BTreeMap::new();
@@ -106,11 +105,11 @@ fn parse_collaborators(intro: &str) -> BTreeMap<i32, Option<String>> {
     }) {
         match result.entry(id) {
             Entry::Vacant(e) => {
-                e.insert(role);
+                e.insert((role, RectButton::new()));
             }
             Entry::Occupied(mut e) => {
-                if e.get().is_none() && role.is_some() {
-                    e.insert(role);
+                if e.get().0.is_none() && role.is_some() {
+                    e.insert((role, RectButton::new()));
                 }
             }
         }
@@ -157,7 +156,7 @@ fn create_music(clip: AudioClip) -> Result<Music> {
         it.borrow_mut().create_music(
             clip,
             MusicParams {
-                amplifier: 0.7,
+                amplifier: get_data().config.volume_music * 0.7,
                 loop_mix_time: 0.,
                 ..Default::default()
             },
@@ -408,7 +407,7 @@ pub struct SongScene {
 
     confirm_cancel_edit: Arc<AtomicBool>,
 
-    collaborators: BTreeMap<i32, Option<String>>,
+    collaborators: BTreeMap<i32, (Option<String>, RectButton)>,
     autocomplete_task: Option<Task<Result<String>>>,
 
     export_task: Option<mpsc::Receiver<Result<()>>>,
@@ -632,6 +631,7 @@ impl SongScene {
             atomicity: atomicity.clone(),
             task: Task::new({
                 let path = format!("{}/{}", dir::downloaded_charts()?, Uuid::new_v4());
+                let def_illu = BLACK_TEXTURE.clone();
                 async move {
                     let path = std::path::Path::new(&path);
                     tokio::fs::create_dir(path).await?;
@@ -647,7 +647,7 @@ impl SongScene {
                         } else {
                             req
                         };
-                        let res = req.send().await.with_context(|| tl!("request-failed"))?.error_for_status()?;
+                        let res = send_raw(req).await.with_context(|| tl!("request-failed"))?.error_for_status()?;
                         let size = res.content_length();
                         let mut stream = res.bytes_stream();
                         let mut count = 0;
@@ -706,7 +706,7 @@ impl SongScene {
                         std::fs::rename(path, to_path)?;
                     }
 
-                    let tuple = load_local_tuple(&local_path, BLACK_TEXTURE.clone(), info).await?;
+                    let tuple = load_local_tuple(&local_path, def_illu, info).await?;
 
                     Ok((
                         LocalChart {
@@ -784,7 +784,7 @@ impl SongScene {
                 .charts
                 .iter()
                 .find(|it| it.local_path == *local_path)
-                .is_some_and(|it| it.played_unlock)
+                .is_some_and(|it| it.info.has_unlock && it.played_unlock)
             {
                 self.menu_options.push("unlock");
             }
@@ -871,7 +871,6 @@ impl SongScene {
         }
         let update_fn = client.and_then(|mut client| {
             let live = client.blocking_state().unwrap().live;
-            let token = get_data().tokens.as_ref().map(|it| it.0.clone()).unwrap();
             let addr = get_data().config.mp_address.clone();
             let mut reconnect_task: Option<Task<Result<phira_mp_client::Client>>> = None;
             let update_fn: Option<UpdateFn> = if live {
@@ -884,10 +883,10 @@ impl SongScene {
                     move |t, res, judge| {
                         if client.ping_fail_count() >= 1 && reconnect_task.is_none() {
                             warn!("lost connection, auto re-connect");
-                            let token = token.clone();
                             let addr = addr.clone();
                             reconnect_task = Some(Task::new(async move {
-                                let client = phira_mp_client::Client::new(TcpStream::connect(addr).await?).await?;
+                                let token = Client::authenticated_token().await?;
+                                let client = phira_mp_client::Client::from_address(&addr).await?;
                                 client.authenticate(token).await?;
                                 Ok(client)
                             }));
@@ -1266,10 +1265,11 @@ impl SongScene {
             }
             if !self.collaborators.is_empty() {
                 dy!(ui.text(tl!("info-collaborators")).size(0.4).color(semi_white(0.7)).draw().h + 0.02);
-                for (collab_id, role) in &self.collaborators {
+                for (collab_id, (role, btn)) in &mut self.collaborators {
                     let c = 0.06;
                     let s = 0.05;
                     let r = ui.avatar(c, c, s, rt, UserManager::opt_avatar(*collab_id, &self.icons.user));
+                    btn.set(ui, Rect::new(c - s, c - s, s * 2., s * 2.));
                     if let Some((name, color)) = UserManager::name_and_color(*collab_id) {
                         let name_r = ui
                             .text(name)
@@ -1417,6 +1417,26 @@ impl SongScene {
     fn save_edit(&mut self) {
         let Some(edit) = &self.info_edit else { unreachable!() };
         let info = edit.info.clone();
+        // Offline moderation of locally-edited chart metadata. Cloud uploads are
+        // checked server-side, but this text is written to the local info.yml.
+        {
+            let mut texts = vec![
+                info.name.as_str(),
+                info.level.as_str(),
+                info.charter.as_str(),
+                info.composer.as_str(),
+                info.illustrator.as_str(),
+                info.intro.as_str(),
+            ];
+            if let Some(tip) = &info.tip {
+                texts.push(tip.as_str());
+            }
+            texts.extend(info.tags.iter().map(String::as_str));
+            if let Err(err) = crate::censor::check_texts(texts) {
+                show_message(err.to_string()).error();
+                return;
+            }
+        }
         let path = self.local_path.clone().unwrap();
         let edit = edit.clone();
         let is_owner = self.is_owner();
@@ -1646,6 +1666,46 @@ impl Scene for SongScene {
             self.first_in = false;
             tm.seek_to(-fade_in_time().unwrap_or_default() as _);
             self.load_ldb();
+        } else if self
+            .local_path
+            .as_ref()
+            .is_some_and(|path| !path.starts_with(':') && get_data().find_chart_by_path(path).is_none())
+        {
+            // A nested song scene may have deleted this chart while we were covered.
+            self.local_path = None;
+            if let Some(preview) = &mut self.preview {
+                preview.pause()?;
+            }
+            self.preview = None;
+            self.illu.task = None;
+            self.preview_task = self.info.id.map(|id| {
+                Task::new(async move {
+                    let chart = Ptr::<Chart>::new(id).fetch().await?;
+                    with_effects(AudioClip::decode(chart.preview.fetch().await?.to_vec())?, None)
+                })
+            });
+            self.record = None;
+            self.fetch_best_task = if get_data().me.is_some() {
+                self.info.id.map(|id| Task::new(Client::best_record(id)))
+            } else {
+                None
+            };
+            self.mods = Mods::default();
+            self.mod_btns.clear();
+            self.info_edit = None;
+            if matches!(self.side_content, SideContent::Edit | SideContent::Mods) {
+                self.side_enter_time = f32::INFINITY;
+            }
+            self.should_update.store(false, Ordering::Relaxed);
+            if let Some(entity) = &self.entity {
+                self.info = entity.to_info();
+            } else if self.load_task.is_none() && !get_data().config.offline_mode {
+                // The entity was never loaded (the first fetch failed, or the
+                // scene was opened in offline mode). Fetch it again so the
+                // chart can be re-downloaded instead of leaving the play
+                // button stuck on "still-loading" forever.
+                self.load_task = self.info.id.map(|id| Task::new(async move { Ptr::new(id).fetch_opt().await }));
+            }
         }
         if let Some(music) = &mut self.preview {
             music.seek_to(0.)?;
@@ -1735,7 +1795,7 @@ impl Scene for SongScene {
                                 if item.btn.touch(touch) {
                                     button_hit();
                                     self.sf
-                                        .goto(t, ProfileScene::new(item.inner.player.id, self.icons.user.clone(), self.rank_icons.clone()));
+                                        .goto(t, ProfileScene::new(item.inner.player.id, self.icons.clone(), self.rank_icons.clone()));
                                     return Ok(true);
                                 }
                             }
@@ -1747,11 +1807,16 @@ impl Scene for SongScene {
                         }
                         if self.uploader_btn.touch(touch) {
                             button_hit();
-                            self.sf.goto(
-                                t,
-                                ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.user.clone(), self.rank_icons.clone()),
-                            );
+                            self.sf
+                                .goto(t, ProfileScene::new(self.info.uploader.as_ref().unwrap().id, self.icons.clone(), self.rank_icons.clone()));
                             return Ok(true);
+                        }
+                        for (id, (_, btn)) in &mut self.collaborators {
+                            if btn.touch(touch) {
+                                button_hit();
+                                self.sf.goto(t, ProfileScene::new(*id, self.icons.clone(), self.rank_icons.clone()));
+                                return Ok(true);
+                            }
                         }
                         if self.open_web_btn.touch(touch, rt) {
                             open_url(&format!("https://phira.moe/chart/{}", self.info.id.unwrap()))?;
@@ -2133,6 +2198,13 @@ impl Scene for SongScene {
             }
         }
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
+            // SongScene owns `local_path`, so it deletes the chart itself:
+            // every entry point that can pop this scene (library, profile
+            // history, messages, deeplinks) then gets a real deletion instead
+            // of silently dropping the `true` result.
+            if let Some(path) = &self.local_path {
+                delete_local_chart(path)?;
+            }
             self.next_scene = Some(NextScene::PopWithResult(Box::new(true)));
         }
         if self.fav_menu.changed() {
@@ -2616,6 +2688,8 @@ impl Scene for SongScene {
     fn render(&mut self, tm: &mut TimeManager, ui: &mut Ui) -> Result<()> {
         set_camera(&ui.camera());
         let t = tm.now() as f32;
+        // Clear stale UI from the pixels behind transparent illustrations.
+        clear_background(BLACK);
         ui.fill_rect(ui.screen_rect(), (*self.illu.texture.1, ui.screen_rect()));
         ui.fill_rect(ui.screen_rect(), semi_black(0.55));
 
@@ -2824,7 +2898,7 @@ impl Scene for SongScene {
             || self.toggle_fav_task.is_some()
             || self.autocomplete_task.is_some()
         {
-            ui.full_loading("", t);
+            ui.full_loading_simple(t);
         }
         let rt = tm.real_time() as f32;
         self.tags.render(ui, rt);
@@ -2873,12 +2947,18 @@ pub fn compress_folder<W: Write + Seek>(src: &Path, dst: &mut W) -> Result<()> {
         let entry = entry?;
         let path = entry.path();
         let name = path.strip_prefix(src)?;
+        let mod_time = entry
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .map(|t| DateTime::<Utc>::from(t).naive_utc())
+            .unwrap_or_else(|| Utc::now().naive_utc());
         if path.is_file() {
-            zip.start_file_from_path(name, options)?;
+            zip.start_file_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
             let mut f = File::open(path)?;
             std::io::copy(&mut f, &mut zip)?;
         } else if !name.as_os_str().is_empty() {
-            zip.add_directory_from_path(name, options)?;
+            zip.add_directory_from_path(name, options.last_modified_time(mod_time.try_into().unwrap_or_default()))?;
         }
     }
     zip.finish()?;

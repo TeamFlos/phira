@@ -6,13 +6,12 @@ use super::{
 };
 use crate::{
     anim::Anim,
-    client::{recv_raw, Character, Client, LoginParams, User, UserManager},
+    client::{client_flavor, recv_raw, send_raw, Character, Client, ErrorCode, SessionExpired, User, UserManager},
     dir, get_data, get_data_mut,
     icons::Icons,
     login::Login,
     save_data,
     scene::{check_read_tos_and_policy, ProfileScene, JUST_LOADED_TOS},
-    sync_data,
     threed::ThreeD,
 };
 use ::rand::{random, thread_rng, Rng};
@@ -33,7 +32,10 @@ use reqwest::StatusCode;
 use serde::Deserialize;
 use std::{
     borrow::Cow,
-    sync::{atomic::Ordering, Arc},
+    sync::{
+        atomic::{AtomicI8, Ordering},
+        Arc,
+    },
 };
 use tap::Tap;
 use tracing::{info, warn};
@@ -65,6 +67,9 @@ pub struct HomePage {
 
     login: Login,
     update_task: Option<Task<Result<User>>>,
+    /// Outcome of the session-restore pending-delete dialog: 0 = none,
+    /// 1 = confirm (cancel the deletion and retry), 2 = cancel (log out).
+    pending_delete_choice: Arc<AtomicI8>,
 
     need_back: bool,
     sf: SFader,
@@ -100,34 +105,49 @@ pub struct HomePage {
     char_scroll: Scroll,
     char_edit_btn: RectButton,
 
-    #[cfg(feature = "aa")]
+    #[cfg(feature = "hykb")]
     beian_btn: RectButton,
+    /// Anti-addiction check started for a restored session whose refresh
+    /// failed (see the `update_task` error branch).
+    #[cfg(feature = "hykb")]
+    anti_addiction_task: Option<Task<Result<()>>>,
 }
 
 impl HomePage {
-    pub async fn new() -> Result<Self> {
-        let update_task = if get_data().config.offline_mode {
-            None
-        } else if let Some(u) = &get_data().me {
-            UserManager::request(u.id);
+    pub async fn new(icons: Arc<Icons>) -> Result<Self> {
+        let offline = get_data().config.offline_mode;
+        // On regular builds offline mode skips the online session restore
+        // entirely. HYKB builds must keep every restored session covered by the
+        // online anti-addiction check, so they always restore (even from a
+        // migrated config); offline mode there only skips the non-essential
+        // requests.
+        #[cfg(feature = "hykb")]
+        let restore = get_data().me.is_some();
+        #[cfg(not(feature = "hykb"))]
+        let restore = get_data().me.is_some() && !offline;
+        let update_task = if restore {
+            let user_id = get_data().me.as_ref().unwrap().id;
+            if !offline {
+                UserManager::request(user_id);
+            }
             Some(Task::new(async {
-                Client::login(LoginParams::RefreshToken {
-                    token: &get_data().tokens.as_ref().unwrap().1,
-                })
-                .await?;
-                Client::get_me().await
+                Client::refresh_tokens(false).await?;
+                let me = Client::get_me().await?;
+                // On HYKB builds a restored session still requires anti-addiction
+                // coverage, from the check matching how it was signed in: the
+                // HYKB SDK for HYKB logins, GTS for email logins.
+                #[cfg(feature = "hykb")]
+                crate::ensure_anti_addiction(&me).await?;
+                Ok(me)
             }))
         } else {
             None
         };
 
-        let flavor = match load_file("flavor").await.map(String::from_utf8) {
-            Ok(Ok(flavor)) => flavor.trim().to_owned(),
-            _ => "none".to_owned(),
-        };
+        let flavor = client_flavor().await;
 
         let mut res = Self {
-            icons: Arc::new(Icons::new().await?),
+            icons: Arc::clone(&icons),
 
             btn_play: DRectButton::new().with_delta(-0.01).no_sound(),
             btn_event: DRectButton::new().with_elevation(0.002).no_sound(),
@@ -138,8 +158,9 @@ impl HomePage {
 
             next_page: None,
 
-            login: Login::new(),
+            login: Login::new(icons),
             update_task,
+            pending_delete_choice: Arc::new(AtomicI8::new(0)),
 
             need_back: false,
             sf: SFader::new(),
@@ -163,11 +184,7 @@ impl HomePage {
             check_bold_font_update_task: {
                 let cksum = BOLD_FONT_CKSUM.with(|it| it.borrow().clone());
                 Some(Task::new(async move {
-                    let resp = Client::get("/font-bold")
-                        .query(&[("cksum", cksum)])
-                        .query(&[("new_bold_font", "true")])
-                        .send()
-                        .await?;
+                    let resp = send_raw(Client::get("/font-bold").query(&[("cksum", cksum)]).query(&[("new_bold_font", "true")])).await?;
                     if resp.status() == StatusCode::NOT_MODIFIED {
                         info!("bold font not modified");
                         return Ok(None);
@@ -210,8 +227,10 @@ impl HomePage {
             char_scroll: Scroll::new().use_clip(ClipType::Clip),
             char_edit_btn: RectButton::new(),
 
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             beian_btn: RectButton::new(),
+            #[cfg(feature = "hykb")]
+            anti_addiction_task: None,
         };
         res.load_char_illu();
 
@@ -383,6 +402,12 @@ impl Page for HomePage {
         if self.sf.transiting() {
             return Ok(true);
         }
+        // The HYKB startup check (refresh + verify SDK session) is blocking: keep
+        // the home page inert until it resolves.
+        #[cfg(feature = "hykb")]
+        if self.update_task.is_some() {
+            return Ok(true);
+        }
         let t = s.t;
         let rt = s.rt;
         if self.login.touch(touch, s.t) {
@@ -396,11 +421,13 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_event.touch(touch, t) {
-                button_hit_large();
-                if get_data().me.is_none() {
-                    self.login.enter(t);
-                } else {
-                    self.next_page = Some(NextPage::Overlay(Box::new(EventPage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                if check_read_tos_and_policy(true, true) {
+                    button_hit_large();
+                    if get_data().me.is_none() {
+                        self.login.enter(t);
+                    } else {
+                        self.next_page = Some(NextPage::Overlay(Box::new(EventPage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                    }
                 }
                 return Ok(true);
             }
@@ -410,7 +437,9 @@ impl Page for HomePage {
                 return Ok(true);
             }
             if self.btn_msg.touch(touch, t) {
-                self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                if check_read_tos_and_policy(true, true) {
+                    self.next_page = Some(NextPage::Overlay(Box::new(MessagePage::new(Arc::clone(&self.icons), s.icons.clone()))));
+                }
                 return Ok(true);
             }
             if self.btn_settings.touch(touch, t) {
@@ -428,13 +457,13 @@ impl Page for HomePage {
         if self.btn_user.touch(touch, t) {
             if let Some(me) = &get_data().me {
                 self.need_back = true;
-                self.sf.goto(t, ProfileScene::new(me.id, self.icons.user.clone(), s.icons.clone()));
+                self.sf.goto(t, ProfileScene::new(me.id, self.icons.clone(), s.icons.clone()));
             } else {
                 self.login.enter(t);
             }
             return Ok(true);
         }
-        #[cfg(feature = "aa")]
+        #[cfg(feature = "hykb")]
         if self.beian_btn.touch(touch) {
             let _ = open_url("https://beian.miit.gov.cn/#/home");
             return Ok(true);
@@ -456,6 +485,13 @@ impl Page for HomePage {
 
     fn update(&mut self, s: &mut SharedState) -> Result<()> {
         let t = s.t;
+        // HYKB builds require an account: while signed out, keep the login panel
+        // forced open. Polling here (rather than only on entry) also covers the
+        // player manually logging out and popping back to the home page.
+        #[cfg(feature = "hykb")]
+        if get_data().me.is_none() {
+            self.login.force(t);
+        }
         self.login.update(t)?;
         let current_user = Some(get_data().me.as_ref().map_or(-1, |it| it.id));
         self.char_scroll.update(t);
@@ -473,15 +509,48 @@ impl Page for HomePage {
             if let Some(res) = task.take() {
                 match res {
                     Err(err) => {
-                        // wtf bro
-                        if format!("{err:?}").contains("invalid token") {
-                            get_data_mut().me = None;
-                            get_data_mut().tokens = None;
-                            let _ = save_data();
-                            sync_data();
+                        let expired = err.downcast_ref::<SessionExpired>().is_some_and(SessionExpired::is_current);
+                        if expired {
+                            crate::force_logout();
+                        } else {
+                            // The session survives temporary refresh failures,
+                            // so on HYKB builds it still
+                            // needs anti-addiction coverage: normally the task
+                            // requests it after get_me, but a weak network can
+                            // fail before that point, which used to leave the
+                            // restored session playing with no coverage at all.
+                            // Start the matching check under the persisted user:
+                            // GTS fails closed (an init failure tears the session
+                            // back down via -3, a failed check shows the SDK's
+                            // exit-only dialog), and the HYKB sign-in logs out
+                            // on any failure or account mismatch.
+                            #[cfg(feature = "hykb")]
+                            if let Some(me) = get_data().me.clone() {
+                                self.anti_addiction_task = Some(Task::new(async move { crate::ensure_anti_addiction(&me).await }));
+                            }
                         }
-                        // TODO: better error handling
-                        show_error(err.context(tl!("failed-to-update") + "\n" + tl!("note-try-login-again")));
+                        if err.downcast_ref::<ErrorCode>() == Some(&ErrorCode::PENDING_DELETE_REQUEST) {
+                            self.pending_delete_choice.store(0, Ordering::SeqCst);
+                            use crate::login::{tl as ltl, L10N_LOCAL};
+                            let choice = Arc::clone(&self.pending_delete_choice);
+                            Dialog::plain(ltl!("pending-delete-title").into_owned(), ltl!("pending-delete-message").into_owned())
+                                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                                .listener(move |_dialog, id| {
+                                    if id == -1 {
+                                        return true;
+                                    }
+                                    choice.store(if id == 1 { 1 } else { 2 }, Ordering::SeqCst);
+                                    false
+                                })
+                                .show();
+                        } else {
+                            let mut message = tl!("failed-to-update").into_owned();
+                            if expired {
+                                message += "\n";
+                                message += &tl!("note-try-login-again");
+                            }
+                            show_error(err.context(message));
+                        }
                     }
                     Ok(val) => {
                         get_data_mut().me = Some(val);
@@ -490,6 +559,34 @@ impl Page for HomePage {
                 }
                 self.update_task = None;
             }
+        }
+        #[cfg(feature = "hykb")]
+        if let Some(task) = &mut self.anti_addiction_task {
+            if let Some(res) = task.take() {
+                if let Err(err) = res {
+                    show_error(err);
+                }
+                self.anti_addiction_task = None;
+            }
+        }
+        match self.pending_delete_choice.swap(0, Ordering::Relaxed) {
+            1 => {
+                let tokens = get_data().tokens.clone();
+                self.update_task = tokens.map(|_| {
+                    Task::new(async move {
+                        Client::refresh_tokens(true).await?;
+                        let me = Client::get_me().await?;
+                        // Same coverage rule as the startup restore above.
+                        #[cfg(feature = "hykb")]
+                        crate::ensure_anti_addiction(&me).await?;
+                        Ok(me)
+                    })
+                });
+            }
+            2 => {
+                crate::force_logout();
+            }
+            _ => {}
         }
         if self.board_task.is_none() && t - self.board_last_time > BOARD_SWITCH_TIME {
             let charts = &get_data().charts;
@@ -778,7 +875,7 @@ impl Page for HomePage {
                     .draw();
             }
 
-            #[cfg(feature = "aa")]
+            #[cfg(feature = "hykb")]
             {
                 let r = ui.screen_rect();
                 let r = ui
@@ -792,6 +889,11 @@ impl Page for HomePage {
         });
 
         self.login.render(ui, t);
+        // Cover the home page with a blocking loader during the HYKB startup check.
+        #[cfg(feature = "hykb")]
+        if self.update_task.is_some() {
+            ui.full_loading_simple(t);
+        }
         self.sf.render(ui, t);
 
         Ok(())

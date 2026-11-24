@@ -29,6 +29,27 @@ use std::{
 
 pub static NEED_UPDATE: AtomicBool = AtomicBool::new(false);
 
+/// Deletes a local chart from disk and from `Data::charts`, then marks the chart
+/// list for refresh.
+///
+/// Idempotent: a chart that has already been removed (or was never on disk) is
+/// simply skipped.
+pub fn delete_local_chart(path: &str) -> Result<()> {
+    let chart_dir = format!("{}/{}", dir::charts()?, path);
+    if Path::new(&chart_dir).exists() {
+        std::fs::remove_dir_all(chart_dir)?;
+    }
+    {
+        let data = get_data_mut();
+        if let Some(index) = data.find_chart_by_path(path) {
+            data.charts.remove(index);
+        }
+    }
+    save_data()?;
+    NEED_UPDATE.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
 const CHART_PADDING: f32 = 0.013;
 const BACK_FADE_IN_TIME: f32 = 0.2;
 
@@ -102,6 +123,7 @@ pub struct ChartsView {
     pub clicked_special: bool,
 
     pub allow_edit: bool,
+    pub allow_multi_select: bool,
     editing_chart: Option<usize>,
     chart_menu: Popup,
     need_show_chart_menu: bool,
@@ -133,6 +155,7 @@ impl ChartsView {
             clicked_special: false,
 
             allow_edit: false,
+            allow_multi_select: true,
             editing_chart: None,
             chart_menu: Popup::new(),
             need_show_chart_menu: false,
@@ -198,6 +221,15 @@ impl ChartsView {
             return Ok(true);
         }
         if self.scroll.touch(touch, t) {
+            // Scroll took over the gesture (user is scrolling, not clicking / long-pressing).
+            // Clear any pending long-touch state so a fast flick doesn't leave a stale
+            // start time behind that later gets misjudged as a long click.
+            if let Some(charts) = &mut self.charts {
+                for item in charts.iter_mut() {
+                    item.long_touch.reset();
+                    item.btn.inner.cancel();
+                }
+            }
             return Ok(true);
         }
         if !self.scroll.contains(touch) {
@@ -296,7 +328,7 @@ impl ChartsView {
                         });
                         return Ok(true);
                     }
-                    if self.multi_select.is_none() && item.btn.long_touch(touch, t, &mut item.long_touch) {
+                    if self.allow_multi_select && self.multi_select.is_none() && item.btn.long_touch(touch, t, &mut item.long_touch) {
                         self.scroll.y_scroller.halt();
                         self.editing_chart = Some(id);
                         let mut options = vec![tl!("select").into_owned()];
@@ -347,7 +379,7 @@ impl ChartsView {
         let refreshed = self.can_refresh && self.scroll.y_scroller.pulled;
         self.chart_menu.update(t);
         self.scroll.update(t);
-        if self.multi_select.is_none() {
+        if self.allow_multi_select && self.multi_select.is_none() {
             if let Some(charts) = &mut self.charts {
                 for (id, item) in charts.iter_mut().enumerate() {
                     if item.chart.is_some() && item.btn.update_long_touch(t, &mut item.long_touch) {
@@ -403,23 +435,10 @@ impl ChartsView {
             transit.chart.illu.settle(t);
             if t > transit.start_time + transit_time().unwrap_or_default() {
                 if transit.back {
-                    if transit.delete {
-                        let data = get_data_mut();
-                        let item = &self.charts.as_ref().unwrap()[transit.id as usize];
-                        let path = if let Some(path) = &item.chart.as_ref().unwrap().local_path {
-                            path.clone()
-                        } else {
-                            format!("download/{}", item.chart.as_ref().unwrap().info.id.unwrap())
-                        };
-                        std::fs::remove_dir_all(format!("{}/{path}", dir::charts()?))?;
-
-                        if let Some(chart) = data.find_chart_by_path(path.as_str()) {
-                            data.charts.remove(chart);
-                        }
-
-                        save_data()?;
-                        NEED_UPDATE.store(true, Ordering::SeqCst);
-                    } else {
+                    // On delete, SongScene has already removed the chart and
+                    // the list may have been reloaded since, so `transit.id`
+                    // no longer reliably points at the deleted item.
+                    if !transit.delete {
                         self.back_fade_in = Some((transit.id, t));
                     }
                     self.transit = None;

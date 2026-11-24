@@ -19,4 +19,5 @@ visual = 观赏
 
 filter-me = 我上传的
 filter-unreviewed = 待审核
+filter-reviewed = 只看已审核
 filter-stabilize = 待 stable 审核

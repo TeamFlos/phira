@@ -3,6 +3,9 @@ logout = 退出登录
 logged-out = 已退出登录
 
 delete = 删除账户
+delete-confirm =
+  提交删除请求后，你的账户将进入一段时间的待删除期。待删除期结束后，你的账户将被彻底删除，届时你将无法再登录或找回账户。在待删除期内，你可以通过登录账户来取消删除请求。
+  请确认是否继续？
 delete-failed = 删除账户失败
 delete-req-sent = 账户删除请求已提交
 
@@ -19,3 +22,14 @@ badge-admin = 管理员
 badge-sponsor = 赞助者
 
 name-copied = 名称已复制
+
+hykb-login-cancelled = 已取消好游快爆登录
+
+hykb-transfer = 迁移旧账号
+transfer-prompt = 要迁移的旧账号邮箱
+transfer-requesting = 正在申请迁移
+transfer-email-sent = 确认邮件已发送，请前往邮箱点击链接完成迁移
+transfer-failed = 申请迁移失败
+
+web-login = 在网页端登录
+web-login-failed = 打开网页登录失败

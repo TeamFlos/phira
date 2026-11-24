@@ -52,6 +52,11 @@ item-chart-debug = 비트맵 디버그 모드
 item-chart-debug-sub = 라인 번호 및 방향 표시
 item-touch-debug = 터치 디버그 모드
 item-touch-debug-sub = 터치 지점 표시
+item-export-logs = 로그 내보내기
+item-export-logs-sub = 문제를 제보할 수 있도록 최근 7일간의 로그를 ZIP 파일로 내보냅니다.
+item-export-logs-button = 내보내기
+log-exporting = 로그 내보내는 중…
+log-export-failed = 로그를 내보내지 못했습니다
 
 load-cali-failed = 오디오를 로드하는데 실패했습니다.
 
@@ -59,6 +64,8 @@ about-content =
   Phira v{ $version }
 
   Phira는 Phigros에서 영감을 받은 비상업적 커뮤니티 중심의 리듬 게임입니다.
+
+  본 프로젝트는 비공식 플레이어 프로젝트로, Pigeon Games(南京鸽游网络有限公司) 및 《Phigros》 공식 측과 그 어떠한 승인·협력·운영 관계도 존재하지 않습니다.
 
   BiliBili 계정: @Phira官方
   QQ 길드: r48eajexth

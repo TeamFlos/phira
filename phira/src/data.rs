@@ -99,10 +99,24 @@ fn default_anys_gateway() -> String {
     "https://anys.mivik.moe".to_string()
 }
 
+/// How the current session was signed in. On HYKB builds this decides which
+/// anti-addiction check covers a restored session: a HYKB login is covered by
+/// the HYKB login SDK's own enforcement, an email login by the GTS SDK.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LoginSource {
+    Email,
+    Hykb,
+}
+
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Data {
     pub me: Option<User>,
+    /// Source of the current session. `None` means logged out, or data written
+    /// by an older version: the anti-addiction check then tries to restore the
+    /// HYKB session first and falls back to GTS.
+    pub login_source: Option<LoginSource>,
     pub charts: Vec<LocalChart>,
     pub local_records: HashMap<String, Option<SimpleRecord>>,
     pub config: Config,

@@ -1,23 +1,27 @@
 prpr_l10n::tl_file!("profile");
 
-use super::{confirm_delete, TEX_BACKGROUND, TEX_ICON_BACK};
+use super::{SongScene, TEX_BACKGROUND, TEX_ICON_BACK};
 use crate::{
-    anti_addiction_action,
     client::{recv_raw, Client, Record, User, UserManager},
-    get_data, get_data_mut,
-    page::{Fader, Illustration, SFader},
-    save_data, sync_data,
+    deeplink::{start_chart_opening, DeepLinkChartOpening},
+    get_data,
+    icons::Icons,
+    page::{ChartItem, Fader, Illustration, SFader},
 };
 use anyhow::Result;
 use chrono::Local;
+#[cfg(feature = "hykb")]
+use inputbox::InputBox;
 use macroquad::prelude::*;
+#[cfg(feature = "hykb")]
+use prpr::scene::{request_input, return_input, take_input};
 use prpr::{
     ext::{open_url, semi_black, semi_white, RectExt, SafeTexture, ScaleType, BLACK_TEXTURE},
     judge::icon_index,
     scene::{request_file, return_file, show_error, show_message, take_file, NextScene, Scene},
     task::Task,
     time::TimeManager,
-    ui::{button_hit, rounded_rect_shadow, DRectButton, RectButton, Scroll, ShadowConfig, Ui},
+    ui::{button_hit, rounded_rect_shadow, DRectButton, Dialog, RectButton, Scroll, ShadowConfig, Ui},
 };
 use serde_json::json;
 use std::sync::{
@@ -43,13 +47,19 @@ pub struct ProfileScene {
     background: SafeTexture,
 
     icon_back: SafeTexture,
-    icon_user: SafeTexture,
+    icons: Arc<Icons>,
 
     btn_back: RectButton,
     btn_name: RectButton,
     btn_open_web: DRectButton,
+    btn_web_login: DRectButton,
+    web_login_task: Option<Task<Result<String>>>,
     btn_logout: DRectButton,
     btn_delete: DRectButton,
+    #[cfg(feature = "hykb")]
+    btn_transfer: DRectButton,
+    #[cfg(feature = "hykb")]
+    transfer_task: Option<Task<Result<()>>>,
 
     load_task: Option<Task<Result<Arc<User>>>>,
 
@@ -62,6 +72,7 @@ pub struct ProfileScene {
     scroll: Scroll,
     record_task: Option<Task<Result<Vec<RecordItem>>>>,
     record_items: Option<Vec<RecordItem>>,
+    chart_opening: Option<DeepLinkChartOpening>,
 
     sf: SFader,
     fader: Fader,
@@ -70,10 +81,10 @@ pub struct ProfileScene {
 }
 
 impl ProfileScene {
-    pub fn new(id: i32, icon_user: SafeTexture, rank_icons: [SafeTexture; 8]) -> Self {
-        let _ = UserManager::clear_cache(id);
+    pub fn new(id: i32, icons: Arc<Icons>, rank_icons: [SafeTexture; 8]) -> Self {
         UserManager::request(id);
         let load_task = Some(Task::new(Client::load(id)));
+        once_cell::sync::Lazy::force(&BLACK_TEXTURE);
         Self {
             id,
             user: None,
@@ -84,13 +95,19 @@ impl ProfileScene {
             background: TEX_BACKGROUND.with(|it| it.borrow().clone().unwrap()),
 
             icon_back: TEX_ICON_BACK.with(|it| it.borrow().clone().unwrap()),
-            icon_user,
+            icons,
 
             btn_back: RectButton::new(),
             btn_name: RectButton::new(),
             btn_open_web: DRectButton::new(),
+            btn_web_login: DRectButton::new(),
+            web_login_task: None,
             btn_logout: DRectButton::new(),
             btn_delete: DRectButton::new(),
+            #[cfg(feature = "hykb")]
+            btn_transfer: DRectButton::new(),
+            #[cfg(feature = "hykb")]
+            transfer_task: None,
 
             load_task,
 
@@ -134,6 +151,7 @@ impl ProfileScene {
                     .collect())
             })),
             record_items: None,
+            chart_opening: None,
 
             sf: SFader::new(),
             fader: Fader::new().with_distance(0.12),
@@ -145,6 +163,7 @@ impl ProfileScene {
 
 impl Scene for ProfileScene {
     fn enter(&mut self, tm: &mut TimeManager, _target: Option<RenderTarget>) -> Result<()> {
+        self.chart_opening = None;
         self.sf.enter(tm.now() as _);
         Ok(())
     }
@@ -165,7 +184,9 @@ impl Scene for ProfileScene {
                             match badge.as_str() {
                                 "admin" => self.user_badges.push(tl!("badge-admin").into_owned()),
                                 "sponsor" => self.user_badges.push(tl!("badge-sponsor").into_owned()),
-                                _ => {}
+                                _ => self
+                                    .user_badges
+                                    .push(res.badge_names.get(badge).cloned().unwrap_or_else(|| badge.clone())),
                             }
                         }
                         self.user = Some(res);
@@ -217,6 +238,46 @@ impl Scene for ProfileScene {
             }
         }
 
+        if let Some(task) = &mut self.web_login_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("web-login-failed"))),
+                    // The ticket rides in the fragment so it never reaches
+                    // server logs; it is single-use and expires in minutes.
+                    Ok(ticket) => open_url(&format!("https://phira.moe/auth/app#ticket={ticket}"))?,
+                }
+                self.web_login_task = None;
+            }
+        }
+
+        #[cfg(feature = "hykb")]
+        if let Some((id, text)) = take_input() {
+            if id == "transfer-email" {
+                let email = text.trim().to_owned();
+                if !email.is_empty() {
+                    self.transfer_task = Some(Task::new(async move {
+                        Client::transfer_request(&email).await?;
+                        Ok(())
+                    }));
+                }
+            } else {
+                return_input(id, text);
+            }
+        }
+
+        #[cfg(feature = "hykb")]
+        if let Some(task) = &mut self.transfer_task {
+            if let Some(res) = task.take() {
+                match res {
+                    Err(err) => show_error(err.context(tl!("transfer-failed"))),
+                    Ok(_) => {
+                        Dialog::plain(tl!("hykb-transfer"), tl!("transfer-email-sent")).show();
+                    }
+                }
+                self.transfer_task = None;
+            }
+        }
+
         if let Some(task) = &mut self.record_task {
             if let Some(res) = task.take() {
                 match res {
@@ -230,9 +291,35 @@ impl Scene for ProfileScene {
             }
         }
 
+        if let Some(res) = self.chart_opening.as_mut().and_then(|it| it.take_result()) {
+            match res {
+                Err(err) => {
+                    use crate::scene::L10N_LOCAL;
+                    show_error(err.context(itl!("deeplink-open-failed")));
+                    self.chart_opening = None;
+                }
+                Ok(chart) => {
+                    let mut item = ChartItem::from_remote(&chart);
+                    let mods = if let Some(local) = get_data().charts.iter().find(|it| it.info.id == Some(chart.id)) {
+                        // SongScene compares these local timestamps with the remote version.
+                        item.info = local.info.clone();
+                        item.local_path = Some(local.local_path.clone());
+                        local.mods
+                    } else {
+                        Default::default()
+                    };
+                    let local_path = item.local_path.clone();
+                    // Keep the loading overlay until the scene transition finishes,
+                    // so the profile does not flash through between the two.
+                    self.sf
+                        .goto(t, SongScene::new(item, local_path, Arc::clone(&self.icons), self.rank_icons.clone(), mods));
+                }
+            }
+        }
+
         if self.should_delete.fetch_and(false, Ordering::Relaxed) {
             self.delete_task = Some(Task::new(async move {
-                Client::post("/delete-account", &()).send().await?.error_for_status()?;
+                recv_raw(Client::post("/delete-account", &())).await?;
                 Ok(())
             }));
         }
@@ -254,6 +341,12 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
         let t = tm.now() as f32;
+        if let Some(opening) = &mut self.chart_opening {
+            if opening.touch(touch, t) {
+                self.chart_opening = None;
+            }
+            return Ok(true);
+        }
         if self.pf_scroll.touch(touch, t) {
             return Ok(true);
         }
@@ -273,18 +366,33 @@ impl Scene for ProfileScene {
             open_url(&format!("https://phira.moe/user/{}", self.id))?;
             return Ok(true);
         }
+        if self.web_login_task.is_none() && self.btn_web_login.touch(touch, t) {
+            self.web_login_task = Some(Task::new(Client::create_web_ticket()));
+            return Ok(true);
+        }
         if self.btn_logout.touch(touch, t) {
-            anti_addiction_action("exit", None);
-            get_data_mut().me = None;
-            get_data_mut().tokens = None;
-            let _ = save_data();
-            sync_data();
+            crate::force_logout();
             show_message(tl!("logged-out")).ok();
             self.sf.next(t, NextScene::Pop);
             return Ok(true);
         }
         if self.btn_delete.touch(touch, t) {
-            confirm_delete(Arc::clone(&self.should_delete));
+            let res = self.should_delete.clone();
+            Dialog::plain(ttl!("del-confirm").into_owned(), tl!("delete-confirm").into_owned())
+                .buttons(vec![ttl!("cancel").into_owned(), ttl!("confirm").into_owned()])
+                .countdown(5)
+                .listener(move |_dialog, id| {
+                    if id == 1 {
+                        res.store(true, Ordering::SeqCst);
+                    }
+                    false
+                })
+                .show();
+            return Ok(true);
+        }
+        #[cfg(feature = "hykb")]
+        if self.transfer_task.is_none() && self.btn_transfer.touch(touch, t) {
+            request_input("transfer-email", InputBox::new().title(tl!("hykb-transfer")).prompt(tl!("transfer-prompt")));
             return Ok(true);
         }
         if get_data().me.as_ref().is_some_and(|it| it.id == self.id) && self.avatar_btn.touch(touch) {
@@ -292,14 +400,24 @@ impl Scene for ProfileScene {
             return Ok(true);
         }
 
-        if self.scroll.touch(touch, t) {
-            return Ok(true);
+        let scrolled = self.scroll.touch(touch, t);
+        if scrolled || !self.scroll.contains(touch) {
+            let cancelled = Touch {
+                phase: TouchPhase::Cancelled,
+                ..touch.clone()
+            };
+            if let Some(items) = &mut self.record_items {
+                for item in items {
+                    item.btn.touch(&cancelled, t);
+                }
+            }
+            return Ok(scrolled);
         }
         if let Some(items) = &mut self.record_items {
             for item in items {
                 if item.btn.touch(touch, t) {
                     self.scroll.y_scroller.halt();
-
+                    self.chart_opening = Some(start_chart_opening(item.record.chart.id));
                     return Ok(true);
                 }
             }
@@ -345,7 +463,7 @@ impl Scene for ProfileScene {
                     let mw = r.w - pad * 2.;
                     let cx = r.center().x;
                     let radius = 0.12;
-                    let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icon_user));
+                    let r = ui.avatar(cx, r.y + radius + 0.05, radius, t, UserManager::opt_avatar(self.id, &self.icons.user));
                     self.avatar_btn.set(ui, r);
                     let r = ui
                         .text(&user.name)
@@ -397,9 +515,20 @@ impl Scene for ProfileScene {
                     self.btn_open_web.render_text(ui, r, t, ttl!("open-in-web"), 0.6, true);
                     r.y += r.h + 0.02;
                     if get_data().me.as_ref().is_some_and(|it| it.id == self.id) {
+                        self.btn_web_login.render_text(ui, r, t, tl!("web-login"), 0.6, true);
+                        r.y += r.h + 0.02;
                         self.btn_logout.render_text(ui, r, t, tl!("logout"), 0.6, true);
                         r.y += r.h + 0.02;
-                        self.btn_delete.render_text(ui, r, t, tl!("delete"), 0.6, true);
+                        self.btn_delete.render_text_color(ui, r, t, tl!("delete"), 0.6, true, RED);
+                        // Pure-HYKB players (bound, no email) can migrate their
+                        // binding onto an existing email account. There is no
+                        // in-app bind/unbind: email sessions run GTS
+                        // anti-addiction and never touch the HYKB login SDK.
+                        #[cfg(feature = "hykb")]
+                        if get_data().me.as_ref().is_some_and(|it| it.hykb_uid.is_some() && it.email.is_none()) {
+                            r.y += r.h + 0.02;
+                            self.btn_transfer.render_text(ui, r, t, tl!("hykb-transfer"), 0.6, true);
+                        }
                     }
                     (ow, r.bottom() - oy + 0.04)
                 });
@@ -427,6 +556,7 @@ impl Scene for ProfileScene {
                                 let Some(item) = iter.next() else { unreachable!() };
                                 f.render(ui, t, |ui| {
                                     let r = Rect::new(j as f32 * r.w / 2. + pad, r.y + ui.top + i as f32 * h, r.w / 2. - pad * 2., h - pad * 2.);
+                                    item.btn.invalidate();
                                     if r.y - o > ui.top * 2. || r.bottom() - o < 0. {
                                         return;
                                     }
@@ -465,10 +595,17 @@ impl Scene for ProfileScene {
             ui.loading(ct.x, ct.y, t, WHITE, ());
         }
 
+        if let Some(opening) = &mut self.chart_opening {
+            opening.render(ui, t);
+        }
         self.sf.render(ui, t);
 
         if self.avatar_task.is_some() {
             ui.full_loading(tl!("uploading-avatar"), t);
+        }
+        #[cfg(feature = "hykb")]
+        if self.transfer_task.is_some() {
+            ui.full_loading(tl!("transfer-requesting"), t);
         }
         Ok(())
     }

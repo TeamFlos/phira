@@ -1,8 +1,17 @@
-
 info-fail = Gagal memuat info chart
 invalid-chart = Chart tidak valid
-
 importing = Mengimport
 import-success = Import Sukses
 import-failed = Import Gagal
 import-respack-failed = Gagal mengimport respack
+import-respack-success = Import sumber paket berhasil
+batch-import = Import Massal
+batch-importing = Import massal dalam proses ({ $current }/{ $total })
+batch-import-confirm = Terdeteksi data impor massal, ingin mengimpor semua { $count } beatmap/chart?
+batch-import-success = Berhasil import { $count } chart.
+batch-import-downloaded-skipped = Chart di lewati karena sudah pernah terunduh: { $charts }
+batch-import-failed = Import massal gagal
+batch-import-failed-chart = Import massal gagal: { $chart }
+warning = peringatan
+warning-new-speed-event = Chart ini menggunakan "speed event easing" yang diperkenalkan pada RPE 1.7.0. Untuk alasan kompatibilitas, Phira tidak mengaktifkan dukungan untuk event ini secara default. Jika kamu perlu mengaktifkannya, silakan centang "Speed Easing Baru" atau "新速度缓动" di informasi chart.
+warning-attach-ui = Chart ini menggunakan UI binding. Versi terbaru Phira menghadirkan perbaikan untuk UI binding, tetapi hal ini dapat menyebabkan masalah pada chart yang bergantung pada perilaku sistem lama. Jika perlu, silakan hilangkan centang "Perbaikan UI Binding" (UI Binding Fix) pada informasi chart.

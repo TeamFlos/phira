@@ -1,0 +1,6 @@
+select = 選択
+move-to-first = 先頭に移動
+move-to-last = 最後に移動
+move-before = この前へ移動…
+move-after = この後ろへ移動…
+choose-target = 対象を選択してください

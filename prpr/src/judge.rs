@@ -687,7 +687,7 @@ impl Judge {
                         NoteKind::Hold { .. } => {
                             note.hitsound.play(res);
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
-                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, (t - note.time) / spd, false, f64::INFINITY);
+                            note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f64::INFINITY);
                         }
                         _ => unreachable!(),
                     };
@@ -919,10 +919,11 @@ impl Judge {
                 (note.object.now(res), note.hitsound.clone())
             };
             let line = &chart.lines[line_id];
+            let note = &line.notes[id as usize];
             res.with_model(line.now_transform(res, &chart.lines) * note_transform, |res| {
-                res.emit_at_origin(line.notes[id as usize].rotation(line), res.res_pack.info.fx_perfect())
+                res.emit_at_origin(note.rotation(line), note.fx_color.unwrap_or_else(|| res.res_pack.info.fx_perfect()))
             });
-            if !matches!(chart.lines[line_id].notes[id as usize].kind, NoteKind::Hold { .. }) {
+            if !matches!(note.kind, NoteKind::Hold { .. }) {
                 note_hitsound.play(res);
             }
         }
