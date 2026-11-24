@@ -698,13 +698,7 @@ async fn parse_judge_line(
                     .as_ref()
                     .map(|e| -> Result<_> {
                         Ok(AnimVector(
-                            parse(
-                                r,
-                                &e.scale_x_events,
-                                factor,
-                                default, 
-                                bezier_map,
-                            )?,
+                            parse(r, &e.scale_x_events, factor, default, bezier_map)?,
                             parse(r, &e.scale_y_events, factor, default, bezier_map)?,
                         ))
                     })
