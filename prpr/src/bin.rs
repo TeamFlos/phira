@@ -464,6 +464,7 @@ impl BinaryData for ChartSettings {
             pe_alpha_extension: r.read::<u8>()? == 1,
             hold_partial_cover: r.read::<u8>()? == 1,
             line_reference_y_axis: r.read::<u8>()? == 1,
+            line_length_scale: r.read()?,
         })
     }
 
@@ -471,6 +472,7 @@ impl BinaryData for ChartSettings {
         w.write_val(self.pe_alpha_extension as u8)?;
         w.write_val(self.hold_partial_cover as u8)?;
         w.write_val(self.line_reference_y_axis as u8)?;
+        w.write_val(self.line_length_scale)?;
         Ok(())
     }
 }

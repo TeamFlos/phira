@@ -239,7 +239,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f64, format_version: u32) -> Re
     Ok(JudgeLine {
         object: Object {
             alpha: parse_float_events(r, pgr.alpha_events).with_context(|| ptl!("alpha-events-parse-failed"))?,
-            scale: AnimVector(AnimFloat::fixed(5.75 / 6.0), AnimFloat::default()),
+            scale: AnimVector::default(),
             rotation: parse_float_events(r, pgr.rotate_events).with_context(|| ptl!("rotate-events-parse-failed"))?,
             translation: {
                 match format_version {
@@ -299,6 +299,7 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
         BpmList::default(),
         ChartSettings {
             line_reference_y_axis: true,
+            line_length_scale: 5.75 / 6.0,
             ..Default::default()
         },
         extra,

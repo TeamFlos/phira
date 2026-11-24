@@ -14,11 +14,22 @@ pub struct ChartExtra {
     pub videos: Vec<(super::Video, Option<super::VideoAttach>)>,
 }
 
-#[derive(Default)]
 pub struct ChartSettings {
     pub pe_alpha_extension: bool,
     pub hold_partial_cover: bool,
     pub line_reference_y_axis: bool,
+    pub line_length_scale: f32,
+}
+
+impl Default for ChartSettings {
+    fn default() -> Self {
+        Self {
+            pe_alpha_extension: false,
+            hold_partial_cover: false,
+            line_reference_y_axis: false,
+            line_length_scale: 1.0,
+        }
+    }
 }
 
 pub type HitSoundMap = HashMap<String, AudioClip>;

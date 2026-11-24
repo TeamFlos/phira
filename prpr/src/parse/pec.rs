@@ -163,7 +163,7 @@ fn parse_judge_line(mut pec: PECJudgeLine, id: usize, max_time: f64) -> Result<J
             alpha: parse_events(pec.alpha_events, id, "alpha")?,
             translation: AnimVector(parse_events(pec.move_events.0, id, "move X")?, parse_events(pec.move_events.1, id, "move Y")?),
             rotation: parse_events(pec.rotate_events, id, "rotate")?,
-            scale: AnimVector(AnimFloat::fixed(3.91 / 6.), AnimFloat::default()),
+            scale: AnimVector::default(),
         },
         ctrl_obj: RefCell::default(),
         kind: JudgeLineKind::Normal,
@@ -378,6 +378,7 @@ pub fn parse_pec(source: &str, extra: ChartExtra) -> Result<Chart> {
         r.unwrap(),
         ChartSettings {
             pe_alpha_extension: true,
+            line_length_scale: 3.91 / 6.,
             ..Default::default()
         },
         extra,
