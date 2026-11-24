@@ -247,7 +247,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f64, format_version: u32) -> Re
                     3 => parse_move_events(r, pgr.move_events).with_context(|| ptl!("move-events-parse-failed"))?,
                     _ => ptl!(bail "unknown-format-version"),
                 }
-            }
+            },
         },
         ctrl_obj: RefCell::default(),
         kind: JudgeLineKind::Normal,
@@ -302,6 +302,6 @@ pub fn parse_phigros(source: &str, extra: ChartExtra) -> Result<Chart> {
             ..Default::default()
         },
         extra,
-        HashMap::new()
+        HashMap::new(),
     ))
 }

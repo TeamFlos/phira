@@ -16,8 +16,6 @@ fn f32_one() -> f32 {
     1.
 }
 
-
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoAttach {
