@@ -1,9 +1,8 @@
-use super::{Anim, Matrix, Vector};
+use super::Anim;
 use crate::ext::{source_of_image, ScaleType};
 use anyhow::Result;
 use macroquad::prelude::*;
 use miniquad::{Texture, TextureFormat, TextureParams, TextureWrap};
-use nalgebra::Rotation2;
 use prpr_avc::AVPixelFormat;
 use serde::Deserialize;
 use std::{cell::RefCell, io::Write};
@@ -35,17 +34,6 @@ pub struct VideoAttach {
     pub scale_x_mode: u8,
     #[serde(default)]
     pub scale_y_mode: u8,
-}
-
-impl VideoAttach {
-    pub(super) fn transform(&self, position: Vector, rotation: f32) -> Matrix {
-        let translation = position.component_mul(&Vector::new(self.position_x_factor, self.position_y_factor));
-        Rotation2::new(rotation.to_radians() * self.rotation_factor)
-            .to_homogeneous()
-            // Correct the texture orientation before adding the line position.
-            .append_nonuniform_scaling(&Vector::new(1., -1.))
-            .append_translation(&translation)
-    }
 }
 
 pub struct Video {
