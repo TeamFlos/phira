@@ -1,6 +1,6 @@
 set-as-default = Đặt làm mặc định
 default = mặc định
-create = Tạo thư mục yêu thích mới
+create = Tạo thư mục mới
 created = Tạo thành công
 name-empty = Tên thư mục không được để trống
 import = Nhập
@@ -31,6 +31,6 @@ sync-confirm = Việc đồng bộ có thể ghi đè dữ liệu, tiếp tục?
 info-name = Tên
 info-description = Mô tả
 info-count = Số lượng chart
-sync-outdated = Dữ liệu đám mây đã được cập nhật từ thiết bị khác, vẫn muốn đồng bộ (ghi đè lên đám mây)?
+sync-outdated = Dữ liệu cloud đã được cập nhật từ thiết bị khác, vẫn muốn đồng bộ (ghi đè lên cloud)?
 delete-from-cloud-confirm = Xóa thư mục này khỏi cloud?
 already-up-to-date = Đã là bản mới nhất
