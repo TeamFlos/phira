@@ -314,7 +314,7 @@ fn parse_events<T: Tweenable, V: Clone + Into<T>>(
     }
     let mut kfs = Vec::new();
     if let Some(default) = default {
-        if rpe[0].start_time.beats() != 0.0 {
+        if rpe[0].start_time.beats() > 0.0 {
             kfs.push(Keyframe::new(0.0, default, 0));
         }
     }
@@ -684,44 +684,22 @@ async fn parse_judge_line(
                 events_with_factor(r, &event_layers, |it| &it.move_y_events, 2. / RPE_HEIGHT, "move Y", bezier_map)?,
             ),
             scale: {
-                fn parse(r: &mut BpmList, opt: &Option<Vec<RPEEvent>>, factor: f32, default: f32, bezier_map: &BezierMap) -> Result<AnimFloat> {
+                fn parse(r: &mut BpmList, opt: &Option<Vec<RPEEvent>>, factor: f32, bezier_map: &BezierMap) -> Result<AnimFloat> {
                     let Some(events) = opt.as_ref().filter(|it| !it.is_empty()) else {
-                        return Ok(AnimFloat::fixed(default));
+                        return Ok(AnimFloat::fixed(factor));
                     };
                     let mut res = parse_events(r, events, None, bezier_map)?;
                     res.map_value(|v| v * factor);
                     Ok(res)
                 }
                 let factor = if rpe.texture == "line.png" { 1. } else { 2. / RPE_WIDTH };
-                let default = if rpe.texture == "line.png" { 1. } else { factor };
                 rpe.extended
                     .as_ref()
                     .map(|e| -> Result<_> {
-                        Ok(AnimVector(
-                            parse(
-                                r,
-                                &e.scale_x_events,
-                                factor
-                                    * if rpe.texture == "line.png"
-                                        && rpe
-                                            .extended
-                                            .as_ref()
-                                            .and_then(|it| it.text_events.as_ref())
-                                            .is_none_or(|it| it.is_empty())
-                                        && rpe.attach_ui.is_none()
-                                    {
-                                        0.5
-                                    } else {
-                                        1.
-                                    },
-                                default,
-                                bezier_map,
-                            )?,
-                            parse(r, &e.scale_y_events, factor, default, bezier_map)?,
-                        ))
+                        Ok(AnimVector(parse(r, &e.scale_x_events, factor, bezier_map)?, parse(r, &e.scale_y_events, factor, bezier_map)?))
                     })
                     .transpose()?
-                    .unwrap_or_else(|| AnimVector(AnimFloat::fixed(default), AnimFloat::fixed(default)))
+                    .unwrap_or_else(|| AnimVector(AnimFloat::fixed(factor), AnimFloat::fixed(factor)))
             },
         },
         ctrl_obj: RefCell::new(CtrlObject {
@@ -930,7 +908,17 @@ pub async fn parse_rpe(source: &str, fs: &mut dyn FileSystem, extra: ChartExtra,
         }
     }
     process_lines(&mut lines);
-    Ok(Chart::new(rpe.meta.offset as f32 / 1000.0, lines, r, ChartSettings::default(), extra, hitsounds))
+    Ok(Chart::new(
+        rpe.meta.offset as f32 / 1000.0,
+        lines,
+        r,
+        ChartSettings {
+            line_length_scale: 4000. / RPE_WIDTH / 6.,
+            ..Default::default()
+        },
+        extra,
+        hitsounds,
+    ))
 }
 
 pub async fn lint(source: &str) -> Result<ParseWarnings> {
