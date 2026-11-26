@@ -120,6 +120,34 @@ fn parse_float_events(r: f64, mut pgr: Vec<PgrEvent>) -> Result<AnimFloat> {
     Ok(AnimFloat::new(kfs))
 }
 
+fn clamp_alpha_events(pgr: Vec<PgrEvent>) -> Vec<PgrEvent> {
+    let mut res = Vec::with_capacity(pgr.len());
+    for e in pgr {
+        if (e.start > 0. && e.end < 0.) || (e.start < 0. && e.end > 0.) {
+            let zero_time = e.start_time + (e.end_time - e.start_time) * (e.start / (e.start - e.end)) as f64;
+            res.push(PgrEvent {
+                end_time: zero_time,
+                start: e.start.max(0.),
+                end: 0.,
+                ..e
+            });
+            res.push(PgrEvent {
+                start_time: zero_time,
+                start: 0.,
+                end: e.end.max(0.),
+                ..e
+            });
+        } else {
+            res.push(PgrEvent {
+                start: e.start.max(0.),
+                end: e.end.max(0.),
+                ..e
+            });
+        }
+    }
+    res
+}
+
 fn parse_move_events(r: f64, mut pgr: Vec<PgrEvent>) -> Result<AnimVector> {
     validate_events!(pgr);
     let mut kf1 = Vec::<Keyframe<f32>>::new();
@@ -238,7 +266,7 @@ fn parse_judge_line(pgr: PgrJudgeLine, max_time: f64, format_version: u32) -> Re
     let cache = JudgeLineCache::new(&mut notes);
     Ok(JudgeLine {
         object: Object {
-            alpha: parse_float_events(r, pgr.alpha_events).with_context(|| ptl!("alpha-events-parse-failed"))?,
+            alpha: parse_float_events(r, clamp_alpha_events(pgr.alpha_events)).with_context(|| ptl!("alpha-events-parse-failed"))?,
             scale: AnimVector::default(),
             rotation: parse_float_events(r, pgr.rotate_events).with_context(|| ptl!("rotate-events-parse-failed"))?,
             translation: {
