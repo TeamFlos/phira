@@ -70,10 +70,10 @@ impl<T: Tweenable> Anim<T> {
     }
 
     pub fn chain(elements: Vec<Anim<T>>) -> Self {
+        let mut elements: Vec<_> = elements.into_iter().filter(|it| !it.keyframes.is_empty()).map(Box::new).collect();
         if elements.is_empty() {
             return Self::default();
         }
-        let mut elements: Vec<_> = elements.into_iter().map(Box::new).collect();
         elements.last_mut().unwrap().next = None;
         while elements.len() > 1 {
             let last = elements.pop().unwrap();
