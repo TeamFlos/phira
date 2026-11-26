@@ -151,6 +151,24 @@ pub enum Judgement {
     Miss,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum TimingDirection {
+    Early,
+    Late,
+}
+
+impl TimingDirection {
+    fn from_judgement(what: Judgement, diff: f64) -> Option<Self> {
+        if !matches!(what, Judgement::Good | Judgement::Bad) || !diff.is_finite() || diff == 0. {
+            None
+        } else if diff < 0. {
+            Some(Self::Early)
+        } else {
+            Some(Self::Late)
+        }
+    }
+}
+
 #[cfg(not(closed))]
 #[derive(Default)]
 pub(crate) struct JudgeInner {
@@ -279,6 +297,8 @@ pub struct Judge {
 
     pub(crate) inner: JudgeInner,
     pub judgements: RefCell<Judgements>,
+    // Separate from recorded judgements: Hold feedback happens at the head.
+    pub(crate) timing_hint: Option<TimingDirection>,
 }
 
 #[derive(Default)]
@@ -318,6 +338,7 @@ impl Judge {
 
             inner: JudgeInner::new(chart.lines.iter().map(|it| it.notes.iter().filter(|it| !it.fake).count() as u32).sum()),
             judgements: RefCell::new(Vec::new()),
+            timing_hint: None,
         }
     }
 
@@ -326,6 +347,7 @@ impl Judge {
         self.trackers.clear();
         self.inner.reset();
         self.judgements.borrow_mut().clear();
+        self.timing_hint = None;
     }
 
     /// Advance note pointers past notes before time `t`, marking them as judged.
@@ -625,6 +647,12 @@ impl Judge {
                             NoteKind::Hold { .. } => {
                                 note.hitsound.play(res);
                                 self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
+                                if let Some(direction) = TimingDirection::from_judgement(
+                                    if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good },
+                                    (t - note.time) / spd,
+                                ) {
+                                    self.timing_hint = Some(direction);
+                                }
                                 note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f64::INFINITY);
                             }
                             _ => unreachable!(),
@@ -687,6 +715,12 @@ impl Judge {
                         NoteKind::Hold { .. } => {
                             note.hitsound.play(res);
                             self.judgements.borrow_mut().push((t, line_id as _, id, Err(dt <= LIMIT_PERFECT)));
+                            if let Some(direction) = TimingDirection::from_judgement(
+                                if dt <= LIMIT_PERFECT { Judgement::Perfect } else { Judgement::Good },
+                                (t - note.time) / spd,
+                            ) {
+                                self.timing_hint = Some(direction);
+                            }
                             note.judge = JudgeStatus::Hold(dt <= LIMIT_PERFECT, t, t, false, f64::INFINITY);
                         }
                         _ => unreachable!(),
@@ -802,21 +836,19 @@ impl Judge {
             let line = &chart.lines[line_id];
             let note = &line.notes[id as usize];
             let line_tr = line.now_transform(res, &chart.lines);
-            self.commit(
-                t,
-                judgement,
-                line_id as _,
-                id,
-                if matches!(judgement, Judgement::Miss) {
-                    0.25
-                } else if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
-                    0.
-                } else {
-                    (diff.unwrap_or(t) - note.time) / spd
-                },
-            );
+            let diff = if matches!(judgement, Judgement::Miss) {
+                0.25
+            } else if matches!(note.kind, NoteKind::Drag | NoteKind::Flick) {
+                0.
+            } else {
+                (diff.unwrap_or(t) - note.time) / spd
+            };
+            self.commit(t, judgement, line_id as _, id, diff);
             if matches!(note.kind, NoteKind::Hold { .. }) {
                 continue;
+            }
+            if let Some(direction) = TimingDirection::from_judgement(judgement, diff) {
+                self.timing_hint = Some(direction);
             }
             if match judgement {
                 Judgement::Perfect => {
@@ -1043,5 +1075,40 @@ pub fn icon_index(score: u32, full_combo: bool) -> usize {
         (1000000, _) => 7,
         (_, false) => 5,
         (_, true) => 6,
+    }
+}
+
+#[cfg(all(test, not(closed)))]
+mod tests {
+    use super::{Judge, Judgement, TimingDirection};
+    use crate::core::{BpmList, Chart};
+
+    #[test]
+    fn timing_hint_ignores_miss_sentinel_and_perfect_offsets() {
+        for diff in [-0.12, 0.12, 0.25] {
+            assert_eq!(TimingDirection::from_judgement(Judgement::Miss, diff), None);
+            assert_eq!(TimingDirection::from_judgement(Judgement::Perfect, diff), None);
+        }
+        for judgement in [Judgement::Good, Judgement::Bad] {
+            assert_eq!(TimingDirection::from_judgement(judgement, -0.12), Some(TimingDirection::Early));
+            assert_eq!(TimingDirection::from_judgement(judgement, 0.12), Some(TimingDirection::Late));
+            for diff in [0., -0., f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+                assert_eq!(TimingDirection::from_judgement(judgement, diff), None);
+            }
+        }
+    }
+
+    #[test]
+    fn resetting_judge_discards_pending_hint_and_recorded_events() {
+        let chart = Chart::new(0., Vec::new(), BpmList::default(), Default::default(), Default::default(), Default::default());
+        let mut judge = Judge::new(&chart);
+        judge.timing_hint = Some(TimingDirection::Early);
+        judge.commit(1., Judgement::Good, 0, 0, -0.12);
+        assert_eq!(judge.judgements.borrow().len(), 1);
+
+        judge.reset();
+        assert_eq!(judge.timing_hint, None);
+        assert!(judge.judgements.borrow().is_empty());
+        assert_eq!(judge.counts(), [0; 4]);
     }
 }
