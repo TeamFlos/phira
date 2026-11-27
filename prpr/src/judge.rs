@@ -634,7 +634,7 @@ impl Judge {
                         if matches!(note.judge, JudgeStatus::NotJudged) {
                             // keep the note after bad judgement
                             line.notes[id as usize].judge = JudgeStatus::PreJudge;
-                            judgements.push((Judgement::Bad, line_id, id, None));
+                            judgements.push((Judgement::Bad, line_id, id, Some(t)));
                         }
                     }
                 } else {
