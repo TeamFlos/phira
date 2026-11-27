@@ -9,16 +9,15 @@ use std::{borrow::Cow, collections::HashMap, fmt, marker::PhantomData, sync::Arc
 use crate::{get_data, get_data_mut, save_data};
 use anyhow::{anyhow, bail, Context, Result};
 use arc_swap::{ArcSwap, ArcSwapOption};
-use auth::{send_with_refresh, Session};
+use auth::{send_with_refresh, Credentials, Session};
+use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use prpr::scene::SimpleRecord;
 use prpr_l10n::LANG_IDENTS;
-use reqwest::{header, ClientBuilder, Method, RequestBuilder, Response, StatusCode};
+use reqwest::{header, ClientBuilder, Method, RequestBuilder, Response, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{debug, warn};
-
-pub static CLIENT_TOKEN: Lazy<ArcSwap<Option<String>>> = Lazy::new(|| ArcSwap::from_pointee(None));
 
 static CLIENT: Lazy<ArcSwap<reqwest::Client>> = Lazy::new(|| ArcSwap::from_pointee(basic_client_builder().build().unwrap()));
 static SESSION: Lazy<ArcSwapOption<Session>> = Lazy::new(ArcSwapOption::empty);
@@ -65,26 +64,24 @@ fn build_client() -> Result<Arc<reqwest::Client>> {
     Ok(basic_client_builder().default_headers(headers).build()?.into())
 }
 
-pub fn set_access_token_sync(access_token: Option<&str>) -> Result<()> {
+pub fn sync_client() -> Result<()> {
     let _guard = SESSION_UPDATE_LOCK.lock().unwrap();
     let client = build_client()?;
-    if let Some(token) = access_token {
+    let tokens = get_data().tokens.as_ref();
+    if let Some((token, _)) = tokens {
         header::HeaderValue::from_str(&format!("Bearer {token}"))?;
     }
-    let tokens = get_data().tokens.as_ref().filter(|tokens| Some(tokens.0.as_str()) == access_token);
-    let current = SESSION.load_full();
-    if current.as_ref().map(|session| session.tokens.load_full()).as_deref() != tokens {
-        SESSION.store(tokens.cloned().map(Session::new).map(Arc::new));
+    let current = SESSION.load_full().map(|session| session.credentials.load_full());
+    if current.as_ref().map(|credentials| &credentials.pair) != tokens {
+        SESSION.store(tokens.cloned().map(Credentials::restored).map(Session::new).map(Arc::new));
     }
     CLIENT.store(client);
-    CLIENT_TOKEN.store(access_token.map(str::to_owned).into());
     Ok(())
 }
 
 pub fn clear_session() {
     let _guard = SESSION_UPDATE_LOCK.lock().unwrap();
     SESSION.store(None);
-    CLIENT_TOKEN.store(None.into());
     get_data_mut().me = None;
     get_data_mut().login_source = None;
     get_data_mut().tokens = None;
@@ -154,20 +151,22 @@ impl fmt::Display for ErrorCode {
 
 impl std::error::Error for ErrorCode {}
 
-/// Send an API request, refreshing an expired access token before one retry.
+/// Refresh near-expiry credentials before sending and retry a rejected token once.
 /// Keep the status intact for callers handling 304, 404 or endpoint-specific errors.
 pub async fn send_raw(request: RequestBuilder) -> Result<Response> {
     let session = SESSION.load_full();
-    send_with_refresh(request, API_URL, async move |token| {
-        let Some(session) = session else { return Ok(None) };
-        if !session.owns_token(&token) || !is_current_session(&session) {
-            return Ok(None);
+    send_with_refresh(request, API_URL, |token, mode| {
+        let session = session.clone();
+        async move {
+            let session = session.context("session changed before sending request")?;
+            let credentials = session
+                .authorize(&token, mode, |credentials| request_refresh(&session, credentials, false))
+                .await?;
+            if !is_current_session(&session) {
+                bail!("session changed before sending request");
+            }
+            Ok(credentials.pair.0.clone())
         }
-        refresh_session(&session, &token, false).await?;
-        if !is_current_session(&session) {
-            return Ok(None);
-        }
-        Ok(Some(session.tokens.load().0.clone()))
     })
     .await
 }
@@ -211,37 +210,35 @@ fn classify_refresh_error(err: anyhow::Error, session: &Arc<Session>) -> anyhow:
     }
 }
 
-async fn refresh_session(session: &Arc<Session>, rejected_token: &str, cancel_delete_request: bool) -> Result<()> {
+async fn refresh_session(session: &Arc<Session>, observed: &Arc<Credentials>, cancel_delete_request: bool) -> Result<Arc<Credentials>> {
     session
-        .refresh(rejected_token, async |tokens| {
-            if !is_current_session(session) {
-                bail!("session changed while refreshing token");
-            }
-            let resp = Client::request_login(LoginParams::RefreshToken {
-                token: &tokens.1,
-                cancel_delete_request,
-            })
-            .await
-            .map_err(|err| classify_refresh_error(err, session))?;
-            // A logout or a new login during the request must not restore the old session.
-            let _guard = SESSION_UPDATE_LOCK.lock().unwrap();
-            if !is_current_session(session) {
-                bail!("session changed while refreshing token");
-            }
-            header::HeaderValue::from_str(&format!("Bearer {}", resp.token))?;
-            let tokens = (resp.token, resp.refresh_token);
-            session.store_tokens(Arc::new(tokens.clone()));
-            CLIENT_TOKEN.store(Some(tokens.0.clone()).into());
-            get_data_mut().tokens = Some(tokens.clone());
-            // The server may rotate refresh credentials. Keep the new pair in memory
-            // even if saving to disk fails, so the current session remains usable.
-            if let Err(err) = save_data() {
-                warn!(?err, "failed to persist refreshed tokens");
-            }
-            Ok(tokens)
-        })
-        .await?;
-    Ok(())
+        .refresh(observed, cancel_delete_request, |credentials| request_refresh(session, credentials, cancel_delete_request))
+        .await
+}
+
+async fn request_refresh(session: &Arc<Session>, credentials: Arc<Credentials>, cancel_delete_request: bool) -> Result<Arc<Credentials>> {
+    if !is_current_session(session) {
+        bail!("session changed while refreshing token");
+    }
+    let resp = Client::request_login(LoginParams::RefreshToken {
+        token: &credentials.pair.1,
+        cancel_delete_request,
+    })
+    .await
+    .map_err(|err| classify_refresh_error(err, session))?;
+    // A logout or a new login during the request must not restore the old session.
+    let _guard = SESSION_UPDATE_LOCK.lock().unwrap();
+    if !is_current_session(session) {
+        bail!("session changed while refreshing token");
+    }
+    let credentials = Arc::new(resp.into_credentials()?);
+    session.store_credentials(Arc::clone(&credentials));
+    get_data_mut().tokens = Some(credentials.pair.clone());
+    // Keep rotated credentials usable in memory even if writing to disk fails.
+    if let Err(err) = save_data() {
+        warn!(?err, "failed to persist refreshed tokens");
+    }
+    Ok(credentials)
 }
 
 #[derive(Serialize)]
@@ -263,9 +260,16 @@ pub enum LoginParams<'a> {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LoginResp {
-    id: i32,
     token: String,
     refresh_token: String,
+    expire_at: Option<DateTime<Utc>>,
+}
+
+impl LoginResp {
+    fn into_credentials(self) -> Result<Credentials> {
+        header::HeaderValue::from_str(&format!("Bearer {}", self.token))?;
+        Ok(Credentials::issued((self.token, self.refresh_token), self.expire_at))
+    }
 }
 
 /// Response of `POST /login/hykb`: either an immediate login or a pending choice.
@@ -308,12 +312,17 @@ impl Client {
     }
 
     pub fn request(method: Method, path: impl AsRef<str>) -> RequestBuilder {
-        let request = CLIENT.load().request(method, API_URL.to_string() + path.as_ref());
-        if let Some(token) = CLIENT_TOKEN.load().as_ref() {
-            request.bearer_auth(token)
-        } else {
-            request
+        Self::request_url(method, &(API_URL.to_string() + path.as_ref()))
+    }
+
+    pub fn request_url(method: Method, url: &str) -> RequestBuilder {
+        let request = CLIENT.load().request(method, url);
+        if Url::parse(url).is_ok_and(|url| auth::accepts_session(&url, API_URL)) {
+            if let Some(session) = SESSION.load_full() {
+                return request.bearer_auth(&session.credentials.load().pair.0);
+            }
         }
+        request
     }
 
     pub fn clear_cache<T: Object + 'static>(id: i32) -> Result<bool> {
@@ -405,20 +414,24 @@ impl Client {
         } = params
         {
             let session = SESSION.load_full().context("not logged in")?;
-            let tokens = session.tokens.load_full();
-            if tokens.1 != token {
+            let credentials = session.credentials.load_full();
+            if credentials.pair.1 != token {
                 bail!("session changed before refreshing token");
             }
-            return refresh_session(&session, &tokens.0, cancel_delete_request).await;
+            refresh_session(&session, &credentials, cancel_delete_request).await?;
+            return Ok(());
         }
         let resp = Self::request_login(params).await?;
-        Self::store_login(resp.id, resp.token, resp.refresh_token).await
+        Self::store_login(resp)
     }
 
     pub async fn refresh_tokens(cancel_delete_request: bool) -> Result<()> {
         let session = SESSION.load_full().context("not logged in")?;
-        let tokens = session.tokens.load_full();
-        refresh_session(&session, &tokens.0, cancel_delete_request).await
+        let credentials = session.credentials.load_full();
+        if cancel_delete_request || credentials.needs_refresh(Utc::now()) {
+            refresh_session(&session, &credentials, cancel_delete_request).await?;
+        }
+        Ok(())
     }
 
     async fn request_login(params: LoginParams<'_>) -> Result<LoginResp> {
@@ -454,20 +467,14 @@ impl Client {
     }
 
     /// Persist a freshly minted token pair and wire it into the HTTP client.
-    /// Shared by the password and HYKB login entry points. `_id` is
-    /// kept in the signature so callers can pass the account id even though it
-    /// is no longer needed here (the native anti-addiction bridge that used it
-    /// is gone).
-    async fn store_login(_id: i32, token: String, refresh_token: String) -> Result<()> {
+    fn store_login(login: LoginResp) -> Result<()> {
         let _guard = SESSION_UPDATE_LOCK.lock().unwrap();
         let client = build_client()?;
-        header::HeaderValue::from_str(&format!("Bearer {token}"))?;
-        let tokens = (token, refresh_token);
-        get_data_mut().tokens = Some(tokens.clone());
+        let credentials = login.into_credentials()?;
+        get_data_mut().tokens = Some(credentials.pair.clone());
         // Every explicit login starts a new session, even for the same account.
         CLIENT.store(client);
-        CLIENT_TOKEN.store(Some(tokens.0.clone()).into());
-        SESSION.store(Some(Arc::new(Session::new(tokens))));
+        SESSION.store(Some(Arc::new(Session::new(credentials))));
         save_data()?;
         Ok(())
     }
@@ -491,7 +498,7 @@ impl Client {
         .await?;
         match resp {
             HykbLoginResp::Ok { login } => {
-                Self::store_login(login.id, login.token, login.refresh_token).await?;
+                Self::store_login(login)?;
                 Ok(HykbLoginOutcome::LoggedIn)
             }
             HykbLoginResp::NeedChoice { hykb_token } => Ok(HykbLoginOutcome::NeedChoice { hykb_token }),
@@ -514,7 +521,7 @@ impl Client {
         .await?
         .json()
         .await?;
-        Self::store_login(resp.id, resp.token, resp.refresh_token).await?;
+        Self::store_login(resp)?;
         Ok(())
     }
 
@@ -535,7 +542,7 @@ impl Client {
         .await?
         .json()
         .await?;
-        Self::store_login(resp.id, resp.token, resp.refresh_token).await?;
+        Self::store_login(resp)?;
         Ok(())
     }
 
@@ -570,8 +577,12 @@ impl Client {
     }
 
     pub async fn authenticated_token() -> Result<String> {
+        let session = SESSION.load_full().context("not logged in")?;
         Self::get_me().await?;
-        CLIENT_TOKEN.load().as_ref().clone().context("not logged in")
+        if !is_current_session(&session) {
+            bail!("session changed while authenticating");
+        }
+        Ok(session.credentials.load().pair.0.clone())
     }
 
     pub async fn best_record(id: i32) -> Result<SimpleRecord> {

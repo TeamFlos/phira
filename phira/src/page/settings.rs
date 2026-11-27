@@ -548,6 +548,7 @@ impl GeneralList {
         }
         if self.insecure_btn.touch(touch, t) {
             data.accept_invalid_cert ^= true;
+            crate::client::sync_client()?;
             return Ok(Some(true));
         }
         if self.enable_anys_btn.touch(touch, t) {
