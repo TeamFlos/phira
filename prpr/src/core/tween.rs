@@ -58,25 +58,63 @@ fn quint(x: f32) -> f32 {
 
 #[inline]
 fn expo(x: f32) -> f32 {
-    (2.0_f32).powf(10. * (x - 1.))
+    // Pinned so that In/Out reach exactly 0/1 at the endpoints (2^-10 otherwise).
+    if x == 0. {
+        0.
+    } else {
+        (2.0_f32).powf(10. * (x - 1.))
+    }
 }
 
 #[inline]
 fn circ(x: f32) -> f32 {
-    1. - (1. - x * x).sqrt()
+    // `abs` keeps the result finite when float error pushes x slightly past 1.
+    1. - (1. - x * x).abs().sqrt()
 }
+
+const BACK_C1: f32 = 1.70158;
+// InOut back uses a larger constant than In/Out; reusing C1 undershoots the overshoot.
+const BACK_C2: f32 = BACK_C1 * 1.525;
 
 #[inline]
 fn back(x: f32) -> f32 {
-    const C1: f32 = 1.70158;
-    const C3: f32 = C1 + 1.;
-    (C3 * x - C1) * x * x
+    const C3: f32 = BACK_C1 + 1.;
+    (C3 * x - BACK_C1) * x * x
+}
+
+#[inline]
+fn back_in_out_half(x: f32) -> f32 {
+    const C3: f32 = BACK_C2 + 1.;
+    (C3 * x - BACK_C2) * x * x
 }
 
 #[inline]
 fn elastic(x: f32) -> f32 {
     const C4: f32 = (2. * PI) / 3.;
+    if x == 0. || x == 1. {
+        return x;
+    }
     -((2.0_f32).powf(10. * x - 10.) * ((x * 10. - 10.75) * C4).sin())
+}
+
+const ELASTIC_C5: f32 = (2. * PI) / 4.5;
+
+#[inline]
+fn elastic_in_out_half(x: f32) -> f32 {
+    -((2.0_f32).powf(10. * x - 10.) * ((x * 10. - 11.125) * ELASTIC_C5).sin())
+}
+
+#[inline]
+fn elastic_in_out(x: f32) -> f32 {
+    if x == 0. || x == 1. {
+        return x;
+    }
+    let x = x * 2.;
+    if x < 1. {
+        elastic_in_out_half(x) / 2.
+    } else {
+        1. - elastic_in_out_half(2. - x) / 2.
+    }
 }
 
 #[inline]
@@ -107,8 +145,8 @@ pub static TWEEN_FUNCTIONS: [fn(f32) -> f32; 33] = [
 	f1!(quint),		f2!(quint),		f3!(quint),
 	f1!(expo),		f2!(expo),		f3!(expo),
 	f1!(circ),		f2!(circ),		f3!(circ),
-	f1!(back),		f2!(back),		f3!(back),
-	f1!(elastic),	f2!(elastic),	f3!(elastic),
+	f1!(back),		f2!(back),		f3!(back_in_out_half),
+	f1!(elastic),	f2!(elastic),	elastic_in_out,
 	f1!(bounce),	f2!(bounce),	f3!(bounce),
 ];
 
@@ -190,26 +228,41 @@ fn int_circ(x: f32) -> f32 {
 
 #[inline]
 fn int_back(x: f32) -> f32 {
-    const C1: f32 = 1.70158;
-    const C3: f32 = C1 + 1.;
+    const C3: f32 = BACK_C1 + 1.;
     // f(x) = C3 * x^3 - C1 * x^2
     // I(x) = (C3/4 * x - C1/3) * x^3
-    (C3 * x / 4. - C1 / 3.) * x * x * x
+    (C3 * x / 4. - BACK_C1 / 3.) * x * x * x
+}
+
+#[inline]
+fn int_back_in_out_half(x: f32) -> f32 {
+    const C3: f32 = BACK_C2 + 1.;
+    (C3 * x / 4. - BACK_C2 / 3.) * x * x * x
+}
+
+// Antiderivative of -2^(10x - 10) * sin((10x - offset) * b), vanishing at x = 0.
+#[inline]
+fn int_elastic_with(x: f32, b: f32, offset: f32) -> f32 {
+    #[inline]
+    fn antideriv(x: f32, b: f32, offset: f32) -> f32 {
+        let a = std::f32::consts::LN_2;
+        let u = 10. * x - 10.;
+        let v = (x * 10. - offset) * b;
+
+        -((2.0_f32).powf(u) / (10. * (a * a + b * b))) * (a * v.sin() - b * v.cos())
+    }
+    antideriv(x, b, offset) - antideriv(0., b, offset)
 }
 
 #[inline]
 fn int_elastic(x: f32) -> f32 {
-    #[inline]
-    fn elastic_f_antideriv(x: f32) -> f32 {
-        const C4: f32 = (2. * PI) / 3.;
-        let a = std::f32::consts::LN_2;
-        let b = C4;
-        let u = 10. * x - 10.;
-        let v = (x * 10. - 10.75) * b;
+    const C4: f32 = (2. * PI) / 3.;
+    int_elastic_with(x, C4, 10.75)
+}
 
-        -((2.0_f32).powf(u) / (10. * (a * a + b * b))) * (a * v.sin() - b * v.cos())
-    }
-    elastic_f_antideriv(x) - elastic_f_antideriv(0.)
+#[inline]
+fn int_elastic_in_out_half(x: f32) -> f32 {
+    int_elastic_with(x, ELASTIC_C5, 11.125)
 }
 
 #[inline]
@@ -261,8 +314,8 @@ pub static INT_TWEEN_FUNCTIONS:[fn(f32) -> f32; 33] =[
     i1!(int_quint),		i2!(int_quint),		i3!(int_quint),
     i1!(int_expo),		i2!(int_expo),		i3!(int_expo),
     i1!(int_circ),		i2!(int_circ),		i3!(int_circ),
-    i1!(int_back),		i2!(int_back),		i3!(int_back),
-    i1!(int_elastic),	i2!(int_elastic),	i3!(int_elastic),
+    i1!(int_back),		i2!(int_back),		i3!(int_back_in_out_half),
+    i1!(int_elastic),	i2!(int_elastic),	i3!(int_elastic_in_out_half),
     i1!(int_bounce),	i2!(int_bounce),	i3!(int_bounce),
 ];
 
@@ -323,6 +376,14 @@ impl IntStaticTween {
     }
 }
 
+// Below this, `f(right) - f(left)` is float noise and normalizing by it would blow up.
+const DEGENERATE_RANGE: f32 = 1e-6;
+
+#[inline]
+fn is_degenerate(range: f32) -> bool {
+    !range.is_finite() || range.abs() < DEGENERATE_RANGE
+}
+
 pub struct IntClampedTween {
     tween_id: TweenId,
     x_range: Range<f32>,
@@ -332,7 +393,7 @@ pub struct IntClampedTween {
 impl TweenFunction for IntClampedTween {
     fn y(&self, x: f32) -> f32 {
         let denom = self.y_range.end - self.y_range.start;
-        if !denom.is_finite() || denom.abs() < 1e-8 {
+        if is_degenerate(denom) {
             return x * x / 2.;
         }
 
@@ -361,11 +422,18 @@ impl IntClampedTween {
     }
 }
 
-// TODO assuming monotone, but actually they're not (e.g. Back tween)
+/// A slice `[left, right]` of a tween, renormalized to `[0, 1]`.
+///
+/// Monotonicity is not required (e.g. Back overshoot is kept). A slice whose
+/// endpoints coincide in value falls back to linear interpolation, as RPE does.
 pub struct ClampedTween(pub TweenId, pub Range<f32>, pub Range<f32>);
 impl TweenFunction for ClampedTween {
     fn y(&self, x: f32) -> f32 {
-        (TWEEN_FUNCTIONS[self.0 as usize](f32::tween(&self.1.start, &self.1.end, x)) - self.2.start) / (self.2.end - self.2.start)
+        let denom = self.2.end - self.2.start;
+        if is_degenerate(denom) {
+            return x;
+        }
+        (TWEEN_FUNCTIONS[self.0 as usize](f32::tween(&self.1.start, &self.1.end, x)) - self.2.start) / denom
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -381,6 +449,18 @@ impl ClampedTween {
     }
 }
 
+/// Builds the tween of an RPE-style event: easing `tween` restricted to `[left, right]`.
+pub fn sliced_tween(tween: TweenId, left: f32, right: f32) -> Rc<dyn TweenFunction> {
+    const EPS: f32 = 1e-6;
+    let left = if left.is_finite() { left.clamp(0., 1.) } else { 0. };
+    let right = if right.is_finite() { right.clamp(0., 1.) } else { 1. };
+    if tween <= 2 || (left.abs() < EPS && (right - 1.).abs() < EPS) {
+        StaticTween::get_rc(tween)
+    } else {
+        Rc::new(ClampedTween::new(tween, left..right))
+    }
+}
+
 pub struct GeneralIntTween(Rc<dyn TweenFunction>);
 
 impl GeneralIntTween {
@@ -391,22 +471,27 @@ impl GeneralIntTween {
 
 impl TweenFunction for GeneralIntTween {
     fn y(&self, x: f32) -> f32 {
-        let sqrt_06: f32 = 0.7745967;
-        let nodes: [f32; 3] = [-sqrt_06, 0.0, sqrt_06];
-        let weights: [f32; 3] = [5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0];
+        // Composite 3-point Gauss-Legendre; a single panel is too coarse for steep curves such as Bezier.
+        const PANELS_PER_UNIT: f32 = 16.;
+        const SQRT_06: f32 = 0.7745967;
+        const NODES: [f32; 3] = [-SQRT_06, 0.0, SQRT_06];
+        const WEIGHTS: [f32; 3] = [5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0];
 
-        let radius = x / 2.0;
+        let panels = (x.abs() * PANELS_PER_UNIT).ceil().max(1.) as usize;
+        let width = x / panels as f32;
+        let radius = width / 2.0;
 
-        let sum: f32 = nodes
-            .iter()
-            .zip(weights.iter())
-            .map(|(&vi, &wi)| {
-                let sample_x = radius * (vi + 1.0);
-                wi * self.0.y(sample_x)
+        (0..panels)
+            .map(|panel| {
+                let center = width * (panel as f32 + 0.5);
+                let sum: f32 = NODES
+                    .iter()
+                    .zip(WEIGHTS.iter())
+                    .map(|(&vi, &wi)| wi * self.0.y(center + radius * vi))
+                    .sum();
+                radius * sum
             })
-            .sum();
-
-        radius * sum
+            .sum()
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -414,25 +499,34 @@ impl TweenFunction for GeneralIntTween {
     }
 }
 
-// https://github.com/gre/bezier-easing
-
-const SAMPLE_TABLE_SIZE: usize = 21;
-const SAMPLE_STEP: f32 = 1. / (SAMPLE_TABLE_SIZE - 1) as f32;
-const NEWTON_MIN_STEP: f32 = 1e-3;
-const NEWTON_ITERATIONS: usize = 4;
-const SUBDIVISION_PRECISION: f32 = 1e-7;
-const SUBDIVISION_MAX_ITERATION: usize = 10;
-const SLOPE_EPS: f32 = 1e-7;
+// Cubic Bezier easing (CSS-style, control points P1/P2 with P0=(0,0), P3=(1,1)).
+// Solved in f64 by bisection with special cases for the degenerate control
+// points, so that endpoints are exact and the curve stays symmetric.
 
 pub struct BezierTween {
-    sample_table: [f32; SAMPLE_TABLE_SIZE],
     pub p1: (f32, f32),
     pub p2: (f32, f32),
 }
 
 impl TweenFunction for BezierTween {
     fn y(&self, x: f32) -> f32 {
-        Self::sample(self.p1.1, self.p2.1, self.t_for_x(x))
+        let (x1, y1, x2, y2) = (self.p1.0 as f64, self.p1.1 as f64, self.p2.0 as f64, self.p2.1 as f64);
+        if ![x1, y1, x2, y2].iter().all(|it| it.is_finite()) {
+            return x;
+        }
+        if x <= 0. {
+            return 0.;
+        }
+        if x >= 1. {
+            return 1.;
+        }
+        let t = Self::solve(x as f64, x1, x2);
+        let y = if t > 0.5 {
+            1. - Self::component(1. - t, 1. - y2, 1. - y1)
+        } else {
+            Self::component(t, y1, y2)
+        };
+        y as f32
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -442,71 +536,50 @@ impl TweenFunction for BezierTween {
 
 impl BezierTween {
     #[inline]
-    fn coefficients(x1: f32, x2: f32) -> (f32, f32, f32) {
-        ((x1 - x2) * 3. + 1., x2 * 3. - x1 * 6., x1 * 3.)
+    fn component(t: f64, first: f64, second: f64) -> f64 {
+        let s = 1. - t;
+        3. * t * s * s * first + 3. * t * t * s * second + t * t * t
     }
 
-    #[inline]
-    fn sample(x1: f32, x2: f32, t: f32) -> f32 {
-        let (a, b, c) = Self::coefficients(x1, x2);
-        ((a * t + b) * t + c) * t
-    }
-    #[inline]
-    fn slope(x1: f32, x2: f32, t: f32) -> f32 {
-        let (a, b, c) = Self::coefficients(x1, x2);
-        (a * 3. * t + b * 2.) * t + c
-    }
-
-    fn newton_raphson_iterate(x: f32, mut t: f32, x1: f32, x2: f32) -> f32 {
-        for _ in 0..NEWTON_ITERATIONS {
-            let slope = Self::slope(x1, x2, t);
-            if slope <= SLOPE_EPS {
-                return t;
-            }
-            let diff = Self::sample(x1, x2, t) - x;
-            t -= diff / slope;
+    /// Finds `t` such that the X component of the curve equals `x`.
+    fn solve(x: f64, x1: f64, x2: f64) -> f64 {
+        // The derivative vanishes at the endpoints here, which defeats Newton's method.
+        if x1 == 0. && x2 == 0. {
+            return x.cbrt();
         }
-        t
-    }
-
-    fn binary_subdivide(x: f32, mut l: f32, mut r: f32, x1: f32, x2: f32) -> f32 {
-        let mut t = (l + r) / 2.;
-        for _ in 0..SUBDIVISION_MAX_ITERATION {
-            let diff = Self::sample(x1, x2, t) - x;
-            if diff.abs() <= SUBDIVISION_PRECISION {
-                break;
-            }
-            if diff > 0. {
-                r = t;
+        if x1 == 1. && x2 == 1. {
+            return 1. - (1. - x).cbrt();
+        }
+        // Solve in the half closer to the nearest endpoint, mirroring when needed.
+        let reverse = x > 0.5;
+        let target = if reverse { 1. - x } else { x };
+        let (first, second) = if reverse { (1. - x2, 1. - x1) } else { (x1, x2) };
+        let (mut low, mut high) = (0., 1.);
+        for _ in 0..40 {
+            let middle = (low + high) / 2.;
+            if Self::component(middle, first, second) < target {
+                low = middle;
             } else {
-                l = t;
+                high = middle;
             }
-            t = (l + r) / 2.;
         }
-        t
+        let t = (low + high) / 2.;
+        if reverse {
+            1. - t
+        } else {
+            t
+        }
     }
 
     pub fn t_for_x(&self, x: f32) -> f32 {
-        if x == 0. || x == 1. {
-            return x;
+        if x <= 0. || x >= 1. {
+            return x.clamp(0., 1.);
         }
-        let id = (x / SAMPLE_STEP) as usize;
-        let id = id.min(SAMPLE_TABLE_SIZE - 1);
-        let dist = (x - self.sample_table[id]) / (self.sample_table[id + 1] - self.sample_table[id]);
-        let init_t = SAMPLE_STEP * (id as f32 + dist);
-        match Self::slope(self.p1.0, self.p2.0, init_t) {
-            y if y <= SLOPE_EPS => init_t,
-            y if y >= NEWTON_MIN_STEP => Self::newton_raphson_iterate(x, init_t, self.p1.0, self.p2.0),
-            _ => Self::binary_subdivide(x, SAMPLE_STEP * id as f32, SAMPLE_STEP * (id + 1) as f32, self.p1.0, self.p2.0),
-        }
+        Self::solve(x as f64, self.p1.0 as f64, self.p2.0 as f64) as f32
     }
 
     pub fn new(p1: (f32, f32), p2: (f32, f32)) -> Self {
-        Self {
-            sample_table: std::array::from_fn(|i| Self::sample(p1.0, p2.0, i as f32 * SAMPLE_STEP)),
-            p1,
-            p2,
-        }
+        Self { p1, p2 }
     }
 }
 
