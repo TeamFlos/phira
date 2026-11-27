@@ -88,9 +88,37 @@ impl TimeManager {
     }
 
     pub fn update(&mut self, music_time: f64) {
-        if self.adjust_time && self.real_time() > self.wait && self.pause_time.is_none() {
-            self.start_time -= (music_time - self.now()) * self.force;
+        if !self.adjust_time || self.real_time() <= self.wait || self.pause_time.is_some() {
+            return;
         }
+
+        /* Clamp the auto-adjust, otherwise a single bad music_time can
+         * push the clock backwards.
+         *
+         * `music_time` comes from the audio backend. When the app goes to
+         * the background, the audio session gets interrupted, or the user
+         * presses a volume key, the backend may report 0, a negative value,
+         * or jump back a few seconds. A large negative `diff` moves
+         * `start_time` forward, which makes `now()` decrease — the countdown
+         * runs 3, 4, 5... and the chart plays in reverse.
+         *
+         * Rule: never let time run backwards. A desync is audible and
+         * recoverable; reversed time corrupts the whole judgement system. */
+        if !music_time.is_finite() {
+            tracing::warn!("time: music_time is not finite ({music_time}), skipping adjust");
+            return;
+        }
+        let diff = music_time - self.now();
+        if !diff.is_finite() || diff.abs() < 0.08 {
+            return;
+        }
+        if diff.abs() >= 0.5 {
+            tracing::warn!(
+                "time: audio clock off by {diff}s, skipping adjust to avoid time reversal"
+            );
+            return;
+        }
+        self.start_time -= diff * self.force;
     }
 
     #[must_use]
@@ -103,7 +131,23 @@ impl TimeManager {
     }
 
     pub fn resume(&mut self) {
-        self.start_time += self.real_time() - self.pause_time.take().unwrap();
+        /* `pause_time.take().unwrap()` panics when resume() is called without
+         * a preceding pause(). That is not a bug in the caller — it is a
+         * legitimate state:
+         *
+         *   · cold start on iOS
+         *   · returning from background
+         *
+         * In both cases the platform jumps straight into the resume path.
+         * The panic poisons the main future, after which every frame fails
+         * with "async fn resumed after panicking" — the screen flickers and
+         * shows black blocks, and it looks like a GPU problem.
+         *
+         * When there is no pause_time, the time base was never shifted, so
+         * there is nothing to restore. Just keep it. */
+        if let Some(pause_time) = self.pause_time.take() {
+            self.start_time += self.real_time() - pause_time;
+        }
         self.wait();
     }
 
